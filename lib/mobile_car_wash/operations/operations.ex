@@ -1,12 +1,20 @@
 defmodule MobileCarWash.Operations do
   @moduledoc """
-  The Operations domain — technicians and vans.
-  Minimal scaffold for MVP (single operator), full implementation in Phase 2.
+  The Operations domain — E-Myth franchise prototype systems.
+
+  Includes: org chart, position contracts, SOPs (procedures),
+  live appointment checklists, technicians, and vans.
   """
   use Ash.Domain
 
   resources do
     resource MobileCarWash.Operations.Technician
     resource MobileCarWash.Operations.Van
+    resource MobileCarWash.Operations.OrgPosition
+    resource MobileCarWash.Operations.PositionContract
+    resource MobileCarWash.Operations.Procedure
+    resource MobileCarWash.Operations.ProcedureStep
+    resource MobileCarWash.Operations.AppointmentChecklist
+    resource MobileCarWash.Operations.ChecklistItem
   end
 end

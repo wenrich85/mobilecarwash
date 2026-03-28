@@ -233,4 +233,140 @@ for attrs <- formation_tasks do
   end
 end
 
+# --- E-Myth: Org Positions ---
+
+alias MobileCarWash.Operations.{OrgPosition, PositionContract, Procedure, ProcedureStep}
+
+IO.puts("\nSeeding org positions...")
+
+positions_data = [
+  %{name: "Owner / CEO", slug: "owner", level: 0, sort_order: 1,
+    description: "Strategic leadership, business development, financial oversight. Sets the vision and ensures all systems are working."},
+  %{name: "Operations Manager", slug: "ops_manager", level: 1, sort_order: 2,
+    description: "Manages day-to-day operations, scheduling, quality control, and technician training."},
+  %{name: "Lead Technician", slug: "lead_tech", level: 2, sort_order: 3,
+    description: "Senior wash technician. Trains new hires, handles complex details, ensures quality standards."},
+  %{name: "Technician", slug: "technician", level: 2, sort_order: 4,
+    description: "Performs car wash services following SOPs. Uses checklists for every appointment."},
+  %{name: "Admin Assistant", slug: "admin_assistant", level: 1, sort_order: 5,
+    description: "Handles scheduling, customer communication, invoicing, and compliance tracking."}
+]
+
+position_map =
+  for attrs <- positions_data, into: %{} do
+    existing = OrgPosition |> Ash.Query.filter(slug == ^attrs.slug) |> Ash.read!()
+
+    pos = case existing do
+      [] ->
+        OrgPosition
+        |> Ash.Changeset.for_create(:create, attrs)
+        |> Ash.create!()
+        |> tap(fn _ -> IO.puts("  ✓ #{attrs.name}") end)
+
+      [p] ->
+        IO.puts("  - #{attrs.name} (exists)")
+        p
+    end
+
+    {attrs.slug, pos}
+  end
+
+# Set parent relationships
+for {slug, parent_slug} <- [{"ops_manager", "owner"}, {"lead_tech", "ops_manager"}, {"technician", "ops_manager"}, {"admin_assistant", "owner"}] do
+  child = position_map[slug]
+  parent = position_map[parent_slug]
+  if child && parent do
+    child
+    |> Ash.Changeset.for_update(:update, %{})
+    |> Ash.Changeset.force_change_attribute(:parent_position_id, parent.id)
+    |> Ash.update!()
+  end
+end
+
+# --- E-Myth: Procedures (SOPs) ---
+
+IO.puts("\nSeeding procedures...")
+
+# Get service type IDs for linking
+basic_wash_st = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> List.first()
+deep_clean_st = ServiceType |> Ash.Query.filter(slug == "deep_clean") |> Ash.read!() |> List.first()
+
+procedures_data = [
+  %{
+    name: "Basic Wash Procedure",
+    slug: "basic_wash_sop",
+    description: "Standard operating procedure for a basic exterior wash. Every step must be completed and checked off.",
+    category: :wash,
+    service_type_id: basic_wash_st && basic_wash_st.id,
+    steps: [
+      %{step_number: 1, title: "Vehicle Inspection", description: "Walk around vehicle. Note any existing damage, scratches, or dents. Take photos if needed. Alert customer of any pre-existing issues.", estimated_minutes: 3},
+      %{step_number: 2, title: "Pre-Rinse", description: "Rinse entire vehicle with deionized water to remove loose dirt and debris. Start from top, work down.", estimated_minutes: 5},
+      %{step_number: 3, title: "Apply Soap", description: "Apply car wash soap using foam cannon. Ensure full coverage on all panels, bumpers, and trim.", estimated_minutes: 3},
+      %{step_number: 4, title: "Hand Wash / Scrub", description: "Using microfiber wash mitt, wash all panels in straight lines (not circles). Two-bucket method. Rinse mitt frequently.", estimated_minutes: 10},
+      %{step_number: 5, title: "Rinse", description: "Thoroughly rinse all soap from vehicle with deionized water. Check for missed spots.", estimated_minutes: 5},
+      %{step_number: 6, title: "Tire & Wheel Cleaning", description: "Clean wheels with wheel cleaner and brush. Clean tire sidewalls. Apply tire dressing.", estimated_minutes: 5},
+      %{step_number: 7, title: "Dry", description: "Dry vehicle using clean microfiber drying towels. Use air blower for crevices and mirrors.", estimated_minutes: 8},
+      %{step_number: 8, title: "Final Inspection", description: "Walk around vehicle for quality check. Ensure no water spots, streaks, or missed areas. Clean windows if needed.", estimated_minutes: 3}
+    ]
+  },
+  %{
+    name: "Deep Clean & Detail Procedure",
+    slug: "deep_clean_sop",
+    description: "Full interior and exterior detail procedure. Premium service with clay bar, wax, and full interior treatment.",
+    category: :wash,
+    service_type_id: deep_clean_st && deep_clean_st.id,
+    steps: [
+      %{step_number: 1, title: "Vehicle Inspection", description: "Comprehensive inspection inside and out. Document all existing damage. Photograph interior condition.", estimated_minutes: 5},
+      %{step_number: 2, title: "Interior - Remove Trash & Personal Items", description: "Remove all trash. Set aside personal items carefully. Remove floor mats.", estimated_minutes: 5},
+      %{step_number: 3, title: "Interior - Vacuum", description: "Vacuum all seats, carpets, floor mats, trunk, and crevices. Use detail brush for tight areas.", estimated_minutes: 15},
+      %{step_number: 4, title: "Interior - Dashboard & Console", description: "Clean and condition dashboard, center console, door panels, and all plastic/vinyl surfaces.", estimated_minutes: 10},
+      %{step_number: 5, title: "Interior - Leather/Upholstery", description: "Clean and condition leather seats (or shampoo fabric seats). Treat all seating surfaces.", estimated_minutes: 10},
+      %{step_number: 6, title: "Interior - Carpet Shampoo", description: "Shampoo carpets and floor mats. Extract moisture. Allow to dry.", estimated_minutes: 10},
+      %{step_number: 7, title: "Interior - Windows & Mirrors", description: "Clean all interior glass surfaces streak-free.", estimated_minutes: 5},
+      %{step_number: 8, title: "Exterior - Pre-Rinse", description: "Rinse entire exterior with deionized water.", estimated_minutes: 5},
+      %{step_number: 9, title: "Exterior - Foam & Hand Wash", description: "Foam cannon + two-bucket hand wash on all exterior panels.", estimated_minutes: 12},
+      %{step_number: 10, title: "Exterior - Clay Bar Treatment", description: "Clay bar entire painted surface to remove bonded contaminants. Leaves paint glass-smooth.", estimated_minutes: 15},
+      %{step_number: 11, title: "Exterior - Rinse & Dry", description: "Final rinse with deionized water. Hand dry with microfiber towels.", estimated_minutes: 8},
+      %{step_number: 12, title: "Exterior - Wax / Sealant", description: "Apply carnauba wax or paint sealant to all painted surfaces. Buff to shine.", estimated_minutes: 15},
+      %{step_number: 13, title: "Tires & Wheels", description: "Deep clean wheels, apply tire dressing.", estimated_minutes: 5},
+      %{step_number: 14, title: "Engine Bay", description: "Carefully degrease and clean engine bay. Cover sensitive electronics. Rinse and dress.", estimated_minutes: 10, required: false},
+      %{step_number: 15, title: "Final Inspection", description: "Complete walk-around inside and out. Check every surface. Ensure customer satisfaction standards met.", estimated_minutes: 5}
+    ]
+  }
+]
+
+for proc_data <- procedures_data do
+  {steps_data, proc_attrs} = Map.pop(proc_data, :steps)
+
+  existing = Procedure |> Ash.Query.filter(slug == ^proc_attrs.slug) |> Ash.read!()
+
+  case existing do
+    [] ->
+      # Create procedure
+      changeset = Procedure |> Ash.Changeset.for_create(:create, Map.drop(proc_attrs, [:service_type_id]))
+
+      changeset = if proc_attrs[:service_type_id] do
+        Ash.Changeset.force_change_attribute(changeset, :service_type_id, proc_attrs.service_type_id)
+      else
+        changeset
+      end
+
+      proc = Ash.create!(changeset)
+      IO.puts("  ✓ #{proc_attrs.name}")
+
+      # Create steps
+      for step_attrs <- steps_data do
+        ProcedureStep
+        |> Ash.Changeset.for_create(:create, step_attrs)
+        |> Ash.Changeset.force_change_attribute(:procedure_id, proc.id)
+        |> Ash.create!()
+      end
+
+      IO.puts("    → #{length(steps_data)} steps created")
+
+    [_] ->
+      IO.puts("  - #{proc_attrs.name} (exists)")
+  end
+end
+
 IO.puts("\n✅ Seeding complete!")

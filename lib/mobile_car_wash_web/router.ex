@@ -56,6 +56,7 @@ defmodule MobileCarWashWeb.Router do
 
     live_session :authenticated, on_mount: {MobileCarWashWeb.LiveAuth, :require_customer} do
       live "/appointments", AppointmentsLive
+      live "/checklist/:id", ChecklistLive
     end
   end
 
@@ -67,6 +68,8 @@ defmodule MobileCarWashWeb.Router do
       live "/metrics", MetricsLive
       live "/events", EventsLive
       live "/formation", FormationLive
+      live "/org-chart", OrgChartLive
+      live "/procedures", ProceduresLive
     end
   end
 
