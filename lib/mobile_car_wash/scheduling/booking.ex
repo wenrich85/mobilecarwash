@@ -41,10 +41,10 @@ defmodule MobileCarWash.Scheduling.Booking do
   def create_booking(params) do
     Repo.transaction(fn ->
       with {:ok, service_type} <- fetch_service_type(params.service_type_id),
-           {:ok, _vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
+           {:ok, vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
            {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
            :ok <- check_availability(params.scheduled_at, service_type.duration_minutes),
-           {:ok, price_cents, discount_cents} <- calculate_price(service_type, params[:subscription_id]),
+           {:ok, price_cents, discount_cents} <- calculate_price(service_type, vehicle.size, params[:subscription_id]),
            {:ok, appointment} <- create_appointment(params, service_type, price_cents, discount_cents),
            :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
            {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
@@ -188,17 +188,22 @@ defmodule MobileCarWash.Scheduling.Booking do
     end
   end
 
-  defp calculate_price(service_type, nil), do: {:ok, service_type.base_price_cents, 0}
+  defp calculate_price(service_type, vehicle_size, nil) do
+    price = MobileCarWash.Billing.Pricing.calculate(service_type.base_price_cents, vehicle_size)
+    {:ok, price, 0}
+  end
 
-  defp calculate_price(service_type, subscription_id) do
+  defp calculate_price(service_type, vehicle_size, subscription_id) do
+    sized_price = MobileCarWash.Billing.Pricing.calculate(service_type.base_price_cents, vehicle_size)
+
     case Ash.get(Subscription, subscription_id, load: [:plan]) do
       {:ok, %{status: :active, plan: plan}} ->
         discount = calculate_subscription_discount(service_type, plan)
-        price = max(service_type.base_price_cents - discount, 0)
+        price = max(sized_price - discount, 0)
         {:ok, price, discount}
 
       _ ->
-        {:ok, service_type.base_price_cents, 0}
+        {:ok, sized_price, 0}
     end
   end
 

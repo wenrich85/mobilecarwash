@@ -215,14 +215,31 @@ defmodule MobileCarWashWeb.BookingLive do
               <label class="label"><span class="label-text">Color</span></label>
               <input type="text" name="vehicle[color]" class="input input-bordered" placeholder="Silver" />
             </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Size</span></label>
-              <select name="vehicle[size]" class="select select-bordered">
-                <option value="sedan">Sedan</option>
-                <option value="suv">SUV</option>
-                <option value="truck">Truck</option>
-                <option value="van">Van</option>
-              </select>
+            <div class="form-control col-span-3">
+              <label class="label"><span class="label-text">Vehicle Type *</span></label>
+              <div class="grid grid-cols-3 gap-2">
+                <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
+                  <div>
+                    <input type="radio" name="vehicle[size]" value="car" class="radio radio-primary radio-sm" checked />
+                    <span class="ml-2 font-semibold">Car</span>
+                    <p class="text-xs text-base-content/50 ml-6">Sedan, Coupe, Compact</p>
+                  </div>
+                </label>
+                <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
+                  <div>
+                    <input type="radio" name="vehicle[size]" value="suv_van" class="radio radio-primary radio-sm" />
+                    <span class="ml-2 font-semibold">SUV / Van</span>
+                    <p class="text-xs text-warning ml-6">+20% price</p>
+                  </div>
+                </label>
+                <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
+                  <div>
+                    <input type="radio" name="vehicle[size]" value="pickup" class="radio radio-primary radio-sm" />
+                    <span class="ml-2 font-semibold">Pickup</span>
+                    <p class="text-xs text-warning ml-6">+50% price</p>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
           <button type="submit" class="btn btn-primary">Save Vehicle</button>
@@ -305,7 +322,7 @@ defmodule MobileCarWashWeb.BookingLive do
         <.booking_summary
           appointment={%{
             scheduled_at: @selected_slot,
-            price_cents: @selected_service.base_price_cents,
+            price_cents: MobileCarWash.Billing.Pricing.calculate(@selected_service.base_price_cents, @selected_vehicle.size),
             discount_cents: 0
           }}
           service={@selected_service}

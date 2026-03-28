@@ -34,9 +34,10 @@ defmodule MobileCarWash.Fleet.Vehicle do
     end
 
     attribute :size, :atom do
-      constraints one_of: [:sedan, :suv, :truck, :van]
-      default :sedan
+      constraints one_of: [:car, :suv_van, :pickup]
+      default :car
       public? true
+      description "Vehicle type: car (1.0x), suv_van (1.2x), pickup (1.5x price multiplier)"
     end
 
     create_timestamp :inserted_at

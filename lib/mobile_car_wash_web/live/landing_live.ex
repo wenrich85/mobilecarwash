@@ -63,9 +63,10 @@ defmodule MobileCarWashWeb.LandingLive do
               <p class="text-base-content/70">{service.description}</p>
 
               <div class="flex items-baseline gap-2 mt-4">
+                <span class="text-sm text-base-content/50">starting at</span>
                 <span class="text-4xl font-bold">${div(service.base_price_cents, 100)}</span>
-                <span class="text-base-content/50">per wash</span>
               </div>
+              <p class="text-xs text-base-content/40">Price varies by vehicle type</p>
 
               <div class="badge badge-outline mt-2">
                 {service.duration_minutes} minutes

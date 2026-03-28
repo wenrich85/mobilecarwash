@@ -64,7 +64,8 @@ defmodule MobileCarWashWeb.BookingComponents do
       <div class="card-body">
         <h3 class="card-title text-xl">{@service.name}</h3>
         <p class="text-base-content/70">{@service.description}</p>
-        <div class="flex items-baseline gap-2 mt-4">
+        <div class="mt-4">
+          <span class="text-xs text-base-content/50">starting at</span>
           <span class="text-3xl font-bold">${div(@service.base_price_cents, 100)}</span>
         </div>
         <div class="badge badge-outline">{@service.duration_minutes} min</div>
@@ -137,6 +138,10 @@ defmodule MobileCarWashWeb.BookingComponents do
           <div>
             <span class="font-semibold">Vehicle:</span>
             <span>{@vehicle.year} {@vehicle.make} {@vehicle.model}</span>
+            <span class="badge badge-sm badge-outline ml-2">{MobileCarWash.Billing.Pricing.size_label(@vehicle.size)}</span>
+            <span :if={@vehicle.size != :car} class="text-xs text-warning ml-1">
+              ({MobileCarWash.Billing.Pricing.multiplier(@vehicle.size)}x)
+            </span>
           </div>
 
           <div>
