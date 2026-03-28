@@ -113,4 +113,63 @@ defmodule MobileCarWash.Notifications.Email do
     See you tomorrow!
     """)
   end
+
+  @doc """
+  Deadline reminder email — sent to admin for upcoming compliance/formation tasks.
+  """
+  def deadline_reminder(task, category, days_before, admin_email) do
+    due_str = if task.due_date, do: Calendar.strftime(task.due_date, "%B %d, %Y"), else: "No date set"
+    url_line = if task.external_url, do: "<p><a href=\"#{task.external_url}\">Go to website →</a></p>", else: ""
+
+    new()
+    |> to(admin_email)
+    |> from(@from)
+    |> subject("Deadline: #{task.name} — due in #{days_before} day(s)")
+    |> html_body("""
+    <h2>Compliance Deadline Reminder</h2>
+
+    <p>The following task is due in <strong>#{days_before} day(s)</strong>:</p>
+
+    <table style="border-collapse: collapse; margin: 20px 0;">
+      <tr>
+        <td style="padding: 8px; font-weight: bold;">Task:</td>
+        <td style="padding: 8px;">#{task.name}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; font-weight: bold;">Category:</td>
+        <td style="padding: 8px;">#{category.name}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; font-weight: bold;">Due Date:</td>
+        <td style="padding: 8px;">#{due_str}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; font-weight: bold;">Priority:</td>
+        <td style="padding: 8px;">#{task.priority}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px; font-weight: bold;">Status:</td>
+        <td style="padding: 8px;">#{task.status}</td>
+      </tr>
+    </table>
+
+    #{if task.description, do: "<p><strong>Notes:</strong> #{task.description}</p>", else: ""}
+    #{url_line}
+
+    <p>Log in to your admin dashboard to update this task.</p>
+    """)
+    |> text_body("""
+    Compliance Deadline Reminder
+
+    Task: #{task.name}
+    Category: #{category.name}
+    Due Date: #{due_str}
+    Priority: #{task.priority}
+    Status: #{task.status}
+    #{if task.description, do: "Notes: #{task.description}", else: ""}
+    #{if task.external_url, do: "URL: #{task.external_url}", else: ""}
+
+    Due in #{days_before} day(s). Log in to update.
+    """)
+  end
 end

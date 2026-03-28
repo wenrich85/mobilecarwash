@@ -17,7 +17,8 @@ config :mobile_car_wash,
     MobileCarWash.Billing,
     MobileCarWash.Analytics,
     MobileCarWash.Audit,
-    MobileCarWash.Operations
+    MobileCarWash.Operations,
+    MobileCarWash.Compliance
   ]
 
 # Oban background job configuration
@@ -28,6 +29,13 @@ config :mobile_car_wash, Oban,
     notifications: 5,
     billing: 3,
     analytics: 5
+  ],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       # Daily at 8am — check for upcoming formation/compliance deadlines
+       {"0 8 * * *", MobileCarWash.Notifications.DeadlineReminderScheduler}
+     ]}
   ]
 
 # Configure the endpoint

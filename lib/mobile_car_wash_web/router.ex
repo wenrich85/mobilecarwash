@@ -66,6 +66,7 @@ defmodule MobileCarWashWeb.Router do
     live_session :admin, on_mount: {MobileCarWashWeb.AdminAuth, :require_admin} do
       live "/metrics", MetricsLive
       live "/events", EventsLive
+      live "/formation", FormationLive
     end
   end
 
