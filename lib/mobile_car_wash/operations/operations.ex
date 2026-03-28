@@ -16,5 +16,6 @@ defmodule MobileCarWash.Operations do
     resource MobileCarWash.Operations.ProcedureStep
     resource MobileCarWash.Operations.AppointmentChecklist
     resource MobileCarWash.Operations.ChecklistItem
+    resource MobileCarWash.Operations.Photo
   end
 end

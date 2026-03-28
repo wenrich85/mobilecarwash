@@ -118,11 +118,23 @@ defmodule MobileCarWash.Scheduling.Appointment do
     end
 
     update :start do
+      require_atomic? false
       change set_attribute(:status, :in_progress)
+
+      change after_action(fn _changeset, record, _context ->
+        MobileCarWash.Scheduling.AppointmentTracker.broadcast_started(record.id)
+        {:ok, record}
+      end)
     end
 
     update :complete do
+      require_atomic? false
       change set_attribute(:status, :completed)
+
+      change after_action(fn _changeset, record, _context ->
+        MobileCarWash.Scheduling.AppointmentTracker.broadcast_completed(record.id)
+        {:ok, record}
+      end)
     end
 
     update :cancel do

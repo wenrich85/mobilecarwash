@@ -46,8 +46,8 @@ defmodule MobileCarWashWeb.Router do
 
     # Authentication routes (sign in, sign up, sign out)
     sign_in_route(auth_routes_prefix: "/auth")
-    sign_out_route MobileCarWashWeb.AuthController
-    auth_routes MobileCarWash.Accounts.Customer, to: MobileCarWashWeb.AuthController
+    sign_out_route AuthController
+    auth_routes MobileCarWash.Accounts.Customer, to: AuthController
   end
 
   # Protected routes — require authentication
@@ -56,6 +56,7 @@ defmodule MobileCarWashWeb.Router do
 
     live_session :authenticated, on_mount: {MobileCarWashWeb.LiveAuth, :require_customer} do
       live "/appointments", AppointmentsLive
+      live "/appointments/:id/status", AppointmentStatusLive
       live "/checklist/:id", ChecklistLive
     end
   end
