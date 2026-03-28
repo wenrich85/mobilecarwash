@@ -39,6 +39,9 @@ defmodule MobileCarWashWeb.BookingLive do
         # New data forms
         show_new_vehicle_form: false,
         show_new_address_form: false,
+        # Guest checkout
+        guest_mode: false,
+        guest_error: nil,
         # Timing
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
@@ -97,24 +100,69 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :auth}>
-        <h2 class="text-2xl font-bold mb-6">Sign In or Create Account</h2>
+        <h2 class="text-2xl font-bold mb-6">How would you like to continue?</h2>
+
+        <!-- Already logged in -->
         <div :if={@current_customer}>
           <div class="alert alert-success mb-6">
             <span>Welcome back, {@current_customer.name}!</span>
           </div>
           <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
-        <div :if={!@current_customer}>
-          <p class="text-base-content/70 mb-4">
-            Please sign in or create an account to continue booking.
-          </p>
-          <div class="flex gap-4">
-            <.link navigate={~p"/sign-in"} class="btn btn-primary">
-              Sign In
-            </.link>
-            <.link navigate={~p"/sign-in"} class="btn btn-outline">
-              Create Account
-            </.link>
+
+        <!-- Not logged in — show 3 options -->
+        <div :if={!@current_customer} class="space-y-6">
+          <!-- Option 1: Guest Checkout -->
+          <div class="card bg-base-100 shadow-xl border-2 border-primary">
+            <div class="card-body">
+              <h3 class="card-title">Continue as Guest</h3>
+              <p class="text-sm text-base-content/60">
+                No account needed. Just provide your contact info and we'll get you booked.
+              </p>
+
+              <div :if={@guest_error} class="alert alert-error alert-sm mt-2">
+                <span>{@guest_error}</span>
+              </div>
+
+              <form phx-submit="guest_checkout" class="mt-4 space-y-3">
+                <div class="form-control">
+                  <label class="label"><span class="label-text">Name *</span></label>
+                  <input type="text" name="guest[name]" class="input input-bordered" required placeholder="Your full name" />
+                </div>
+                <div class="form-control">
+                  <label class="label"><span class="label-text">Email *</span></label>
+                  <input type="email" name="guest[email]" class="input input-bordered" required placeholder="your@email.com" />
+                </div>
+                <div class="form-control">
+                  <label class="label"><span class="label-text">Phone</span></label>
+                  <input type="tel" name="guest[phone]" class="input input-bordered" placeholder="512-555-0100" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                  Continue as Guest
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Divider -->
+          <div class="divider">OR</div>
+
+          <!-- Option 2 & 3: Sign In / Create Account -->
+          <div class="card bg-base-100 shadow">
+            <div class="card-body">
+              <h3 class="card-title text-base">Have an account?</h3>
+              <p class="text-sm text-base-content/60">
+                Sign in to use saved vehicles and addresses, or create an account for future bookings.
+              </p>
+              <div class="flex gap-3 mt-3">
+                <.link navigate={~p"/sign-in"} class="btn btn-outline btn-sm flex-1">
+                  Sign In
+                </.link>
+                <.link navigate={~p"/sign-in"} class="btn btn-ghost btn-sm flex-1">
+                  Create Account
+                </.link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -292,6 +340,46 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("select_service", %{"slug" => slug}, socket) do
     service = Enum.find(socket.assigns.services, &(&1.slug == slug))
     {:noreply, assign(socket, selected_service: service)}
+  end
+
+  def handle_event("guest_checkout", %{"guest" => guest_params}, socket) do
+    alias MobileCarWash.Accounts.Customer
+
+    # Check if email already exists
+    require Ash.Query
+    existing = Customer |> Ash.Query.filter(email == ^guest_params["email"]) |> Ash.read!()
+
+    case existing do
+      [customer] ->
+        # Email exists — use existing account (they may be a returning guest)
+        track_event(socket, "guest.returning", %{"email" => guest_params["email"]})
+
+        {:noreply,
+         socket
+         |> assign(current_customer: customer, guest_mode: true, guest_error: nil)
+         |> advance_step()}
+
+      [] ->
+        # Create new guest customer
+        case Customer
+             |> Ash.Changeset.for_create(:create_guest, %{
+               email: guest_params["email"],
+               name: guest_params["name"],
+               phone: guest_params["phone"]
+             })
+             |> Ash.create() do
+          {:ok, customer} ->
+            track_event(socket, "guest.created", %{"email" => guest_params["email"]})
+
+            {:noreply,
+             socket
+             |> assign(current_customer: customer, guest_mode: true, guest_error: nil)
+             |> advance_step()}
+
+          {:error, _changeset} ->
+            {:noreply, assign(socket, guest_error: "Could not create guest account. Please check your email and try again.")}
+        end
+    end
   end
 
   def handle_event("next_step", _params, socket) do
@@ -535,7 +623,8 @@ defmodule MobileCarWashWeb.BookingLive do
   defp load_step_data(socket, :vehicle) do
     customer = socket.assigns.current_customer
 
-    if customer do
+    if customer && !socket.assigns.guest_mode do
+      # Registered user — load existing vehicles
       vehicles = Ash.read!(Vehicle, action: :for_customer, arguments: %{customer_id: customer.id})
 
       assign(socket,
@@ -543,14 +632,15 @@ defmodule MobileCarWashWeb.BookingLive do
         show_new_vehicle_form: vehicles == []
       )
     else
-      socket
+      # Guest — always show new vehicle form
+      assign(socket, existing_vehicles: [], show_new_vehicle_form: true)
     end
   end
 
   defp load_step_data(socket, :address) do
     customer = socket.assigns.current_customer
 
-    if customer do
+    if customer && !socket.assigns.guest_mode do
       addresses = Ash.read!(Address, action: :for_customer, arguments: %{customer_id: customer.id})
 
       assign(socket,
@@ -558,7 +648,7 @@ defmodule MobileCarWashWeb.BookingLive do
         show_new_address_form: addresses == []
       )
     else
-      socket
+      assign(socket, existing_addresses: [], show_new_address_form: true)
     end
   end
 

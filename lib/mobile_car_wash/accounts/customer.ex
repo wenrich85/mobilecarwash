@@ -60,7 +60,7 @@ defmodule MobileCarWash.Accounts.Customer do
     end
 
     attribute :role, :atom do
-      constraints one_of: [:customer, :technician, :admin]
+      constraints one_of: [:customer, :technician, :admin, :guest]
       default :customer
       allow_nil? false
       public? true
@@ -81,6 +81,12 @@ defmodule MobileCarWash.Accounts.Customer do
 
   actions do
     defaults [:read]
+
+    create :create_guest do
+      @doc "Creates a lightweight guest customer — no password required"
+      accept [:email, :name, :phone]
+      change set_attribute(:role, :guest)
+    end
 
     read :by_email do
       argument :email, :ci_string, allow_nil?: false
