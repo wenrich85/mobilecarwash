@@ -72,7 +72,7 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <.kpi_card
           label="Revenue"
-          value={"$#{div(@kpis.revenue.total_cents, 100)}"}
+          value={"$#{format_cents(@kpis.revenue.total_cents)}"}
           subtitle={"#{@kpis.revenue.count} payments"}
           color="success"
         />
@@ -194,6 +194,10 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
   defp schedule_refresh do
     Process.send_after(self(), :refresh, @refresh_interval)
   end
+
+  defp format_cents(%Decimal{} = d), do: d |> Decimal.to_integer() |> div(100) |> to_string()
+  defp format_cents(n) when is_integer(n), do: to_string(div(n, 100))
+  defp format_cents(_), do: "0"
 
   defp period_label(:this_week), do: "this week"
   defp period_label(:last_7_days), do: "last 7 days"

@@ -1,6 +1,6 @@
 defmodule MobileCarWashWeb.AuthController do
   use MobileCarWashWeb, :controller
-  use AshAuthentication.Phoenix.Controller
+  use AshAuthentication.Phoenix.Controller, otp_app: :mobile_car_wash
 
   def success(conn, _activity, user, _token) do
     conn

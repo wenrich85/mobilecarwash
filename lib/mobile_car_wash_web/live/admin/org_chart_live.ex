@@ -77,6 +77,13 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
       |> Enum.sort_by(& &1.sort_order)
       |> Enum.map(&build_tree(&1, all_positions))
 
-    Map.put(position, :children, children)
+    %{
+      id: position.id,
+      name: position.name,
+      slug: position.slug,
+      description: position.description,
+      level: position.level,
+      children: children
+    }
   end
 end
