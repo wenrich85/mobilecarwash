@@ -20,16 +20,29 @@ defmodule MobileCarWashWeb.Router do
     plug :load_from_bearer
   end
 
-  # Public routes — no auth required
+  # Public routes — landing page, booking, auth
   scope "/", MobileCarWashWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    # LiveView pages with optional auth
+    live_session :public, on_mount: {MobileCarWashWeb.LiveAuth, :maybe_load_customer} do
+      live "/", LandingLive
+      live "/book", BookingLive
+    end
 
     # Authentication routes (sign in, sign up, sign out)
     sign_in_route()
     sign_out_route AuthController
     auth_routes MobileCarWash.Accounts.Customer, to: AuthController
+  end
+
+  # Protected routes — require authentication
+  scope "/", MobileCarWashWeb do
+    pipe_through :browser
+
+    live_session :authenticated, on_mount: {MobileCarWashWeb.LiveAuth, :require_customer} do
+      live "/appointments", AppointmentsLive
+    end
   end
 
   # API v1 — for future native apps

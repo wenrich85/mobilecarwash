@@ -51,5 +51,10 @@ defmodule MobileCarWash.Fleet.Vehicle do
 
   actions do
     defaults [:read, :destroy, create: :*, update: :*]
+
+    read :for_customer do
+      argument :customer_id, :uuid, allow_nil?: false
+      filter expr(customer_id == ^arg(:customer_id))
+    end
   end
 end

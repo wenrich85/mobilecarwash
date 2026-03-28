@@ -81,6 +81,38 @@ defmodule MobileCarWash.Scheduling.Appointment do
   actions do
     defaults [:read, create: :*, update: :*]
 
+    create :book do
+      @doc "Books an appointment — the primary action for the booking flow"
+      accept [:scheduled_at, :notes, :customer_id, :vehicle_id, :address_id, :service_type_id]
+
+      argument :price_cents, :integer, allow_nil?: false
+      argument :duration_minutes, :integer, allow_nil?: false
+      argument :discount_cents, :integer, default: 0
+
+      change set_attribute(:price_cents, arg(:price_cents))
+      change set_attribute(:duration_minutes, arg(:duration_minutes))
+      change set_attribute(:discount_cents, arg(:discount_cents))
+      change set_attribute(:status, :pending)
+
+      validate compare(:scheduled_at, greater_than: &DateTime.utc_now/0),
+        message: "must be in the future"
+    end
+
+    read :for_customer do
+      argument :customer_id, :uuid, allow_nil?: false
+      filter expr(customer_id == ^arg(:customer_id))
+    end
+
+    read :upcoming do
+      argument :customer_id, :uuid, allow_nil?: false
+
+      filter expr(
+               customer_id == ^arg(:customer_id) and
+                 status in [:pending, :confirmed] and
+                 scheduled_at > ^DateTime.utc_now()
+             )
+    end
+
     update :confirm do
       change set_attribute(:status, :confirmed)
     end
