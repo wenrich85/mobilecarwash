@@ -1,0 +1,55 @@
+defmodule MobileCarWash.Fleet.Vehicle do
+  @moduledoc """
+  A customer's vehicle. Size affects pricing for future enhancements.
+  """
+  use Ash.Resource,
+    otp_app: :mobile_car_wash,
+    domain: MobileCarWash.Fleet,
+    data_layer: AshPostgres.DataLayer
+
+  postgres do
+    table "vehicles"
+    repo MobileCarWash.Repo
+  end
+
+  attributes do
+    uuid_primary_key :id
+
+    attribute :make, :string do
+      allow_nil? false
+      public? true
+    end
+
+    attribute :model, :string do
+      allow_nil? false
+      public? true
+    end
+
+    attribute :year, :integer do
+      public? true
+    end
+
+    attribute :color, :string do
+      public? true
+    end
+
+    attribute :size, :atom do
+      constraints one_of: [:sedan, :suv, :truck, :van]
+      default :sedan
+      public? true
+    end
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
+  end
+
+  relationships do
+    belongs_to :customer, MobileCarWash.Accounts.Customer do
+      allow_nil? false
+    end
+  end
+
+  actions do
+    defaults [:read, :destroy, create: :*, update: :*]
+  end
+end
