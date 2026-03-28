@@ -28,6 +28,10 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         before_photos = Enum.filter(photos, &(&1.photo_type == :before))
         after_photos = Enum.filter(photos, &(&1.photo_type == :after))
 
+        # Load current checklist state from DB
+        {items, steps_done, steps_total, eta_minutes, current_step} =
+          load_checklist_state(appointment_id)
+
         {:ok,
          assign(socket,
            page_title: "Appointment Status",
@@ -37,13 +41,13 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
            problem_photos: problem_photos,
            before_photos: before_photos,
            after_photos: after_photos,
-           # Real-time state
-           live_status: nil,
-           current_step: nil,
-           steps_done: 0,
-           steps_total: 0,
-           eta_minutes: nil,
-           items: [],
+           # Real-time state (loaded from DB, then updated via PubSub)
+           live_status: if(appointment.status == :in_progress, do: :in_progress, else: nil),
+           current_step: current_step,
+           steps_done: steps_done,
+           steps_total: steps_total,
+           eta_minutes: eta_minutes,
+           items: items,
            message: status_message(appointment.status)
          )}
 
@@ -241,4 +245,46 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   defp format_status(:completed), do: "Completed"
   defp format_status(:cancelled), do: "Cancelled"
   defp format_status(s), do: to_string(s)
+
+  defp load_checklist_state(appointment_id) do
+    alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem}
+
+    checklists =
+      AppointmentChecklist
+      |> Ash.Query.filter(appointment_id == ^appointment_id)
+      |> Ash.read!()
+
+    case checklists do
+      [checklist | _] ->
+        items =
+          ChecklistItem
+          |> Ash.Query.filter(checklist_id == ^checklist.id)
+          |> Ash.Query.sort(step_number: :asc)
+          |> Ash.read!()
+          |> Enum.map(fn item ->
+            %{
+              step_number: item.step_number,
+              title: item.title,
+              completed: item.completed,
+              estimated_minutes: item.estimated_minutes,
+              started_at: item.started_at,
+              actual_seconds: item.actual_seconds
+            }
+          end)
+
+        total = length(items)
+        done = Enum.count(items, & &1.completed)
+        eta = items |> Enum.reject(& &1.completed) |> Enum.reduce(0, fn i, acc -> acc + (i.estimated_minutes || 5) end)
+
+        active = Enum.find(items, &(&1.started_at && !&1.completed))
+        next_pending = Enum.find(items, &(!&1.completed))
+        current = (active || next_pending)
+        current_name = if current, do: current.title, else: nil
+
+        {items, done, total, eta, current_name}
+
+      [] ->
+        {[], 0, 0, nil, nil}
+    end
+  end
 end
