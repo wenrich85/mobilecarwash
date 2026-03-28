@@ -390,4 +390,63 @@ for attrs <- [
   end
 end
 
+# --- Demo Accounts ---
+
+alias MobileCarWash.Accounts.Customer
+
+IO.puts("\nSeeding demo accounts...")
+
+demo_accounts = [
+  %{email: "customer@demo.com", name: "Jane Customer", phone: "512-555-1001", role: :customer},
+  %{email: "tech@demo.com", name: "Owner", phone: "512-555-0001", role: :technician},
+  %{email: "admin@mobilecarwash.com", name: "Admin Owner", phone: "512-555-0000", role: :admin}
+]
+
+for attrs <- demo_accounts do
+  existing = Customer |> Ash.Query.filter(email == ^attrs.email) |> Ash.read!()
+
+  case existing do
+    [] ->
+      {:ok, user} =
+        Customer
+        |> Ash.Changeset.for_create(:register_with_password, %{
+          email: attrs.email,
+          password: "Password123!",
+          password_confirmation: "Password123!",
+          name: attrs.name,
+          phone: attrs.phone
+        })
+        |> Ash.create()
+
+      # Set role via direct Ecto update (role not in register action)
+      if attrs.role != :customer do
+        import Ecto.Query
+        MobileCarWash.Repo.update_all(
+          from(c in "customers", where: c.id == type(^user.id, :binary_id)),
+          set: [role: to_string(attrs.role)]
+        )
+      end
+
+      IO.puts("  ✓ #{attrs.email} (#{attrs.role})")
+
+    [existing_user] ->
+      # Update role if needed
+      if existing_user.role != attrs.role do
+        import Ecto.Query
+        MobileCarWash.Repo.update_all(
+          from(c in "customers", where: c.id == type(^existing_user.id, :binary_id)),
+          set: [role: to_string(attrs.role)]
+        )
+        IO.puts("  ↻ #{attrs.email} role updated to #{attrs.role}")
+      else
+        IO.puts("  - #{attrs.email} (exists)")
+      end
+  end
+end
+
+IO.puts("\nDemo login credentials:")
+IO.puts("  Customer:   customer@demo.com / Password123!")
+IO.puts("  Technician: tech@demo.com / Password123!")
+IO.puts("  Admin:      admin@mobilecarwash.com / Password123!")
+
 IO.puts("\n✅ Seeding complete!")

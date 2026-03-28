@@ -1,11 +1,10 @@
 defmodule MobileCarWashWeb.LiveAuth do
   @moduledoc """
-  LiveView on_mount hooks for authentication.
+  LiveView on_mount hooks for role-based authentication.
 
-  - `:maybe_load_customer` — loads the customer if authenticated, but doesn't redirect.
-    Use for pages that work both authenticated and unauthenticated (landing, booking).
-  - `:require_customer` — redirects to sign-in if not authenticated.
-    Use for protected pages (dashboard, account settings).
+  - `:maybe_load_customer` — loads user if authenticated, no redirect
+  - `:require_customer` — any authenticated user (customer, tech, admin)
+  - `:require_technician` — technician or admin role only
   """
   use MobileCarWashWeb, :verified_routes
 
@@ -13,50 +12,39 @@ defmodule MobileCarWashWeb.LiveAuth do
   import Phoenix.Component, only: [assign: 2]
 
   def on_mount(:maybe_load_customer, _params, session, socket) do
-    socket = assign(socket, current_customer: nil)
-
-    case session do
-      %{"customer_token" => token} when is_binary(token) ->
-        case AshAuthentication.subject_to_user(token, MobileCarWash.Accounts.Customer) do
-          {:ok, customer} ->
-            {:cont, assign(socket, current_customer: customer)}
-
-          _ ->
-            {:cont, socket}
-        end
-
-      _ ->
-        {:cont, socket}
-    end
+    {:cont, assign(socket, current_customer: load_customer(session))}
   end
 
   def on_mount(:require_customer, _params, session, socket) do
-    socket = assign(socket, current_customer: nil)
-
-    # In dev, allow unauthenticated access for easier testing
-    if Application.get_env(:mobile_car_wash, :dev_routes) do
-      {:cont, assign(socket, current_customer: load_first_customer())}
-    else
-      case session do
-        %{"customer_token" => token} when is_binary(token) ->
-          case AshAuthentication.subject_to_user(token, MobileCarWash.Accounts.Customer) do
-            {:ok, customer} ->
-              {:cont, assign(socket, current_customer: customer)}
-
-            _ ->
-              {:halt, redirect(socket, to: ~p"/sign-in")}
-          end
-
-        _ ->
-          {:halt, redirect(socket, to: ~p"/sign-in")}
-      end
+    case load_customer(session) do
+      nil -> {:halt, redirect(socket, to: ~p"/sign-in")}
+      customer -> {:cont, assign(socket, current_customer: customer)}
     end
   end
 
-  defp load_first_customer do
-    case Ash.read!(MobileCarWash.Accounts.Customer) do
-      [customer | _] -> customer
-      [] -> nil
+  def on_mount(:require_technician, _params, session, socket) do
+    case load_customer(session) do
+      %{role: role} = customer when role in [:technician, :admin] ->
+        {:cont, assign(socket, current_customer: customer)}
+
+      nil ->
+        {:halt, redirect(socket, to: ~p"/sign-in")}
+
+      _ ->
+        {:halt, socket |> put_flash(:error, "Technician access required") |> redirect(to: ~p"/")}
+    end
+  end
+
+  defp load_customer(session) do
+    case session do
+      %{"customer_token" => token} when is_binary(token) ->
+        case AshAuthentication.subject_to_user(token, MobileCarWash.Accounts.Customer) do
+          {:ok, customer} -> customer
+          _ -> nil
+        end
+
+      _ ->
+        nil
     end
   end
 end

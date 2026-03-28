@@ -50,13 +50,22 @@ defmodule MobileCarWashWeb.Router do
     auth_routes MobileCarWash.Accounts.Customer, to: AuthController
   end
 
-  # Protected routes — require authentication
+  # Customer routes — any authenticated user
   scope "/", MobileCarWashWeb do
     pipe_through :browser
 
     live_session :authenticated, on_mount: {MobileCarWashWeb.LiveAuth, :require_customer} do
       live "/appointments", AppointmentsLive
       live "/appointments/:id/status", AppointmentStatusLive
+    end
+  end
+
+  # Technician routes — technician or admin role
+  scope "/tech", MobileCarWashWeb do
+    pipe_through :browser
+
+    live_session :technician, on_mount: {MobileCarWashWeb.LiveAuth, :require_technician} do
+      live "/", TechDashboardLive
       live "/checklist/:id", ChecklistLive
     end
   end

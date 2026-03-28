@@ -59,6 +59,13 @@ defmodule MobileCarWash.Accounts.Customer do
       public? true
     end
 
+    attribute :role, :atom do
+      constraints one_of: [:customer, :technician, :admin]
+      default :customer
+      allow_nil? false
+      public? true
+    end
+
     attribute :hashed_password, :string do
       allow_nil? true
       sensitive? true

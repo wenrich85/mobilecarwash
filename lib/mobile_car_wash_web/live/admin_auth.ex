@@ -1,11 +1,7 @@
 defmodule MobileCarWashWeb.AdminAuth do
   @moduledoc """
   LiveView on_mount hook for admin-only pages.
-  Checks that the authenticated customer's email is in the admin whitelist.
-
-  Configure admin emails in config:
-
-      config :mobile_car_wash, :admin_emails, ["owner@example.com"]
+  Checks role == :admin OR email in admin whitelist.
   """
   use MobileCarWashWeb, :verified_routes
 
@@ -15,29 +11,24 @@ defmodule MobileCarWashWeb.AdminAuth do
   def on_mount(:require_admin, _params, session, socket) do
     admin_emails = Application.get_env(:mobile_car_wash, :admin_emails, [])
 
-    # In dev, allow unauthenticated access for easier testing
-    if Application.get_env(:mobile_car_wash, :dev_routes) do
-      {:cont, assign(socket, current_customer: nil, admin: true)}
-    else
-      case session do
-        %{"customer_token" => token} when is_binary(token) ->
-          case AshAuthentication.subject_to_user(token, MobileCarWash.Accounts.Customer) do
-            {:ok, customer} ->
-              email = to_string(customer.email)
+    case session do
+      %{"customer_token" => token} when is_binary(token) ->
+        case AshAuthentication.subject_to_user(token, MobileCarWash.Accounts.Customer) do
+          {:ok, customer} ->
+            email = to_string(customer.email)
 
-              if email in admin_emails do
-                {:cont, assign(socket, current_customer: customer, admin: true)}
-              else
-                {:halt, socket |> put_flash(:error, "Unauthorized") |> redirect(to: ~p"/")}
-              end
+            if customer.role == :admin or email in admin_emails do
+              {:cont, assign(socket, current_customer: customer, admin: true)}
+            else
+              {:halt, socket |> put_flash(:error, "Admin access required") |> redirect(to: ~p"/")}
+            end
 
-            _ ->
-              {:halt, redirect(socket, to: ~p"/sign-in")}
-          end
+          _ ->
+            {:halt, redirect(socket, to: ~p"/sign-in")}
+        end
 
-        _ ->
-          {:halt, redirect(socket, to: ~p"/sign-in")}
-      end
+      _ ->
+        {:halt, redirect(socket, to: ~p"/sign-in")}
     end
   end
 end

@@ -3,10 +3,17 @@ defmodule MobileCarWashWeb.AuthController do
   use AshAuthentication.Phoenix.Controller, otp_app: :mobile_car_wash
 
   def success(conn, _activity, user, _token) do
+    redirect_path =
+      case user.role do
+        :admin -> ~p"/admin/dispatch"
+        :technician -> ~p"/tech"
+        _ -> ~p"/"
+      end
+
     conn
     |> store_in_session(user)
     |> assign(:current_user, user)
-    |> redirect(to: ~p"/")
+    |> redirect(to: redirect_path)
   end
 
   def failure(conn, _activity, _reason) do
