@@ -76,6 +76,11 @@ config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
+# Admin emails (owner access to metrics dashboard)
+config :mobile_car_wash, :admin_emails, [
+  System.get_env("ADMIN_EMAIL") || "admin@mobilecarwash.com"
+]
+
 # Stripe configuration
 config :stripity_stripe,
   api_key: System.get_env("STRIPE_SECRET_KEY") || "sk_test_placeholder",

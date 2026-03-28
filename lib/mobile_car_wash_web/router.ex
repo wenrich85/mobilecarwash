@@ -59,6 +59,16 @@ defmodule MobileCarWashWeb.Router do
     end
   end
 
+  # Admin routes — owner-only metrics dashboard
+  scope "/admin", MobileCarWashWeb.Admin do
+    pipe_through :browser
+
+    live_session :admin, on_mount: {MobileCarWashWeb.AdminAuth, :require_admin} do
+      live "/metrics", MetricsLive
+      live "/events", EventsLive
+    end
+  end
+
   # API v1 — for future native apps
   scope "/api/v1", MobileCarWashWeb.Api.V1 do
     pipe_through :api
