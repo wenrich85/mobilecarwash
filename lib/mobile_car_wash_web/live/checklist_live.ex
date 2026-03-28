@@ -1,8 +1,14 @@
 defmodule MobileCarWashWeb.ChecklistLive do
   @moduledoc """
-  Mobile-friendly checklist UI for technicians during appointments.
-  Features: step checkoff, photo uploads (before/after/per-step),
-  customer problem area display, and real-time PubSub broadcasting.
+  Interactive technician checklist with live step timers.
+
+  Timer colors:
+  - Green: within estimated time
+  - Yellow: 45 seconds remaining
+  - Red: over time
+
+  Every step completion broadcasts to the customer's status page via PubSub.
+  Actual vs estimated time is recorded for process optimization.
   """
   use MobileCarWashWeb, :live_view
 
@@ -10,6 +16,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker}
 
   require Ash.Query
+
+  @timer_tick_ms 1000
 
   @impl true
   def mount(%{"id" => checklist_id}, _session, socket) do
@@ -23,19 +31,18 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
         appointment = Ash.get!(Appointment, checklist.appointment_id)
 
-        # Load photos
-        all_photos =
-          Ash.read!(Photo,
-            action: :for_appointment,
-            arguments: %{appointment_id: appointment.id}
-          )
-
-        problem_photos = Enum.filter(all_photos, &(&1.photo_type == :problem_area))
-        step_photos = Enum.filter(all_photos, &(&1.photo_type in [:before, :after, :step_completion]))
+        # Load customer problem area photos
+        problem_photos =
+          Photo
+          |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :problem_area)
+          |> Ash.read!()
 
         total = length(items)
         done = Enum.count(items, & &1.completed)
         pct = if total > 0, do: Float.round(done / total * 100, 0), else: 0
+
+        # Start the 1-second timer tick
+        if connected?(socket), do: Process.send_after(self(), :tick, @timer_tick_ms)
 
         socket =
           socket
@@ -45,11 +52,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
             items: items,
             appointment: appointment,
             problem_photos: problem_photos,
-            step_photos: step_photos,
             total: total,
             done: done,
             pct: pct,
-            show_photo_upload: nil
+            active_item_id: nil,
+            elapsed_seconds: 0,
+            show_photo_upload: nil,
+            now: DateTime.utc_now()
           )
           |> allow_upload(:photo, accept: ~w(.jpg .jpeg .png .webp), max_entries: 1, max_file_size: 10_000_000)
 
@@ -59,47 +68,69 @@ defmodule MobileCarWashWeb.ChecklistLive do
         {:ok,
          socket
          |> assign(page_title: "Checklist", checklist: nil, items: [], appointment: nil,
-            problem_photos: [], step_photos: [], total: 0, done: 0, pct: 0, show_photo_upload: nil)
+            problem_photos: [], total: 0, done: 0, pct: 0, active_item_id: nil,
+            elapsed_seconds: 0, show_photo_upload: nil, now: DateTime.utc_now())
          |> put_flash(:error, "Checklist not found")}
     end
   end
 
   def mount(_params, _session, socket) do
-    {:ok,
-     socket
-     |> assign(page_title: "Checklist", checklist: nil, items: [], appointment: nil,
-        problem_photos: [], step_photos: [], total: 0, done: 0, pct: 0, show_photo_upload: nil)
-     |> put_flash(:error, "No checklist specified")}
+    {:ok, assign(socket, page_title: "Checklist", checklist: nil, items: [], appointment: nil,
+      problem_photos: [], total: 0, done: 0, pct: 0, active_item_id: nil,
+      elapsed_seconds: 0, show_photo_upload: nil, now: DateTime.utc_now())}
+  end
+
+  # Timer tick — updates elapsed time for the active step
+  @impl true
+  def handle_info(:tick, socket) do
+    Process.send_after(self(), :tick, @timer_tick_ms)
+    {:noreply, assign(socket, now: DateTime.utc_now())}
   end
 
   @impl true
-  def handle_event("toggle_item", %{"id" => item_id}, socket) do
+  def handle_event("start_step", %{"id" => item_id}, socket) do
+    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
+
+    if item && !item.completed do
+      {:ok, updated} =
+        item
+        |> Ash.Changeset.for_update(:start_step, %{})
+        |> Ash.update()
+
+      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
+
+      {:noreply, assign(socket, items: items, active_item_id: item_id)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("complete_step", %{"id" => item_id}, socket) do
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
     if item do
-      action = if item.completed, do: :uncheck, else: :check
-
       {:ok, updated} =
         item
-        |> Ash.Changeset.for_update(action, %{})
+        |> Ash.Changeset.for_update(:check, %{})
         |> Ash.update()
 
       items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
       done = Enum.count(items, & &1.completed)
       pct = if socket.assigns.total > 0, do: Float.round(done / socket.assigns.total * 100, 0), else: 0
 
-      # Broadcast progress
-      remaining = Enum.filter(items, &(!&1.completed))
-      current_step_name = if updated.completed, do: next_step_name(items, updated), else: updated.title
+      # Find next incomplete step
+      next = Enum.find(items, &(!&1.completed))
+      next_name = if next, do: next.title, else: "Finishing up"
 
-      AppointmentTracker.broadcast_progress(socket.assigns.appointment.id, %{
-        current_step: current_step_name,
+      # Broadcast to customer
+      AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+        current_step: next_name,
         steps_done: done,
         steps_total: socket.assigns.total,
-        steps_remaining: Enum.map(remaining, fn _ -> %{estimated_minutes: 5} end)
+        items: items
       })
 
-      # Auto-complete checklist
+      # Auto-complete checklist if all required done
       socket =
         if all_required_complete?(items) and socket.assigns.checklist.status != :completed do
           {:ok, checklist} =
@@ -112,7 +143,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
           socket
         end
 
-      {:noreply, assign(socket, items: items, done: done, pct: pct)}
+      {:noreply, assign(socket, items: items, done: done, pct: pct, active_item_id: next && next.id)}
     else
       {:noreply, socket}
     end
@@ -127,33 +158,26 @@ defmodule MobileCarWashWeb.ChecklistLive do
     {:noreply, assign(socket, show_photo_upload: nil)}
   end
 
+  def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
+
   def handle_event("save_photo", _params, socket) do
     %{type: type_str, item_id: item_id} = socket.assigns.show_photo_upload
     photo_type = String.to_existing_atom(type_str)
     appointment_id = socket.assigns.appointment.id
 
-    uploaded_files =
-      consume_uploaded_entries(socket, :photo, fn %{path: path}, entry ->
-        opts = [
-          uploaded_by: :technician,
-          checklist_item_id: item_id
-        ]
+    consume_uploaded_entries(socket, :photo, fn %{path: path}, entry ->
+      opts = [uploaded_by: :technician, checklist_item_id: item_id]
+      case PhotoUpload.save_file(appointment_id, path, entry.client_name, photo_type, opts) do
+        {:ok, photo} -> {:ok, photo}
+        {:error, reason} -> {:postpone, reason}
+      end
+    end)
 
-        case PhotoUpload.save_file(appointment_id, path, entry.client_name, photo_type, opts) do
-          {:ok, photo} -> {:ok, photo}
-          {:error, reason} -> {:postpone, reason}
-        end
-      end)
-
-    # Broadcast photo uploaded
     AppointmentTracker.broadcast_photo(appointment_id, photo_type)
-
-    # Refresh photos
-    step_photos = socket.assigns.step_photos ++ uploaded_files
 
     {:noreply,
      socket
-     |> assign(step_photos: step_photos, show_photo_upload: nil)
+     |> assign(show_photo_upload: nil)
      |> put_flash(:info, "Photo uploaded")}
   end
 
@@ -166,15 +190,15 @@ defmodule MobileCarWashWeb.ChecklistLive do
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <h1 class="text-xl font-bold">Wash Checklist</h1>
-            <span class={[
-              "badge badge-lg",
-              checklist_badge_class(@checklist.status)
-            ]}>
+            <span class={["badge badge-lg", checklist_badge(@checklist.status)]}>
               {@done}/{@total}
             </span>
           </div>
           <progress class="progress progress-primary w-full" value={@pct} max="100"></progress>
-          <p class="text-sm text-base-content/50 mt-1">{@pct}% complete</p>
+          <div class="flex justify-between text-sm text-base-content/50 mt-1">
+            <span>{@pct}% complete</span>
+            <span>ETA: ~{remaining_minutes(@items)} min</span>
+          </div>
         </div>
 
         <!-- Customer Problem Area Photos -->
@@ -210,48 +234,79 @@ defmodule MobileCarWashWeb.ChecklistLive do
           </form>
         </div>
 
-        <!-- Uploaded Step Photos -->
-        <div :if={@step_photos != []} class="flex gap-2 overflow-x-auto mb-4">
-          <div :for={photo <- @step_photos} class="flex-shrink-0 relative">
-            <img src={photo.file_path} class="w-16 h-16 object-cover rounded" />
-            <span class={["badge badge-xs absolute -top-1 -right-1", photo_badge(@photo_type)]}>
-              {photo_label(photo.photo_type)}
-            </span>
-          </div>
-        </div>
-
-        <!-- Checklist Items -->
+        <!-- Checklist Items with Timers -->
         <div class="space-y-2">
-          <div
-            :for={item <- @items}
-            class={[
-              "card bg-base-100 shadow-sm transition-all",
-              item.completed && "opacity-60"
-            ]}
-          >
+          <div :for={item <- @items} class={[
+            "card shadow-sm transition-all",
+            item.completed && "bg-base-100 opacity-60",
+            !item.completed && item.started_at && "bg-base-100 border-l-4",
+            !item.completed && item.started_at && timer_border_color(item, @now),
+            !item.completed && !item.started_at && "bg-base-100"
+          ]}>
             <div class="card-body p-4">
               <div class="flex items-start gap-3">
-                <div class="mt-1 cursor-pointer" phx-click="toggle_item" phx-value-id={item.id}>
-                  <input
-                    type="checkbox"
-                    class="checkbox checkbox-primary"
-                    checked={item.completed}
-                    readonly
-                  />
+                <!-- Step number / check -->
+                <div class="flex flex-col items-center">
+                  <div :if={item.completed} class="text-success text-xl">✓</div>
+                  <div :if={!item.completed} class="text-lg font-mono text-base-content/40">{item.step_number}</div>
                 </div>
+
                 <div class="flex-1">
-                  <div class="flex justify-between">
+                  <div class="flex justify-between items-start">
                     <span class={["font-semibold", item.completed && "line-through"]}>
-                      {item.step_number}. {item.title}
+                      {item.title}
                     </span>
-                    <span :if={item.required} class="badge badge-error badge-xs">Required</span>
+                    <span :if={item.required} class="badge badge-error badge-xs">Req</span>
                   </div>
                   <p :if={item.description} class="text-xs text-base-content/60 mt-1">{item.description}</p>
+
+                  <!-- Timer Display -->
+                  <div :if={item.started_at && !item.completed} class="mt-2">
+                    <div class="flex items-center gap-2">
+                      <span class={["font-mono text-lg font-bold", timer_text_color(item, @now)]}>
+                        {format_elapsed(item.started_at, @now)}
+                      </span>
+                      <span class="text-xs text-base-content/50">
+                        / {item.estimated_minutes || 5}:00 est
+                      </span>
+                    </div>
+                    <progress
+                      class={["progress w-full h-2", timer_progress_color(item, @now)]}
+                      value={elapsed_seconds(item.started_at, @now)}
+                      max={(item.estimated_minutes || 5) * 60}
+                    />
+                  </div>
+
+                  <!-- Completed time stats -->
+                  <div :if={item.completed && item.actual_seconds} class="mt-1 text-xs">
+                    <span class={if item.actual_seconds <= (item.estimated_minutes || 5) * 60, do: "text-success", else: "text-error"}>
+                      Actual: {format_seconds(item.actual_seconds)}
+                    </span>
+                    <span class="text-base-content/40"> / Est: {item.estimated_minutes || 5} min</span>
+                  </div>
+
                   <p :if={item.notes} class="text-xs text-info mt-1">Note: {item.notes}</p>
                 </div>
               </div>
-              <!-- Per-step photo button -->
-              <div :if={!item.completed} class="mt-2 pl-10">
+
+              <!-- Action Buttons -->
+              <div :if={!item.completed} class="mt-2 flex gap-2 justify-end">
+                <button
+                  :if={!item.started_at}
+                  class="btn btn-primary btn-sm"
+                  phx-click="start_step"
+                  phx-value-id={item.id}
+                >
+                  Start Step
+                </button>
+                <button
+                  :if={item.started_at}
+                  class="btn btn-success btn-sm"
+                  phx-click="complete_step"
+                  phx-value-id={item.id}
+                >
+                  Done ✓
+                </button>
                 <button
                   class="btn btn-ghost btn-xs"
                   phx-click="show_upload"
@@ -267,7 +322,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
         <!-- After Photo Prompt -->
         <div :if={all_required_complete?(@items) and @checklist.status != :completed} class="mt-4">
-          <button class="btn btn-success btn-block btn-sm" phx-click="show_upload" phx-value-type="after">
+          <button class="btn btn-success btn-block" phx-click="show_upload" phx-value-type="after">
             Take AFTER Photo to Complete
           </button>
         </div>
@@ -276,7 +331,24 @@ defmodule MobileCarWashWeb.ChecklistLive do
         <div :if={@checklist.status == :completed} class="mt-6 text-center">
           <div class="text-4xl mb-2">✓</div>
           <h2 class="text-xl font-bold text-success">Checklist Complete!</h2>
-          <p class="text-sm text-base-content/60">All steps verified</p>
+          <p class="text-sm text-base-content/60 mb-4">All steps verified</p>
+
+          <!-- Time Summary -->
+          <div class="card bg-base-100 shadow mx-auto max-w-sm">
+            <div class="card-body p-4">
+              <h3 class="font-semibold text-sm mb-2">Time Analysis</h3>
+              <div :for={item <- @items} :if={item.actual_seconds} class="flex justify-between text-xs py-1 border-b border-base-200">
+                <span>{item.title}</span>
+                <span class={if item.actual_seconds <= (item.estimated_minutes || 5) * 60, do: "text-success", else: "text-error"}>
+                  {format_seconds(item.actual_seconds)} / {item.estimated_minutes}m est
+                </span>
+              </div>
+              <div class="flex justify-between font-bold text-sm mt-2">
+                <span>Total</span>
+                <span>{format_seconds(total_actual_seconds(@items))}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -287,29 +359,79 @@ defmodule MobileCarWashWeb.ChecklistLive do
     """
   end
 
-  # Suppress unused upload validation
-  @impl true
-  def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
+  # --- Timer Helpers ---
+
+  defp elapsed_seconds(started_at, now) do
+    DateTime.diff(now, started_at)
+  end
+
+  defp format_elapsed(started_at, now) do
+    seconds = DateTime.diff(now, started_at) |> max(0)
+    format_seconds(seconds)
+  end
+
+  defp format_seconds(seconds) when is_integer(seconds) do
+    mins = div(seconds, 60)
+    secs = rem(seconds, 60)
+    "#{String.pad_leading("#{mins}", 2, "0")}:#{String.pad_leading("#{secs}", 2, "0")}"
+  end
+
+  defp format_seconds(_), do: "--:--"
+
+  defp timer_border_color(item, now) do
+    case timer_zone(item, now) do
+      :green -> "border-success"
+      :yellow -> "border-warning"
+      :red -> "border-error"
+    end
+  end
+
+  defp timer_text_color(item, now) do
+    case timer_zone(item, now) do
+      :green -> "text-success"
+      :yellow -> "text-warning"
+      :red -> "text-error"
+    end
+  end
+
+  defp timer_progress_color(item, now) do
+    case timer_zone(item, now) do
+      :green -> "progress-success"
+      :yellow -> "progress-warning"
+      :red -> "progress-error"
+    end
+  end
+
+  defp timer_zone(item, now) do
+    elapsed = DateTime.diff(now, item.started_at) |> max(0)
+    estimated_secs = (item.estimated_minutes || 5) * 60
+    remaining = estimated_secs - elapsed
+
+    cond do
+      remaining < 0 -> :red
+      remaining <= 45 -> :yellow
+      true -> :green
+    end
+  end
+
+  defp remaining_minutes(items) do
+    items
+    |> Enum.reject(& &1.completed)
+    |> Enum.reduce(0, fn item, acc -> acc + (item.estimated_minutes || 5) end)
+  end
+
+  defp total_actual_seconds(items) do
+    items
+    |> Enum.map(& &1.actual_seconds)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.sum()
+  end
 
   defp all_required_complete?(items) do
     items |> Enum.filter(& &1.required) |> Enum.all?(& &1.completed)
   end
 
-  defp next_step_name(items, current) do
-    next = Enum.find(items, fn i -> i.step_number > current.step_number and not i.completed end)
-    if next, do: next.title, else: "Finishing up"
-  end
-
-  defp checklist_badge_class(:completed), do: "badge-success"
-  defp checklist_badge_class(:in_progress), do: "badge-info"
-  defp checklist_badge_class(_), do: "badge-ghost"
-
-  defp photo_badge(:before), do: "badge-warning"
-  defp photo_badge(:after), do: "badge-success"
-  defp photo_badge(_), do: "badge-ghost"
-
-  defp photo_label(:before), do: "B"
-  defp photo_label(:after), do: "A"
-  defp photo_label(:step_completion), do: "S"
-  defp photo_label(_), do: ""
+  defp checklist_badge(:completed), do: "badge-success"
+  defp checklist_badge(:in_progress), do: "badge-info"
+  defp checklist_badge(_), do: "badge-ghost"
 end

@@ -1,8 +1,8 @@
 defmodule MobileCarWashWeb.AppointmentStatusLive do
   @moduledoc """
   Customer-facing real-time appointment tracking page.
-  Subscribes to PubSub and shows live progress as the technician
-  works through the checklist. No polling — pure push updates.
+  Shows step-by-step progress with time estimates as the technician works.
+  Subscribes to PubSub — no polling, pure push.
   """
   use MobileCarWashWeb, :live_view
 
@@ -19,17 +19,11 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         service_type = Ash.get!(ServiceType, appointment.service_type_id)
         address = Ash.get!(Address, appointment.address_id)
 
-        # Subscribe to real-time updates
         if connected?(socket) do
           AppointmentTracker.subscribe(appointment_id)
         end
 
-        # Load photos
-        require Ash.Query
-        photos =
-          Photo
-          |> Ash.Query.filter(appointment_id == ^appointment_id)
-          |> Ash.read!()
+        photos = Photo |> Ash.Query.filter(appointment_id == ^appointment_id) |> Ash.read!()
         problem_photos = Enum.filter(photos, &(&1.photo_type == :problem_area))
         before_photos = Enum.filter(photos, &(&1.photo_type == :before))
         after_photos = Enum.filter(photos, &(&1.photo_type == :after))
@@ -43,11 +37,13 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
            problem_photos: problem_photos,
            before_photos: before_photos,
            after_photos: after_photos,
+           # Real-time state
            live_status: nil,
            current_step: nil,
            steps_done: 0,
            steps_total: 0,
            eta_minutes: nil,
+           items: [],
            message: status_message(appointment.status)
          )}
 
@@ -61,7 +57,6 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   @impl true
   def handle_info({:appointment_update, data}, socket) do
-    # Reload photos on photo events
     socket =
       if data[:event] == :photo_uploaded do
         reload_photos(socket)
@@ -76,6 +71,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
        steps_done: data[:steps_done] || socket.assigns.steps_done,
        steps_total: data[:steps_total] || socket.assigns.steps_total,
        eta_minutes: data[:eta_minutes],
+       items: data[:items] || socket.assigns.items,
        message: data[:message] || socket.assigns.message
      )}
   end
@@ -100,20 +96,51 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           </div>
         </div>
 
-        <!-- Progress Bar (during wash) -->
-        <div :if={@steps_total > 0} class="mb-6">
-          <div class="flex justify-between text-sm mb-1">
-            <span>Progress</span>
-            <span>{@steps_done}/{@steps_total} steps</span>
+        <!-- Step-by-Step Progress (visible during wash) -->
+        <div :if={@items != []} class="mb-6">
+          <h3 class="font-semibold mb-3">Progress</h3>
+          <div class="space-y-2">
+            <div :for={item <- @items} class="flex items-center gap-3">
+              <div class={[
+                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                cond do
+                  item.completed -> "bg-success text-success-content"
+                  item.started_at -> "bg-warning text-warning-content animate-pulse"
+                  true -> "bg-base-300 text-base-content/40"
+                end
+              ]}>
+                <span :if={item.completed}>✓</span>
+                <span :if={!item.completed}>{item.step_number}</span>
+              </div>
+              <div class="flex-1">
+                <span class={[
+                  "text-sm",
+                  item.completed && "line-through text-base-content/50",
+                  item.started_at && !item.completed && "font-semibold text-primary"
+                ]}>
+                  {item.title}
+                </span>
+              </div>
+              <span :if={!item.completed && !item.started_at} class="text-xs text-base-content/40">
+                ~{item.estimated_minutes || 5}m
+              </span>
+              <span :if={item.completed && item.actual_seconds} class="text-xs text-success">
+                {format_seconds(item.actual_seconds)}
+              </span>
+              <span :if={item.started_at && !item.completed} class="text-xs text-warning animate-pulse">
+                In progress...
+              </span>
+            </div>
           </div>
-          <progress
-            class="progress progress-primary w-full"
-            value={@steps_done}
-            max={@steps_total}
-          />
-          <p :if={@current_step} class="text-sm text-primary mt-2 font-medium">
-            Currently: {@current_step}
-          </p>
+
+          <!-- Overall Progress Bar -->
+          <div class="mt-4">
+            <div class="flex justify-between text-xs text-base-content/50 mb-1">
+              <span>{@steps_done}/{@steps_total} steps</span>
+              <span :if={@eta_minutes}>~{@eta_minutes} min remaining</span>
+            </div>
+            <progress class="progress progress-primary w-full" value={@steps_done} max={@steps_total} />
+          </div>
         </div>
 
         <!-- Before/After Photos -->
@@ -153,7 +180,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             <div><span class="font-semibold">Location:</span> {@address.street}, {@address.city}</div>
             <div><span class="font-semibold">Duration:</span> ~{@service_type.duration_minutes} min</div>
             <div><span class="font-semibold">Status:</span>
-              <span class={["badge badge-sm", appointment_status_class(@appointment.status)]}>
+              <span class={["badge badge-sm", appointment_badge(@appointment.status)]}>
                 {format_status(@appointment.status)}
               </span>
             </div>
@@ -170,7 +197,6 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   end
 
   defp reload_photos(socket) do
-    require Ash.Query
     appointment_id = socket.assigns.appointment.id
     photos = Photo |> Ash.Query.filter(appointment_id == ^appointment_id) |> Ash.read!()
 
@@ -179,6 +205,14 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
       after_photos: Enum.filter(photos, &(&1.photo_type == :after))
     )
   end
+
+  defp format_seconds(seconds) when is_integer(seconds) do
+    mins = div(seconds, 60)
+    secs = rem(seconds, 60)
+    "#{mins}:#{String.pad_leading("#{secs}", 2, "0")}"
+  end
+
+  defp format_seconds(_), do: ""
 
   defp status_message(:pending), do: "Appointment scheduled"
   defp status_message(:confirmed), do: "Appointment confirmed — we'll be there!"
@@ -194,18 +228,17 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   defp status_alert_class(:cancelled, _), do: "alert-error"
   defp status_alert_class(_, _), do: ""
 
-  defp appointment_status_class(:pending), do: "badge-ghost"
-  defp appointment_status_class(:confirmed), do: "badge-info"
-  defp appointment_status_class(:in_progress), do: "badge-warning"
-  defp appointment_status_class(:completed), do: "badge-success"
-  defp appointment_status_class(:cancelled), do: "badge-error"
-  defp appointment_status_class(_), do: "badge-ghost"
+  defp appointment_badge(:pending), do: "badge-ghost"
+  defp appointment_badge(:confirmed), do: "badge-info"
+  defp appointment_badge(:in_progress), do: "badge-warning"
+  defp appointment_badge(:completed), do: "badge-success"
+  defp appointment_badge(:cancelled), do: "badge-error"
+  defp appointment_badge(_), do: "badge-ghost"
 
-  defp format_status(:not_started), do: "Not Started"
-  defp format_status(:in_progress), do: "In Progress"
-  defp format_status(:completed), do: "Completed"
   defp format_status(:pending), do: "Pending"
   defp format_status(:confirmed), do: "Confirmed"
+  defp format_status(:in_progress), do: "In Progress"
+  defp format_status(:completed), do: "Completed"
   defp format_status(:cancelled), do: "Cancelled"
   defp format_status(s), do: to_string(s)
 end

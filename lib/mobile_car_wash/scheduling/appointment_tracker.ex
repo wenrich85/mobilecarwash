@@ -1,23 +1,17 @@
 defmodule MobileCarWash.Scheduling.AppointmentTracker do
   @moduledoc """
   Real-time appointment progress tracking via Phoenix PubSub.
-
-  When a technician checks off a step, this module broadcasts the progress
-  to all subscribers (the customer's status page). No polling — pure push.
-
-  Topic: "appointment:<appointment_id>"
+  Broadcasts step-level detail so customers see exactly what's happening.
   """
 
   alias Phoenix.PubSub
 
   @pubsub MobileCarWash.PubSub
 
-  @doc "Subscribe to real-time updates for an appointment."
   def subscribe(appointment_id) do
     PubSub.subscribe(@pubsub, topic(appointment_id))
   end
 
-  @doc "Broadcast that the appointment wash has started."
   def broadcast_started(appointment_id) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
       status: :in_progress,
@@ -26,22 +20,25 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     }})
   end
 
-  @doc "Broadcast checklist step progress."
-  def broadcast_progress(appointment_id, %{} = data) do
-    eta_minutes = calculate_eta(data[:steps_remaining] || [])
+  @doc """
+  Broadcasts detailed step progress including all items for the customer view.
+  `items` should be the full list of checklist items with their current state.
+  """
+  def broadcast_step_progress(appointment_id, %{} = data) do
+    remaining_minutes = calculate_remaining_minutes(data[:items] || [])
 
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
       status: :in_progress,
-      event: :step_completed,
+      event: :step_update,
       current_step: data[:current_step],
       steps_done: data[:steps_done],
       steps_total: data[:steps_total],
-      eta_minutes: eta_minutes,
+      eta_minutes: remaining_minutes,
+      items: sanitize_items(data[:items] || []),
       message: "Step #{data[:steps_done]}/#{data[:steps_total]}: #{data[:current_step]}"
     }})
   end
 
-  @doc "Broadcast that a photo was uploaded."
   def broadcast_photo(appointment_id, photo_type) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
       status: :in_progress,
@@ -50,7 +47,6 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     }})
   end
 
-  @doc "Broadcast that the appointment is complete."
   def broadcast_completed(appointment_id) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
       status: :completed,
@@ -62,8 +58,23 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
 
   defp topic(appointment_id), do: "appointment:#{appointment_id}"
 
-  defp calculate_eta(remaining_steps) do
-    remaining_steps
-    |> Enum.reduce(0, fn step, acc -> acc + (step[:estimated_minutes] || 5) end)
+  defp calculate_remaining_minutes(items) do
+    items
+    |> Enum.reject(& &1.completed)
+    |> Enum.reduce(0, fn item, acc -> acc + (item.estimated_minutes || 5) end)
+  end
+
+  # Strip items to only what the customer needs (no internal IDs)
+  defp sanitize_items(items) do
+    Enum.map(items, fn item ->
+      %{
+        step_number: item.step_number,
+        title: item.title,
+        completed: item.completed,
+        estimated_minutes: item.estimated_minutes,
+        started_at: item.started_at,
+        actual_seconds: item.actual_seconds
+      }
+    end)
   end
 end

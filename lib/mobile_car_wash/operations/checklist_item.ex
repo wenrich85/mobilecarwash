@@ -1,7 +1,7 @@
 defmodule MobileCarWash.Operations.ChecklistItem do
   @moduledoc """
   A single item in an appointment checklist — corresponds to one ProcedureStep.
-  The technician taps to complete each item during the wash.
+  Tracks actual time spent vs estimated time for process optimization.
   """
   use Ash.Resource,
     otp_app: :mobile_car_wash,
@@ -30,6 +30,10 @@ defmodule MobileCarWash.Operations.ChecklistItem do
       public? true
     end
 
+    attribute :estimated_minutes, :integer do
+      public? true
+    end
+
     attribute :required, :boolean do
       default true
       public? true
@@ -40,13 +44,22 @@ defmodule MobileCarWash.Operations.ChecklistItem do
       public? true
     end
 
+    attribute :started_at, :utc_datetime do
+      public? true
+      description "When the technician started this step"
+    end
+
     attribute :completed_at, :utc_datetime do
       public? true
     end
 
+    attribute :actual_seconds, :integer do
+      public? true
+      description "Actual time in seconds — for comparing against estimated_minutes"
+    end
+
     attribute :notes, :string do
       public? true
-      description "Technician notes for this step (e.g., 'scratch found on driver door')"
     end
 
     create_timestamp :inserted_at
@@ -66,14 +79,36 @@ defmodule MobileCarWash.Operations.ChecklistItem do
   actions do
     defaults [:read, create: :*, update: :*]
 
+    update :start_step do
+      change set_attribute(:started_at, &DateTime.utc_now/0)
+    end
+
     update :check do
+      require_atomic? false
       change set_attribute(:completed, true)
       change set_attribute(:completed_at, &DateTime.utc_now/0)
+
+      change after_action(fn _changeset, record, _context ->
+        # Calculate actual_seconds from started_at to completed_at
+        if record.started_at && record.completed_at do
+          seconds = DateTime.diff(record.completed_at, record.started_at)
+
+          {:ok, updated} =
+            record
+            |> Ash.Changeset.for_update(:update, %{actual_seconds: seconds})
+            |> Ash.update()
+
+          {:ok, updated}
+        else
+          {:ok, record}
+        end
+      end)
     end
 
     update :uncheck do
       change set_attribute(:completed, false)
       change set_attribute(:completed_at, nil)
+      change set_attribute(:actual_seconds, nil)
     end
 
     update :add_note do
