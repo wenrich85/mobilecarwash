@@ -71,6 +71,7 @@ defmodule MobileCarWashWeb.Router do
       live "/formation", FormationLive
       live "/org-chart", OrgChartLive
       live "/procedures", ProceduresLive
+      live "/dispatch", DispatchLive
     end
   end
 

@@ -137,9 +137,53 @@ defmodule MobileCarWash.Scheduling.Appointment do
       end)
     end
 
+    # Technician assignment handled via Scheduling.Dispatch module (direct Ecto for FK)
+
     update :cancel do
       accept [:cancellation_reason]
       change set_attribute(:status, :cancelled)
+    end
+
+    read :todays_appointments do
+      prepare fn query, _context ->
+        today = Date.utc_today()
+        {:ok, day_start} = DateTime.new(today, ~T[00:00:00])
+        {:ok, day_end} = DateTime.new(Date.add(today, 1), ~T[00:00:00])
+
+        require Ash.Query
+        query
+        |> Ash.Query.filter(scheduled_at >= ^day_start and scheduled_at < ^day_end and status != :cancelled)
+        |> Ash.Query.sort(scheduled_at: :asc)
+      end
+    end
+
+    read :for_date do
+      argument :date, :date, allow_nil?: false
+
+      prepare fn query, _context ->
+        date = Ash.Query.get_argument(query, :date)
+        {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
+        {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
+
+        require Ash.Query
+        query
+        |> Ash.Query.filter(scheduled_at >= ^day_start and scheduled_at < ^day_end and status != :cancelled)
+        |> Ash.Query.sort(scheduled_at: :asc)
+      end
+    end
+
+    read :unassigned do
+      prepare fn query, _context ->
+        require Ash.Query
+        Ash.Query.filter(query, is_nil(technician_id) and status in [:pending, :confirmed])
+      end
+    end
+
+    read :active do
+      prepare fn query, _context ->
+        require Ash.Query
+        Ash.Query.filter(query, status == :in_progress)
+      end
     end
   end
 end

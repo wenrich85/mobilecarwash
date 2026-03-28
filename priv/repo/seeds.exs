@@ -369,4 +369,25 @@ for proc_data <- procedures_data do
   end
 end
 
+# --- Technicians ---
+
+alias MobileCarWash.Operations.Technician
+
+IO.puts("\nSeeding technicians...")
+
+for attrs <- [
+      %{name: "Owner", phone: "512-555-0001", active: true}
+    ] do
+  existing = Technician |> Ash.Query.filter(name == ^attrs.name) |> Ash.read!()
+
+  case existing do
+    [] ->
+      Technician |> Ash.Changeset.for_create(:create, attrs) |> Ash.create!()
+      IO.puts("  ✓ #{attrs.name}")
+
+    [_] ->
+      IO.puts("  - #{attrs.name} (exists)")
+  end
+end
+
 IO.puts("\n✅ Seeding complete!")
