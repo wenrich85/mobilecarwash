@@ -100,6 +100,19 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
+  # Stripe
+  config :stripity_stripe,
+    api_key: System.get_env("STRIPE_SECRET_KEY") || raise("STRIPE_SECRET_KEY is required")
+
+  config :mobile_car_wash,
+    stripe_webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET") || raise("STRIPE_WEBHOOK_SECRET is required"),
+    base_url: "https://#{host}"
+
+  # Token signing secret
+  config :mobile_car_wash,
+    token_signing_secret:
+      System.get_env("TOKEN_SIGNING_SECRET") || raise("TOKEN_SIGNING_SECRET is required")
+
   # ## Configuring the mailer
   #
   # In production you need to configure the mailer to use a different adapter.

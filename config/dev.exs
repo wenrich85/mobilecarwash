@@ -93,3 +93,9 @@ config :swoosh, :api_client, false
 
 # Token signing secret for authentication (dev only — use env var in prod)
 config :mobile_car_wash, :token_signing_secret, "dev-only-secret-change-in-production-at-least-64-chars-long-please"
+
+# Stripe webhook signing secret (dev — use env var in prod)
+config :mobile_car_wash, :stripe_webhook_secret, System.get_env("STRIPE_WEBHOOK_SECRET") || "whsec_test"
+
+# Base URL for Stripe success/cancel redirects
+config :mobile_car_wash, :base_url, "http://localhost:4000"

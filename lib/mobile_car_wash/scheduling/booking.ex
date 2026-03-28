@@ -16,7 +16,7 @@ defmodule MobileCarWash.Scheduling.Booking do
   alias MobileCarWash.Repo
   alias MobileCarWash.Scheduling.{Appointment, ServiceType, Availability}
   alias MobileCarWash.Fleet.{Vehicle, Address}
-  alias MobileCarWash.Billing.{Subscription, SubscriptionUsage}
+  alias MobileCarWash.Billing.{Payment, Subscription, SubscriptionUsage, StripeClient}
 
   require Ash.Query
 
@@ -33,7 +33,9 @@ defmodule MobileCarWash.Scheduling.Booking do
   @doc """
   Creates a complete booking with all associated resources.
 
-  Returns `{:ok, appointment}` or `{:error, reason}`.
+  Returns `{:ok, %{appointment: appointment, checkout_url: url}}` or `{:error, reason}`.
+  The checkout_url is the Stripe Checkout URL the customer should be redirected to.
+  If payment amount is 0 (fully covered by subscription), no Stripe session is created.
   """
   @spec create_booking(booking_params()) :: {:ok, map()} | {:error, term()}
   def create_booking(params) do
@@ -44,12 +46,83 @@ defmodule MobileCarWash.Scheduling.Booking do
            :ok <- check_availability(params.scheduled_at, service_type.duration_minutes),
            {:ok, price_cents, discount_cents} <- calculate_price(service_type, params[:subscription_id]),
            {:ok, appointment} <- create_appointment(params, service_type, price_cents, discount_cents),
-           :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type) do
-        appointment
+           :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
+           {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
+        result
       else
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
+  end
+
+  @doc """
+  Completes a booking after successful Stripe payment.
+  Called from the webhook handler.
+  """
+  def complete_payment(checkout_session_id, stripe_payment_intent_id \\ nil) do
+    payments =
+      Ash.read!(Payment,
+        action: :by_checkout_session,
+        arguments: %{session_id: checkout_session_id}
+      )
+
+    case payments do
+      [payment] ->
+        # Update payment status
+        {:ok, payment} =
+          payment
+          |> Ash.Changeset.for_update(:complete, %{
+            stripe_payment_intent_id: stripe_payment_intent_id
+          })
+          |> Ash.update()
+
+        # Confirm the appointment
+        if payment.appointment_id do
+          case Ash.get(Appointment, payment.appointment_id) do
+            {:ok, appointment} ->
+              {:ok, appointment} =
+                appointment
+                |> Ash.Changeset.for_update(:confirm, %{})
+                |> Ash.update()
+
+              # Enqueue confirmation email
+              enqueue_confirmation_email(appointment)
+              # Schedule reminder
+              enqueue_appointment_reminder(appointment)
+
+              {:ok, %{payment: payment, appointment: appointment}}
+
+            _ ->
+              {:ok, %{payment: payment}}
+          end
+        else
+          {:ok, %{payment: payment}}
+        end
+
+      [] ->
+        {:error, :payment_not_found}
+    end
+  end
+
+  @doc """
+  Marks a payment as failed (e.g., expired checkout session).
+  """
+  def fail_payment(checkout_session_id) do
+    payments =
+      Ash.read!(Payment,
+        action: :by_checkout_session,
+        arguments: %{session_id: checkout_session_id}
+      )
+
+    case payments do
+      [payment] ->
+        payment
+        |> Ash.Changeset.for_update(:fail, %{})
+        |> Ash.update()
+
+      [] ->
+        {:error, :payment_not_found}
+    end
   end
 
   # --- Private ---
@@ -203,6 +276,68 @@ defmodule MobileCarWash.Scheduling.Booking do
         })
         |> Ash.create!()
     end
+  end
+
+  defp create_payment_and_checkout(appointment, service_type, params) do
+    if appointment.price_cents == 0 do
+      # Fully covered by subscription — no payment needed, auto-confirm
+      {:ok, appointment} =
+        appointment
+        |> Ash.Changeset.for_update(:confirm, %{})
+        |> Ash.update()
+
+      enqueue_confirmation_email(appointment)
+      enqueue_appointment_reminder(appointment)
+
+      {:ok, %{appointment: appointment, checkout_url: nil}}
+    else
+      # Create payment record
+      {:ok, payment} =
+        Payment
+        |> Ash.Changeset.for_create(:create, %{
+          customer_id: params.customer_id,
+          appointment_id: appointment.id,
+          amount_cents: appointment.price_cents,
+          status: :pending
+        })
+        |> Ash.create()
+
+      # Create Stripe Checkout session
+      customer = Ash.get!(MobileCarWash.Accounts.Customer, params.customer_id)
+
+      case StripeClient.create_checkout_session(appointment, service_type, to_string(customer.email)) do
+        {:ok, session} ->
+          # Store the checkout session ID on the payment
+          {:ok, _payment} =
+            payment
+            |> Ash.Changeset.for_update(:update, %{stripe_checkout_session_id: session.id})
+            |> Ash.update()
+
+          {:ok, %{appointment: appointment, checkout_url: session.url}}
+
+        {:error, _stripe_error} ->
+          # Stripe failed — still return the appointment but no checkout URL
+          # The customer can retry payment later
+          {:ok, %{appointment: appointment, checkout_url: nil}}
+      end
+    end
+  end
+
+  defp enqueue_confirmation_email(appointment) do
+    %{appointment_id: appointment.id}
+    |> MobileCarWash.Notifications.BookingConfirmationWorker.new(queue: :notifications)
+    |> Oban.insert()
+  end
+
+  defp enqueue_appointment_reminder(appointment) do
+    scheduled_at = DateTime.add(appointment.scheduled_at, -24 * 3600)
+
+    %{appointment_id: appointment.id}
+    |> MobileCarWash.Notifications.AppointmentReminderWorker.new(
+      queue: :notifications,
+      scheduled_at: scheduled_at
+    )
+    |> Oban.insert()
   end
 
   defp update_usage_counts(usage, service_type) do

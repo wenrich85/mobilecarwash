@@ -447,7 +447,21 @@ defmodule MobileCarWashWeb.BookingLive do
     }
 
     case Booking.create_booking(booking_params) do
-      {:ok, appointment} ->
+      {:ok, %{appointment: appointment, checkout_url: checkout_url}} when not is_nil(checkout_url) ->
+        # Redirect to Stripe Checkout
+        elapsed = System.monotonic_time(:millisecond) - socket.assigns.flow_started_at
+
+        track_event(socket, "booking.payment_started", %{
+          "appointment_id" => appointment.id,
+          "service_slug" => service.slug,
+          "price_cents" => appointment.price_cents,
+          "total_time_ms" => elapsed
+        })
+
+        {:noreply, redirect(socket, external: checkout_url)}
+
+      {:ok, %{appointment: appointment, checkout_url: nil}} ->
+        # Fully covered by subscription or Stripe unavailable — show confirmation
         elapsed = System.monotonic_time(:millisecond) - socket.assigns.flow_started_at
 
         track_event(socket, "booking.completed", %{
@@ -455,7 +469,8 @@ defmodule MobileCarWashWeb.BookingLive do
           "service_slug" => service.slug,
           "price_cents" => appointment.price_cents,
           "discount_cents" => appointment.discount_cents,
-          "total_time_ms" => elapsed
+          "total_time_ms" => elapsed,
+          "payment_method" => "subscription"
         })
 
         {:noreply,

@@ -20,6 +20,10 @@ defmodule MobileCarWash.Billing.Payment do
       public? true
     end
 
+    attribute :stripe_checkout_session_id, :string do
+      public? true
+    end
+
     attribute :amount_cents, :integer do
       allow_nil? false
       public? true
@@ -56,5 +60,25 @@ defmodule MobileCarWash.Billing.Payment do
 
   actions do
     defaults [:read, create: :*, update: :*]
+
+    update :complete do
+      accept [:stripe_payment_intent_id]
+      change set_attribute(:status, :succeeded)
+      change set_attribute(:paid_at, &DateTime.utc_now/0)
+    end
+
+    update :fail do
+      change set_attribute(:status, :failed)
+    end
+
+    read :by_checkout_session do
+      argument :session_id, :string, allow_nil?: false
+      filter expr(stripe_checkout_session_id == ^arg(:session_id))
+    end
+
+    read :by_appointment do
+      argument :appointment_id, :uuid, allow_nil?: false
+      filter expr(appointment_id == ^arg(:appointment_id))
+    end
   end
 end
