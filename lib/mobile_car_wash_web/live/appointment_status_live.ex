@@ -25,7 +25,11 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         end
 
         # Load photos
-        photos = Ash.read!(Photo, action: :for_appointment, arguments: %{appointment_id: appointment_id})
+        require Ash.Query
+        photos =
+          Photo
+          |> Ash.Query.filter(appointment_id == ^appointment_id)
+          |> Ash.read!()
         problem_photos = Enum.filter(photos, &(&1.photo_type == :problem_area))
         before_photos = Enum.filter(photos, &(&1.photo_type == :before))
         after_photos = Enum.filter(photos, &(&1.photo_type == :after))
@@ -166,8 +170,9 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   end
 
   defp reload_photos(socket) do
+    require Ash.Query
     appointment_id = socket.assigns.appointment.id
-    photos = Ash.read!(Photo, action: :for_appointment, arguments: %{appointment_id: appointment_id})
+    photos = Photo |> Ash.Query.filter(appointment_id == ^appointment_id) |> Ash.read!()
 
     assign(socket,
       before_photos: Enum.filter(photos, &(&1.photo_type == :before)),
