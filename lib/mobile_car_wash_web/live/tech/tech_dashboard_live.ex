@@ -21,19 +21,27 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       Enum.find(technicians, fn t -> t.user_account_id == tech_user.id end) ||
       Enum.find(technicians, fn t -> t.name == tech_user.name end)
 
+    is_admin = tech_user.role == :admin
+
     today = Date.utc_today()
     tomorrow = Date.add(today, 1)
 
-    # Load today's and tomorrow's appointments for this technician
-    todays = if tech_record, do: load_appointments(today, tech_record.id), else: []
-    tomorrows = if tech_record, do: load_appointments(tomorrow, tech_record.id), else: []
+    # Admins see all appointments; techs see only their own
+    {todays, tomorrows} =
+      if tech_record do
+        {load_appointments(today, tech_record.id), load_appointments(tomorrow, tech_record.id)}
+      else
+        # Admin without a tech record — show all appointments
+        all_today = Dispatch.appointments_for_date(today)
+        all_tomorrow = Dispatch.appointments_for_date(tomorrow)
+        {all_today, all_tomorrow}
+      end
 
-    # Also load unassigned for visibility
     all_today = Dispatch.appointments_for_date(today)
     all_tomorrow = Dispatch.appointments_for_date(tomorrow)
     unassigned = Enum.filter(all_today ++ all_tomorrow, &is_nil(&1.technician_id))
 
-    # Load earnings summary
+    # Load earnings summary (only if linked to a tech record)
     earnings = if tech_record, do: TechEarnings.earnings_summary(tech_record), else: nil
     wash_history = if tech_record, do: TechEarnings.all_completed_washes(tech_record.id), else: []
 
@@ -45,6 +53,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
        todays_appointments: todays,
        tomorrows_appointments: tomorrows,
        unassigned_count: length(unassigned),
+       is_admin: is_admin,
        earnings: earnings,
        wash_history: wash_history,
        service_map: Ash.read!(ServiceType) |> Map.new(&{&1.id, &1}),
@@ -75,8 +84,15 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         <p class="text-base-content/60">Welcome, {@tech_user.name}</p>
       </div>
 
-      <div :if={!@tech_record} class="alert alert-warning mb-6">
+      <div :if={!@tech_record && !@is_admin} class="alert alert-warning mb-6">
         <span>Your account isn't linked to a technician record yet. Contact your manager.</span>
+      </div>
+
+      <div :if={!@tech_record && @is_admin} class="alert alert-info mb-6">
+        <span>Viewing as admin — showing all appointments. Link your account to a technician in
+          <.link navigate={~p"/admin/dispatch"} class="link font-semibold">Dispatch</.link>
+          to see personal schedule.
+        </span>
       </div>
 
       <div :if={@unassigned_count > 0} class="alert alert-info mb-6">
