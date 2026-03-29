@@ -75,9 +75,16 @@ defmodule MobileCarWashWeb.BookingLive do
         # Forms
         vehicle_form: nil,
         address_form: nil,
+        # Photos
+        uploaded_photos: [],
         # Timing
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
+      )
+      |> allow_upload(:problem_photo,
+        accept: ~w(.jpg .jpeg .png .webp),
+        max_entries: 5,
+        max_file_size: 10_000_000
       )
       |> load_step_data(validated_step)
 
@@ -336,6 +343,56 @@ defmodule MobileCarWashWeb.BookingLive do
         </div>
       </div>
 
+      <div :if={@current_step == :photos}>
+        <h2 class="text-2xl font-bold mb-6">Problem Area Photos</h2>
+        <p class="text-base-content/60 mb-4">
+          Have any scratches, stains, or areas that need extra attention?
+          Upload photos so the technician knows where to focus. This step is optional.
+        </p>
+
+        <!-- Already uploaded photos -->
+        <div :if={@uploaded_photos != []} class="flex gap-2 flex-wrap mb-4">
+          <div :for={photo <- @uploaded_photos} class="relative">
+            <img src={photo.file_path} class="w-24 h-24 object-cover rounded-lg shadow" />
+            <p :if={photo.caption} class="text-xs text-center mt-1">{photo.caption}</p>
+          </div>
+        </div>
+
+        <!-- Upload form -->
+        <form phx-submit="save_problem_photos" phx-change="validate_photos" class="space-y-4">
+          <div class="form-control">
+            <.live_file_input upload={@uploads.problem_photo} class="file-input file-input-bordered w-full" />
+          </div>
+
+          <div class="flex gap-2 flex-wrap">
+            <div :for={entry <- @uploads.problem_photo.entries} class="relative">
+              <.live_img_preview entry={entry} class="w-24 h-24 object-cover rounded-lg" />
+              <button type="button" class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2"
+                phx-click="cancel_photo_upload" phx-value-ref={entry.ref}>
+                ×
+              </button>
+            </div>
+          </div>
+
+          <div class="form-control">
+            <input type="text" name="caption" class="input input-bordered input-sm" placeholder="Describe the issue (optional)" />
+          </div>
+
+          <button :if={@uploads.problem_photo.entries != []} type="submit" class="btn btn-warning btn-sm">
+            Upload Photos
+          </button>
+        </form>
+
+        <div class="mt-6 flex gap-4 justify-end">
+          <button class="btn btn-ghost btn-sm" phx-click="next_step">
+            Skip — No Photos
+          </button>
+          <button :if={@uploaded_photos != []} class="btn btn-primary" phx-click="next_step">
+            Continue
+          </button>
+        </div>
+      </div>
+
       <div :if={@current_step == :schedule}>
         <h2 class="text-2xl font-bold mb-6">Pick a Date & Time</h2>
         <.time_slot_picker
@@ -567,6 +624,37 @@ defmodule MobileCarWashWeb.BookingLive do
     address = Enum.find(socket.assigns.existing_addresses, &(&1.id == id))
     track_event(socket, "booking.address_added", %{"address_id" => id, "is_new" => false})
     {:noreply, socket |> assign(selected_address: address) |> persist_booking_state()}
+  end
+
+  def handle_event("validate_photos", _params, socket), do: {:noreply, socket}
+
+  def handle_event("cancel_photo_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :problem_photo, ref)}
+  end
+
+  def handle_event("save_problem_photos", %{"caption" => caption}, socket) do
+    # Photos are saved temporarily — they'll be linked to the appointment after booking
+    # For now, store them in socket assigns so they persist through the flow
+    uploaded =
+      consume_uploaded_entries(socket, :problem_photo, fn %{path: path}, entry ->
+        # Save to storage backend (local or S3)
+        {:ok, %{file_path: url}} =
+          MobileCarWash.Operations.PhotoUpload.save_file(
+            "pending_#{socket.assigns.booking_session_id}",
+            path,
+            entry.client_name,
+            :problem_area,
+            uploaded_by: :customer,
+            caption: caption
+          )
+
+        {:ok, %{file_path: url, caption: caption, original_filename: entry.client_name}}
+      end)
+
+    {:noreply,
+     socket
+     |> assign(uploaded_photos: socket.assigns.uploaded_photos ++ uploaded)
+     |> put_flash(:info, "Photos uploaded")}
   end
 
   def handle_event("select_date", %{"date" => date_str}, socket) do

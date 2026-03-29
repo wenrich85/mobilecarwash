@@ -5,7 +5,7 @@ defmodule MobileCarWashWeb.BookingComponents do
   use Phoenix.Component
   use MobileCarWashWeb, :verified_routes
 
-  @steps [:select_service, :auth, :vehicle, :address, :schedule, :review, :confirmed]
+  @steps [:select_service, :auth, :vehicle, :address, :photos, :schedule, :review, :confirmed]
 
   attr :current_step, :atom, required: true
 
@@ -33,6 +33,7 @@ defmodule MobileCarWashWeb.BookingComponents do
       {:auth, "Account"},
       {:vehicle, "Vehicle"},
       {:address, "Address"},
+      {:photos, "Photos"},
       {:schedule, "Schedule"},
       {:review, "Review"},
       {:confirmed, "Done"}

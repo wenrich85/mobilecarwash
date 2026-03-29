@@ -5,9 +5,10 @@ defmodule MobileCarWash.Booking.StateMachine do
   Operates on a context map and returns results.
   """
 
-  @steps [:select_service, :auth, :vehicle, :address, :schedule, :review, :confirmed]
+  @steps [:select_service, :auth, :vehicle, :address, :photos, :schedule, :review, :confirmed]
 
-  @type step :: :select_service | :auth | :vehicle | :address | :schedule | :review | :confirmed
+  @type step ::
+          :select_service | :auth | :vehicle | :address | :photos | :schedule | :review | :confirmed
 
   @type context :: %{
           selected_service: term(),
@@ -43,7 +44,8 @@ defmodule MobileCarWash.Booking.StateMachine do
   def can_be_on?(:auth, ctx), do: present?(ctx, :selected_service)
   def can_be_on?(:vehicle, ctx), do: present?(ctx, :selected_service) and present?(ctx, :current_customer)
   def can_be_on?(:address, ctx), do: can_be_on?(:vehicle, ctx) and present?(ctx, :selected_vehicle)
-  def can_be_on?(:schedule, ctx), do: can_be_on?(:address, ctx) and present?(ctx, :selected_address)
+  def can_be_on?(:photos, ctx), do: can_be_on?(:address, ctx) and present?(ctx, :selected_address)
+  def can_be_on?(:schedule, ctx), do: can_be_on?(:photos, ctx)
   def can_be_on?(:review, ctx), do: can_be_on?(:schedule, ctx) and present?(ctx, :selected_slot)
   def can_be_on?(:confirmed, ctx), do: present?(ctx, :appointment)
 
@@ -51,13 +53,11 @@ defmodule MobileCarWash.Booking.StateMachine do
   @spec resolve_step(step(), context()) :: step()
   def resolve_step(claimed_step, context) do
     if can_be_on?(claimed_step, context) do
-      # Handle auth skip: if we can be on :auth but customer is present, jump to :vehicle
       case claimed_step do
         :auth when context.current_customer != nil -> :vehicle
         _ -> claimed_step
       end
     else
-      # Walk backward through steps to find the highest valid one
       steps_up_to =
         @steps
         |> Enum.take_while(&(&1 != claimed_step))
@@ -68,7 +68,6 @@ defmodule MobileCarWash.Booking.StateMachine do
         |> Enum.reverse()
         |> Enum.find(:select_service, &can_be_on?(&1, context))
 
-      # If resolved to :auth but customer present, skip to :vehicle
       case resolved do
         :auth when context.current_customer != nil -> :vehicle
         other -> other
@@ -82,6 +81,7 @@ defmodule MobileCarWash.Booking.StateMachine do
   defp validate_forward_guard(:auth, ctx), do: require_present(ctx, :current_customer)
   defp validate_forward_guard(:vehicle, ctx), do: require_present(ctx, :selected_vehicle)
   defp validate_forward_guard(:address, ctx), do: require_present(ctx, :selected_address)
+  defp validate_forward_guard(:photos, _ctx), do: :ok  # Optional — always passes
   defp validate_forward_guard(:schedule, ctx), do: require_present(ctx, :selected_slot)
   defp validate_forward_guard(:review, _ctx), do: :ok
   defp validate_forward_guard(:confirmed, _ctx), do: {:error, :already_confirmed}
@@ -97,7 +97,8 @@ defmodule MobileCarWash.Booking.StateMachine do
   defp raw_next(:select_service), do: {:ok, :auth}
   defp raw_next(:auth), do: {:ok, :vehicle}
   defp raw_next(:vehicle), do: {:ok, :address}
-  defp raw_next(:address), do: {:ok, :schedule}
+  defp raw_next(:address), do: {:ok, :photos}
+  defp raw_next(:photos), do: {:ok, :schedule}
   defp raw_next(:schedule), do: {:ok, :review}
   defp raw_next(:review), do: {:ok, :confirmed}
   defp raw_next(:confirmed), do: {:error, :no_next_step}
@@ -106,7 +107,8 @@ defmodule MobileCarWash.Booking.StateMachine do
   defp raw_prev(:auth), do: {:ok, :select_service}
   defp raw_prev(:vehicle), do: {:ok, :auth}
   defp raw_prev(:address), do: {:ok, :vehicle}
-  defp raw_prev(:schedule), do: {:ok, :address}
+  defp raw_prev(:photos), do: {:ok, :address}
+  defp raw_prev(:schedule), do: {:ok, :photos}
   defp raw_prev(:review), do: {:ok, :schedule}
   defp raw_prev(:confirmed), do: {:error, :cannot_go_back}
 

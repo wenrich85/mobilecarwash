@@ -87,6 +87,10 @@ defmodule MobileCarWash.MixProject do
       {:sobelow, "~> 0.14", only: :dev, runtime: false},
       {:mix_audit, "~> 2.1", only: :dev, runtime: false},
 
+      # S3 file storage
+      {:ex_aws, "~> 2.5"},
+      {:ex_aws_s3, "~> 2.5"},
+
       # SAT solver (required by Ash policies)
       {:picosat_elixir, "~> 0.2"},
 

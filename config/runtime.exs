@@ -113,6 +113,16 @@ if config_env() == :prod do
     token_signing_secret:
       System.get_env("TOKEN_SIGNING_SECRET") || raise("TOKEN_SIGNING_SECRET is required")
 
+  # S3 photo storage (production)
+  config :mobile_car_wash, :photo_storage, :s3
+  config :mobile_car_wash, :s3_bucket, System.get_env("S3_BUCKET") || raise("S3_BUCKET is required")
+  config :mobile_car_wash, :s3_region, System.get_env("AWS_REGION") || "us-east-1"
+
+  config :ex_aws,
+    access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
+    secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
+    region: System.get_env("AWS_REGION") || "us-east-1"
+
   # ## Configuring the mailer
   #
   # In production you need to configure the mailer to use a different adapter.

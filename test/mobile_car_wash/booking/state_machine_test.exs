@@ -70,17 +70,27 @@ defmodule MobileCarWash.Booking.StateMachineTest do
   end
 
   describe "transition(:forward, :address, ctx)" do
-    test "advances to :schedule when address selected" do
+    test "advances to :photos when address selected" do
       ctx = context_with(%{
         selected_service: service(), current_customer: customer(),
         selected_vehicle: vehicle(), selected_address: address()
       })
-      assert {:ok, :schedule} = StateMachine.transition(:forward, :address, ctx)
+      assert {:ok, :photos} = StateMachine.transition(:forward, :address, ctx)
     end
 
     test "fails when no address" do
       ctx = context_with(%{selected_service: service(), current_customer: customer(), selected_vehicle: vehicle()})
       assert {:error, :missing_selected_address} = StateMachine.transition(:forward, :address, ctx)
+    end
+  end
+
+  describe "transition(:forward, :photos, ctx)" do
+    test "advances to :schedule (optional — no guard)" do
+      ctx = context_with(%{
+        selected_service: service(), current_customer: customer(),
+        selected_vehicle: vehicle(), selected_address: address()
+      })
+      assert {:ok, :schedule} = StateMachine.transition(:forward, :photos, ctx)
     end
   end
 
@@ -135,8 +145,12 @@ defmodule MobileCarWash.Booking.StateMachineTest do
       assert {:ok, :vehicle} = StateMachine.transition(:back, :address, empty_context())
     end
 
-    test "schedule → address" do
-      assert {:ok, :address} = StateMachine.transition(:back, :schedule, empty_context())
+    test "photos → address" do
+      assert {:ok, :address} = StateMachine.transition(:back, :photos, empty_context())
+    end
+
+    test "schedule → photos" do
+      assert {:ok, :photos} = StateMachine.transition(:back, :schedule, empty_context())
     end
 
     test "review → schedule" do

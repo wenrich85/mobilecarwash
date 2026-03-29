@@ -89,6 +89,12 @@ config :mobile_car_wash, :admin_emails, [
   System.get_env("ADMIN_EMAIL") || "admin@mobilecarwash.com"
 ]
 
+# Photo storage — :local (dev) or :s3 (production)
+# S3 bucket is configurable per client for multi-tenant support
+config :mobile_car_wash, :photo_storage, :local
+config :mobile_car_wash, :s3_bucket, System.get_env("S3_BUCKET") || "mobile-car-wash-photos"
+config :mobile_car_wash, :s3_region, System.get_env("AWS_REGION") || "us-east-1"
+
 # Stripe configuration
 config :stripity_stripe,
   api_key: System.get_env("STRIPE_SECRET_KEY") || "sk_test_placeholder",
