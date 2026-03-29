@@ -42,11 +42,9 @@ defmodule MobileCarWash.RegressionTest do
   end
 
   defp book_appointment(customer, service, vehicle, address) do
-    # Use 2030 with random month/day/hour to avoid any possible slot conflicts
-    month = 1 + :rand.uniform(11)
-    day = 1 + :rand.uniform(27)
+    # Fixed far-future Wednesday at random hour to avoid conflicts
     hour = 8 + :rand.uniform(8)
-    {:ok, dt} = DateTime.new(Date.new!(2030, 6, 4), Time.new!(hour, 0, 0))
+    {:ok, dt} = DateTime.new(~D[2030-06-05], Time.new!(hour, 0, 0))
 
     {:ok, %{appointment: appt}} =
       MobileCarWash.Scheduling.Booking.create_booking(%{

@@ -31,44 +31,116 @@ defmodule MobileCarWashWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
-  slot :inner_block, required: true
+  slot :inner_block, required: false
 
   def app(assigns) do
+    # Build scope from current_customer (set by LiveAuth hooks) or current_scope
+    customer = assigns[:current_scope] || assigns[:current_customer]
+
+    scope =
+      case customer do
+        %{name: name, role: role} -> %{name: name, role: role}
+        _ -> nil
+      end
+
+    assigns = assign(assigns, :current_scope, scope)
+
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
+    <div class="drawer">
+      <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
+
+      <div class="drawer-content flex flex-col">
+        <!-- Navbar -->
+        <header class="navbar bg-base-100 shadow-sm sticky top-0 z-50">
+          <!-- Mobile hamburger -->
+          <div class="flex-none lg:hidden">
+            <label for="mobile-drawer" class="btn btn-square btn-ghost">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </label>
+          </div>
+
+          <!-- Brand -->
+          <div class="flex-1">
+            <a href="/" class="btn btn-ghost text-xl font-bold">
+              Mobile Car Wash
             </a>
-          </li>
+          </div>
+
+          <!-- Desktop nav -->
+          <div class="flex-none hidden lg:block">
+            <ul class="menu menu-horizontal items-center gap-1">
+              <li><a href="/" class="btn btn-ghost btn-sm">Home</a></li>
+              <li><a href="/book" class="btn btn-ghost btn-sm">Book a Wash</a></li>
+
+              <li :if={@current_scope}><a href="/appointments" class="btn btn-ghost btn-sm">My Appointments</a></li>
+
+              <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}>
+                <a href="/tech" class="btn btn-ghost btn-sm">Tech Dashboard</a>
+              </li>
+
+              <li :if={@current_scope && Map.get(@current_scope, :role) == :admin} class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-sm">Admin ▾</div>
+                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50">
+                  <li><a href="/admin/dispatch">Dispatch</a></li>
+                  <li><a href="/admin/metrics">Metrics</a></li>
+                  <li><a href="/admin/events">Events</a></li>
+                  <li><a href="/admin/formation">Formation</a></li>
+                  <li><a href="/admin/org-chart">Org Chart</a></li>
+                  <li><a href="/admin/procedures">SOPs</a></li>
+                </ul>
+              </li>
+
+              <li><.theme_toggle /></li>
+
+              <li :if={@current_scope}>
+                <span class="text-sm text-base-content/60">{Map.get(@current_scope, :name, "")}</span>
+              </li>
+              <li :if={@current_scope}>
+                <a href="/sign-out" class="btn btn-outline btn-sm">Sign Out</a>
+              </li>
+              <li :if={!@current_scope}>
+                <a href="/sign-in" class="btn btn-primary btn-sm">Sign In</a>
+              </li>
+            </ul>
+          </div>
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1">
+          {render_slot(@inner_block) || @inner_content}
+        </main>
+
+        <.flash_group flash={@flash} />
+      </div>
+
+      <!-- Mobile drawer sidebar -->
+      <div class="drawer-side z-50">
+        <label for="mobile-drawer" class="drawer-overlay"></label>
+        <ul class="menu p-4 w-72 min-h-full bg-base-200">
+          <li class="menu-title text-lg font-bold mb-2">Mobile Car Wash</li>
+          <li><a href="/">Home</a></li>
+          <li><a href="/book">Book a Wash</a></li>
+
+          <li :if={@current_scope}><a href="/appointments">My Appointments</a></li>
+
+          <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]} class="menu-title mt-4">Technician</li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}><a href="/tech">Dashboard</a></li>
+
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin} class="menu-title mt-4">Admin</li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/dispatch">Dispatch</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/metrics">Metrics</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/events">Events</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/formation">Formation</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/org-chart">Org Chart</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/procedures">SOPs</a></li>
+
+          <li :if={@current_scope} class="mt-4"><a href="/sign-out" class="text-error">Sign Out</a></li>
+          <li :if={!@current_scope} class="mt-4"><a href="/sign-in" class="font-semibold">Sign In</a></li>
         </ul>
       </div>
-    </header>
-
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
-        {render_slot(@inner_block)}
-      </div>
-    </main>
-
-    <.flash_group flash={@flash} />
+    </div>
     """
   end
 
