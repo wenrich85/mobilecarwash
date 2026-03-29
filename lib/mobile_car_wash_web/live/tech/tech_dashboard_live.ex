@@ -46,6 +46,19 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   end
 
   @impl true
+  def handle_event("start_wash", %{"id" => appointment_id}, socket) do
+    alias MobileCarWash.Scheduling.WashOrchestrator
+
+    case WashOrchestrator.start_wash(appointment_id) do
+      {:ok, checklist} ->
+        {:noreply, push_navigate(socket, to: ~p"/tech/checklist/#{checklist.id}")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Could not start wash: #{inspect(reason)}")}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="max-w-lg mx-auto py-6 px-4">
@@ -129,8 +142,19 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           <span class="text-xs text-base-content/50">{@progress.steps_done}/{@progress.steps_total} steps</span>
         </div>
 
-        <!-- Action button -->
+        <!-- Action buttons -->
         <div class="mt-3">
+          <!-- Start Wash: for confirmed appointments without a checklist -->
+          <button
+            :if={@progress.steps_total == 0 and @appointment.status == :confirmed}
+            class="btn btn-warning btn-sm btn-block"
+            phx-click="start_wash"
+            phx-value-id={@appointment.id}
+          >
+            Start Wash
+          </button>
+
+          <!-- Continue/Start Checklist: when checklist already exists -->
           <.link
             :if={@progress.steps_total > 0}
             navigate={~p"/tech/checklist/#{get_checklist_id(@appointment.id)}"}
@@ -138,8 +162,9 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           >
             {if @progress.steps_done > 0, do: "Continue Checklist", else: "Start Checklist"}
           </.link>
-          <span :if={@progress.steps_total == 0 and @appointment.status in [:pending, :confirmed]} class="text-xs text-base-content/50">
-            Checklist will be created when wash starts
+
+          <span :if={@appointment.status == :pending} class="text-xs text-base-content/50">
+            Awaiting confirmation
           </span>
         </div>
       </div>

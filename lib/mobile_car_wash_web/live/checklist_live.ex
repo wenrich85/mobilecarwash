@@ -89,9 +89,11 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   @impl true
   def handle_event("start_step", %{"id" => item_id}, socket) do
+    alias MobileCarWash.Booking.WashStateMachine
+
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
-    if item && !item.completed do
+    if item && WashStateMachine.can_start_step?(item, socket.assigns.items) do
       {:ok, updated} =
         item
         |> Ash.Changeset.for_update(:start_step, %{})
@@ -101,14 +103,17 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
       {:noreply, assign(socket, items: items, active_item_id: item_id)}
     else
-      {:noreply, socket}
+      {:noreply, put_flash(socket, :error, "Cannot start this step yet — complete previous required steps first.")}
     end
   end
 
   def handle_event("complete_step", %{"id" => item_id}, socket) do
+    alias MobileCarWash.Booking.WashStateMachine
+    alias MobileCarWash.Scheduling.WashOrchestrator
+
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
-    if item do
+    if item && WashStateMachine.can_complete_step?(item) do
       {:ok, updated} =
         item
         |> Ash.Changeset.for_update(:check, %{})
@@ -119,7 +124,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
       pct = if socket.assigns.total > 0, do: Float.round(done / socket.assigns.total * 100, 0), else: 0
 
       # Find next incomplete step
-      next = Enum.find(items, &(!&1.completed))
+      next = WashStateMachine.next_step(items)
       next_name = if next, do: next.title, else: "Finishing up"
 
       # Broadcast to customer
@@ -130,13 +135,16 @@ defmodule MobileCarWashWeb.ChecklistLive do
         items: items
       })
 
-      # Auto-complete checklist if all required done
+      # Auto-complete wash if all required done
       socket =
-        if all_required_complete?(items) and socket.assigns.checklist.status != :completed do
+        if WashStateMachine.all_required_complete?(items) and socket.assigns.checklist.status != :completed do
           {:ok, checklist} =
             socket.assigns.checklist
             |> Ash.Changeset.for_update(:complete_checklist, %{})
             |> Ash.update()
+
+          # Also complete the appointment
+          WashOrchestrator.complete_wash(socket.assigns.appointment.id)
 
           assign(socket, checklist: checklist)
         else
