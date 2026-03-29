@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile Car Wash — User Journey Diagram</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; background: #f8f9fa; }
+  h1 { text-align: center; color: #1a1a2e; }
+  h2 { color: #16213e; border-bottom: 2px solid #e94560; padding-bottom: 0.5rem; margin-top: 3rem; }
+  h3 { color: #0f3460; }
+  .mermaid { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 1.5rem 0; }
+  .screen { background: white; border: 2px solid #ddd; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto; line-height: 1.4; }
+  .screen-title { font-family: sans-serif; font-weight: bold; font-size: 14px; color: #e94560; margin-bottom: 0.5rem; display: block; }
+  .legend { display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap; margin: 1rem 0; }
+  .legend span { padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 13px; }
+  .role-customer { background: #dbeafe; color: #1e40af; }
+  .role-tech { background: #fef3c7; color: #92400e; }
+  .role-admin { background: #fce7f3; color: #9d174d; }
+  .role-shared { background: #e5e7eb; color: #374151; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border: 1px solid #ddd; padding: 0.6rem; text-align: left; font-size: 14px; }
+  th { background: #1a1a2e; color: white; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .credentials { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+</style>
+</head>
+<body>
+<h1>Mobile Car Wash &mdash; User Journey Map</h1>
+<p style="text-align:center; color:#666;">All paths through the application, organized by role</p>
+
+<div class="credentials">
+  <strong>Demo Credentials:</strong>
+  Customer: <code>customer@demo.com</code> / <code>Password123!</code> &nbsp;|&nbsp;
+  Technician: <code>tech@demo.com</code> / <code>Password123!</code> &nbsp;|&nbsp;
+  Admin: <code>admin@mobilecarwash.com</code> / <code>Password123!</code>
+</div>
+
+<div class="legend">
+  <span class="role-shared">Shared / Public</span>
+  <span class="role-customer">Customer Path</span>
+  <span class="role-tech">Technician Path</span>
+  <span class="role-admin">Admin / Manager Path</span>
+</div>
+
+<h2>1. Complete User Flow Diagram</h2>
+
+<div class="mermaid">
+flowchart TB
+    START([Visit Website]) --> LANDING[Landing Page<br/>Services + Plans + Veteran Badge]
+    LANDING --> BOOK_BTN{Book Now}
+    LANDING --> SIGNIN_BTN{Sign In}
+
+    BOOK_BTN --> BOOKING[Booking Flow<br/>Step 1: Select Service]
+    BOOKING --> AUTH_STEP{Step 2: Account}
+
+    AUTH_STEP -->|Guest| GUEST[Enter Name + Email + Phone]
+    AUTH_STEP -->|Sign In| SIGNIN[Sign In Page]
+    AUTH_STEP -->|Already Logged In| VEHICLE
+
+    GUEST --> VEHICLE[Step 3: Vehicle<br/>Car / SUV-Van / Pickup]
+    SIGNIN -->|Customer| VEHICLE
+    SIGNIN -->|Technician| TECH_DASH
+    SIGNIN -->|Admin| DISPATCH
+
+    VEHICLE --> ADDRESS[Step 4: Address]
+    ADDRESS --> SCHEDULE[Step 5: Pick Date + Time]
+    SCHEDULE --> REVIEW[Step 6: Review<br/>Price adjusted by vehicle type]
+    REVIEW --> STRIPE[Stripe Checkout<br/>Secure Payment]
+
+    STRIPE -->|Success| SUCCESS[Payment Success Page]
+    STRIPE -->|Cancel| CANCEL[Payment Cancelled<br/>Try Again]
+
+    SUCCESS --> APPOINTMENTS[My Appointments<br/>Track Live + Upload Photos]
+    APPOINTMENTS --> STATUS[Real-Time Tracking<br/>Step-by-step progress + ETA]
+    APPOINTMENTS --> UPLOAD[Upload Problem<br/>Area Photos]
+
+    SIGNIN_BTN --> SIGNIN
+
+    subgraph TECH [Technician Experience]
+        TECH_DASH[Tech Dashboard<br/>Today + Tomorrow Schedule]
+        TECH_DASH --> CHECKLIST[Wash Checklist<br/>Interactive Timers]
+        CHECKLIST --> TIMER_GREEN[Timer Running<br/>Green = On Track]
+        TIMER_GREEN --> TIMER_YELLOW[Yellow = 45s Left]
+        TIMER_YELLOW --> TIMER_RED[Red = Over Time]
+        CHECKLIST --> BEFORE_PHOTO[Take Before Photo]
+        CHECKLIST --> STEP_PHOTO[Step Photos]
+        CHECKLIST --> AFTER_PHOTO[Take After Photo]
+        CHECKLIST --> COMPLETE[Checklist Complete<br/>Time Analysis Report]
+    end
+
+    subgraph ADMIN [Admin / Manager Experience]
+        DISPATCH[Dispatch Center<br/>Assign Techs + Live Progress]
+        DISPATCH --> METRICS[Metrics Dashboard<br/>KPIs + AARRR Funnel]
+        METRICS --> EVENTS[Event Explorer<br/>28+ Event Types]
+        DISPATCH --> FORMATION[Business Formation<br/>22 TX/Federal/Veteran Tasks]
+        DISPATCH --> ORG[Org Chart<br/>E-Myth Positions]
+        ORG --> SOPS[SOPs<br/>Basic Wash: 8 Steps<br/>Deep Clean: 15 Steps]
+    end
+
+    COMPLETE -.->|PubSub| STATUS
+
+    style LANDING fill:#f0f0f0,stroke:#333
+    style BOOKING fill:#dbeafe,stroke:#1e40af
+    style GUEST fill:#dbeafe,stroke:#1e40af
+    style VEHICLE fill:#dbeafe,stroke:#1e40af
+    style ADDRESS fill:#dbeafe,stroke:#1e40af
+    style SCHEDULE fill:#dbeafe,stroke:#1e40af
+    style REVIEW fill:#dbeafe,stroke:#1e40af
+    style STRIPE fill:#d1fae5,stroke:#059669
+    style SUCCESS fill:#d1fae5,stroke:#059669
+    style APPOINTMENTS fill:#dbeafe,stroke:#1e40af
+    style STATUS fill:#dbeafe,stroke:#1e40af
+    style TECH_DASH fill:#fef3c7,stroke:#92400e
+    style CHECKLIST fill:#fef3c7,stroke:#92400e
+    style COMPLETE fill:#fef3c7,stroke:#92400e
+    style DISPATCH fill:#fce7f3,stroke:#9d174d
+    style METRICS fill:#fce7f3,stroke:#9d174d
+    style FORMATION fill:#fce7f3,stroke:#9d174d
+    style ORG fill:#fce7f3,stroke:#9d174d
+    style SOPS fill:#fce7f3,stroke:#9d174d
+</div>
+
+<h2>2. Customer Journey &mdash; Screen by Screen</h2>
+
+<div class="mermaid">
+flowchart LR
+    A[Landing Page] -->|Book Now| B[Select Service]
+    B --> C[Guest or Sign In]
+    C --> D[Add Vehicle]
+    D --> E[Add Address]
+    E --> F[Pick Time]
+    F --> G[Review + Pay]
+    G --> H[Track Live]
+
+    style A fill:#f0f0f0
+    style B fill:#dbeafe
+    style C fill:#dbeafe
+    style D fill:#dbeafe
+    style E fill:#dbeafe
+    style F fill:#dbeafe
+    style G fill:#d1fae5
+    style H fill:#dbeafe
+</div>
+
+<h3>Screen 1: Landing Page (<code>/</code>)</h3>
+<div class="screen"><span class="screen-title">Landing Page &mdash; Hero + Services</span>
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;       Professional Car Wash at Your Door            &#9474;
+&#9474;                                                      &#9474;
+&#9474;  Skip the drive. Veteran-owned. Guaranteed.          &#9474;
+&#9474;                [ View Services ]                     &#9474;
+&#9474;                                                      &#9474;
+&#9474;  +-----------------+    +-----------------+          &#9474;
+&#9474;  | Basic Wash      |    | Deep Clean      |          &#9474;
+&#9474;  | starting at     |    | starting at     |          &#9474;
+&#9474;  | $50  45 min     |    | $200  120 min   |          &#9474;
+&#9474;  | [  Book Now  ]  |    | [  Book Now  ]  |          &#9474;
+&#9474;  +-----------------+    +-----------------+          &#9474;
+&#9474;                                                      &#9474;
+&#9474;  How It Works: 1.Choose  2.Pick Time  3.We Come      &#9474;
+&#9474;                                                      &#9474;
+&#9474;  Basic $90   Standard $125*   Premium $200            &#9474;
+&#9474;  Proudly veteran-owned and operated                  &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
+
+<h3>Screen 2: Booking &mdash; Guest Checkout (<code>/book</code> step 2)</h3>
+<div class="screen"><span class="screen-title">Three options: Guest, Sign In, or Create Account</span>
+  How would you like to continue?
+
+  +--------------------------------------+
+  | Continue as Guest                    |  &lt;-- Primary
+  | No account needed.                  |
+  |                                      |
+  | Name *  [____________________]       |
+  | Email * [____________________]       |
+  | Phone   [____________________]       |
+  |                                      |
+  | [    Continue as Guest    ]          |
+  +--------------------------------------+
+
+  --------------- OR ---------------
+
+  +--------------------------------------+
+  | Have an account?                     |
+  | [Sign In]        [Create Account]    |
+  +--------------------------------------+</div>
+
+<h3>Screen 3: Vehicle Type &mdash; Pricing (<code>/book</code> step 3)</h3>
+<div class="screen"><span class="screen-title">Vehicle type selection affects final price</span>
+  Vehicle Type *
+  +----------+  +----------+  +----------+
+  | * Car    |  | o SUV/Van|  | o Pickup |
+  | Sedan,   |  |   +20%   |  |   +50%   |
+  | Coupe    |  |   price  |  |   price  |
+  +----------+  +----------+  +----------+
+
+  Pricing:
+  Car:     Basic $50  |  Deep Clean $200
+  SUV/Van: Basic $60  |  Deep Clean $240
+  Pickup:  Basic $75  |  Deep Clean $300</div>
+
+<h3>Screen 4: Real-Time Tracking (<code>/appointments/:id/status</code>)</h3>
+<div class="screen"><span class="screen-title">Customer sees live progress via PubSub</span>
+  Appointment Status
+  Basic Wash - April 05 at 02:00 PM
+
+  [ Wash in progress... ETA: ~24 minutes ]
+
+  Progress
+  [check] 1. Vehicle Inspection       0:32
+  [check] 2. Pre-Rinse                4:45
+  [check] 3. Apply Soap               3:10
+  [pulse] 4. Hand Wash / Scrub    In progress...
+  [    ]  5. Rinse                     ~5m
+  [    ]  6. Tire &amp; Wheel Cleaning    ~5m
+  [    ]  7. Dry                       ~8m
+  [    ]  8. Final Inspection          ~3m
+
+  =========--------  4/8 steps  ~24 min remaining</div>
+
+<h2>3. Technician Journey</h2>
+
+<div class="mermaid">
+flowchart LR
+    A[Sign In] -->|tech role| B[Tech Dashboard]
+    B --> C[Start Checklist]
+    C --> D[Before Photo]
+    D --> E[Work Steps with Timers]
+    E --> F[After Photo]
+    F --> G[Time Analysis]
+
+    style A fill:#f0f0f0
+    style B fill:#fef3c7
+    style C fill:#fef3c7
+    style D fill:#fef3c7
+    style E fill:#fef3c7
+    style F fill:#fef3c7
+    style G fill:#fef3c7
+</div>
+
+<h3>Screen 5: Checklist with Timers (<code>/tech/checklist/:id</code>)</h3>
+<div class="screen"><span class="screen-title">Green / Yellow / Red timer system</span>
+  Wash Checklist                          [3/8]
+  =========----  38% complete  ETA: ~26 min
+
+  [check] 1. Vehicle Inspection    Actual: 00:32 / 3m  (under)
+  [check] 2. Pre-Rinse             Actual: 04:45 / 5m  (under)
+  [check] 3. Apply Soap            Actual: 03:30 / 3m  (OVER)
+
+  4. Hand Wash / Scrub                [Req]
+     Using microfiber mitt...
+     GREEN 04:15 / 10:00 est
+     =====-----------  (green progress bar)
+                        [Done] [+ Photo]
+
+  5. Rinse                            [Req]
+                        [Start Step] [+ Photo]
+
+  -- On Completion --
+  Time Analysis
+  Vehicle Inspection    00:32 / 3m   under
+  Pre-Rinse             04:45 / 5m   under
+  Apply Soap            03:30 / 3m   OVER
+  Hand Wash             09:20 / 10m  under
+  Total                 38:27</div>
+
+<h2>4. Admin Journey</h2>
+
+<div class="mermaid">
+flowchart LR
+    A[Sign In] -->|admin role| B[Dispatch]
+    B --> C[Metrics]
+    C --> D[Events]
+    B --> E[Formation]
+    B --> F[Org Chart]
+    F --> G[SOPs]
+
+    style A fill:#f0f0f0
+    style B fill:#fce7f3
+    style C fill:#fce7f3
+    style D fill:#fce7f3
+    style E fill:#fce7f3
+    style F fill:#fce7f3
+    style G fill:#fce7f3
+</div>
+
+<h3>Screen 6: Dispatch Center (<code>/admin/dispatch</code>)</h3>
+<div class="screen"><span class="screen-title">Assign technicians + monitor live progress</span>
+  Dispatch Center          Sunday, March 29, 2026
+
+  [3] Unassigned
+  +----------+  +----------+  +----------+
+  |Basic Wash|  |Deep Clean|  |Basic Wash|
+  |10:00 AM  |  |01:00 PM  |  |04:00 PM  |
+  |Confirmed |  |Confirmed |  |Pending   |
+  |[Owner v] |  |[Assign v]|  |[Assign v]|
+  +----------+  +----------+  +----------+
+
+  Active Washes
+  +------------------------------------------+
+  | Tech: Owner | Basic Wash | 10:00 AM      |
+  | Customer: Jane C.                        |
+  | =========---  5/8 steps   ETA: 16 min   |
+  | Current: Rinse                           |
+  +------------------------------------------+</div>
+
+<h3>Screen 7: Metrics Dashboard (<code>/admin/metrics</code>)</h3>
+<div class="screen"><span class="screen-title">AARRR Funnel + Pivot Signals</span>
+  Metrics Dashboard          Build - Measure - Learn
+
+  Revenue  Subscribers  Bookings  Conversion
+  $450     3            12        8.3%
+
+  AARRR Funnel
+  Visitors    ==========  144
+  Signups     ====  42
+  Bk Started  ===  28
+  Bk Complete ==  18
+  Payments    ==  12
+  Returning   =  4
+
+  Pivot Signals
+  [ok] Weekly Traffic  144    (&gt;=50)
+  [ok] Visit-Signup    29.2%  (&gt;=5%)
+  [ok] Signup-Booking  66.7%  (&gt;=30%)
+  [ok] Abandonment     35.7%  (&lt;=60%)
+  [ok] Monthly Churn   0.0%   (&lt;=15%)</div>
+
+<h2>5. Pricing by Vehicle Type</h2>
+
+<div class="mermaid">
+flowchart LR
+    subgraph Selection
+        CAR["Car 1.0x"]
+        SUV["SUV/Van 1.2x"]
+        TRUCK["Pickup 1.5x"]
+    end
+
+    subgraph Basic Wash
+        B1["$50"]
+        B2["$60"]
+        B3["$75"]
+    end
+
+    subgraph Deep Clean
+        D1["$200"]
+        D2["$240"]
+        D3["$300"]
+    end
+
+    CAR --> B1
+    CAR --> D1
+    SUV --> B2
+    SUV --> D2
+    TRUCK --> B3
+    TRUCK --> D3
+
+    style CAR fill:#d1fae5,stroke:#059669
+    style SUV fill:#fef3c7,stroke:#d97706
+    style TRUCK fill:#fee2e2,stroke:#dc2626
+</div>
+
+<h2>6. Real-Time Data Flow</h2>
+
+<div class="mermaid">
+sequenceDiagram
+    participant C as Customer
+    participant W as Web App
+    participant T as Technician
+    participant PS as PubSub
+
+    C->>W: Book wash + pay
+    W->>C: Confirmation + tracking link
+
+    T->>W: Start checklist
+    W->>PS: broadcast_started
+    PS->>C: Your wash has begun!
+
+    loop Each Step
+        T->>W: Start step (timer begins)
+        Note over T,W: Green - Yellow - Red
+        T->>W: Complete step
+        W->>PS: broadcast_step_progress
+        PS->>C: Step N/8 complete ETA Xm
+    end
+
+    T->>W: Upload AFTER photo
+    T->>W: Complete checklist
+    W->>PS: broadcast_completed
+    PS->>C: Your wash is complete!
+</div>
+
+<h2>7. All Routes Reference</h2>
+
+<table>
+<tr><th>Route</th><th>Auth</th><th>Role</th><th>Description</th></tr>
+<tr><td><code>/</code></td><td>Public</td><td>&mdash;</td><td>Landing page with services, plans, veteran badge</td></tr>
+<tr><td><code>/book</code></td><td>Public</td><td>&mdash;</td><td>7-step booking wizard with guest checkout</td></tr>
+<tr><td><code>/sign-in</code></td><td>Public</td><td>&mdash;</td><td>Login (role-based redirect after auth)</td></tr>
+<tr><td><code>/book/success</code></td><td>Public</td><td>&mdash;</td><td>Post-payment confirmation</td></tr>
+<tr><td><code>/book/cancel</code></td><td>Public</td><td>&mdash;</td><td>Payment cancelled, retry option</td></tr>
+<tr><td><code>/appointments</code></td><td>Required</td><td>Customer</td><td>My appointments with tracking + photo upload</td></tr>
+<tr><td><code>/appointments/:id/status</code></td><td>Required</td><td>Customer</td><td>Real-time wash progress via PubSub</td></tr>
+<tr><td><code>/tech</code></td><td>Required</td><td>Technician</td><td>Daily schedule + assignment list</td></tr>
+<tr><td><code>/tech/checklist/:id</code></td><td>Required</td><td>Technician</td><td>Interactive checklist with timers + photos</td></tr>
+<tr><td><code>/admin/dispatch</code></td><td>Required</td><td>Admin</td><td>Technician assignment + live wash progress</td></tr>
+<tr><td><code>/admin/metrics</code></td><td>Required</td><td>Admin</td><td>AARRR funnel, pivot signals, KPIs</td></tr>
+<tr><td><code>/admin/events</code></td><td>Required</td><td>Admin</td><td>Analytics event explorer</td></tr>
+<tr><td><code>/admin/formation</code></td><td>Required</td><td>Admin</td><td>Business formation task tracker (22 tasks)</td></tr>
+<tr><td><code>/admin/org-chart</code></td><td>Required</td><td>Admin</td><td>E-Myth organizational hierarchy</td></tr>
+<tr><td><code>/admin/procedures</code></td><td>Required</td><td>Admin</td><td>Standard operating procedures</td></tr>
+</table>
+
+<script>mermaid.initialize({startOnLoad: true, theme: 'default'});</script>
+</body>
+</html>
