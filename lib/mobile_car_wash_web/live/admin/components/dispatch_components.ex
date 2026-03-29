@@ -16,7 +16,7 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
         <div class="flex justify-between items-start">
           <div>
             <h4 class="font-bold">{@service_name}</h4>
-            <p class="text-sm text-base-content/60">{Calendar.strftime(@appointment.scheduled_at, "%I:%M %p")}</p>
+            <p class="text-sm text-base-content/60">{Calendar.strftime(@appointment.scheduled_at, "%b %d, %Y · %I:%M %p")}</p>
             <p class="text-sm">{@customer_name}</p>
           </div>
           <span class={["badge badge-sm", status_badge(@appointment.status)]}>
