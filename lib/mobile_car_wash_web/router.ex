@@ -45,9 +45,11 @@ defmodule MobileCarWashWeb.Router do
     end
 
     # Authentication routes (sign in, sign up, sign out)
+    # Note: auth_routes uses Phoenix.Router.scoped_alias, so pass bare AuthController
+    # (the scope "/", MobileCarWashWeb prepends the namespace automatically)
     sign_in_route(auth_routes_prefix: "/auth")
-    sign_out_route MobileCarWashWeb.AuthController
-    auth_routes MobileCarWashWeb.AuthController, MobileCarWash.Accounts.Customer
+    sign_out_route AuthController
+    auth_routes AuthController, MobileCarWash.Accounts.Customer
   end
 
   # Customer routes — any authenticated user
