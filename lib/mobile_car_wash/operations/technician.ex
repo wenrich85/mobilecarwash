@@ -50,6 +50,11 @@ defmodule MobileCarWash.Operations.Technician do
     belongs_to :van, MobileCarWash.Operations.Van do
       allow_nil? true
     end
+
+    belongs_to :user_account, MobileCarWash.Accounts.Customer do
+      allow_nil? true
+      description "Links this technician to a login account"
+    end
   end
 
   actions do

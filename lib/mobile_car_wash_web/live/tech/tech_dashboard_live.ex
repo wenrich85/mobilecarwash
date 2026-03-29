@@ -15,9 +15,11 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   def mount(_params, _session, socket) do
     tech_user = socket.assigns.current_customer
 
-    # Find technician record matching this user's name/email
+    # Find technician record linked to this user account (or fall back to name match)
     technicians = Ash.read!(MobileCarWash.Operations.Technician)
-    tech_record = Enum.find(technicians, fn t -> t.name == tech_user.name end)
+    tech_record =
+      Enum.find(technicians, fn t -> t.user_account_id == tech_user.id end) ||
+      Enum.find(technicians, fn t -> t.name == tech_user.name end)
 
     today = Date.utc_today()
     tomorrow = Date.add(today, 1)
