@@ -23,12 +23,20 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
     date = Date.utc_today()
 
+    # Load technician-role users for linking dropdown
+    tech_users =
+      Customer
+      |> Ash.Query.filter(role in [:technician, :admin])
+      |> Ash.read!()
+
     socket =
       socket
       |> assign(
         page_title: "Dispatch Center",
         technicians: technicians,
+        tech_users: tech_users,
         selected_date: date,
+        show_manage_techs: false,
         service_map: load_service_map(),
         customer_map: %{}
       )
@@ -46,6 +54,50 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   def handle_event("assign_tech", %{"appointment-id" => appt_id, "technician_id" => tech_id}, socket) do
     Dispatch.assign_technician(appt_id, tech_id)
     {:noreply, load_appointments(socket)}
+  end
+
+  def handle_event("toggle_manage_techs", _params, socket) do
+    {:noreply, assign(socket, show_manage_techs: !socket.assigns.show_manage_techs)}
+  end
+
+  def handle_event("link_tech_account", %{"tech-id" => tech_id, "user_id" => user_id}, socket) do
+    import Ecto.Query
+    uid = if user_id == "", do: nil, else: Ecto.UUID.dump!(user_id)
+
+    MobileCarWash.Repo.update_all(
+      from(t in "technicians", where: t.id == type(^tech_id, :binary_id)),
+      set: [user_account_id: uid]
+    )
+
+    technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+    {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Technician account updated")}
+  end
+
+  def handle_event("update_tech_rate", %{"tech-id" => tech_id, "rate" => rate_str}, socket) do
+    case Integer.parse(rate_str) do
+      {rate_dollars, _} ->
+        import Ecto.Query
+        MobileCarWash.Repo.update_all(
+          from(t in "technicians", where: t.id == type(^tech_id, :binary_id)),
+          set: [pay_rate_cents: rate_dollars * 100]
+        )
+        technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+        {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Pay rate updated")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Invalid rate")}
+    end
+  end
+
+  def handle_event("add_technician", %{"name" => name, "phone" => phone}, socket) do
+    case Technician |> Ash.Changeset.for_create(:create, %{name: name, phone: phone}) |> Ash.create() do
+      {:ok, _tech} ->
+        technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+        {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Technician #{name} added")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not add technician")}
+    end
   end
 
   def handle_event("change_date", %{"date" => date_str}, socket) do
@@ -157,6 +209,81 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       <!-- Empty state -->
       <div :if={@all_appointments == []} class="text-center py-12">
         <p class="text-base-content/50 text-lg">No appointments for {Calendar.strftime(@selected_date, "%B %d")}</p>
+      </div>
+
+      <!-- Manage Technicians -->
+      <div class="mb-8">
+        <button class="btn btn-ghost btn-sm mb-4" phx-click="toggle_manage_techs">
+          {if @show_manage_techs, do: "Hide", else: "Manage"} Technicians
+        </button>
+
+        <div :if={@show_manage_techs}>
+          <!-- Add New Technician -->
+          <div class="card bg-base-100 shadow mb-4">
+            <div class="card-body p-4">
+              <h3 class="font-bold mb-2">Add Technician</h3>
+              <form phx-submit="add_technician" class="flex gap-2 items-end">
+                <div class="form-control flex-1">
+                  <label class="label label-text text-xs">Name</label>
+                  <input type="text" name="name" class="input input-bordered input-sm" required placeholder="Tech name" />
+                </div>
+                <div class="form-control flex-1">
+                  <label class="label label-text text-xs">Phone</label>
+                  <input type="text" name="phone" class="input input-bordered input-sm" placeholder="555-0000" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Add</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Existing Technicians -->
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Linked Account</th>
+                  <th>Pay Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={tech <- @technicians}>
+                  <td class="font-semibold">{tech.name}</td>
+                  <td>
+                    <select
+                      class="select select-bordered select-xs w-full max-w-xs"
+                      phx-change="link_tech_account"
+                      phx-value-tech-id={tech.id}
+                      name="user_id"
+                    >
+                      <option value="">— No account —</option>
+                      <option
+                        :for={u <- @tech_users}
+                        value={u.id}
+                        selected={tech.user_account_id == u.id}
+                      >
+                        {u.name} ({u.email})
+                      </option>
+                    </select>
+                  </td>
+                  <td>
+                    <form phx-submit="update_tech_rate" phx-value-tech-id={tech.id} class="flex gap-1 items-center">
+                      <span class="text-xs">$</span>
+                      <input
+                        type="number"
+                        name="rate"
+                        class="input input-bordered input-xs w-20"
+                        value={div(tech.pay_rate_cents || 2500, 100)}
+                        min="0"
+                      />
+                      <button type="submit" class="btn btn-ghost btn-xs">Save</button>
+                    </form>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
     """
