@@ -17,12 +17,7 @@ defmodule MobileCarWashWeb.LiveAuth do
 
   def on_mount(:require_customer, _params, session, socket) do
     case load_customer(session) do
-      nil ->
-        if Application.get_env(:mobile_car_wash, :dev_routes) do
-          {:cont, assign(socket, current_customer: load_first_customer())}
-        else
-          {:halt, redirect(socket, to: ~p"/sign-in")}
-        end
+      nil -> {:halt, redirect(socket, to: ~p"/sign-in")}
       customer -> {:cont, assign(socket, current_customer: customer)}
     end
   end
@@ -33,30 +28,10 @@ defmodule MobileCarWashWeb.LiveAuth do
         {:cont, assign(socket, current_customer: customer)}
 
       nil ->
-        if Application.get_env(:mobile_car_wash, :dev_routes) do
-          {:cont, assign(socket, current_customer: load_tech_customer())}
-        else
-          {:halt, redirect(socket, to: ~p"/sign-in")}
-        end
+        {:halt, redirect(socket, to: ~p"/sign-in")}
 
       _ ->
         {:halt, socket |> put_flash(:error, "Technician access required") |> redirect(to: ~p"/")}
-    end
-  end
-
-  defp load_first_customer do
-    require Ash.Query
-    case MobileCarWash.Accounts.Customer |> Ash.Query.filter(role == :customer) |> Ash.read!() do
-      [c | _] -> c
-      [] -> nil
-    end
-  end
-
-  defp load_tech_customer do
-    require Ash.Query
-    case MobileCarWash.Accounts.Customer |> Ash.Query.filter(role == :technician) |> Ash.read!() do
-      [c | _] -> c
-      [] -> nil
     end
   end
 
