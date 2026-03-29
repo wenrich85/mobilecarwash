@@ -421,13 +421,14 @@ defmodule MobileCarWashWeb.BookingLive do
 
     attrs =
       vehicle_params
-      |> Map.put("customer_id", customer.id)
+      |> Map.delete("customer_id")
       |> Enum.map(fn {k, v} -> {String.to_existing_atom(k), v} end)
       |> Map.new()
       |> Map.update(:year, nil, fn v -> if is_binary(v) and v != "", do: String.to_integer(v), else: nil end)
 
     case Vehicle
          |> Ash.Changeset.for_create(:create, attrs)
+         |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
          |> Ash.create() do
       {:ok, vehicle} ->
         track_event(socket, "booking.vehicle_added", %{"vehicle_id" => vehicle.id, "is_new" => true})
@@ -456,12 +457,13 @@ defmodule MobileCarWashWeb.BookingLive do
 
     attrs =
       address_params
-      |> Map.put("customer_id", customer.id)
+      |> Map.delete("customer_id")
       |> Enum.map(fn {k, v} -> {String.to_existing_atom(k), v} end)
       |> Map.new()
 
     case Address
          |> Ash.Changeset.for_create(:create, attrs)
+         |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
          |> Ash.create() do
       {:ok, address} ->
         track_event(socket, "booking.address_added", %{"address_id" => address.id, "is_new" => true})
