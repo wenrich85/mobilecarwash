@@ -13,9 +13,11 @@ defmodule MobileCarWash.Scheduling.Dispatch do
 
   @doc "Assign a technician to an appointment."
   def assign_technician(appointment_id, technician_id) do
+    tech_uuid = if technician_id, do: Ecto.UUID.dump!(technician_id), else: nil
+
     Repo.update_all(
       from(a in "appointments", where: a.id == type(^appointment_id, :binary_id)),
-      set: [technician_id: technician_id]
+      set: [technician_id: tech_uuid]
     )
 
     Ash.get(Appointment, appointment_id)
