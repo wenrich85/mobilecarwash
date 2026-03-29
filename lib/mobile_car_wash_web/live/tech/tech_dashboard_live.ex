@@ -7,7 +7,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   alias MobileCarWash.Scheduling.{Appointment, ServiceType, Dispatch}
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Fleet.Address
+  alias MobileCarWash.Operations.TechEarnings
 
   require Ash.Query
 
@@ -31,6 +31,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     all_tomorrow = Dispatch.appointments_for_date(tomorrow)
     unassigned = Enum.filter(all_today ++ all_tomorrow, &is_nil(&1.technician_id))
 
+    # Load earnings summary
+    earnings = if tech_record, do: TechEarnings.earnings_summary(tech_record), else: nil
+    wash_history = if tech_record, do: TechEarnings.all_completed_washes(tech_record.id), else: []
+
     {:ok,
      assign(socket,
        page_title: "My Schedule",
@@ -39,6 +43,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
        todays_appointments: todays,
        tomorrows_appointments: tomorrows,
        unassigned_count: length(unassigned),
+       earnings: earnings,
+       wash_history: wash_history,
        service_map: Ash.read!(ServiceType) |> Map.new(&{&1.id, &1}),
        customer_map: load_customer_map(todays ++ tomorrows),
        address_map: load_address_map(todays ++ tomorrows)
@@ -108,9 +114,75 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           />
         </div>
       </div>
+
+      <!-- Earnings Summary -->
+      <div :if={@earnings} class="mb-8">
+        <h2 class="text-lg font-bold mb-3">Earnings</h2>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm text-base-content/60">
+                  {Calendar.strftime(@earnings.period_start, "%b %d")} – {Calendar.strftime(@earnings.period_end, "%b %d")}
+                </p>
+                <p class="text-3xl font-bold text-success">${format_dollars(@earnings.total_cents)}</p>
+                <p class="text-sm text-base-content/60">
+                  {@earnings.washes_count} wash{if @earnings.washes_count != 1, do: "es"} @ ${format_dollars(@earnings.rate_cents)}/wash
+                </p>
+              </div>
+              <div class="text-right">
+                <span class="badge badge-outline">Rate: ${format_dollars(@earnings.rate_cents)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wash History -->
+      <div class="mb-8">
+        <h2 class="text-lg font-bold mb-3">Completed Washes</h2>
+        <div :if={@wash_history == []} class="text-base-content/50 text-sm">
+          No completed washes yet
+        </div>
+        <div :if={@wash_history != []} class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Service</th>
+                <th>Customer</th>
+                <th>Time</th>
+                <th>Earned</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={wash <- @wash_history}>
+                <td class="text-sm">{Calendar.strftime(wash.date, "%b %d")}</td>
+                <td class="text-sm">{wash.service_name}</td>
+                <td class="text-sm">{wash.customer_name}</td>
+                <td class="text-sm">
+                  <span :if={wash.actual_minutes}>{wash.actual_minutes}m</span>
+                  <span :if={!wash.actual_minutes}>{wash.duration_minutes}m est</span>
+                </td>
+                <td class="text-sm font-semibold text-success">
+                  ${format_dollars(@earnings && @earnings.rate_cents || 2500)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
     """
   end
+
+  defp format_dollars(cents) when is_integer(cents) do
+    dollars = div(cents, 100)
+    remainder = rem(cents, 100)
+    "#{dollars}.#{String.pad_leading("#{remainder}", 2, "0")}"
+  end
+
+  defp format_dollars(_), do: "0.00"
 
   defp appointment_row(assigns) do
     # Check for existing checklist

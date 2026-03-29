@@ -30,6 +30,18 @@ defmodule MobileCarWash.Operations.Technician do
       public? true
     end
 
+    attribute :pay_rate_cents, :integer do
+      default 2500
+      public? true
+      description "Per-wash pay rate in cents (e.g., 2500 = $25.00/wash)"
+    end
+
+    attribute :pay_period_start_day, :integer do
+      default 1
+      public? true
+      description "Day of week pay period starts: 1=Monday..7=Sunday"
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end
