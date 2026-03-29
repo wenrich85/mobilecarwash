@@ -29,10 +29,12 @@ defmodule MobileCarWashWeb.BookingLive do
         cached -> restore_from_cache(cached)
       end
 
-    # Build context and validate the step
+    # Build context — prefer session customer, fall back to cached customer (for guests)
+    customer = socket.assigns[:current_customer] || restored_assigns[:current_customer]
+
     base_assigns = %{
       selected_service: restored_assigns[:selected_service],
-      current_customer: socket.assigns[:current_customer],
+      current_customer: customer,
       guest_mode: restored_assigns[:guest_mode] || false,
       selected_vehicle: restored_assigns[:selected_vehicle],
       selected_address: restored_assigns[:selected_address],
@@ -51,7 +53,8 @@ defmodule MobileCarWashWeb.BookingLive do
         booking_session_id: booking_session_id,
         # State machine
         current_step: validated_step,
-        # Accumulated booking data
+        # Accumulated booking data (override on_mount's nil customer with cached guest)
+        current_customer: customer,
         selected_service: base_assigns.selected_service,
         selected_vehicle: base_assigns.selected_vehicle,
         selected_address: base_assigns.selected_address,
@@ -670,6 +673,7 @@ defmodule MobileCarWashWeb.BookingLive do
     SessionCache.put(socket.assigns.booking_session_id, %{
       step: socket.assigns.current_step,
       guest_mode: socket.assigns.guest_mode,
+      customer_id: socket.assigns.current_customer && socket.assigns.current_customer.id,
       service_id: socket.assigns.selected_service && socket.assigns.selected_service.id,
       vehicle_id: socket.assigns.selected_vehicle && socket.assigns.selected_vehicle.id,
       address_id: socket.assigns.selected_address && socket.assigns.selected_address.id,
@@ -691,11 +695,13 @@ defmodule MobileCarWashWeb.BookingLive do
   defp restore_from_cache(cached) do
     # Load actual records from DB by ID
     service = cached[:service_id] && safe_get(ServiceType, cached[:service_id])
+    customer = cached[:customer_id] && safe_get(MobileCarWash.Accounts.Customer, cached[:customer_id])
     vehicle = cached[:vehicle_id] && safe_get(Vehicle, cached[:vehicle_id])
     address = cached[:address_id] && safe_get(Address, cached[:address_id])
 
     assigns = %{
       selected_service: service,
+      current_customer: customer,
       selected_vehicle: vehicle,
       selected_address: address,
       selected_slot: cached[:slot],
