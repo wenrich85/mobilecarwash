@@ -300,11 +300,11 @@ defmodule MobileCarWash.Scheduling.Booking do
       {:ok, payment} =
         Payment
         |> Ash.Changeset.for_create(:create, %{
-          customer_id: params.customer_id,
-          appointment_id: appointment.id,
           amount_cents: appointment.price_cents,
           status: :pending
         })
+        |> Ash.Changeset.force_change_attribute(:customer_id, params.customer_id)
+        |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
         |> Ash.create()
 
       # Create Stripe Checkout session
