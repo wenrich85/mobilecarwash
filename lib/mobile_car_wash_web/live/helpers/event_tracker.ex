@@ -42,7 +42,11 @@ defmodule MobileCarWashWeb.Live.Helpers.EventTracker do
   """
   def track_event(socket, event_name, properties \\ %{}) do
     session_id = socket.assigns[:session_id] || "unknown"
-    customer_id = get_in(socket.assigns, [:current_customer, :id])
+    customer_id =
+      case socket.assigns[:current_customer] do
+        %{id: id} -> id
+        _ -> nil
+      end
 
     # Fire and forget — don't block the LiveView
     Task.start(fn ->
