@@ -19,6 +19,8 @@ defmodule MobileCarWash.Booking.SessionCache do
   def put(session_id, state) when is_binary(session_id) and is_map(state) do
     :ets.insert(@table, {session_id, state, System.monotonic_time(:millisecond)})
     :ok
+  rescue
+    ArgumentError -> :ok
   end
 
   @doc "Retrieve booking state for a session."
@@ -35,12 +37,16 @@ defmodule MobileCarWash.Booking.SessionCache do
       [] ->
         nil
     end
+  rescue
+    ArgumentError -> nil
   end
 
   @doc "Delete booking state for a session."
   def delete(session_id) when is_binary(session_id) do
     :ets.delete(@table, session_id)
     :ok
+  rescue
+    ArgumentError -> :ok
   end
 
   # --- GenServer callbacks ---
