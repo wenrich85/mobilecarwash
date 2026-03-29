@@ -6,16 +6,41 @@ defmodule MobileCarWashWeb.BookingLive do
 
   alias MobileCarWash.Scheduling.{ServiceType, Availability, Booking}
   alias MobileCarWash.Fleet.{Vehicle, Address}
+  alias MobileCarWash.Booking.{StateMachine, SessionCache}
 
   require Ash.Query
 
+  # --- Mount: restore state from cache or start fresh ---
+
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     services =
       ServiceType
       |> Ash.Query.filter(active == true)
       |> Ash.read!()
       |> Enum.sort_by(& &1.base_price_cents)
+
+    booking_session_id = derive_session_id(session)
+
+    # Restore from cache if reconnecting
+    {restored_step, restored_assigns} =
+      case SessionCache.get(booking_session_id) do
+        nil -> {:select_service, %{}}
+        cached -> restore_from_cache(cached)
+      end
+
+    # Build context and validate the step
+    base_assigns = %{
+      selected_service: restored_assigns[:selected_service],
+      current_customer: socket.assigns[:current_customer],
+      guest_mode: restored_assigns[:guest_mode] || false,
+      selected_vehicle: restored_assigns[:selected_vehicle],
+      selected_address: restored_assigns[:selected_address],
+      selected_slot: restored_assigns[:selected_slot],
+      appointment: nil
+    }
+
+    validated_step = StateMachine.resolve_step(restored_step, base_assigns)
 
     socket =
       socket
@@ -23,49 +48,50 @@ defmodule MobileCarWashWeb.BookingLive do
       |> assign(
         page_title: "Book a Wash",
         services: services,
-        current_step: :select_service,
-        selected_service: nil,
-        selected_vehicle: nil,
-        selected_address: nil,
-        selected_slot: nil,
+        booking_session_id: booking_session_id,
+        # State machine
+        current_step: validated_step,
+        # Accumulated booking data
+        selected_service: base_assigns.selected_service,
+        selected_vehicle: base_assigns.selected_vehicle,
+        selected_address: base_assigns.selected_address,
+        selected_slot: base_assigns.selected_slot,
+        appointment: nil,
+        guest_mode: base_assigns.guest_mode,
+        guest_error: nil,
+        # UI state
         selected_date: Date.utc_today() |> Date.add(1) |> Date.to_string(),
         available_slots: [],
         existing_vehicles: [],
         existing_addresses: [],
-        appointment: nil,
+        show_new_vehicle_form: false,
+        show_new_address_form: false,
         # Forms
         vehicle_form: nil,
         address_form: nil,
-        # New data forms
-        show_new_vehicle_form: false,
-        show_new_address_form: false,
-        # Guest checkout
-        guest_mode: false,
-        guest_error: nil,
         # Timing
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
       )
+      |> load_step_data(validated_step)
 
     {:ok, socket}
   end
 
+  # --- Handle Params: only process service param if on step 1 ---
+
   @impl true
   def handle_params(params, _uri, socket) do
     socket =
-      case params do
-        %{"service" => slug} ->
-          service = Enum.find(socket.assigns.services, &(&1.slug == slug))
-
-          if service do
-            socket
-            |> assign(selected_service: service)
-            |> maybe_advance_past_service()
-          else
-            socket
+      case {params, socket.assigns.current_step} do
+        {%{"service" => slug}, :select_service} ->
+          case Enum.find(socket.assigns.services, &(&1.slug == slug)) do
+            nil -> socket
+            service -> assign(socket, selected_service: service)
           end
 
         _ ->
+          # Do NOT touch state on any other step — prevents reconnect interference
           socket
       end
 
@@ -78,6 +104,8 @@ defmodule MobileCarWashWeb.BookingLive do
 
     {:noreply, socket}
   end
+
+  # === RENDER (unchanged template) ===
 
   @impl true
   def render(assigns) do
@@ -102,7 +130,6 @@ defmodule MobileCarWashWeb.BookingLive do
       <div :if={@current_step == :auth}>
         <h2 class="text-2xl font-bold mb-6">How would you like to continue?</h2>
 
-        <!-- Already logged in -->
         <div :if={@current_customer}>
           <div class="alert alert-success mb-6">
             <span>Welcome back, {@current_customer.name}!</span>
@@ -110,9 +137,7 @@ defmodule MobileCarWashWeb.BookingLive do
           <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
 
-        <!-- Not logged in — show 3 options -->
         <div :if={!@current_customer} class="space-y-6">
-          <!-- Option 1: Guest Checkout -->
           <div class="card bg-base-100 shadow-xl border-2 border-primary">
             <div class="card-body">
               <h3 class="card-title">Continue as Guest</h3>
@@ -144,10 +169,8 @@ defmodule MobileCarWashWeb.BookingLive do
             </div>
           </div>
 
-          <!-- Divider -->
           <div class="divider">OR</div>
 
-          <!-- Option 2 & 3: Sign In / Create Account -->
           <div class="card bg-base-100 shadow">
             <div class="card-body">
               <h3 class="card-title text-base">Have an account?</h3>
@@ -351,7 +374,7 @@ defmodule MobileCarWashWeb.BookingLive do
     """
   end
 
-  # --- Event Handlers ---
+  # === EVENT HANDLERS ===
 
   @impl true
   def handle_event("select_service", %{"slug" => slug}, socket) do
@@ -359,53 +382,93 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, assign(socket, selected_service: service)}
   end
 
-  def handle_event("guest_checkout", %{"guest" => guest_params}, socket) do
-    alias MobileCarWash.Accounts.Customer
+  def handle_event("next_step", _params, socket) do
+    context = build_context(socket.assigns)
 
-    # Check if email already exists
-    require Ash.Query
-    existing = Customer |> Ash.Query.filter(email == ^guest_params["email"]) |> Ash.read!()
+    case StateMachine.transition(:forward, socket.assigns.current_step, context) do
+      {:ok, next_step} ->
+        socket =
+          socket
+          |> track_step_completion()
+          |> assign(current_step: next_step, step_started_at: System.monotonic_time(:millisecond))
+          |> load_step_data(next_step)
+          |> persist_booking_state()
 
-    case existing do
-      [customer] ->
-        # Email exists — use existing account (they may be a returning guest)
-        track_event(socket, "guest.returning", %{"email" => guest_params["email"]})
+        {:noreply, socket}
 
-        {:noreply,
-         socket
-         |> assign(current_customer: customer, guest_mode: true, guest_error: nil)
-         |> advance_step()}
-
-      [] ->
-        # Create new guest customer
-        case Customer
-             |> Ash.Changeset.for_create(:create_guest, %{
-               email: guest_params["email"],
-               name: guest_params["name"],
-               phone: guest_params["phone"]
-             })
-             |> Ash.create() do
-          {:ok, customer} ->
-            track_event(socket, "guest.created", %{"email" => guest_params["email"]})
-
-            {:noreply,
-             socket
-             |> assign(current_customer: customer, guest_mode: true, guest_error: nil)
-             |> advance_step()}
-
-          {:error, _changeset} ->
-            {:noreply, assign(socket, guest_error: "Could not create guest account. Please check your email and try again.")}
-        end
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Cannot continue: #{reason}")}
     end
   end
 
-  def handle_event("next_step", _params, socket) do
-    socket = track_step_completion(socket)
-    {:noreply, advance_step(socket)}
+  def handle_event("prev_step", _params, socket) do
+    context = build_context(socket.assigns)
+
+    case StateMachine.transition(:back, socket.assigns.current_step, context) do
+      {:ok, prev_step} ->
+        socket =
+          socket
+          |> assign(current_step: prev_step, step_started_at: System.monotonic_time(:millisecond))
+          |> persist_booking_state()
+
+        {:noreply, socket}
+
+      {:error, _} ->
+        {:noreply, socket}
+    end
   end
 
-  def handle_event("prev_step", _params, socket) do
-    {:noreply, retreat_step(socket)}
+  def handle_event("guest_checkout", %{"guest" => guest_params}, socket) do
+    alias MobileCarWash.Accounts.Customer
+
+    require Ash.Query
+    existing = Customer |> Ash.Query.filter(email == ^guest_params["email"]) |> Ash.read!()
+
+    result =
+      case existing do
+        [customer] ->
+          track_event(socket, "guest.returning", %{"email" => guest_params["email"]})
+          {:ok, customer}
+
+        [] ->
+          case Customer
+               |> Ash.Changeset.for_create(:create_guest, %{
+                 email: guest_params["email"],
+                 name: guest_params["name"],
+                 phone: guest_params["phone"]
+               })
+               |> Ash.create() do
+            {:ok, customer} ->
+              track_event(socket, "guest.created", %{"email" => guest_params["email"]})
+              {:ok, customer}
+
+            {:error, _} ->
+              {:error, "Could not create guest account. Please check your email and try again."}
+          end
+      end
+
+    case result do
+      {:ok, customer} ->
+        socket = assign(socket, current_customer: customer, guest_mode: true, guest_error: nil)
+        context = build_context(socket.assigns)
+
+        case StateMachine.transition(:forward, :auth, context) do
+          {:ok, next_step} ->
+            socket =
+              socket
+              |> assign(current_step: next_step, step_started_at: System.monotonic_time(:millisecond))
+              |> load_step_data(next_step)
+              |> persist_booking_state()
+
+            {:noreply, socket}
+
+          {:error, _} ->
+            {:noreply, socket}
+        end
+
+      {:error, message} ->
+        {:noreply, assign(socket, guest_error: message)}
+    end
   end
 
   def handle_event("show_new_vehicle", _params, socket) do
@@ -439,7 +502,8 @@ defmodule MobileCarWashWeb.BookingLive do
            selected_vehicle: vehicle,
            show_new_vehicle_form: false,
            existing_vehicles: socket.assigns.existing_vehicles ++ [vehicle]
-         )}
+         )
+         |> persist_booking_state()}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not save vehicle. Please check your input.")}
@@ -449,7 +513,7 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("select_vehicle", %{"id" => id}, socket) do
     vehicle = Enum.find(socket.assigns.existing_vehicles, &(&1.id == id))
     track_event(socket, "booking.vehicle_added", %{"vehicle_id" => id, "is_new" => false})
-    {:noreply, assign(socket, selected_vehicle: vehicle)}
+    {:noreply, socket |> assign(selected_vehicle: vehicle) |> persist_booking_state()}
   end
 
   def handle_event("save_address", %{"address" => address_params}, socket) do
@@ -474,7 +538,8 @@ defmodule MobileCarWashWeb.BookingLive do
            selected_address: address,
            show_new_address_form: false,
            existing_addresses: socket.assigns.existing_addresses ++ [address]
-         )}
+         )
+         |> persist_booking_state()}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not save address. Please check your input.")}
@@ -484,7 +549,7 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("select_address", %{"id" => id}, socket) do
     address = Enum.find(socket.assigns.existing_addresses, &(&1.id == id))
     track_event(socket, "booking.address_added", %{"address_id" => id, "is_new" => false})
-    {:noreply, assign(socket, selected_address: address)}
+    {:noreply, socket |> assign(selected_address: address) |> persist_booking_state()}
   end
 
   def handle_event("select_date", %{"date" => date_str}, socket) do
@@ -492,7 +557,6 @@ defmodule MobileCarWashWeb.BookingLive do
       {:ok, date} ->
         duration = socket.assigns.selected_service.duration_minutes
 
-        # Query existing appointments for this date
         {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
         {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
 
@@ -508,12 +572,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         slots = Availability.available_slots(date, duration, existing)
 
-        {:noreply,
-         assign(socket,
-           selected_date: date_str,
-           available_slots: slots,
-           selected_slot: nil
-         )}
+        {:noreply, assign(socket, selected_date: date_str, available_slots: slots, selected_slot: nil)}
 
       _ ->
         {:noreply, socket}
@@ -528,7 +587,7 @@ defmodule MobileCarWashWeb.BookingLive do
           "day_of_week" => Date.day_of_week(DateTime.to_date(datetime))
         })
 
-        {:noreply, assign(socket, selected_slot: datetime)}
+        {:noreply, socket |> assign(selected_slot: datetime) |> persist_booking_state()}
 
       _ ->
         {:noreply, socket}
@@ -555,7 +614,6 @@ defmodule MobileCarWashWeb.BookingLive do
 
     case Booking.create_booking(booking_params) do
       {:ok, %{appointment: appointment, checkout_url: checkout_url}} when not is_nil(checkout_url) ->
-        # Redirect to Stripe Checkout
         elapsed = System.monotonic_time(:millisecond) - socket.assigns.flow_started_at
 
         track_event(socket, "booking.payment_started", %{
@@ -565,10 +623,12 @@ defmodule MobileCarWashWeb.BookingLive do
           "total_time_ms" => elapsed
         })
 
+        # Clean up session cache after successful booking
+        SessionCache.delete(socket.assigns.booking_session_id)
+
         {:noreply, redirect(socket, external: checkout_url)}
 
       {:ok, %{appointment: appointment, checkout_url: nil}} ->
-        # Fully covered by subscription or Stripe unavailable — show confirmation
         elapsed = System.monotonic_time(:millisecond) - socket.assigns.flow_started_at
 
         track_event(socket, "booking.completed", %{
@@ -580,6 +640,8 @@ defmodule MobileCarWashWeb.BookingLive do
           "payment_method" => "subscription"
         })
 
+        SessionCache.delete(socket.assigns.booking_session_id)
+
         {:noreply,
          socket
          |> assign(appointment: appointment, current_step: :confirmed)
@@ -590,52 +652,63 @@ defmodule MobileCarWashWeb.BookingLive do
     end
   end
 
-  # --- Step Navigation ---
+  # === PRIVATE HELPERS ===
 
-  defp advance_step(socket) do
-    current = socket.assigns.current_step
-    next = next_step(current, socket)
+  defp build_context(assigns) do
+    %{
+      selected_service: assigns[:selected_service],
+      current_customer: assigns[:current_customer],
+      guest_mode: assigns[:guest_mode] || false,
+      selected_vehicle: assigns[:selected_vehicle],
+      selected_address: assigns[:selected_address],
+      selected_slot: assigns[:selected_slot],
+      appointment: assigns[:appointment]
+    }
+  end
+
+  defp persist_booking_state(socket) do
+    SessionCache.put(socket.assigns.booking_session_id, %{
+      step: socket.assigns.current_step,
+      guest_mode: socket.assigns.guest_mode,
+      service_id: socket.assigns.selected_service && socket.assigns.selected_service.id,
+      vehicle_id: socket.assigns.selected_vehicle && socket.assigns.selected_vehicle.id,
+      address_id: socket.assigns.selected_address && socket.assigns.selected_address.id,
+      slot: socket.assigns.selected_slot
+    })
 
     socket
-    |> assign(current_step: next, step_started_at: System.monotonic_time(:millisecond))
-    |> load_step_data(next)
   end
 
-  defp retreat_step(socket) do
-    current = socket.assigns.current_step
-    prev = prev_step(current, socket)
-    assign(socket, current_step: prev, step_started_at: System.monotonic_time(:millisecond))
+  defp derive_session_id(session) do
+    # Use the CSRF token from the Plug session as a stable identifier
+    # This survives WebSocket reconnects
+    case session do
+      %{"_csrf_token" => token} -> "booking_#{token}"
+      _ -> "booking_#{Ash.UUID.generate()}"
+    end
   end
 
-  defp next_step(:select_service, socket) do
-    if socket.assigns.current_customer, do: :vehicle, else: :auth
+  defp restore_from_cache(cached) do
+    # Load actual records from DB by ID
+    service = cached[:service_id] && safe_get(ServiceType, cached[:service_id])
+    vehicle = cached[:vehicle_id] && safe_get(Vehicle, cached[:vehicle_id])
+    address = cached[:address_id] && safe_get(Address, cached[:address_id])
+
+    assigns = %{
+      selected_service: service,
+      selected_vehicle: vehicle,
+      selected_address: address,
+      selected_slot: cached[:slot],
+      guest_mode: cached[:guest_mode] || false
+    }
+
+    {cached[:step] || :select_service, assigns}
   end
 
-  defp next_step(:auth, socket) do
-    if socket.assigns.current_customer, do: :vehicle, else: :auth
-  end
-
-  defp next_step(:vehicle, _socket), do: :address
-  defp next_step(:address, _socket), do: :schedule
-  defp next_step(:schedule, _socket), do: :review
-  defp next_step(:review, _socket), do: :confirmed
-  defp next_step(step, _socket), do: step
-
-  defp prev_step(:auth, _socket), do: :select_service
-  defp prev_step(:vehicle, socket) do
-    if socket.assigns.current_customer, do: :select_service, else: :auth
-  end
-  defp prev_step(:address, _socket), do: :vehicle
-  defp prev_step(:schedule, _socket), do: :address
-  defp prev_step(:review, _socket), do: :schedule
-  defp prev_step(step, _socket), do: step
-
-  defp maybe_advance_past_service(socket) do
-    if socket.assigns.selected_service do
-      socket
-      |> assign(current_step: :select_service)
-    else
-      socket
+  defp safe_get(resource, id) do
+    case Ash.get(resource, id) do
+      {:ok, record} -> record
+      _ -> nil
     end
   end
 
@@ -643,15 +716,9 @@ defmodule MobileCarWashWeb.BookingLive do
     customer = socket.assigns.current_customer
 
     if customer && !socket.assigns.guest_mode do
-      # Registered user — load existing vehicles
       vehicles = Ash.read!(Vehicle, action: :for_customer, arguments: %{customer_id: customer.id})
-
-      assign(socket,
-        existing_vehicles: vehicles,
-        show_new_vehicle_form: vehicles == []
-      )
+      assign(socket, existing_vehicles: vehicles, show_new_vehicle_form: vehicles == [])
     else
-      # Guest — always show new vehicle form
       assign(socket, existing_vehicles: [], show_new_vehicle_form: true)
     end
   end
@@ -661,11 +728,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
     if customer && !socket.assigns.guest_mode do
       addresses = Ash.read!(Address, action: :for_customer, arguments: %{customer_id: customer.id})
-
-      assign(socket,
-        existing_addresses: addresses,
-        show_new_address_form: addresses == []
-      )
+      assign(socket, existing_addresses: addresses, show_new_address_form: addresses == [])
     else
       assign(socket, existing_addresses: [], show_new_address_form: true)
     end
