@@ -9,7 +9,9 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
 
   def appointment_card(assigns) do
     ~H"""
-    <div class="card bg-base-100 shadow-sm border-l-4 border-warning">
+    <div class={["card bg-base-100 shadow-sm border-l-4",
+      if(is_nil(@appointment.technician_id), do: "border-warning", else: "border-primary")
+    ]}>
       <div class="card-body p-4">
         <div class="flex justify-between items-start">
           <div>
@@ -21,6 +23,8 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
             {format_status(@appointment.status)}
           </span>
         </div>
+
+        <!-- Assign Technician -->
         <div class="mt-2">
           <select
             class="select select-bordered select-sm w-full"
@@ -38,6 +42,16 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
             </option>
           </select>
         </div>
+
+        <!-- Confirm Button (for pending appointments) -->
+        <button
+          :if={@appointment.status == :pending}
+          class="btn btn-info btn-sm btn-block mt-2"
+          phx-click="confirm_appointment"
+          phx-value-id={@appointment.id}
+        >
+          Confirm Appointment
+        </button>
       </div>
     </div>
     """

@@ -110,6 +110,22 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     end
   end
 
+  def handle_event("confirm_appointment", %{"id" => id}, socket) do
+    case Ash.get(MobileCarWash.Scheduling.Appointment, id) do
+      {:ok, appt} ->
+        case appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update() do
+          {:ok, _} ->
+            {:noreply, socket |> load_appointments() |> put_flash(:info, "Appointment confirmed")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Could not confirm appointment")}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Appointment not found")}
+    end
+  end
+
   @impl true
   def handle_info(:refresh, socket) do
     schedule_refresh()
@@ -144,15 +160,16 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         </div>
       </div>
 
-      <!-- Unassigned Appointments -->
-      <div :if={@unassigned != []} class="mb-8">
+      <!-- Pending / Needs Action -->
+      <div :if={@needs_action != []} class="mb-8">
         <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-          <span class="badge badge-error">{length(@unassigned)}</span>
-          Unassigned
+          <span class="badge badge-warning">{length(@needs_action)}</span>
+          Needs Action
+          <span class="text-sm font-normal text-base-content/50">(pending or unassigned)</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <.appointment_card
-            :for={appt <- @unassigned}
+            :for={appt <- @needs_action}
             appointment={appt}
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             service_name={Map.get(@service_map, appt.service_type_id, "Service")}
@@ -308,6 +325,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       end
 
     unassigned = Enum.filter(all, &is_nil(&1.technician_id))
+    needs_action = Enum.filter(all, fn appt ->
+      appt.status == :pending or is_nil(appt.technician_id)
+    end)
     active_appts = Enum.filter(all, &(&1.status == :in_progress))
 
     # Load checklist progress for active washes
@@ -327,6 +347,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     assign(socket,
       all_appointments: all,
       unassigned: unassigned,
+      needs_action: needs_action,
       active: active,
       customer_map: customer_map
     )
