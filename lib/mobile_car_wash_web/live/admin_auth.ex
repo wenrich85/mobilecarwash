@@ -13,7 +13,7 @@ defmodule MobileCarWashWeb.AdminAuth do
 
     case session do
       %{"customer_token" => token} when is_binary(token) ->
-        case AshAuthentication.subject_to_user(token, MobileCarWash.Accounts.Customer) do
+        case verify_and_load_user(token) do
           {:ok, customer} ->
             email = to_string(customer.email)
 
@@ -29,6 +29,16 @@ defmodule MobileCarWashWeb.AdminAuth do
 
       _ ->
         {:halt, redirect(socket, to: ~p"/sign-in")}
+    end
+  end
+
+  defp verify_and_load_user(token) do
+    case AshAuthentication.Jwt.verify(token, :mobile_car_wash) do
+      {:ok, %{"sub" => subject}, _} ->
+        AshAuthentication.subject_to_user(subject, MobileCarWash.Accounts.Customer)
+
+      _ ->
+        :error
     end
   end
 end

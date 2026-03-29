@@ -38,9 +38,16 @@ defmodule MobileCarWashWeb.LiveAuth do
   defp load_customer(session) do
     case session do
       %{"customer_token" => token} when is_binary(token) ->
-        case AshAuthentication.subject_to_user(token, MobileCarWash.Accounts.Customer) do
-          {:ok, customer} -> customer
-          _ -> nil
+        # Verify the JWT token, extract the subject, then load the user
+        case AshAuthentication.Jwt.verify(token, :mobile_car_wash) do
+          {:ok, %{"sub" => subject}, _} ->
+            case AshAuthentication.subject_to_user(subject, MobileCarWash.Accounts.Customer) do
+              {:ok, customer} -> customer
+              _ -> nil
+            end
+
+          _ ->
+            nil
         end
 
       _ ->

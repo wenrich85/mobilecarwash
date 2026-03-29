@@ -8,7 +8,8 @@ defmodule MobileCarWashWeb.Endpoint do
     store: :cookie,
     key: "_mobile_car_wash_key",
     signing_salt: "gZI8tiVW",
-    same_site: "Lax"
+    same_site: "Lax",
+    path: "/"
   ]
 
   socket "/live", Phoenix.LiveView.Socket,

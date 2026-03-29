@@ -44,12 +44,13 @@ defmodule MobileCarWashWeb.Router do
       live "/book/cancel", BookingCancelLive
     end
 
-    # Authentication routes (sign in, sign up, sign out)
-    # Note: auth_routes uses Phoenix.Router.scoped_alias, so pass bare AuthController
-    # (the scope "/", MobileCarWashWeb prepends the namespace automatically)
+    # Authentication routes
     sign_in_route(auth_routes_prefix: "/auth")
     sign_out_route AuthController
-    auth_routes AuthController, MobileCarWash.Accounts.Customer
+
+    # Manual auth callback route — bypasses StrategyRouter forward which
+    # caused session cookie scoping issues (token stored but deleted on next request)
+    get "/auth/customer/password/sign_in_with_token", AuthController, :sign_in_with_token
   end
 
   # Customer routes — any authenticated user
