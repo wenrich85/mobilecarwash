@@ -1,13 +1,13 @@
 defmodule MobileCarWashWeb.Admin.DispatchLive do
   @moduledoc """
   Admin dispatch dashboard — the daily operations command center.
-  Assign technicians, view schedules, monitor active washes in real-time.
+  Shows all appointments with filters for date, status, and technician.
   """
   use MobileCarWashWeb, :live_view
 
   import MobileCarWashWeb.Admin.DispatchComponents
 
-  alias MobileCarWash.Scheduling.{Dispatch, AppointmentTracker}
+  alias MobileCarWash.Scheduling.{Dispatch, AppointmentTracker, Appointment}
   alias MobileCarWash.Operations.Technician
   alias MobileCarWash.Scheduling.ServiceType
   alias MobileCarWash.Accounts.Customer
@@ -21,9 +21,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     if connected?(socket), do: schedule_refresh()
 
     technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
-    date = Date.utc_today()
 
-    # Load technician-role users for linking dropdown
     tech_users =
       Customer
       |> Ash.Query.filter(role in [:technician, :admin])
@@ -35,7 +33,10 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         page_title: "Dispatch Center",
         technicians: technicians,
         tech_users: tech_users,
-        selected_date: date,
+        # Filters — default: no date filter, pending status, all techs
+        filter_date: nil,
+        filter_status: "pending",
+        filter_tech: nil,
         show_manage_techs: false,
         service_map: load_service_map(),
         customer_map: %{}
@@ -45,7 +46,39 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     {:ok, socket}
   end
 
+  # === Event Handlers ===
+
   @impl true
+  def handle_event("filter", params, socket) do
+    filter_date =
+      case params["date"] do
+        "" -> nil
+        nil -> socket.assigns.filter_date
+        d -> case Date.from_iso8601(d) do
+          {:ok, date} -> date
+          _ -> socket.assigns.filter_date
+        end
+      end
+
+    filter_status = params["status"] || socket.assigns.filter_status
+    filter_status = if filter_status == "", do: nil, else: filter_status
+
+    filter_tech = params["tech"] || socket.assigns.filter_tech
+    filter_tech = if filter_tech == "", do: nil, else: filter_tech
+
+    {:noreply,
+     socket
+     |> assign(filter_date: filter_date, filter_status: filter_status, filter_tech: filter_tech)
+     |> load_appointments()}
+  end
+
+  def handle_event("clear_filters", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(filter_date: nil, filter_status: "pending", filter_tech: nil)
+     |> load_appointments()}
+  end
+
   def handle_event("assign_tech", %{"appointment-id" => appt_id, "technician_id" => ""}, socket) do
     Dispatch.unassign_technician(appt_id)
     {:noreply, load_appointments(socket)}
@@ -54,6 +87,22 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   def handle_event("assign_tech", %{"appointment-id" => appt_id, "technician_id" => tech_id}, socket) do
     Dispatch.assign_technician(appt_id, tech_id)
     {:noreply, load_appointments(socket)}
+  end
+
+  def handle_event("confirm_appointment", %{"id" => id}, socket) do
+    case Ash.get(Appointment, id) do
+      {:ok, appt} ->
+        case appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update() do
+          {:ok, _} ->
+            {:noreply, socket |> load_appointments() |> put_flash(:info, "Appointment confirmed")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Could not confirm appointment")}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Appointment not found")}
+    end
   end
 
   def handle_event("toggle_manage_techs", _params, socket) do
@@ -70,7 +119,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     )
 
     technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
-    {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Technician account updated")}
+    {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Account linked")}
   end
 
   def handle_event("update_tech_rate", %{"tech-id" => tech_id, "rate" => rate_str}, socket) do
@@ -82,7 +131,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           set: [pay_rate_cents: rate_dollars * 100]
         )
         technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
-        {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Pay rate updated")}
+        {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Rate updated")}
 
       _ ->
         {:noreply, put_flash(socket, :error, "Invalid rate")}
@@ -91,38 +140,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
   def handle_event("add_technician", %{"name" => name, "phone" => phone}, socket) do
     case Technician |> Ash.Changeset.for_create(:create, %{name: name, phone: phone}) |> Ash.create() do
-      {:ok, _tech} ->
+      {:ok, _} ->
         technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
-        {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Technician #{name} added")}
+        {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Technician added")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not add technician")}
-    end
-  end
-
-  def handle_event("change_date", %{"date" => date_str}, socket) do
-    case Date.from_iso8601(date_str) do
-      {:ok, date} ->
-        {:noreply, socket |> assign(selected_date: date) |> load_appointments()}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("confirm_appointment", %{"id" => id}, socket) do
-    case Ash.get(MobileCarWash.Scheduling.Appointment, id) do
-      {:ok, appt} ->
-        case appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update() do
-          {:ok, _} ->
-            {:noreply, socket |> load_appointments() |> put_flash(:info, "Appointment confirmed")}
-
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Could not confirm appointment")}
-        end
-
-      _ ->
-        {:noreply, put_flash(socket, :error, "Appointment not found")}
     end
   end
 
@@ -132,53 +155,67 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     {:noreply, load_appointments(socket)}
   end
 
-  def handle_info({:appointment_update, data}, socket) do
-    # Real-time update from a technician — refresh the active wash progress
+  def handle_info({:appointment_update, _data}, socket) do
     {:noreply, load_appointments(socket)}
   end
+
+  # === Render ===
 
   @impl true
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto py-8 px-4">
       <!-- Header -->
-      <div class="flex justify-between items-center mb-8">
+      <div class="flex justify-between items-center mb-6">
         <div>
           <h1 class="text-3xl font-bold">Dispatch Center</h1>
-          <p class="text-base-content/60">{Calendar.strftime(@selected_date, "%A, %B %d, %Y")}</p>
+          <p class="text-base-content/60">{length(@filtered_appointments)} appointments</p>
         </div>
-        <div class="flex items-center gap-4">
-          <form phx-change="change_date">
-            <input
-              type="date"
-              class="input input-bordered input-sm"
-              value={Date.to_string(@selected_date)}
-              name="date"
-            />
-          </form>
-          <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
-        </div>
+        <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
       </div>
 
-      <!-- Pending / Needs Action -->
-      <div :if={@needs_action != []} class="mb-8">
-        <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-          <span class="badge badge-warning">{length(@needs_action)}</span>
-          Needs Action
-          <span class="text-sm font-normal text-base-content/50">(pending or unassigned)</span>
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <.appointment_card
-            :for={appt <- @needs_action}
-            appointment={appt}
-            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
-            service_name={Map.get(@service_map, appt.service_type_id, "Service")}
-            technicians={@technicians}
+      <!-- Filters -->
+      <form phx-change="filter" class="flex flex-wrap gap-3 mb-6 items-end">
+        <div class="form-control">
+          <label class="label label-text text-xs">Date</label>
+          <input
+            type="date"
+            name="date"
+            class="input input-bordered input-sm"
+            value={@filter_date && Date.to_string(@filter_date)}
           />
         </div>
-      </div>
 
-      <!-- Active Washes -->
+        <div class="form-control">
+          <label class="label label-text text-xs">Status</label>
+          <select name="status" class="select select-bordered select-sm">
+            <option value="" selected={is_nil(@filter_status)}>All Statuses</option>
+            <option value="pending" selected={@filter_status == "pending"}>Pending</option>
+            <option value="confirmed" selected={@filter_status == "confirmed"}>Confirmed</option>
+            <option value="in_progress" selected={@filter_status == "in_progress"}>In Progress</option>
+            <option value="completed" selected={@filter_status == "completed"}>Completed</option>
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label label-text text-xs">Technician</label>
+          <select name="tech" class="select select-bordered select-sm">
+            <option value="" selected={is_nil(@filter_tech)}>All Techs</option>
+            <option value="unassigned" selected={@filter_tech == "unassigned"}>Unassigned</option>
+            <option
+              :for={tech <- @technicians}
+              value={tech.id}
+              selected={@filter_tech == tech.id}
+            >
+              {tech.name}
+            </option>
+          </select>
+        </div>
+
+        <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
+      </form>
+
+      <!-- Active Washes (always show if any) -->
       <div :if={@active != []} class="mb-8">
         <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
           <span class="badge badge-success">{length(@active)}</span>
@@ -196,36 +233,25 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         </div>
       </div>
 
-      <!-- Today's Schedule by Technician -->
+      <!-- Filtered Appointments -->
       <div class="mb-8">
-        <h2 class="text-lg font-bold mb-4">Schedule</h2>
+        <h2 class="text-lg font-bold mb-4">
+          Appointments
+        </h2>
 
-        <div :if={@technicians == []} class="text-base-content/50">
-          No technicians. Add one via the seed data.
+        <div :if={@filtered_appointments == []} class="text-center py-8 text-base-content/50">
+          No appointments match your filters
         </div>
 
-        <.technician_schedule
-          :for={tech <- @technicians}
-          tech_name={tech.name}
-          appointments={tech_appointments(tech.id, @all_appointments)}
-          service_map={@service_map}
-          customer_map={@customer_map}
-        />
-
-        <!-- Unassigned in schedule view -->
-        <div :if={@unassigned != []}>
-          <.technician_schedule
-            tech_name="Unassigned"
-            appointments={@unassigned}
-            service_map={@service_map}
-            customer_map={@customer_map}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <.appointment_card
+            :for={appt <- @filtered_appointments}
+            appointment={appt}
+            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
+            service_name={Map.get(@service_map, appt.service_type_id, "Service")}
+            technicians={@technicians}
           />
         </div>
-      </div>
-
-      <!-- Empty state -->
-      <div :if={@all_appointments == []} class="text-center py-12">
-        <p class="text-base-content/50 text-lg">No appointments for {Calendar.strftime(@selected_date, "%B %d")}</p>
       </div>
 
       <!-- Manage Technicians -->
@@ -235,7 +261,6 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         </button>
 
         <div :if={@show_manage_techs}>
-          <!-- Add New Technician -->
           <div class="card bg-base-100 shadow mb-4">
             <div class="card-body p-4">
               <h3 class="font-bold mb-2">Add Technician</h3>
@@ -253,7 +278,6 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             </div>
           </div>
 
-          <!-- Existing Technicians -->
           <div class="overflow-x-auto">
             <table class="table table-sm">
               <thead>
@@ -306,38 +330,58 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     """
   end
 
-  # --- Private ---
+  # === Private ===
 
   defp load_appointments(socket) do
-    date = socket.assigns.selected_date
-    all = Dispatch.appointments_for_date(date)
+    # Build query based on filters
+    query = Appointment |> Ash.Query.sort(scheduled_at: :asc)
+
+    # Status filter
+    query =
+      case socket.assigns.filter_status do
+        nil -> Ash.Query.filter(query, status != :cancelled)
+        status_str ->
+          status = String.to_existing_atom(status_str)
+          Ash.Query.filter(query, status == ^status)
+      end
+
+    # Date filter
+    query =
+      case socket.assigns.filter_date do
+        nil -> query
+        date ->
+          {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
+          {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
+          Ash.Query.filter(query, scheduled_at >= ^day_start and scheduled_at < ^day_end)
+      end
+
+    # Tech filter
+    query =
+      case socket.assigns.filter_tech do
+        nil -> query
+        "unassigned" -> Ash.Query.filter(query, is_nil(technician_id))
+        tech_id -> Ash.Query.filter(query, technician_id == ^tech_id)
+      end
+
+    all = Ash.read!(query)
 
     # Load customer names
     customer_ids = Enum.map(all, & &1.customer_id) |> Enum.uniq()
     customer_map =
       if customer_ids != [] do
-        Customer
-        |> Ash.Query.filter(id in ^customer_ids)
-        |> Ash.read!()
-        |> Map.new(&{&1.id, &1.name})
+        Customer |> Ash.Query.filter(id in ^customer_ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
       else
         %{}
       end
 
-    unassigned = Enum.filter(all, &is_nil(&1.technician_id))
-    needs_action = Enum.filter(all, fn appt ->
-      appt.status == :pending or is_nil(appt.technician_id)
-    end)
-    active_appts = Enum.filter(all, &(&1.status == :in_progress))
-
-    # Load checklist progress for active washes
+    # Active washes (always show regardless of filters)
+    active_appts = Ash.read!(Appointment, action: :active)
     active =
       Enum.map(active_appts, fn appt ->
-        progress = Dispatch.checklist_progress(appt.id)
-        {appt, progress}
+        {appt, Dispatch.checklist_progress(appt.id)}
       end)
 
-    # Subscribe to all active appointment PubSub topics
+    # Subscribe to active PubSub
     if connected?(socket) do
       for appt <- active_appts do
         AppointmentTracker.subscribe(appt.id)
@@ -346,8 +390,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
     assign(socket,
       all_appointments: all,
-      unassigned: unassigned,
-      needs_action: needs_action,
+      filtered_appointments: all,
       active: active,
       customer_map: customer_map
     )
@@ -363,10 +406,6 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       nil -> "Unknown"
       tech -> tech.name
     end
-  end
-
-  defp tech_appointments(tech_id, all) do
-    Enum.filter(all, &(&1.technician_id == tech_id))
   end
 
   defp schedule_refresh do
