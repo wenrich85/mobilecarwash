@@ -25,11 +25,10 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
         </div>
 
         <!-- Assign Technician -->
-        <div class="mt-2">
+        <form phx-change="assign_tech" class="mt-2">
+          <input type="hidden" name="appointment-id" value={@appointment.id} />
           <select
             class="select select-bordered select-sm w-full"
-            phx-change="assign_tech"
-            phx-value-appointment-id={@appointment.id}
             name="technician_id"
           >
             <option value="">— Assign Technician —</option>
@@ -41,7 +40,7 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
               {tech.name}
             </option>
           </select>
-        </div>
+        </form>
 
         <!-- Confirm Button (for pending appointments) -->
         <button
