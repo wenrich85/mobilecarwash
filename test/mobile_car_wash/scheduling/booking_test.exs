@@ -52,8 +52,8 @@ defmodule MobileCarWash.Scheduling.BookingTest do
   end
 
   defp tomorrow_slot do
-    tomorrow = Date.add(Date.utc_today(), 1)
-    {:ok, dt} = DateTime.new(tomorrow, ~T[10:00:00])
+    # Fixed far-future Wednesday at 10am — avoids conflicts and Sundays
+    {:ok, dt} = DateTime.new(~D[2030-07-10], ~T[10:00:00])
     dt
   end
 

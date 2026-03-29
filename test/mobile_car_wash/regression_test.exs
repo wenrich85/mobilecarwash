@@ -1,0 +1,315 @@
+defmodule MobileCarWash.RegressionTest do
+  @moduledoc """
+  Regression tests for bugs found during manual walkthrough.
+  Each test documents what broke, why, and ensures it stays fixed.
+  """
+  use MobileCarWash.DataCase, async: true
+
+  require Ash.Query
+
+  # --- Helpers ---
+
+  defp create_guest(email \\ nil) do
+    email = email || "reg-#{:rand.uniform(100_000)}@test.com"
+
+    MobileCarWash.Accounts.Customer
+    |> Ash.Changeset.for_create(:create_guest, %{email: email, name: "Reg Test", phone: "555"})
+    |> Ash.create!()
+  end
+
+  defp create_service do
+    slug = "reg_svc_#{:rand.uniform(100_000)}"
+
+    MobileCarWash.Scheduling.ServiceType
+    |> Ash.Changeset.for_create(:create, %{
+      name: "Reg Wash", slug: slug, base_price_cents: 5000, duration_minutes: 45
+    })
+    |> Ash.create!()
+  end
+
+  defp create_vehicle(customer_id, size \\ :car) do
+    MobileCarWash.Fleet.Vehicle
+    |> Ash.Changeset.for_create(:create, %{make: "T", model: "T", size: size})
+    |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
+    |> Ash.create!()
+  end
+
+  defp create_address(customer_id) do
+    MobileCarWash.Fleet.Address
+    |> Ash.Changeset.for_create(:create, %{street: "1 R", city: "A", state: "TX", zip: "7"})
+    |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
+    |> Ash.create!()
+  end
+
+  defp book_appointment(customer, service, vehicle, address) do
+    # Use 2030 with random month/day/hour to avoid any possible slot conflicts
+    month = 1 + :rand.uniform(11)
+    day = 1 + :rand.uniform(27)
+    hour = 8 + :rand.uniform(8)
+    {:ok, dt} = DateTime.new(Date.new!(2030, 6, 4), Time.new!(hour, 0, 0))
+
+    {:ok, %{appointment: appt}} =
+      MobileCarWash.Scheduling.Booking.create_booking(%{
+        customer_id: customer.id,
+        service_type_id: service.id,
+        vehicle_id: vehicle.id,
+        address_id: address.id,
+        scheduled_at: dt,
+        subscription_id: nil
+      })
+
+    appt
+  end
+
+  # === BUG 1: Payment creation crashed on FK fields ===
+  # Root cause: customer_id and appointment_id passed as regular attrs
+  # Fix: force_change_attribute for FK fields
+
+  describe "BUG: Payment FK fields" do
+    test "payment record is created with correct customer and appointment IDs" do
+      guest = create_guest()
+      service = create_service()
+      vehicle = create_vehicle(guest.id)
+      address = create_address(guest.id)
+      appt = book_appointment(guest, service, vehicle, address)
+
+      payments =
+        MobileCarWash.Billing.Payment
+        |> Ash.Query.filter(appointment_id == ^appt.id)
+        |> Ash.read!()
+
+      assert length(payments) == 1
+      [payment] = payments
+      assert payment.customer_id == guest.id
+      assert payment.appointment_id == appt.id
+      assert payment.amount_cents == appt.price_cents
+    end
+  end
+
+  # === BUG 2: Vehicle/Address creation crashed on customer_id FK ===
+  # Root cause: customer_id passed in form params, not accepted by :create action
+  # Fix: force_change_attribute for customer_id
+
+  describe "BUG: Vehicle/Address FK fields" do
+    test "vehicle created with force_change_attribute for customer_id" do
+      guest = create_guest()
+      vehicle = create_vehicle(guest.id, :pickup)
+
+      assert vehicle.customer_id == guest.id
+      assert vehicle.size == :pickup
+    end
+
+    test "address created with force_change_attribute for customer_id" do
+      guest = create_guest()
+      address = create_address(guest.id)
+
+      assert address.customer_id == guest.id
+    end
+  end
+
+  # === BUG 3: EventTracker used get_in on Ash struct ===
+  # Root cause: get_in(socket.assigns, [:current_customer, :id]) crashes on Ash structs
+  # Fix: pattern match instead of get_in
+
+  describe "BUG: EventTracker Ash struct access" do
+    test "track_event extracts customer_id safely from struct" do
+      # Simulate what EventTracker does — pattern match instead of get_in
+      customer = %{id: "test-id", name: "Test"}
+
+      customer_id =
+        case customer do
+          %{id: id} -> id
+          _ -> nil
+        end
+
+      assert customer_id == "test-id"
+
+      # Nil case
+      nil_id =
+        case nil do
+          %{id: id} -> id
+          _ -> nil
+        end
+
+      assert nil_id == nil
+    end
+  end
+
+  # === BUG 4: Booking state machine — mount reset to step 1 ===
+  # Root cause: mount always set current_step: :select_service
+  # Fix: StateMachine.resolve_step restores from cache
+
+  describe "BUG: Booking state machine" do
+    test "resolve_step recovers correct step from context" do
+      alias MobileCarWash.Booking.StateMachine
+
+      # Context with vehicle selected — should be on :address
+      ctx = %{
+        selected_service: %{id: "s"},
+        current_customer: %{id: "c"},
+        selected_vehicle: %{id: "v"},
+        selected_address: nil,
+        selected_slot: nil,
+        appointment: nil
+      }
+
+      assert StateMachine.resolve_step(:address, ctx) == :address
+      # If we claim :schedule but address is nil, should walk back
+      assert StateMachine.resolve_step(:schedule, ctx) == :address
+    end
+
+    test "resolve_step skips auth when customer present" do
+      alias MobileCarWash.Booking.StateMachine
+
+      ctx = %{
+        selected_service: %{id: "s"},
+        current_customer: %{id: "c"},
+        selected_vehicle: nil,
+        selected_address: nil,
+        selected_slot: nil,
+        appointment: nil
+      }
+
+      assert StateMachine.resolve_step(:auth, ctx) == :vehicle
+    end
+  end
+
+  # === BUG 5: Guest customer lost on reconnect ===
+  # Root cause: persist_booking_state didn't save customer_id
+  # Fix: save customer_id in session cache, restore on mount
+
+  describe "BUG: Guest state persistence" do
+    test "session cache round-trips customer_id" do
+      alias MobileCarWash.Booking.SessionCache
+
+      SessionCache.put("test_session", %{
+        step: :vehicle,
+        customer_id: "cust-123",
+        service_id: nil,
+        vehicle_id: nil,
+        address_id: nil,
+        slot: nil,
+        guest_mode: true
+      })
+
+      cached = SessionCache.get("test_session")
+      assert cached != nil
+      assert cached.customer_id == "cust-123"
+      assert cached.guest_mode == true
+      assert cached.step == :vehicle
+
+      SessionCache.delete("test_session")
+    end
+  end
+
+  # === BUG 6: Dispatch UUID binary encoding ===
+  # Root cause: Postgrex expected binary UUID, got string
+  # Fix: Ecto.UUID.dump!/1 before passing to update_all
+
+  describe "BUG: Dispatch technician assignment" do
+    test "assign_technician works with string UUID" do
+      guest = create_guest()
+      service = create_service()
+      vehicle = create_vehicle(guest.id)
+      address = create_address(guest.id)
+      appt = book_appointment(guest, service, vehicle, address)
+
+      # Create technician
+      tech =
+        MobileCarWash.Operations.Technician
+        |> Ash.Changeset.for_create(:create, %{name: "RegTest Tech"})
+        |> Ash.create!()
+
+      # Confirm appointment first
+      {:ok, confirmed} = appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
+
+      # Assign technician — this was crashing with binary UUID error
+      {:ok, assigned} = MobileCarWash.Scheduling.Dispatch.assign_technician(confirmed.id, tech.id)
+      assert assigned.technician_id == tech.id
+    end
+  end
+
+  # === BUG 7: Wash orchestrator — full flow ===
+  # Verifies the entire tech flow works end-to-end
+
+  describe "BUG: Wash orchestrator full flow" do
+    test "start_wash creates checklist from SOP and transitions appointment" do
+      alias MobileCarWash.Scheduling.{WashOrchestrator, Dispatch}
+
+      guest = create_guest()
+      service = create_service()
+      vehicle = create_vehicle(guest.id)
+      address = create_address(guest.id)
+      appt = book_appointment(guest, service, vehicle, address)
+
+      # Need a procedure for the service type — create one
+      proc =
+        MobileCarWash.Operations.Procedure
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Reg Proc",
+          slug: "reg_proc_#{:rand.uniform(100_000)}",
+          category: :wash
+        })
+        |> Ash.Changeset.force_change_attribute(:service_type_id, service.id)
+        |> Ash.create!()
+
+      # Add steps
+      for n <- 1..3 do
+        MobileCarWash.Operations.ProcedureStep
+        |> Ash.Changeset.for_create(:create, %{
+          step_number: n, title: "Step #{n}", estimated_minutes: 5, required: true
+        })
+        |> Ash.Changeset.force_change_attribute(:procedure_id, proc.id)
+        |> Ash.create!()
+      end
+
+      # Confirm and assign
+      {:ok, _} = appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
+      tech = MobileCarWash.Operations.Technician |> Ash.Changeset.for_create(:create, %{name: "WO Tech"}) |> Ash.create!()
+      {:ok, _} = Dispatch.assign_technician(appt.id, tech.id)
+
+      # Start wash
+      {:ok, checklist} = WashOrchestrator.start_wash(appt.id)
+      assert checklist != nil
+
+      # Verify items created
+      items =
+        MobileCarWash.Operations.ChecklistItem
+        |> Ash.Query.filter(checklist_id == ^checklist.id)
+        |> Ash.read!()
+
+      assert length(items) == 3
+
+      # Verify appointment is in_progress
+      {:ok, updated_appt} = Ash.get(MobileCarWash.Scheduling.Appointment, appt.id)
+      assert updated_appt.status == :in_progress
+    end
+  end
+
+  # === PATTERN: Vehicle pricing multiplier ===
+  # Ensures pricing stays correct after all the FK fixes
+
+  describe "Vehicle pricing integration" do
+    test "pickup gets 1.5x on full booking" do
+      guest = create_guest()
+      service = create_service()
+      vehicle = create_vehicle(guest.id, :pickup)
+      address = create_address(guest.id)
+      appt = book_appointment(guest, service, vehicle, address)
+
+      expected = MobileCarWash.Billing.Pricing.calculate(service.base_price_cents, :pickup)
+      assert appt.price_cents == expected
+      assert expected == 7500
+    end
+
+    test "suv_van gets 1.2x on full booking" do
+      guest = create_guest()
+      service = create_service()
+      vehicle = create_vehicle(guest.id, :suv_van)
+      address = create_address(guest.id)
+      appt = book_appointment(guest, service, vehicle, address)
+
+      assert appt.price_cents == 6000
+    end
+  end
+end

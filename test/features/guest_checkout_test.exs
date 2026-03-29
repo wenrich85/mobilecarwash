@@ -150,7 +150,7 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
         |> Ash.create()
 
       # Step 4: Check availability
-      tomorrow = Date.add(Date.utc_today(), 1)
+      tomorrow = Date.new!(2030, 8, 7)
       slots = Availability.available_slots(tomorrow, service.duration_minutes, [])
       assert length(slots) > 0
       selected_slot = hd(slots)
@@ -207,7 +207,7 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
-      tomorrow = Date.add(Date.utc_today(), 1)
+      tomorrow = Date.new!(2030, 8, 7)
       [slot | _] = Availability.available_slots(tomorrow, service.duration_minutes, [])
 
       {:ok, %{appointment: appt}} =
@@ -247,7 +247,7 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
-      tomorrow = Date.add(Date.utc_today(), 1)
+      tomorrow = Date.new!(2030, 8, 7)
       [slot | _] = Availability.available_slots(tomorrow, service.duration_minutes, [])
 
       {:ok, %{appointment: appt}} =
