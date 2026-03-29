@@ -310,4 +310,37 @@ defmodule MobileCarWash.RegressionTest do
       assert appt.price_cents == 6000
     end
   end
+
+  # === BUG 8: Ash.read! with invalid options (action:/arguments:) ===
+  # Root cause: Ash.read! doesn't accept action: or arguments: options.
+  # Must use Ash.Query.filter instead.
+
+  describe "BUG: Ash.Query vs Ash.read! options" do
+    test "vehicle query uses Ash.Query.filter (not Ash.read! with arguments:)" do
+      guest = create_guest()
+      vehicle = create_vehicle(guest.id)
+
+      # This is what the booking flow does — must not crash
+      vehicles =
+        MobileCarWash.Fleet.Vehicle
+        |> Ash.Query.filter(customer_id == ^guest.id)
+        |> Ash.read!()
+
+      assert length(vehicles) == 1
+      assert hd(vehicles).id == vehicle.id
+    end
+
+    test "address query uses Ash.Query.filter (not Ash.read! with arguments:)" do
+      guest = create_guest()
+      address = create_address(guest.id)
+
+      addresses =
+        MobileCarWash.Fleet.Address
+        |> Ash.Query.filter(customer_id == ^guest.id)
+        |> Ash.read!()
+
+      assert length(addresses) == 1
+      assert hd(addresses).id == address.id
+    end
+  end
 end

@@ -375,7 +375,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       end
 
     # Active washes (always show regardless of filters)
-    active_appts = Ash.read!(Appointment, action: :active)
+    active_appts = Appointment |> Ash.Query.filter(status == :in_progress) |> Ash.read!()
     active =
       Enum.map(active_appts, fn appt ->
         {appt, Dispatch.checklist_progress(appt.id)}

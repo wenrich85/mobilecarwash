@@ -824,7 +824,11 @@ defmodule MobileCarWashWeb.BookingLive do
     customer = socket.assigns.current_customer
 
     if customer && !socket.assigns.guest_mode do
-      vehicles = Ash.read!(Vehicle, action: :for_customer, arguments: %{customer_id: customer.id})
+      vehicles =
+        Vehicle
+        |> Ash.Query.filter(customer_id == ^customer.id)
+        |> Ash.read!()
+
       assign(socket, existing_vehicles: vehicles, show_new_vehicle_form: vehicles == [])
     else
       assign(socket, existing_vehicles: [], show_new_vehicle_form: true)
@@ -835,7 +839,11 @@ defmodule MobileCarWashWeb.BookingLive do
     customer = socket.assigns.current_customer
 
     if customer && !socket.assigns.guest_mode do
-      addresses = Ash.read!(Address, action: :for_customer, arguments: %{customer_id: customer.id})
+      addresses =
+        Address
+        |> Ash.Query.filter(customer_id == ^customer.id)
+        |> Ash.read!()
+
       assign(socket, existing_addresses: addresses, show_new_address_form: addresses == [])
     else
       assign(socket, existing_addresses: [], show_new_address_form: true)
