@@ -46,8 +46,8 @@ defmodule MobileCarWashWeb.Router do
 
     # Authentication routes (sign in, sign up, sign out)
     sign_in_route(auth_routes_prefix: "/auth")
-    sign_out_route AuthController
-    auth_routes MobileCarWash.Accounts.Customer, to: AuthController
+    sign_out_route MobileCarWashWeb.AuthController
+    auth_routes MobileCarWash.Accounts.Customer, to: MobileCarWashWeb.AuthController
   end
 
   # Customer routes — any authenticated user
