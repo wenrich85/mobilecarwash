@@ -1,0 +1,94 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  MIX_ENV: prod
+  ELIXIR_VERSION: "1.18.4"
+  OTP_VERSION: "27"
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-prod-${{ hashFiles('mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-prod-
+
+      - name: Install dependencies
+        run: mix deps.get --only prod
+
+      - name: Compile
+        run: mix compile
+
+      - name: Build assets
+        run: |
+          mix assets.setup
+          mix assets.deploy
+
+      - name: Build release
+        run: mix release --overwrite
+
+      - name: Package release
+        run: |
+          cd _build/prod/rel
+          tar czf /tmp/mobile_car_wash.tar.gz mobile_car_wash
+
+      - name: Deploy to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: /tmp/mobile_car_wash.tar.gz
+          target: /tmp/
+
+      - name: Activate release
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/mobile_car_wash
+
+            # Backup current release
+            if [ -d "current" ]; then
+              mv current previous
+            fi
+
+            # Unpack new release
+            mkdir -p current
+            tar xzf /tmp/mobile_car_wash.tar.gz -C current --strip-components=1
+            rm /tmp/mobile_car_wash.tar.gz
+
+            # Load env vars and run migrations
+            set -a && source /opt/mobile_car_wash/.env && set +a
+            current/bin/migrate
+
+            # Restart the service
+            sudo systemctl restart mobile_car_wash
+
+            # Verify it started
+            sleep 5
+            sudo systemctl is-active mobile_car_wash

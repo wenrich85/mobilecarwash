@@ -44,6 +44,11 @@ defmodule MobileCarWash.Fleet.Address do
       public? true
     end
 
+    attribute :zone, :atom do
+      constraints one_of: [:nw, :ne, :sw, :se]
+      public? true
+    end
+
     attribute :is_default, :boolean do
       default false
       public? true
@@ -60,7 +65,18 @@ defmodule MobileCarWash.Fleet.Address do
   end
 
   actions do
-    defaults [:read, :destroy, create: :*, update: :*]
+    defaults [:read, :destroy]
+
+    create :create do
+      accept [:street, :city, :state, :zip, :latitude, :longitude, :is_default]
+      change MobileCarWash.Fleet.Changes.SetZoneFromZip
+    end
+
+    update :update do
+      require_atomic? false
+      accept [:street, :city, :state, :zip, :latitude, :longitude, :is_default]
+      change MobileCarWash.Fleet.Changes.SetZoneFromZip
+    end
 
     read :for_customer do
       argument :customer_id, :uuid, allow_nil?: false

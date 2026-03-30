@@ -23,7 +23,7 @@ defmodule MobileCarWash.Billing.StripeClient do
             currency: "usd",
             product_data: %{
               name: service_type.name,
-              description: "Mobile car wash — #{service_type.name}"
+              description: "Driveway Detail Co — #{service_type.name}"
             },
             unit_amount: appointment.price_cents
           },
@@ -52,6 +52,44 @@ defmodule MobileCarWash.Billing.StripeClient do
   end
 
   @doc """
+  Creates a Stripe Checkout Session for a recurring subscription.
+  Uses the plan's `stripe_price_id` in subscription mode.
+  """
+  def create_subscription_checkout(plan, customer_email, stripe_customer_id \\ nil) do
+    base_url = Application.get_env(:mobile_car_wash, :base_url, "http://localhost:4000")
+
+    params = %{
+      mode: "subscription",
+      line_items: [%{price: plan.stripe_price_id, quantity: 1}],
+      metadata: %{plan_id: plan.id, plan_slug: plan.slug},
+      success_url: "#{base_url}/subscribe/success?session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "#{base_url}/subscribe/cancel"
+    }
+
+    params =
+      if stripe_customer_id do
+        Map.put(params, :customer, stripe_customer_id)
+      else
+        Map.put(params, :customer_email, customer_email)
+      end
+
+    case stripe_module().create(params) do
+      {:ok, session} -> {:ok, session}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  @doc """
+  Creates a Stripe Billing Portal session for the customer to manage payment methods.
+  """
+  def create_billing_portal_session(stripe_customer_id, return_url) do
+    billing_portal_module().create(%{
+      customer: stripe_customer_id,
+      return_url: return_url
+    })
+  end
+
+  @doc """
   Verifies a Stripe webhook signature and parses the event.
   """
   def construct_webhook_event(payload, signature) do
@@ -63,5 +101,9 @@ defmodule MobileCarWash.Billing.StripeClient do
   # Allow mocking Stripe in tests
   defp stripe_module do
     Application.get_env(:mobile_car_wash, :stripe_checkout_module, Stripe.Checkout.Session)
+  end
+
+  defp billing_portal_module do
+    Application.get_env(:mobile_car_wash, :stripe_billing_portal_module, Stripe.BillingPortal.Session)
   end
 end

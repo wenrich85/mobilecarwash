@@ -12,6 +12,30 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     PubSub.subscribe(@pubsub, topic(appointment_id))
   end
 
+  @doc "Subscribe to all new appointment notifications (for dispatch dashboard)."
+  def subscribe_to_new_appointments do
+    PubSub.subscribe(@pubsub, "appointments:new")
+  end
+
+  @doc "Broadcast that a new appointment was created."
+  def broadcast_new_appointment(appointment_id) do
+    PubSub.broadcast(@pubsub, "appointments:new", {:new_appointment, appointment_id})
+  end
+
+  @doc "Subscribe to tech appointment requests (for dispatch)."
+  def subscribe_to_tech_requests do
+    PubSub.subscribe(@pubsub, "appointments:tech_requests")
+  end
+
+  @doc "Broadcast that a tech is requesting an appointment."
+  def broadcast_tech_request(appointment_id, technician_id, technician_name) do
+    PubSub.broadcast(@pubsub, "appointments:tech_requests", {:tech_request, %{
+      appointment_id: appointment_id,
+      technician_id: technician_id,
+      technician_name: technician_name
+    }})
+  end
+
   def broadcast_started(appointment_id) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
       status: :in_progress,

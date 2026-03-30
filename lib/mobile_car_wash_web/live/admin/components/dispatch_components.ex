@@ -6,22 +6,43 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
   attr :customer_name, :string, required: true
   attr :service_name, :string, required: true
   attr :technicians, :list, required: true
+  attr :address_zone, :atom, default: nil
+  attr :requested_by, :map, default: nil
+  attr :vehicle, :map, default: nil
 
   def appointment_card(assigns) do
     ~H"""
     <div class={["card bg-base-100 shadow-sm border-l-4",
-      if(is_nil(@appointment.technician_id), do: "border-warning", else: "border-primary")
+      cond do
+        @requested_by -> "border-info"
+        is_nil(@appointment.technician_id) -> "border-warning"
+        true -> "border-primary"
+      end
     ]}>
       <div class="card-body p-4">
+        <!-- Tech request banner -->
+        <div :if={@requested_by} class="flex items-center gap-2 text-xs bg-info/10 text-info rounded px-2 py-1 mb-2 -mt-1">
+          <span class="font-semibold">{@requested_by.technician_name}</span>
+          <span>requested this appointment</span>
+        </div>
+
         <div class="flex justify-between items-start">
           <div>
             <h4 class="font-bold">{@service_name}</h4>
             <p class="text-sm text-base-content/60">{Calendar.strftime(@appointment.scheduled_at, "%b %d, %Y · %I:%M %p")}</p>
             <p class="text-sm">{@customer_name}</p>
+            <p :if={@vehicle} class="text-xs text-base-content/50">
+              {vehicle_label(@vehicle)}
+            </p>
           </div>
-          <span class={["badge badge-sm", status_badge(@appointment.status)]}>
-            {format_status(@appointment.status)}
-          </span>
+          <div class="flex gap-1">
+            <span :if={@address_zone} class={["badge badge-sm", MobileCarWash.Zones.badge_class(@address_zone)]}>
+              {MobileCarWash.Zones.short_label(@address_zone)}
+            </span>
+            <span class={["badge badge-sm", status_badge(@appointment.status)]}>
+              {format_status(@appointment.status)}
+            </span>
+          </div>
         </div>
 
         <!-- Assign Technician -->
@@ -42,15 +63,21 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
           </select>
         </form>
 
-        <!-- Confirm Button (for pending appointments) -->
+        <!-- Confirm Button (for pending appointments with assigned tech) -->
         <button
-          :if={@appointment.status == :pending}
+          :if={@appointment.status == :pending && @appointment.technician_id}
           class="btn btn-info btn-sm btn-block mt-2"
           phx-click="confirm_appointment"
           phx-value-id={@appointment.id}
         >
           Confirm Appointment
         </button>
+        <p
+          :if={@appointment.status == :pending && is_nil(@appointment.technician_id)}
+          class="text-xs text-warning mt-2 text-center"
+        >
+          Assign a technician to confirm
+        </p>
       </div>
     </div>
     """
@@ -141,4 +168,17 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
   defp format_status(:completed), do: "Done"
   defp format_status(:cancelled), do: "Cancelled"
   defp format_status(s), do: to_string(s)
+
+  defp vehicle_label(%{make: make, model: model, size: size}) do
+    type = case size do
+      :car -> "Car"
+      :suv_van -> "SUV/Van"
+      :pickup -> "Pickup"
+      _ -> ""
+    end
+    parts = [make, model, type] |> Enum.reject(&(is_nil(&1) or &1 == ""))
+    Enum.join(parts, " · ")
+  end
+
+  defp vehicle_label(_), do: nil
 end

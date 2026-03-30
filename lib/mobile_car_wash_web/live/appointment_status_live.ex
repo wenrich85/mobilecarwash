@@ -14,8 +14,10 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   @impl true
   def mount(%{"id" => appointment_id}, _session, socket) do
+    customer = socket.assigns.current_customer
+
     case Ash.get(Appointment, appointment_id) do
-      {:ok, appointment} ->
+      {:ok, appointment} when appointment.customer_id == customer.id ->
         service_type = Ash.get!(ServiceType, appointment.service_type_id)
         address = Ash.get!(Address, appointment.address_id)
 
@@ -51,7 +53,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
            message: status_message(appointment.status)
          )}
 
-      {:error, _} ->
+      _ ->
         {:ok,
          socket
          |> assign(page_title: "Not Found", appointment: nil)
@@ -62,16 +64,40 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   @impl true
   def handle_info({:appointment_update, data}, socket) do
     socket =
-      if data[:event] == :photo_uploaded do
-        reload_photos(socket)
-      else
-        socket
+      case data[:event] do
+        :photo_uploaded ->
+          reload_photos(socket)
+
+        :started ->
+          # Wash just started — load checklist from DB so progress appears immediately
+          {items, steps_done, steps_total, eta_minutes, current_step} =
+            load_checklist_state(socket.assigns.appointment.id)
+
+          # Also reload the appointment to get updated status
+          {:ok, appointment} = Ash.get(Appointment, socket.assigns.appointment.id)
+
+          assign(socket,
+            appointment: appointment,
+            items: items,
+            steps_done: steps_done,
+            steps_total: steps_total,
+            eta_minutes: eta_minutes,
+            current_step: current_step
+          )
+
+        :completed ->
+          # Wash finished — reload appointment and photos
+          {:ok, appointment} = Ash.get(Appointment, socket.assigns.appointment.id)
+          reload_photos(assign(socket, appointment: appointment))
+
+        _ ->
+          socket
       end
 
     {:noreply,
      assign(socket,
        live_status: data[:status],
-       current_step: data[:current_step],
+       current_step: data[:current_step] || socket.assigns.current_step,
        steps_done: data[:steps_done] || socket.assigns.steps_done,
        steps_total: data[:steps_total] || socket.assigns.steps_total,
        eta_minutes: data[:eta_minutes],

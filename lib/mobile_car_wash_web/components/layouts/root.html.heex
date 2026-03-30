@@ -4,31 +4,53 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="MobileCarWash" suffix=" · Phoenix Framework">
+    <meta name="description" content={assigns[:meta_description] || "Driveway Detail Co — professional mobile car wash and detailing. We come to your home or office. Veteran-owned. Book online in minutes."} />
+    <meta name="keywords" content={assigns[:meta_keywords] || "mobile car wash, mobile detailing, car detail, auto detailing, driveway detail, veteran owned, car wash at home, mobile car wash near me"} />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#1E2A38" />
+    <link rel="canonical" href={"https://drivewaydetail.co#{assigns[:canonical_path] || "/"}"} />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href={~p"/favicon.ico"} />
+    <link rel="icon" type="image/svg+xml" href={~p"/images/logo_icon.svg"} />
+    <link rel="apple-touch-icon" href={~p"/images/logo_icon.svg"} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Driveway Detail Co" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content={assigns[:page_title] || "Driveway Detail Co — Mobile Detailing"} />
+    <meta property="og:description" content={assigns[:meta_description] || "Professional mobile car wash and detailing at your door. Veteran-owned. Book online."} />
+    <meta property="og:url" content={"https://drivewaydetail.co#{assigns[:canonical_path] || "/"}"} />
+    <meta property="og:image" content="https://drivewaydetail.co/images/og-share.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={assigns[:page_title] || "Driveway Detail Co — Mobile Detailing"} />
+    <meta name="twitter:description" content={assigns[:meta_description] || "Professional mobile car wash and detailing at your door. Veteran-owned."} />
+    <meta name="twitter:image" content="https://drivewaydetail.co/images/og-share.png" />
+
+    <!-- Preconnect for external resources -->
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <link rel="preconnect" href="https://tiles.stadiamaps.com" />
+
+    <.live_title default="Driveway Detail Co" suffix=" · Mobile Detailing">
       {assigns[:page_title]}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
-    <script>
-      (() => {
-        const setTheme = (theme) => {
-          if (theme === "system") {
-            localStorage.removeItem("phx:theme");
-            document.documentElement.removeAttribute("data-theme");
-          } else {
-            localStorage.setItem("phx:theme", theme);
-            document.documentElement.setAttribute("data-theme", theme);
-          }
-        };
-        if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem("phx:theme") || "system");
-        }
-        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
-        
-        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
-      })();
-    </script>
+    <%= if ga_id = Application.get_env(:mobile_car_wash, :google_analytics_id) do %>
+      <script async src={"https://www.googletagmanager.com/gtag/js?id=#{ga_id}"}></script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '<%= ga_id %>');
+      </script>
+    <% end %>
   </head>
   <body>
     {@inner_content}

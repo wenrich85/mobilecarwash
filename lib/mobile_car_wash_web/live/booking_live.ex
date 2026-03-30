@@ -7,6 +7,7 @@ defmodule MobileCarWashWeb.BookingLive do
   alias MobileCarWash.Scheduling.{ServiceType, Availability, Booking}
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Booking.{StateMachine, SessionCache}
+  alias MobileCarWash.Billing.{Subscription, SubscriptionUsage}
 
   require Ash.Query
 
@@ -52,6 +53,9 @@ defmodule MobileCarWashWeb.BookingLive do
       |> assign_session_id()
       |> assign(
         page_title: "Book a Wash",
+        meta_description: "Book a mobile car wash or detail online. Choose your service, pick a time, and we come to you. Same-day availability. Veteran-owned.",
+        meta_keywords: "book mobile car wash, schedule car detail, online car wash booking, same day car wash, mobile detailing appointment",
+        canonical_path: "/book",
         services: services,
         booking_session_id: booking_session_id,
         # State machine
@@ -77,6 +81,8 @@ defmodule MobileCarWashWeb.BookingLive do
         address_form: nil,
         # Photos
         uploaded_photos: [],
+        # Subscription
+        active_subscription: load_active_subscription(customer),
         # Timing
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
@@ -88,8 +94,23 @@ defmodule MobileCarWashWeb.BookingLive do
       )
       |> load_step_data(validated_step)
 
+    if connected?(socket), do: MobileCarWash.CatalogBroadcaster.subscribe()
+
     {:ok, socket}
   end
+
+  @impl true
+  def handle_info(:services_updated, socket) do
+    services =
+      ServiceType
+      |> Ash.Query.filter(active == true)
+      |> Ash.read!()
+      |> Enum.sort_by(& &1.base_price_cents)
+
+    {:noreply, assign(socket, services: services)}
+  end
+
+  def handle_info(:plans_updated, socket), do: {:noreply, socket}
 
   # --- Handle Params: only process service param if on step 1 ---
 
@@ -338,6 +359,19 @@ defmodule MobileCarWashWeb.BookingLive do
           <button type="submit" class="btn btn-primary">Save Address</button>
         </form>
 
+        <!-- Zone indicator -->
+        <div :if={@selected_address && @selected_address.zone} class="alert alert-info mt-4">
+          <span>
+            Service Zone:
+            <span class={["badge", MobileCarWash.Zones.badge_class(@selected_address.zone)]}>
+              {MobileCarWash.Zones.label(@selected_address.zone)}
+            </span>
+          </span>
+        </div>
+        <div :if={@selected_address && is_nil(@selected_address.zone)} class="alert alert-warning mt-4">
+          <span>This address may be outside our current service area. We'll confirm availability.</span>
+        </div>
+
         <div :if={@selected_address} class="mt-4 text-right">
           <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
@@ -407,6 +441,21 @@ defmodule MobileCarWashWeb.BookingLive do
 
       <div :if={@current_step == :review}>
         <h2 class="text-2xl font-bold mb-6">Review Your Booking</h2>
+
+        <div :if={@active_subscription} class="alert alert-success mb-6">
+          <div>
+            <p class="font-semibold">
+              {@active_subscription.plan.name} Plan Applied
+            </p>
+            <p :if={@active_subscription.plan.basic_washes_per_month > 0} class="text-sm">
+              {Map.get(@active_subscription.usage, :basic_washes_used, 0)}/{@active_subscription.plan.basic_washes_per_month} basic washes used this period
+            </p>
+            <p :if={@active_subscription.plan.deep_clean_discount_percent > 0} class="text-sm">
+              {@active_subscription.plan.deep_clean_discount_percent}% off deep cleans
+            </p>
+          </div>
+        </div>
+
         <.booking_summary
           appointment={%{
             scheduled_at: @selected_slot,
@@ -498,9 +547,13 @@ defmodule MobileCarWashWeb.BookingLive do
 
     result =
       case existing do
-        [customer] ->
-          track_event(socket, "guest.returning", %{"email" => guest_params["email"]})
+        [%{role: :guest} = customer] ->
+          # Only allow re-use of existing guest accounts (no password set)
           {:ok, customer}
+
+        [_registered_customer] ->
+          # Email belongs to a registered account — don't silently adopt it
+          {:error, "An account with this email already exists. Please sign in instead."}
 
         [] ->
           case Customer
@@ -511,7 +564,6 @@ defmodule MobileCarWashWeb.BookingLive do
                })
                |> Ash.create() do
             {:ok, customer} ->
-              track_event(socket, "guest.created", %{"email" => guest_params["email"]})
               {:ok, customer}
 
             {:error, _} ->
@@ -556,11 +608,11 @@ defmodule MobileCarWashWeb.BookingLive do
     Logger.warning("SAVE_VEHICLE: current_step=#{socket.assigns.current_step}, customer=#{socket.assigns.current_customer && socket.assigns.current_customer.id}")
     customer = socket.assigns.current_customer
 
+    allowed_vehicle_keys = ~w(make model year color size)
     attrs =
       vehicle_params
-      |> Map.delete("customer_id")
-      |> Enum.map(fn {k, v} -> {String.to_existing_atom(k), v} end)
-      |> Map.new()
+      |> Map.take(allowed_vehicle_keys)
+      |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
       |> Map.update(:year, nil, fn v -> if is_binary(v) and v != "", do: String.to_integer(v), else: nil end)
 
     case Vehicle
@@ -593,11 +645,11 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("save_address", %{"address" => address_params}, socket) do
     customer = socket.assigns.current_customer
 
+    allowed_address_keys = ~w(street city state zip)
     attrs =
       address_params
-      |> Map.delete("customer_id")
-      |> Enum.map(fn {k, v} -> {String.to_existing_atom(k), v} end)
-      |> Map.new()
+      |> Map.take(allowed_address_keys)
+      |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
 
     case Address
          |> Ash.Changeset.for_create(:create, attrs)
@@ -662,19 +714,7 @@ defmodule MobileCarWashWeb.BookingLive do
       {:ok, date} ->
         duration = socket.assigns.selected_service.duration_minutes
 
-        {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
-        {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
-
-        existing =
-          MobileCarWash.Scheduling.Appointment
-          |> Ash.Query.filter(
-            scheduled_at >= ^day_start and
-              scheduled_at < ^day_end and
-              status in [:pending, :confirmed, :in_progress]
-          )
-          |> Ash.read!()
-          |> Enum.map(&%{scheduled_at: &1.scheduled_at, duration_minutes: &1.duration_minutes})
-
+        existing = fetch_existing_appointments(date)
         slots = Availability.available_slots(date, duration, existing)
 
         {:noreply, assign(socket, selected_date: date_str, available_slots: slots, selected_slot: nil)}
@@ -714,7 +754,7 @@ defmodule MobileCarWashWeb.BookingLive do
       vehicle_id: vehicle.id,
       address_id: address.id,
       scheduled_at: slot,
-      subscription_id: nil
+      subscription_id: socket.assigns.active_subscription && socket.assigns.active_subscription.id
     }
 
     case Booking.create_booking(booking_params) do
@@ -856,7 +896,8 @@ defmodule MobileCarWashWeb.BookingLive do
 
     case Date.from_iso8601(date) do
       {:ok, parsed_date} ->
-        slots = Availability.available_slots(parsed_date, duration, [])
+        existing = fetch_existing_appointments(parsed_date)
+        slots = Availability.available_slots(parsed_date, duration, existing)
         assign(socket, available_slots: slots)
 
       _ ->
@@ -875,5 +916,44 @@ defmodule MobileCarWashWeb.BookingLive do
     })
 
     socket
+  end
+
+  defp fetch_existing_appointments(date) do
+    {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
+    {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
+
+    MobileCarWash.Scheduling.Appointment
+    |> Ash.Query.filter(
+      scheduled_at >= ^day_start and
+        scheduled_at < ^day_end and
+        status in [:pending, :confirmed, :in_progress]
+    )
+    |> Ash.read!()
+    |> Enum.map(&%{scheduled_at: &1.scheduled_at, duration_minutes: &1.duration_minutes})
+  end
+
+  defp load_active_subscription(nil), do: nil
+
+  defp load_active_subscription(customer) do
+    Subscription
+    |> Ash.Query.filter(customer_id == ^customer.id and status == :active)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.read!()
+    |> case do
+      [sub | _] ->
+        plan = Ash.get!(MobileCarWash.Billing.SubscriptionPlan, sub.plan_id)
+        today = Date.utc_today()
+
+        usage =
+          SubscriptionUsage
+          |> Ash.Query.filter(subscription_id == ^sub.id and period_start <= ^today and period_end >= ^today)
+          |> Ash.read!()
+          |> List.first() || %{basic_washes_used: 0, deep_cleans_used: 0}
+
+        Map.put(sub, :plan, plan) |> Map.put(:usage, usage)
+
+      [] ->
+        nil
+    end
   end
 end

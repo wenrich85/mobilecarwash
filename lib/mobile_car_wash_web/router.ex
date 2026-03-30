@@ -2,6 +2,17 @@ defmodule MobileCarWashWeb.Router do
   use MobileCarWashWeb, :router
   use AshAuthentication.Phoenix.Router
 
+  @ws_connect if Application.compile_env(:mobile_car_wash, :dev_routes), do: "ws://localhost:*", else: ""
+  @csp_policy [
+    "default-src 'self'",
+    "script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://unpkg.com",
+    "style-src 'self' 'unsafe-inline' https://unpkg.com",
+    "img-src 'self' data: https: http://*.tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://tiles.stadiamaps.com",
+    "font-src 'self'",
+    "connect-src 'self' wss: #{@ws_connect} https://www.google-analytics.com https://analytics.google.com",
+    "frame-ancestors 'none'"
+  ] |> Enum.join("; ")
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -9,8 +20,7 @@ defmodule MobileCarWashWeb.Router do
     plug :put_root_layout, html: {MobileCarWashWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers, %{
-      "content-security-policy" =>
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws://localhost:*; frame-ancestors 'none'"
+      "content-security-policy" => @csp_policy
     }
     plug :load_from_session
   end
@@ -18,6 +28,13 @@ defmodule MobileCarWashWeb.Router do
   pipeline :api do
     plug :accepts, ["json"]
     plug :load_from_bearer
+  end
+
+  pipeline :rate_limited_auth do
+    plug MobileCarWashWeb.Plugs.RateLimit,
+      max: 10,
+      period: 60_000,
+      message: "Too many sign-in attempts. Please wait a moment."
   end
 
   pipeline :stripe_webhook do
@@ -42,15 +59,24 @@ defmodule MobileCarWashWeb.Router do
       live "/book", BookingLive
       live "/book/success", BookingSuccessLive
       live "/book/cancel", BookingCancelLive
+      live "/subscribe", SubscriptionLive
+      live "/subscribe/success", SubscriptionSuccessLive
+      live "/subscribe/cancel", SubscriptionCancelLive
+      live "/style-guide", Admin.StyleGuideLive
     end
 
     # Authentication routes
-    sign_in_route(auth_routes_prefix: "/auth")
+    sign_in_route(
+      auth_routes_prefix: "/auth",
+      overrides: [MobileCarWashWeb.AuthOverrides, AshAuthentication.Phoenix.Overrides.Default]
+    )
     sign_out_route AuthController
 
-    # Manual auth callback route — bypasses StrategyRouter forward which
-    # caused session cookie scoping issues (token stored but deleted on next request)
-    get "/auth/customer/password/sign_in_with_token", AuthController, :sign_in_with_token
+    # Manual auth callback route (rate-limited)
+    scope "/auth" do
+      pipe_through :rate_limited_auth
+      get "/customer/password/sign_in_with_token", AuthController, :sign_in_with_token
+    end
   end
 
   # Customer routes — any authenticated user
@@ -60,6 +86,7 @@ defmodule MobileCarWashWeb.Router do
     live_session :authenticated, on_mount: {MobileCarWashWeb.LiveAuth, :require_customer} do
       live "/appointments", AppointmentsLive
       live "/appointments/:id/status", AppointmentStatusLive
+      live "/account/subscription", SubscriptionManageLive
     end
   end
 
@@ -84,6 +111,7 @@ defmodule MobileCarWashWeb.Router do
       live "/org-chart", OrgChartLive
       live "/procedures", ProceduresLive
       live "/dispatch", DispatchLive
+      live "/settings", SettingsLive
     end
   end
 
@@ -103,4 +131,5 @@ defmodule MobileCarWashWeb.Router do
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
+
 end

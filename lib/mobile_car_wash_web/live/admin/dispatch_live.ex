@@ -11,6 +11,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   alias MobileCarWash.Operations.Technician
   alias MobileCarWash.Scheduling.ServiceType
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Fleet.Address
+  alias MobileCarWash.Zones
 
   require Ash.Query
 
@@ -18,7 +20,11 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: schedule_refresh()
+    if connected?(socket) do
+      schedule_refresh()
+      AppointmentTracker.subscribe_to_new_appointments()
+      AppointmentTracker.subscribe_to_tech_requests()
+    end
 
     technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
 
@@ -37,9 +43,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         filter_date: nil,
         filter_status: "pending",
         filter_tech: nil,
+        filter_zone: nil,
+        filter_requested: false,
         show_manage_techs: false,
         service_map: load_service_map(),
-        customer_map: %{}
+        customer_map: %{},
+        tech_requests: %{}
       )
       |> load_appointments()
 
@@ -49,6 +58,10 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   # === Event Handlers ===
 
   @impl true
+  def handle_event("request_map_pins", _params, socket) do
+    {:noreply, push_event(socket, "update_map_pins", %{pins: socket.assigns.map_pins})}
+  end
+
   def handle_event("filter", params, socket) do
     filter_date =
       case params["date"] do
@@ -66,17 +79,35 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     filter_tech = params["tech"] || socket.assigns.filter_tech
     filter_tech = if filter_tech == "", do: nil, else: filter_tech
 
+    filter_zone = params["zone"] || socket.assigns.filter_zone
+    filter_zone = if filter_zone == "", do: nil, else: filter_zone
+
+    filter_requested = params["requested"] == "true"
+
     {:noreply,
      socket
-     |> assign(filter_date: filter_date, filter_status: filter_status, filter_tech: filter_tech)
+     |> assign(filter_date: filter_date, filter_status: filter_status, filter_tech: filter_tech, filter_zone: filter_zone, filter_requested: filter_requested)
      |> load_appointments()}
   end
 
   def handle_event("clear_filters", _params, socket) do
     {:noreply,
      socket
-     |> assign(filter_date: nil, filter_status: "pending", filter_tech: nil)
+     |> assign(filter_date: nil, filter_status: "pending", filter_tech: nil, filter_zone: nil, filter_requested: false)
      |> load_appointments()}
+  end
+
+  def handle_event("assign_tech_zone", %{"tech-id" => tech_id, "zone" => zone_str}, socket) do
+    zone = if zone_str == "", do: nil, else: zone_str
+
+    import Ecto.Query
+    MobileCarWash.Repo.update_all(
+      from(t in "technicians", where: t.id == type(^Ecto.UUID.dump!(tech_id), :binary_id)),
+      set: [zone: zone]
+    )
+
+    technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+    {:noreply, assign(socket, technicians: technicians)}
   end
 
   def handle_event("assign_tech", %{"appointment-id" => appt_id, "technician_id" => ""}, socket) do
@@ -159,6 +190,36 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     {:noreply, load_appointments(socket)}
   end
 
+  def handle_info({:new_appointment, _id}, socket) do
+    {:noreply, load_appointments(socket)}
+  end
+
+  def handle_info({:tech_request, request}, socket) do
+    tech_name = request.technician_name
+
+    appt_info =
+      case Ash.get(Appointment, request.appointment_id) do
+        {:ok, appt} ->
+          service = Map.get(socket.assigns.service_map, appt.service_type_id, "Service")
+          time = Calendar.strftime(appt.scheduled_at, "%b %d · %I:%M %p")
+          "#{service} on #{time}"
+        _ ->
+          "an appointment"
+      end
+
+    # Track which appointments have been requested and by whom
+    tech_requests = Map.put(socket.assigns.tech_requests, request.appointment_id, %{
+      technician_id: request.technician_id,
+      technician_name: tech_name
+    })
+
+    {:noreply,
+     socket
+     |> assign(tech_requests: tech_requests)
+     |> put_flash(:info, "#{tech_name} is requesting #{appt_info}")
+     |> load_appointments()}
+  end
+
   # === Render ===
 
   @impl true
@@ -212,8 +273,46 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           </select>
         </div>
 
+        <div class="form-control">
+          <label class="label label-text text-xs">Zone</label>
+          <select name="zone" class="select select-bordered select-sm">
+            <option value="" selected={is_nil(@filter_zone)}>All Zones</option>
+            <option :for={z <- Zones.all()} value={z} selected={@filter_zone == to_string(z)}>
+              {Zones.short_label(z)}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label label-text text-xs">Requested</label>
+          <label class="label cursor-pointer gap-2 justify-start">
+            <input
+              type="checkbox"
+              name="requested"
+              value="true"
+              checked={@filter_requested}
+              class="checkbox checkbox-sm checkbox-primary"
+            />
+            <span class="label-text text-sm">
+              Only requested
+              <span :if={map_size(@tech_requests) > 0} class="badge badge-warning badge-xs ml-1">{map_size(@tech_requests)}</span>
+            </span>
+          </label>
+        </div>
+
         <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
       </form>
+
+      <!-- Map -->
+      <div class="mb-8">
+        <h2 class="text-lg font-bold mb-3">Map</h2>
+        <div
+          id="dispatch-map"
+          phx-hook="DispatchMap"
+          phx-update="ignore"
+          class="w-full h-80 rounded-lg shadow border border-base-300 z-0"
+        />
+      </div>
 
       <!-- Active Washes (always show if any) -->
       <div :if={@active != []} class="mb-8">
@@ -250,6 +349,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             service_name={Map.get(@service_map, appt.service_type_id, "Service")}
             technicians={@technicians}
+            address_zone={Map.get(@address_map, appt.address_id) && Map.get(@address_map, appt.address_id).zone}
+            requested_by={Map.get(@tech_requests, appt.id)}
+            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
           />
         </div>
       </div>
@@ -283,6 +385,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Zone</th>
                   <th>Linked Account</th>
                   <th>Pay Rate</th>
                 </tr>
@@ -290,6 +393,19 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
               <tbody>
                 <tr :for={tech <- @technicians}>
                   <td class="font-semibold">{tech.name}</td>
+                  <td>
+                    <select
+                      class="select select-bordered select-xs"
+                      phx-change="assign_tech_zone"
+                      phx-value-tech-id={tech.id}
+                      name="zone"
+                    >
+                      <option value="" selected={is_nil(tech.zone)}>Floater</option>
+                      <option :for={z <- Zones.all()} value={z} selected={tech.zone == z}>
+                        {Zones.short_label(z)}
+                      </option>
+                    </select>
+                  </td>
                   <td>
                     <select
                       class="select select-bordered select-xs w-full max-w-xs"
@@ -374,6 +490,46 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         %{}
       end
 
+    # Load address data (for zone badges)
+    address_ids = Enum.map(all, & &1.address_id) |> Enum.uniq()
+    address_map =
+      if address_ids != [] do
+        Address |> Ash.Query.filter(id in ^address_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+      else
+        %{}
+      end
+
+    # Load vehicle data (for map pin icons)
+    vehicle_ids = Enum.map(all, & &1.vehicle_id) |> Enum.uniq()
+    vehicle_map =
+      if vehicle_ids != [] do
+        MobileCarWash.Fleet.Vehicle |> Ash.Query.filter(id in ^vehicle_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+      else
+        %{}
+      end
+
+    # Zone filter (applied in memory — small daily count)
+    filtered =
+      case socket.assigns.filter_zone do
+        nil -> all
+        zone_str ->
+          zone = String.to_existing_atom(zone_str)
+          Enum.filter(all, fn appt ->
+            addr = Map.get(address_map, appt.address_id)
+            addr && addr.zone == zone
+          end)
+      end
+
+    # Requested filter — show only appointments a tech has requested
+    filtered =
+      if socket.assigns.filter_requested do
+        Enum.filter(filtered, fn appt ->
+          Map.has_key?(socket.assigns.tech_requests, appt.id)
+        end)
+      else
+        filtered
+      end
+
     # Active washes (always show regardless of filters)
     active_appts = Appointment |> Ash.Query.filter(status == :in_progress) |> Ash.read!()
     active =
@@ -388,12 +544,52 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       end
     end
 
-    assign(socket,
-      all_appointments: all,
-      filtered_appointments: all,
-      active: active,
-      customer_map: customer_map
-    )
+    # Build map pin data for filtered appointments
+    map_pins =
+      filtered
+      |> Enum.map(fn appt ->
+        addr = Map.get(address_map, appt.address_id)
+        coords = if addr, do: Zones.coordinates_for_address(addr), else: nil
+
+        case coords do
+          {lat, lng} ->
+            vehicle = Map.get(vehicle_map, appt.vehicle_id)
+            %{
+              lat: lat,
+              lng: lng,
+              status: to_string(appt.status),
+              vehicle_type: vehicle && to_string(vehicle.size) || "car",
+              service: Map.get(socket.assigns.service_map, appt.service_type_id, "Service"),
+              customer: Map.get(customer_map, appt.customer_id, "Customer"),
+              time: Calendar.strftime(appt.scheduled_at, "%b %d · %I:%M %p"),
+              zone: addr && to_string(addr.zone),
+              zone_label: addr && addr.zone && Zones.short_label(addr.zone)
+            }
+
+          _ ->
+            nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    socket =
+      assign(socket,
+        all_appointments: all,
+        filtered_appointments: filtered,
+        active: active,
+        customer_map: customer_map,
+        address_map: address_map,
+        vehicle_map: vehicle_map,
+        map_pins: map_pins
+      )
+
+    # Push pin data to the map hook on filter changes
+    # (initial load handled by request_map_pins from the hook)
+    if connected?(socket) do
+      push_event(socket, "update_map_pins", %{pins: map_pins})
+    else
+      socket
+    end
   end
 
   defp load_service_map do

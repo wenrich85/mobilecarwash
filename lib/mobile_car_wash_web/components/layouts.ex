@@ -50,6 +50,11 @@ defmodule MobileCarWashWeb.Layouts do
       <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
 
       <div class="drawer-content flex flex-col">
+        <!-- Skip to content -->
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:btn focus:btn-primary focus:btn-sm">
+          Skip to content
+        </a>
+
         <!-- Navbar -->
         <header class="navbar bg-base-100 shadow-sm sticky top-0 z-50">
           <!-- Mobile hamburger -->
@@ -63,18 +68,20 @@ defmodule MobileCarWashWeb.Layouts do
 
           <!-- Brand -->
           <div class="flex-1">
-            <a href="/" class="btn btn-ghost text-xl font-bold">
-              Mobile Car Wash
+            <a href="/" class="btn btn-ghost h-auto py-1 px-2">
+              <img src="/images/logo_light.svg" alt="Driveway Detail Co" class="h-9 dark:hidden" />
+              <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-9 hidden dark:block" />
             </a>
           </div>
 
           <!-- Desktop nav -->
-          <div class="flex-none hidden lg:block">
+          <nav aria-label="Main navigation" class="flex-none hidden lg:block">
             <ul class="menu menu-horizontal items-center gap-1">
               <li><a href="/" class="btn btn-ghost btn-sm">Home</a></li>
               <li><a href="/book" class="btn btn-ghost btn-sm">Book a Wash</a></li>
 
               <li :if={@current_scope}><a href="/appointments" class="btn btn-ghost btn-sm">My Appointments</a></li>
+              <li :if={@current_scope}><a href="/account/subscription" class="btn btn-ghost btn-sm">My Plan</a></li>
 
               <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}>
                 <a href="/tech" class="btn btn-ghost btn-sm">Tech Dashboard</a>
@@ -89,6 +96,7 @@ defmodule MobileCarWashWeb.Layouts do
                   <li><a href="/admin/formation">Formation</a></li>
                   <li><a href="/admin/org-chart">Org Chart</a></li>
                   <li><a href="/admin/procedures">SOPs</a></li>
+                  <li><a href="/admin/settings">Settings</a></li>
                 </ul>
               </li>
 
@@ -104,26 +112,71 @@ defmodule MobileCarWashWeb.Layouts do
                 <a href="/sign-in" class="btn btn-primary btn-sm">Sign In</a>
               </li>
             </ul>
-          </div>
+          </nav>
         </header>
 
         <!-- Page content -->
-        <main class="flex-1">
+        <main id="main-content" class="flex-1">
           {render_slot(@inner_block) || @inner_content}
         </main>
 
         <.flash_group flash={@flash} />
+
+        <!-- Footer -->
+        <footer class="bg-base-200 border-t border-base-300">
+          <div class="max-w-7xl mx-auto px-4 py-12">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div>
+                <img src="/images/logo_light.svg" alt="Driveway Detail Co" class="h-8 mb-3 dark:hidden" />
+                <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-8 mb-3 hidden dark:block" />
+                <p class="text-sm text-base-content/60">
+                  Professional mobile detailing at your door. Veteran-owned in San Antonio, TX.
+                </p>
+              </div>
+              <div>
+                <h4 class="font-semibold mb-3 text-sm">Services</h4>
+                <ul class="space-y-2 text-sm text-base-content/60">
+                  <li><a href="/book" class="hover:text-base-content">Book a Wash</a></li>
+                  <li><a href="/subscribe" class="hover:text-base-content">Monthly Plans</a></li>
+                  <li><a href="/#services" class="hover:text-base-content">Pricing</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 class="font-semibold mb-3 text-sm">Account</h4>
+                <ul class="space-y-2 text-sm text-base-content/60">
+                  <li><a href="/sign-in" class="hover:text-base-content">Sign In</a></li>
+                  <li><a href="/appointments" class="hover:text-base-content">My Appointments</a></li>
+                  <li><a href="/account/subscription" class="hover:text-base-content">My Plan</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 class="font-semibold mb-3 text-sm">Company</h4>
+                <ul class="space-y-2 text-sm text-base-content/60">
+                  <li>San Antonio, TX</li>
+                  <li>Mon–Sat 8am–6pm</li>
+                </ul>
+              </div>
+            </div>
+            <div class="border-t border-base-300 mt-8 pt-6 text-center text-xs text-base-content/40">
+              <p>&copy; {DateTime.utc_now().year} Driveway Detail Co. All rights reserved. Veteran-owned.</p>
+            </div>
+          </div>
+        </footer>
       </div>
 
       <!-- Mobile drawer sidebar -->
       <div class="drawer-side z-50">
         <label for="mobile-drawer" class="drawer-overlay"></label>
         <ul class="menu p-4 w-72 min-h-full bg-base-200">
-          <li class="menu-title text-lg font-bold mb-2">Mobile Car Wash</li>
+          <li class="mb-4 px-2">
+            <img src="/images/logo_light.svg" alt="Driveway Detail Co" class="h-10 dark:hidden" />
+            <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-10 hidden dark:block" />
+          </li>
           <li><a href="/">Home</a></li>
           <li><a href="/book">Book a Wash</a></li>
 
           <li :if={@current_scope}><a href="/appointments">My Appointments</a></li>
+          <li :if={@current_scope}><a href="/account/subscription">My Plan</a></li>
 
           <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]} class="menu-title mt-4">Technician</li>
           <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}><a href="/tech">Dashboard</a></li>
@@ -135,6 +188,7 @@ defmodule MobileCarWashWeb.Layouts do
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/formation">Formation</a></li>
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/org-chart">Org Chart</a></li>
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/procedures">SOPs</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/settings">Settings</a></li>
 
           <li :if={@current_scope} class="mt-4"><a href="/sign-out" class="text-error">Sign Out</a></li>
           <li :if={!@current_scope} class="mt-4"><a href="/sign-in" class="font-semibold">Sign In</a></li>

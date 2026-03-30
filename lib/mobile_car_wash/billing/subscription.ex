@@ -61,5 +61,18 @@ defmodule MobileCarWash.Billing.Subscription do
     update :pause do
       change set_attribute(:status, :paused)
     end
+
+    update :resume do
+      change set_attribute(:status, :active)
+    end
+
+    update :mark_past_due do
+      change set_attribute(:status, :past_due)
+    end
+
+    read :active_for_customer do
+      argument :customer_id, :uuid, allow_nil?: false
+      filter expr(customer_id == ^arg(:customer_id) and status in [:active, :paused, :past_due])
+    end
   end
 end

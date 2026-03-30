@@ -1,3 +1,19 @@
+// Theme management — must run early to prevent flash of wrong theme
+const setTheme = (theme) => {
+  if (theme === "system") {
+    localStorage.removeItem("phx:theme");
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    localStorage.setItem("phx:theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+  }
+};
+if (!document.documentElement.hasAttribute("data-theme")) {
+  setTheme(localStorage.getItem("phx:theme") || "system");
+}
+window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+
 // If you want to use Phoenix channels, run `mix help phx.gen.channel`
 // to get started and then uncomment the line below.
 // import "./user_socket.js"
@@ -26,12 +42,13 @@ import {hooks as colocatedHooks} from "phoenix-colocated/mobile_car_wash"
 import topbar from "../vendor/topbar"
 
 import {Sortable} from "./hooks/sortable"
+import {DispatchMap} from "./hooks/dispatch_map"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Sortable},
+  hooks: {...colocatedHooks, Sortable, DispatchMap},
 })
 
 // Show progress bar on live navigation and form submits

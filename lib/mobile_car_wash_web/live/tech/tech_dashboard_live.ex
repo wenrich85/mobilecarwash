@@ -5,9 +5,11 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Scheduling.{Appointment, ServiceType, Dispatch}
+  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType, Dispatch}
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Fleet.{Address, Vehicle}
   alias MobileCarWash.Operations.TechEarnings
+  alias MobileCarWash.Zones
 
   require Ash.Query
 
@@ -42,27 +44,152 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     unassigned = Enum.filter(all_today ++ all_tomorrow, &is_nil(&1.technician_id))
 
     # Load earnings summary (only if linked to a tech record)
-    earnings = if tech_record, do: TechEarnings.earnings_summary(tech_record), else: nil
-    wash_history = if tech_record, do: TechEarnings.all_completed_washes(tech_record.id), else: []
+    earnings_tab = :week
+    earnings_ref = Date.utc_today()
+    earnings = if tech_record, do: TechEarnings.earnings_for_period(tech_record, earnings_tab, earnings_ref), else: nil
 
-    {:ok,
-     assign(socket,
-       page_title: "My Schedule",
-       tech_user: tech_user,
-       tech_record: tech_record,
-       todays_appointments: todays,
-       tomorrows_appointments: tomorrows,
-       unassigned_count: length(unassigned),
-       is_admin: is_admin,
-       earnings: earnings,
-       wash_history: wash_history,
-       service_map: Ash.read!(ServiceType) |> Map.new(&{&1.id, &1}),
-       customer_map: load_customer_map(todays ++ tomorrows),
-       address_map: load_address_map(todays ++ tomorrows)
-     )}
+    all_appts = todays ++ tomorrows
+    service_map = Ash.read!(ServiceType) |> Map.new(&{&1.id, &1})
+    customer_map = load_customer_map(all_appts)
+    address_map = load_address_map(all_appts)
+    vehicle_map = load_vehicle_map(all_appts)
+    map_pins = build_map_pins(todays, service_map, customer_map, address_map, vehicle_map)
+    map_view = :today
+
+    # Load unassigned appointments in tech's zone
+    zone_appointments = load_zone_appointments(tech_record, address_map, service_map)
+
+    socket =
+      assign(socket,
+        page_title: "My Schedule",
+        tech_user: tech_user,
+        tech_record: tech_record,
+        todays_appointments: todays,
+        tomorrows_appointments: tomorrows,
+        unassigned_count: length(unassigned),
+        is_admin: is_admin,
+        earnings: earnings,
+        earnings_tab: earnings_tab,
+        earnings_ref: earnings_ref,
+        service_map: service_map,
+        customer_map: customer_map,
+        address_map: address_map,
+        vehicle_map: vehicle_map,
+        map_pins: map_pins,
+        map_view: map_view,
+        zone_appointments: zone_appointments,
+        requested_ids: MapSet.new(),
+        requested_appts: []
+      )
+
+    {:ok, socket}
   end
 
   @impl true
+  def handle_event("earnings_tab", %{"period" => period}, socket) do
+    tab = String.to_existing_atom(period)
+    ref = Date.utc_today()
+    {:noreply, load_earnings(socket, tab, ref)}
+  end
+
+  def handle_event("earnings_prev", _params, socket) do
+    ref = TechEarnings.shift_period(socket.assigns.earnings_tab, socket.assigns.earnings_ref, :prev)
+    {:noreply, load_earnings(socket, socket.assigns.earnings_tab, ref)}
+  end
+
+  def handle_event("earnings_next", _params, socket) do
+    ref = TechEarnings.shift_period(socket.assigns.earnings_tab, socket.assigns.earnings_ref, :next)
+    {:noreply, load_earnings(socket, socket.assigns.earnings_tab, ref)}
+  end
+
+  def handle_event("earnings_today", _params, socket) do
+    {:noreply, load_earnings(socket, socket.assigns.earnings_tab, Date.utc_today())}
+  end
+
+  def handle_event("request_map_pins", _params, socket) do
+    {:noreply, push_event(socket, "update_map_pins", %{pins: socket.assigns.map_pins})}
+  end
+
+  def handle_event("map_view", %{"view" => view}, socket) do
+    map_view = String.to_existing_atom(view)
+
+    appts =
+      case map_view do
+        :today ->
+          socket.assigns.todays_appointments
+
+        :all ->
+          # Load all appointments assigned to this tech
+          if socket.assigns.tech_record do
+            Appointment
+            |> Ash.Query.filter(
+              technician_id == ^socket.assigns.tech_record.id and
+                status != :cancelled
+            )
+            |> Ash.Query.sort(scheduled_at: :asc)
+            |> Ash.read!()
+          else
+            socket.assigns.todays_appointments ++ socket.assigns.tomorrows_appointments
+          end
+      end
+
+    # Load any missing addresses/vehicles
+    new_addr_ids = Enum.map(appts, & &1.address_id) |> Enum.uniq()
+    address_map =
+      if new_addr_ids != [] do
+        MobileCarWash.Fleet.Address |> Ash.Query.filter(id in ^new_addr_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+      else
+        %{}
+      end
+
+    new_veh_ids = Enum.map(appts, & &1.vehicle_id) |> Enum.uniq()
+    vehicle_map =
+      if new_veh_ids != [] do
+        MobileCarWash.Fleet.Vehicle |> Ash.Query.filter(id in ^new_veh_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+      else
+        %{}
+      end
+
+    new_cust_ids = Enum.map(appts, & &1.customer_id) |> Enum.uniq()
+    customer_map =
+      if new_cust_ids != [] do
+        Customer |> Ash.Query.filter(id in ^new_cust_ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
+      else
+        %{}
+      end
+
+    pins = build_map_pins(appts, socket.assigns.service_map, customer_map, address_map, vehicle_map)
+
+    socket =
+      socket
+      |> assign(map_view: map_view, map_pins: pins)
+      |> push_event("update_map_pins", %{pins: pins})
+
+    {:noreply, socket}
+  end
+
+  def handle_event("request_appointment", %{"id" => appointment_id}, socket) do
+    tech = socket.assigns.tech_record
+
+    if tech do
+      # Notify dispatch via PubSub
+      AppointmentTracker.broadcast_tech_request(appointment_id, tech.id, tech.name)
+
+      # Move from zone_appointments to requested list
+      requested_appt = Enum.find(socket.assigns.zone_appointments, &(&1.id == appointment_id))
+      zone_appointments = Enum.reject(socket.assigns.zone_appointments, &(&1.id == appointment_id))
+      requested_ids = MapSet.put(socket.assigns.requested_ids, appointment_id)
+      requested_appts = socket.assigns.requested_appts ++ (if requested_appt, do: [requested_appt], else: [])
+
+      {:noreply,
+       socket
+       |> assign(zone_appointments: zone_appointments, requested_ids: requested_ids, requested_appts: requested_appts)
+       |> put_flash(:info, "Request sent to dispatch!")}
+    else
+      {:noreply, put_flash(socket, :error, "No technician record linked")}
+    end
+  end
+
   def handle_event("start_wash", %{"id" => appointment_id}, socket) do
     alias MobileCarWash.Scheduling.WashOrchestrator
 
@@ -99,6 +226,29 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         <span>{@unassigned_count} unassigned appointment(s) — check with dispatch.</span>
       </div>
 
+      <!-- Map -->
+      <div class="mb-8">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-lg font-bold">{if @map_view == :today, do: "Today's Route", else: "All Appointments"}</h2>
+          <div class="tabs tabs-boxed tabs-sm">
+            <button class={["tab", @map_view == :today && "tab-active"]} phx-click="map_view" phx-value-view="today">Today</button>
+            <button class={["tab", @map_view == :all && "tab-active"]} phx-click="map_view" phx-value-view="all">All</button>
+          </div>
+        </div>
+        <div
+          id="tech-map"
+          phx-hook="DispatchMap"
+          phx-update="ignore"
+          class="w-full h-64 rounded-lg shadow border border-base-300 z-0"
+        />
+        <div class="flex gap-3 mt-2 text-xs text-base-content/50">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#ADB5BD] inline-block"></span> Pending</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#3A7CA5] inline-block"></span> Confirmed</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#E6A817] inline-block"></span> In Progress</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#2A9D6F] inline-block"></span> Completed</span>
+        </div>
+      </div>
+
       <!-- Today -->
       <div class="mb-8">
         <h2 class="text-lg font-bold mb-3">Today</h2>
@@ -112,7 +262,9 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             service={Map.get(@service_map, appt.service_type_id)}
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             address={Map.get(@address_map, appt.address_id)}
+            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
           />
+
         </div>
       </div>
 
@@ -129,20 +281,124 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             service={Map.get(@service_map, appt.service_type_id)}
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             address={Map.get(@address_map, appt.address_id)}
+            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
           />
         </div>
       </div>
 
-      <!-- Earnings Summary -->
-      <div :if={@earnings} class="mb-8">
+      <!-- Requested — awaiting dispatch approval -->
+      <div :if={@requested_appts != []} class="mb-8">
+        <h2 class="text-lg font-bold mb-3">
+          Requested
+          <span class="badge badge-sm badge-ghost ml-2">{length(@requested_appts)}</span>
+        </h2>
+        <div class="space-y-3">
+          <div
+            :for={ra <- @requested_appts}
+            class="card shadow-sm border border-dashed border-base-300 opacity-60"
+          >
+            <div class="card-body p-4">
+              <div class="flex justify-between items-start">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold">{ra.service_name}</span>
+                    <span :if={ra.zone} class={["badge badge-xs", Zones.badge_class(ra.zone)]}>
+                      {Zones.short_label(ra.zone)}
+                    </span>
+                  </div>
+                  <p class="text-sm text-base-content/50">{Calendar.strftime(ra.scheduled_at, "%b %d · %I:%M %p")}</p>
+                  <p class="text-xs text-base-content/40">{ra.address_street}, {ra.address_city}</p>
+                </div>
+                <span class="badge badge-ghost badge-sm">Awaiting approval</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Available Appointments -->
+      <div :if={@tech_record && @zone_appointments != []} class="mb-8">
+        <h2 class="text-lg font-bold mb-3">
+          {if @tech_record.zone, do: "Available in Your Zone", else: "Available Appointments"}
+          <span :if={@tech_record.zone} class={["badge badge-sm ml-2", Zones.badge_class(@tech_record.zone)]}>
+            {Zones.short_label(@tech_record.zone)}
+          </span>
+        </h2>
+        <p class="text-sm text-base-content/50 mb-3">Unassigned appointments. Tap to request.</p>
+        <div class="space-y-3">
+          <div :for={za <- @zone_appointments} class="card bg-base-100 shadow-sm border-l-4 border-warning">
+            <div class="card-body p-4">
+              <div class="flex justify-between items-start">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold">{za.service_name}</span>
+                    <span :if={za.zone} class={["badge badge-xs", Zones.badge_class(za.zone)]}>
+                      {Zones.short_label(za.zone)}
+                    </span>
+                  </div>
+                  <p class="text-sm text-base-content/60">{Calendar.strftime(za.scheduled_at, "%b %d · %I:%M %p")}</p>
+                  <p class="text-xs text-base-content/40">{za.address_street}, {za.address_city}</p>
+                </div>
+                <button
+                  class="btn btn-primary btn-sm"
+                  phx-click="request_appointment"
+                  phx-value-id={za.id}
+                >
+                  Request
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Earnings -->
+      <div :if={@tech_record} class="mb-8">
         <h2 class="text-lg font-bold mb-3">Earnings</h2>
-        <div class="card bg-base-100 shadow">
+
+        <!-- Period Tabs -->
+        <div class="tabs tabs-boxed mb-4">
+          <button
+            :for={tab <- [{:day, "Day"}, {:week, "Week"}, {:month, "Month"}, {:year, "Year"}]}
+            class={["tab", @earnings_tab == elem(tab, 0) && "tab-active"]}
+            phx-click="earnings_tab"
+            phx-value-period={elem(tab, 0)}
+          >
+            {elem(tab, 1)}
+          </button>
+        </div>
+
+        <!-- Period Navigation -->
+        <div :if={@earnings} class="flex items-center justify-between mb-4">
+          <button class="btn btn-ghost btn-sm" phx-click="earnings_prev">
+            &larr; Prev
+          </button>
+          <div class="text-center">
+            <span class="font-semibold text-sm">
+              {format_period_label(@earnings_tab, @earnings.period_start, @earnings.period_end)}
+            </span>
+            <button
+              :if={@earnings_ref != Date.utc_today()}
+              class="btn btn-ghost btn-xs ml-2"
+              phx-click="earnings_today"
+            >
+              Today
+            </button>
+          </div>
+          <button
+            class="btn btn-ghost btn-sm"
+            phx-click="earnings_next"
+            disabled={Date.compare(@earnings.period_end, Date.utc_today()) != :lt}
+          >
+            Next &rarr;
+          </button>
+        </div>
+
+        <!-- Summary Card -->
+        <div :if={@earnings} class="card bg-base-100 shadow mb-4">
           <div class="card-body p-4">
             <div class="flex justify-between items-start">
               <div>
-                <p class="text-sm text-base-content/60">
-                  {Calendar.strftime(@earnings.period_start, "%b %d")} – {Calendar.strftime(@earnings.period_end, "%b %d")}
-                </p>
                 <p class="text-3xl font-bold text-success">${format_dollars(@earnings.total_cents)}</p>
                 <p class="text-sm text-base-content/60">
                   {@earnings.washes_count} wash{if @earnings.washes_count != 1, do: "es"} @ ${format_dollars(@earnings.rate_cents)}/wash
@@ -154,15 +410,9 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Wash History -->
-      <div class="mb-8">
-        <h2 class="text-lg font-bold mb-3">Completed Washes</h2>
-        <div :if={@wash_history == []} class="text-base-content/50 text-sm">
-          No completed washes yet
-        </div>
-        <div :if={@wash_history != []} class="overflow-x-auto">
+        <!-- Wash List for Period -->
+        <div :if={@earnings && @earnings.washes != []} class="overflow-x-auto">
           <table class="table table-sm">
             <thead>
               <tr>
@@ -174,7 +424,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
               </tr>
             </thead>
             <tbody>
-              <tr :for={wash <- @wash_history}>
+              <tr :for={wash <- @earnings.washes}>
                 <td class="text-sm">{Calendar.strftime(wash.date, "%b %d")}</td>
                 <td class="text-sm">{wash.service_name}</td>
                 <td class="text-sm">{wash.customer_name}</td>
@@ -183,15 +433,26 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                   <span :if={!wash.actual_minutes}>{wash.duration_minutes}m est</span>
                 </td>
                 <td class="text-sm font-semibold text-success">
-                  ${format_dollars(@earnings && @earnings.rate_cents || 2500)}
+                  ${format_dollars(@earnings.rate_cents)}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <div :if={@earnings && @earnings.washes == []} class="text-base-content/50 text-sm">
+          No completed washes for this period
+        </div>
       </div>
     </div>
     """
+  end
+
+  defp load_earnings(socket, tab, ref) do
+    earnings = if socket.assigns.tech_record,
+      do: TechEarnings.earnings_for_period(socket.assigns.tech_record, tab, ref),
+      else: nil
+
+    assign(socket, earnings_tab: tab, earnings_ref: ref, earnings: earnings)
   end
 
   defp format_dollars(cents) when is_integer(cents) do
@@ -201,6 +462,12 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   end
 
   defp format_dollars(_), do: "0.00"
+
+  defp format_period_label(:day, date, _), do: Calendar.strftime(date, "%A, %B %d")
+  defp format_period_label(:week, start_date, end_date),
+    do: "#{Calendar.strftime(start_date, "%b %d")} – #{Calendar.strftime(end_date, "%b %d")}"
+  defp format_period_label(:month, date, _), do: Calendar.strftime(date, "%B %Y")
+  defp format_period_label(:year, date, _), do: "#{date.year}"
 
   defp appointment_row(assigns) do
     # Check for existing checklist
@@ -215,6 +482,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             <span class="font-bold">{@service && @service.name}</span>
             <p class="text-sm">{Calendar.strftime(@appointment.scheduled_at, "%I:%M %p")}</p>
             <p class="text-sm text-base-content/60">{@customer_name}</p>
+            <p :if={@vehicle} class="text-xs text-base-content/50">{vehicle_label(@vehicle)}</p>
             <p :if={@address} class="text-xs text-base-content/40">{@address.street}, {@address.city}</p>
           </div>
           <span class={["badge badge-sm", status_class(@appointment.status)]}>
@@ -284,7 +552,85 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   defp load_address_map(appointments) do
     ids = Enum.map(appointments, & &1.address_id) |> Enum.uniq()
     if ids == [], do: %{}, else:
-      MobileCarWash.Fleet.Address |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+      Address |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+  end
+
+  defp load_zone_appointments(nil, _address_map, _service_map), do: []
+
+  defp load_zone_appointments(tech_record, _existing_address_map, service_map) do
+    # Fetch unassigned pending/confirmed appointments
+    unassigned =
+      Appointment
+      |> Ash.Query.filter(is_nil(technician_id) and status in [:pending, :confirmed])
+      |> Ash.Query.sort(scheduled_at: :asc)
+      |> Ash.read!()
+
+    # Load their addresses to check zone
+    addr_ids = Enum.map(unassigned, & &1.address_id) |> Enum.uniq()
+    addr_map =
+      if addr_ids != [] do
+        Address |> Ash.Query.filter(id in ^addr_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+      else
+        %{}
+      end
+
+    # Filter to tech's zone (floaters with no zone see ALL unassigned)
+    filtered =
+      if tech_record.zone do
+        Enum.filter(unassigned, fn appt ->
+          addr = Map.get(addr_map, appt.address_id)
+          addr && addr.zone == tech_record.zone
+        end)
+      else
+        unassigned
+      end
+
+    Enum.map(filtered, fn appt ->
+      addr = Map.get(addr_map, appt.address_id)
+      svc = Map.get(service_map, appt.service_type_id)
+      %{
+        id: appt.id,
+        scheduled_at: appt.scheduled_at,
+        service_name: svc && svc.name || "Service",
+        address_street: addr && addr.street || "",
+        address_city: addr && addr.city || "",
+        zone: addr && addr.zone
+      }
+    end)
+  end
+
+  defp load_vehicle_map(appointments) do
+    ids = Enum.map(appointments, & &1.vehicle_id) |> Enum.uniq()
+    if ids == [], do: %{}, else:
+      Vehicle |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+  end
+
+  defp build_map_pins(appointments, service_map, customer_map, address_map, vehicle_map) do
+    appointments
+    |> Enum.map(fn appt ->
+      addr = Map.get(address_map, appt.address_id)
+      coords = if addr, do: Zones.coordinates_for_address(addr), else: nil
+
+      case coords do
+        {lat, lng} ->
+          vehicle = Map.get(vehicle_map, appt.vehicle_id)
+          %{
+            lat: lat,
+            lng: lng,
+            status: to_string(appt.status),
+            vehicle_type: (vehicle && to_string(vehicle.size)) || "car",
+            service: Map.get(service_map, appt.service_type_id, %{name: "Service"}).name,
+            customer: Map.get(customer_map, appt.customer_id, "Customer"),
+            time: Calendar.strftime(appt.scheduled_at, "%I:%M %p"),
+            zone: addr && to_string(addr.zone),
+            zone_label: addr && addr.zone && Zones.short_label(addr.zone)
+          }
+
+        _ ->
+          nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
   end
 
   defp get_checklist_id(appointment_id) do
@@ -301,6 +647,17 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   defp status_class(:in_progress), do: "badge-warning"
   defp status_class(:completed), do: "badge-success"
   defp status_class(_), do: "badge-ghost"
+
+  defp vehicle_label(%{make: make, model: model, size: size}) do
+    type = case size do
+      :car -> "Car"
+      :suv_van -> "SUV/Van"
+      :pickup -> "Pickup"
+      _ -> ""
+    end
+    [make, model, type] |> Enum.reject(&(is_nil(&1) or &1 == "")) |> Enum.join(" · ")
+  end
+  defp vehicle_label(_), do: nil
 
   defp format_status(:pending), do: "Pending"
   defp format_status(:confirmed), do: "Confirmed"

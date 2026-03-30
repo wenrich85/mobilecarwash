@@ -5,6 +5,6 @@ defmodule MobileCarWashWeb.PageControllerTest do
 
   test "GET / renders landing page", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/")
-    assert html =~ "Professional Car Wash at Your Door"
+    assert html =~ "Professional Detailing"
   end
 end

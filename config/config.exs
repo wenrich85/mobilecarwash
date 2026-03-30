@@ -34,7 +34,9 @@ config :mobile_car_wash, Oban,
     {Oban.Plugins.Cron,
      crontab: [
        # Daily at 8am — check for upcoming formation/compliance deadlines
-       {"0 8 * * *", MobileCarWash.Notifications.DeadlineReminderScheduler}
+       {"0 8 * * *", MobileCarWash.Notifications.DeadlineReminderScheduler},
+       # Every hour — clean up expired booking sessions
+       {"0 * * * *", MobileCarWash.Booking.SessionCleanupWorker}
      ]}
   ]
 
@@ -85,19 +87,17 @@ config :logger, :default_formatter,
   metadata: [:request_id]
 
 # Admin emails (owner access to metrics dashboard)
-config :mobile_car_wash, :admin_emails, [
-  System.get_env("ADMIN_EMAIL") || "admin@mobilecarwash.com"
-]
+# Override in runtime.exs for production
+config :mobile_car_wash, :admin_emails, ["admin@mobilecarwash.com"]
 
-# Photo storage — :local (dev) or :s3 (production)
-# S3 bucket is configurable per client for multi-tenant support
+# Photo storage — :local (dev) or :s3 (production, set in runtime.exs)
 config :mobile_car_wash, :photo_storage, :local
-config :mobile_car_wash, :s3_bucket, System.get_env("S3_BUCKET") || "mobile-car-wash-photos"
-config :mobile_car_wash, :s3_region, System.get_env("AWS_REGION") || "us-east-1"
+config :mobile_car_wash, :s3_bucket, "mobile-car-wash-photos"
+config :mobile_car_wash, :s3_region, "us-east-1"
 
-# Stripe configuration
+# Stripe — dev placeholder, production key set in runtime.exs
 config :stripity_stripe,
-  api_key: System.get_env("STRIPE_SECRET_KEY") || "sk_test_placeholder",
+  api_key: "sk_test_placeholder",
   json_library: Jason
 
 # Use Jason for JSON parsing in Phoenix

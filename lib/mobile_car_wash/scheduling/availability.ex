@@ -74,7 +74,7 @@ defmodule MobileCarWash.Scheduling.Availability do
 
     cond do
       closed_day?(date) -> false
-      DateTime.compare(datetime, DateTime.utc_now()) == :lt -> false
+      past_date?(date) -> false
       Time.compare(time, open_time) == :lt -> false
       Time.compare(end_time, close_time) == :gt -> false
       conflicts?(datetime, duration_minutes, existing_appointments, buffer) -> false
@@ -86,6 +86,8 @@ defmodule MobileCarWash.Scheduling.Availability do
 
   defp generate_slots(date, duration_minutes, existing_appointments, _timezone, open_time, close_time, buffer) do
     slot_step = duration_minutes + buffer
+    now = DateTime.utc_now()
+    is_today = Date.compare(date, DateTime.to_date(now)) == :eq
 
     # Generate candidate start times
     open_minutes = time_to_minutes(open_time)
@@ -103,10 +105,10 @@ defmodule MobileCarWash.Scheduling.Availability do
       {:ok, starts_at} = DateTime.new(date, start_time)
       {:ok, ends_at} = DateTime.new(date, end_time)
 
-      if conflicts?(starts_at, duration_minutes, existing_appointments, buffer) do
-        acc
-      else
-        acc ++ [%{starts_at: starts_at, ends_at: ends_at}]
+      cond do
+        is_today and DateTime.compare(starts_at, now) == :lt -> acc
+        conflicts?(starts_at, duration_minutes, existing_appointments, buffer) -> acc
+        true -> acc ++ [%{starts_at: starts_at, ends_at: ends_at}]
       end
     end)
   end

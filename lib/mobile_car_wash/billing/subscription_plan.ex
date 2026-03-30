@@ -51,6 +51,10 @@ defmodule MobileCarWash.Billing.SubscriptionPlan do
       public? true
     end
 
+    attribute :stripe_price_id, :string do
+      public? true
+    end
+
     attribute :description, :string do
       public? true
     end

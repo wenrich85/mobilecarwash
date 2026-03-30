@@ -1,84 +1,65 @@
 defmodule MobileCarWash.Booking.SessionCache do
   @moduledoc """
-  ETS-backed cache for persisting booking progress across LiveView reconnects.
+  Database-backed cache for persisting booking progress across LiveView reconnects.
   Entries expire after 2 hours. Keyed by a stable session identifier.
+
+  Uses PostgreSQL instead of ETS — survives restarts and supports horizontal scaling.
   """
-  use GenServer
 
-  @table :booking_session_cache
-  @ttl_ms :timer.hours(2)
-  @cleanup_interval :timer.minutes(15)
+  alias MobileCarWash.Repo
+  import Ecto.Query
 
-  # --- Public API ---
-
-  def start_link(_opts) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
-  end
+  @ttl_hours 2
 
   @doc "Store booking state for a session."
   def put(session_id, state) when is_binary(session_id) and is_map(state) do
-    :ets.insert(@table, {session_id, state, System.monotonic_time(:millisecond)})
+    now = DateTime.utc_now()
+    data = :erlang.term_to_binary(state) |> Base.encode64()
+
+    Repo.insert_all(
+      "booking_sessions",
+      [%{session_id: session_id, data: data, inserted_at: now, updated_at: now}],
+      on_conflict: {:replace, [:data, :updated_at]},
+      conflict_target: :session_id
+    )
+
     :ok
   rescue
-    ArgumentError -> :ok
+    _ -> :ok
   end
 
   @doc "Retrieve booking state for a session."
   def get(session_id) when is_binary(session_id) do
-    case :ets.lookup(@table, session_id) do
-      [{^session_id, state, inserted_at}] ->
-        if System.monotonic_time(:millisecond) - inserted_at < @ttl_ms do
-          state
-        else
-          :ets.delete(@table, session_id)
-          nil
-        end
+    cutoff = DateTime.add(DateTime.utc_now(), -@ttl_hours, :hour)
 
-      [] ->
+    case Repo.one(
+           from(bs in "booking_sessions",
+             where: bs.session_id == ^session_id and bs.updated_at > ^cutoff,
+             select: bs.data
+           )
+         ) do
+      nil ->
         nil
+
+      data ->
+        data |> Base.decode64!() |> :erlang.binary_to_term([:safe])
     end
   rescue
-    ArgumentError -> nil
+    _ -> nil
   end
 
   @doc "Delete booking state for a session."
   def delete(session_id) when is_binary(session_id) do
-    :ets.delete(@table, session_id)
+    Repo.delete_all(from(bs in "booking_sessions", where: bs.session_id == ^session_id))
     :ok
   rescue
-    ArgumentError -> :ok
+    _ -> :ok
   end
 
-  # --- GenServer callbacks ---
-
-  @impl true
-  def init(_) do
-    table = :ets.new(@table, [:set, :public, :named_table, read_concurrency: true])
-    schedule_cleanup()
-    {:ok, %{table: table}}
-  end
-
-  @impl true
-  def handle_info(:cleanup, state) do
-    now = System.monotonic_time(:millisecond)
-
-    :ets.foldl(
-      fn {session_id, _state, inserted_at}, acc ->
-        if now - inserted_at >= @ttl_ms do
-          :ets.delete(@table, session_id)
-        end
-
-        acc
-      end,
-      :ok,
-      @table
-    )
-
-    schedule_cleanup()
-    {:noreply, state}
-  end
-
-  defp schedule_cleanup do
-    Process.send_after(self(), :cleanup, @cleanup_interval)
+  @doc "Clean up expired sessions. Called by Oban cron job."
+  def cleanup_expired do
+    cutoff = DateTime.add(DateTime.utc_now(), -@ttl_hours, :hour)
+    {count, _} = Repo.delete_all(from(bs in "booking_sessions", where: bs.updated_at <= ^cutoff))
+    {:ok, count}
   end
 end

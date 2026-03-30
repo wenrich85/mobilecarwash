@@ -34,11 +34,9 @@ if config_env() == :prod do
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   config :mobile_car_wash, MobileCarWash.Repo,
-    # ssl: true,
+    ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    # For machines with several cores, consider starting multiple pools of `pool_size`
-    # pool_count: 4,
     socket_options: maybe_ipv6
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
@@ -113,6 +111,11 @@ if config_env() == :prod do
     token_signing_secret:
       System.get_env("TOKEN_SIGNING_SECRET") || raise("TOKEN_SIGNING_SECRET is required")
 
+  # Admin emails (runtime override)
+  if admin_email = System.get_env("ADMIN_EMAIL") do
+    config :mobile_car_wash, :admin_emails, [admin_email]
+  end
+
   # S3 photo storage (production)
   config :mobile_car_wash, :photo_storage, :s3
   config :mobile_car_wash, :s3_bucket, System.get_env("S3_BUCKET") || raise("S3_BUCKET is required")
@@ -122,6 +125,20 @@ if config_env() == :prod do
     access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
     secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY"),
     region: System.get_env("AWS_REGION") || "us-east-1"
+
+  # DigitalOcean Spaces uses a custom S3-compatible endpoint
+  if s3_endpoint = System.get_env("AWS_S3_ENDPOINT") do
+    config :ex_aws, :s3, %{
+      scheme: "https://",
+      host: URI.parse(s3_endpoint).host,
+      region: System.get_env("AWS_REGION") || "us-east-1"
+    }
+  end
+
+  # Google Analytics (optional — only loads if set)
+  if ga_id = System.get_env("GOOGLE_ANALYTICS_ID") do
+    config :mobile_car_wash, :google_analytics_id, ga_id
+  end
 
   # ## Configuring the mailer
   #

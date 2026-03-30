@@ -17,16 +17,7 @@ defmodule MobileCarWash.Operations.TechEarnings do
   Based on `pay_period_start_day` (1=Monday..7=Sunday).
   """
   def pay_period_range(technician) do
-    today = Date.utc_today()
-    start_day = technician.pay_period_start_day || 1
-    current_day = Date.day_of_week(today)
-
-    # Calculate how many days back to the start of the period
-    days_back = rem(current_day - start_day + 7, 7)
-    period_start = Date.add(today, -days_back)
-    period_end = Date.add(period_start, 6)
-
-    {period_start, period_end}
+    period_range(:week, technician)
   end
 
   @doc """
@@ -112,6 +103,67 @@ defmodule MobileCarWash.Operations.TechEarnings do
       }
     end)
   end
+
+  @doc """
+  Returns earnings summary for a specific period: :week, :day, :month, or :year.
+  Optional `ref_date` anchors the period (defaults to today).
+  """
+  def earnings_for_period(technician, period, ref_date \\ nil) do
+    ref = ref_date || Date.utc_today()
+    {start_date, end_date} = period_range(period, technician, ref)
+    washes = completed_washes(technician.id, start_date, end_date)
+    rate = technician.pay_rate_cents || 2500
+
+    %{
+      washes_count: length(washes),
+      total_cents: length(washes) * rate,
+      rate_cents: rate,
+      period_start: start_date,
+      period_end: end_date,
+      washes: washes
+    }
+  end
+
+  @doc """
+  Returns the date range for a given period type anchored to `ref_date`.
+  """
+  def period_range(period, technician, ref_date \\ nil)
+
+  def period_range(:day, _technician, ref), do: {ref || Date.utc_today(), ref || Date.utc_today()}
+
+  def period_range(:week, technician, ref) do
+    date = ref || Date.utc_today()
+    start_day = technician.pay_period_start_day || 1
+    current_day = Date.day_of_week(date)
+    days_back = rem(current_day - start_day + 7, 7)
+    period_start = Date.add(date, -days_back)
+    period_end = Date.add(period_start, 6)
+    {period_start, period_end}
+  end
+
+  def period_range(:month, _technician, ref) do
+    date = ref || Date.utc_today()
+    {Date.beginning_of_month(date), Date.end_of_month(date)}
+  end
+
+  def period_range(:year, _technician, ref) do
+    date = ref || Date.utc_today()
+    {Date.new!(date.year, 1, 1), Date.new!(date.year, 12, 31)}
+  end
+
+  @doc "Shift a reference date by one period in the given direction (:prev or :next)."
+  def shift_period(:day, ref, :prev), do: Date.add(ref, -1)
+  def shift_period(:day, ref, :next), do: Date.add(ref, 1)
+  def shift_period(:week, ref, :prev), do: Date.add(ref, -7)
+  def shift_period(:week, ref, :next), do: Date.add(ref, 7)
+  def shift_period(:month, ref, :prev) do
+    ref |> Date.beginning_of_month() |> Date.add(-1) |> Date.beginning_of_month()
+  end
+  def shift_period(:month, ref, :next) do
+    ref |> Date.end_of_month() |> Date.add(1)
+  end
+  def shift_period(:year, ref, :prev), do: Date.new!(ref.year - 1, 1, 1)
+  def shift_period(:year, ref, :next), do: Date.new!(ref.year + 1, 1, 1)
 
   # --- Private ---
 

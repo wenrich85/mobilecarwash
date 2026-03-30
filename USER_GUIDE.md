@@ -31,7 +31,7 @@ The first thing customers see — your value proposition, services, and pricing.
 
 Each card has a "Book Now" button that starts the booking flow.
 
-**Monthly Plans:**
+**Monthly Plans** (each with "Subscribe" button linking to `/subscribe?plan=slug`):
 - **Basic** — $90/mo: 2 basic washes + 25% off deep cleans
 - **Standard** — $125/mo: 4 basic washes + 30% off deep cleans (Most Popular)
 - **Premium** — $200/mo: 3 basic + 1 deep clean + 50% off additional
@@ -99,6 +99,54 @@ While the technician works, customers see live progress:
 
 - **Success** (`/book/success`) — "Payment Successful!" with booking details
 - **Cancelled** (`/book/cancel`) — "Payment Cancelled" with Try Again button
+
+### 1.6 Subscription Plans (`/subscribe`)
+
+A 3-step wizard for subscribing to a monthly wash plan:
+
+![Subscribe — Plan Selection](screenshots/14_subscribe_plans.png)
+
+**Step 1 — Choose Plan:**
+- Three plans displayed as cards: Basic ($90/mo), Standard ($125/mo), Premium ($200/mo)
+- Standard plan highlighted as "Most Popular"
+- Each card shows included washes and deep clean discounts
+- Plans can be pre-selected via URL (e.g., `/subscribe?plan=standard`)
+
+![Subscribe — Standard Pre-selected](screenshots/14b_subscribe_standard.png)
+
+**Step 2 — Account:**
+- Requires sign-in (no guest mode for subscriptions)
+- Skipped automatically if already logged in
+
+**Step 3 — Review & Confirm:**
+- Plan summary with pricing and benefits
+- "Subscribe Now" button redirects to Stripe Checkout (subscription mode)
+- Cancel anytime messaging
+
+**After Checkout:**
+
+![Subscription Active](screenshots/16_subscribe_success.png)
+
+- **Success** (`/subscribe/success`) — "Subscription Active!" with links to manage plan or book a wash
+- **Cancelled** (`/subscribe/cancel`) — "Subscription Not Completed" with retry link
+
+![Subscription Not Completed](screenshots/15_subscribe_cancel.png)
+
+### 1.7 Subscription Management (`/account/subscription`)
+
+Authenticated customers can manage their subscription from "My Plan" in the navbar:
+
+- **Plan card** — shows current plan name, monthly price, and status badge (Active/Paused/Past Due)
+- **Usage tracking** — progress bars showing washes used vs. included (e.g., "2/4 basic washes")
+- **Period dates** — current billing period start and end
+- **Actions:**
+  - **Pause Subscription** — temporarily stop billing
+  - **Resume Subscription** — reactivate a paused plan
+  - **Manage Payment Method** — redirects to Stripe Billing Portal
+  - **Cancel Subscription** — with confirmation modal
+
+**Booking Integration:**
+When a subscriber books a wash, the review step automatically shows a "Plan Applied" banner with remaining washes and applicable discounts. The subscription discount is applied to the price automatically.
 
 ---
 
@@ -298,7 +346,11 @@ E-Myth quote: "The system is the solution."
 | `/sign-in` | Public | Login page |
 | `/book/success` | Public | Post-payment success |
 | `/book/cancel` | Public | Payment cancelled |
+| `/subscribe` | Public | Subscription signup wizard |
+| `/subscribe/success` | Public | Post-subscription confirmation |
+| `/subscribe/cancel` | Public | Subscription checkout cancelled |
 | `/appointments` | Customer | My appointments list |
+| `/account/subscription` | Customer | Subscription management (My Plan) |
 | `/appointments/:id/status` | Customer | Real-time wash tracking |
 | `/tech` | Technician | Today's schedule + assignments |
 | `/tech/checklist/:id` | Technician | Interactive checklist with timers |

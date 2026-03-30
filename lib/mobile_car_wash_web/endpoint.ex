@@ -8,7 +8,10 @@ defmodule MobileCarWashWeb.Endpoint do
     store: :cookie,
     key: "_mobile_car_wash_key",
     signing_salt: "gZI8tiVW",
+    encryption_salt: "k3Fp9xWq",
     same_site: "Lax",
+    secure: Mix.env() == :prod,
+    http_only: true,
     path: "/"
   ]
 

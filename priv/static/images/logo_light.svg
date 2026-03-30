@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 40" fill="none">
+  <!-- Single water drop — clean, geometric, minimal -->
+  <g transform="translate(4, 0)">
+    <!-- Drop outline -->
+    <path d="M16 3 C16 3 6 16 6 23 C6 29 10.5 35 16 35 C21.5 35 26 29 26 23 C26 16 16 3 16 3Z"
+          fill="#1E2A38"/>
+    <!-- Inner negative-space highlight -->
+    <path d="M16 10 C16 10 11 18 11 22.5 C11 26 13 29 16 29 C19 29 21 26 21 22.5 C21 18 16 10 16 10Z"
+          fill="#3A7CA5" opacity="0.35"/>
+    <!-- Small shine dot -->
+    <circle cx="13" cy="20" r="1.8" fill="white" opacity="0.5"/>
+  </g>
+
+  <!-- Text -->
+  <text x="40" y="17" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" letter-spacing="-0.2" fill="#1E2A38">DRIVEWAY</text>
+  <text x="40" y="32" font-family="system-ui, -apple-system, sans-serif" font-size="9.5" font-weight="400" letter-spacing="2.8" fill="#3A7CA5">DETAIL CO</text>
+</svg>

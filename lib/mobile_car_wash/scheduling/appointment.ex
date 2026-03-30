@@ -114,6 +114,22 @@ defmodule MobileCarWash.Scheduling.Appointment do
     end
 
     update :confirm do
+      require_atomic? false
+
+      validate fn changeset, _context ->
+        record = changeset.data
+        if record.technician_id do
+          :ok
+        else
+          {:error, field: :technician_id, message: "a technician must be assigned before confirming"}
+        end
+      end
+
+      change set_attribute(:status, :confirmed)
+    end
+
+    # Auto-confirm after payment — no technician required yet
+    update :payment_confirm do
       change set_attribute(:status, :confirmed)
     end
 

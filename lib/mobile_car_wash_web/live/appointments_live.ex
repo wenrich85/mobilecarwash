@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Scheduling.{Appointment, ServiceType}
+  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType}
   alias MobileCarWash.Operations.{Photo, PhotoUpload}
 
   require Ash.Query
@@ -22,6 +22,13 @@ defmodule MobileCarWashWeb.AppointmentsLive do
       else
         []
       end
+
+    # Subscribe to real-time updates for active/upcoming appointments
+    if connected?(socket) do
+      for appt <- appointments, appt.status in [:pending, :confirmed, :in_progress] do
+        AppointmentTracker.subscribe(appt.id)
+      end
+    end
 
     # Load service types for display
     service_types = Ash.read!(ServiceType) |> Map.new(&{&1.id, &1})
@@ -41,7 +48,14 @@ defmodule MobileCarWashWeb.AppointmentsLive do
 
   @impl true
   def handle_event("show_upload", %{"id" => appointment_id}, socket) do
-    {:noreply, assign(socket, uploading_for: appointment_id)}
+    # Verify appointment belongs to current customer
+    owns? = Enum.any?(socket.assigns.appointments, &(&1.id == appointment_id))
+
+    if owns? do
+      {:noreply, assign(socket, uploading_for: appointment_id)}
+    else
+      {:noreply, put_flash(socket, :error, "Appointment not found")}
+    end
   end
 
   def handle_event("cancel_upload", _params, socket) do
@@ -66,6 +80,24 @@ defmodule MobileCarWashWeb.AppointmentsLive do
      socket
      |> assign(uploading_for: nil)
      |> put_flash(:info, "Photos uploaded! The technician will see these.")}
+  end
+
+  @impl true
+  def handle_info({:appointment_update, data}, socket) do
+    # Reload appointments from DB to get fresh status
+    customer = socket.assigns.current_customer
+
+    appointments =
+      if customer do
+        Appointment
+        |> Ash.Query.filter(customer_id == ^customer.id)
+        |> Ash.Query.sort(scheduled_at: :desc)
+        |> Ash.read!()
+      else
+        []
+      end
+
+    {:noreply, assign(socket, appointments: appointments)}
   end
 
   @impl true

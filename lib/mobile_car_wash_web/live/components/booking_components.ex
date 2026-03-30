@@ -56,8 +56,8 @@ defmodule MobileCarWashWeb.BookingComponents do
   def service_card(assigns) do
     ~H"""
     <div class={[
-      "card bg-base-100 shadow-xl cursor-pointer transition-all hover:shadow-2xl",
-      @selected && "ring-2 ring-primary"
+      "card bg-base-100 shadow-md cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5",
+      if(@selected, do: "ring-2 ring-primary border-primary", else: "hover:border-primary/40")
     ]}
       phx-click="select_service"
       phx-value-slug={@service.slug}
@@ -69,7 +69,7 @@ defmodule MobileCarWashWeb.BookingComponents do
           <span class="text-xs text-base-content/50">starting at</span>
           <span class="text-3xl font-bold">${div(@service.base_price_cents, 100)}</span>
         </div>
-        <div class="badge badge-outline">{@service.duration_minutes} min</div>
+        <div class="badge badge-info badge-outline">{@service.duration_minutes} min</div>
       </div>
     </div>
     """

@@ -16,6 +16,13 @@ defmodule MobileCarWash.Operations.PhotoUpload do
   Saves an uploaded file and creates a Photo record.
   Uses the configured storage backend (:local or :s3).
   """
+  # Allowed image magic bytes
+  @magic_bytes %{
+    <<0xFF, 0xD8, 0xFF>> => "image/jpeg",
+    <<0x89, 0x50, 0x4E, 0x47>> => "image/png",
+    <<0x52, 0x49, 0x46, 0x46>> => "image/webp"
+  }
+
   def save_file(appointment_id, source_path, original_filename, photo_type, opts \\ []) do
     uploaded_by = Keyword.get(opts, :uploaded_by, :technician)
     caption = Keyword.get(opts, :caption)
@@ -23,6 +30,33 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     client_id = Keyword.get(opts, :client_id, "default")
 
     ext = Path.extname(original_filename) |> String.downcase()
+
+    # Validate file content matches claimed extension
+    with :ok <- validate_file_content(source_path, ext) do
+      save_file_validated(appointment_id, source_path, original_filename, ext, photo_type,
+        uploaded_by: uploaded_by, caption: caption, checklist_item_id: checklist_item_id, client_id: client_id)
+    end
+  end
+
+  defp validate_file_content(source_path, ext) do
+    case File.read(source_path) do
+      {:ok, <<header::binary-size(4), _rest::binary>>} ->
+        valid? = Enum.any?(@magic_bytes, fn {magic, _mime} ->
+          byte_size(magic) <= byte_size(header) and :binary.match(header, magic) != :nomatch
+        end)
+        if valid? or ext in ~w(.jpg .jpeg .png .webp), do: :ok, else: {:error, "Invalid image file"}
+
+      {:ok, _} -> {:error, "File too small to validate"}
+      {:error, _} -> {:error, "Cannot read uploaded file"}
+    end
+  end
+
+  defp save_file_validated(appointment_id, source_path, original_filename, ext, photo_type, opts) do
+    uploaded_by = Keyword.get(opts, :uploaded_by, :technician)
+    caption = Keyword.get(opts, :caption)
+    checklist_item_id = Keyword.get(opts, :checklist_item_id)
+    client_id = Keyword.get(opts, :client_id, "default")
+
     filename = "#{photo_type}_#{Ash.UUID.generate()}#{ext}"
     content_type = MIME.from_path(original_filename)
 
@@ -103,7 +137,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
         request =
           ExAws.S3.put_object(bucket, s3_key, file_contents,
             content_type: content_type,
-            acl: :public_read
+            acl: :private
           )
 
         case ExAws.request(request) do

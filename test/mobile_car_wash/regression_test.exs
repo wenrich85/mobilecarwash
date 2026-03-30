@@ -218,12 +218,12 @@ defmodule MobileCarWash.RegressionTest do
         |> Ash.Changeset.for_create(:create, %{name: "RegTest Tech"})
         |> Ash.create!()
 
-      # Confirm appointment first
-      {:ok, confirmed} = appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
-
-      # Assign technician — this was crashing with binary UUID error
-      {:ok, assigned} = MobileCarWash.Scheduling.Dispatch.assign_technician(confirmed.id, tech.id)
+      # Assign technician first (required before confirming)
+      {:ok, assigned} = MobileCarWash.Scheduling.Dispatch.assign_technician(appt.id, tech.id)
       assert assigned.technician_id == tech.id
+
+      # Confirm appointment — this was crashing with binary UUID error
+      {:ok, _confirmed} = assigned |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
     end
   end
 
@@ -261,10 +261,10 @@ defmodule MobileCarWash.RegressionTest do
         |> Ash.create!()
       end
 
-      # Confirm and assign
-      {:ok, _} = appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
+      # Assign tech first (required before confirming), then confirm
       tech = MobileCarWash.Operations.Technician |> Ash.Changeset.for_create(:create, %{name: "WO Tech"}) |> Ash.create!()
-      {:ok, _} = Dispatch.assign_technician(appt.id, tech.id)
+      {:ok, assigned} = Dispatch.assign_technician(appt.id, tech.id)
+      {:ok, _} = assigned |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
 
       # Start wash
       {:ok, checklist} = WashOrchestrator.start_wash(appt.id)

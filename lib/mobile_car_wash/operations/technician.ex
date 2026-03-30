@@ -42,6 +42,12 @@ defmodule MobileCarWash.Operations.Technician do
       description "Day of week pay period starts: 1=Monday..7=Sunday"
     end
 
+    attribute :zone, :atom do
+      constraints one_of: [:nw, :ne, :sw, :se]
+      public? true
+      description "Assigned service zone. Nil = floater (covers any zone)."
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end

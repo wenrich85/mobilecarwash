@@ -59,7 +59,11 @@ defmodule MobileCarWashWeb.AuthController do
     failure(conn, nil, "Missing token")
   end
 
-  def failure(conn, _activity, _reason) do
+  def failure(conn, activity, reason) do
+    require Logger
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
+    Logger.warning("Auth failure: activity=#{inspect(activity)} ip=#{ip} reason=#{inspect(reason)}")
+
     conn
     |> put_flash(:error, "Authentication failed. Please check your credentials.")
     |> redirect(to: ~p"/sign-in")

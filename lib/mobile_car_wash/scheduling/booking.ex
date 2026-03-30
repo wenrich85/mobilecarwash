@@ -14,7 +14,7 @@ defmodule MobileCarWash.Scheduling.Booking do
   """
 
   alias MobileCarWash.Repo
-  alias MobileCarWash.Scheduling.{Appointment, ServiceType, Availability}
+  alias MobileCarWash.Scheduling.{Appointment, ServiceType, Availability, AppointmentTracker}
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Billing.{Payment, Subscription, SubscriptionUsage, StripeClient}
 
@@ -39,20 +39,31 @@ defmodule MobileCarWash.Scheduling.Booking do
   """
   @spec create_booking(booking_params()) :: {:ok, map()} | {:error, term()}
   def create_booking(params) do
-    Repo.transaction(fn ->
-      with {:ok, service_type} <- fetch_service_type(params.service_type_id),
-           {:ok, vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
-           {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
-           :ok <- check_availability(params.scheduled_at, service_type.duration_minutes),
-           {:ok, price_cents, discount_cents} <- calculate_price(service_type, vehicle.size, params[:subscription_id]),
-           {:ok, appointment} <- create_appointment(params, service_type, price_cents, discount_cents),
-           :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
-           {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
-        result
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
+    result =
+      Repo.transaction(fn ->
+        with {:ok, service_type} <- fetch_service_type(params.service_type_id),
+             {:ok, vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
+             {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
+             :ok <- check_availability(params.scheduled_at, service_type.duration_minutes),
+             {:ok, price_cents, discount_cents} <- calculate_price(service_type, vehicle.size, params[:subscription_id]),
+             {:ok, appointment} <- create_appointment(params, service_type, price_cents, discount_cents),
+             :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
+             {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
+          result
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+
+    # Broadcast to dispatch after successful transaction
+    case result do
+      {:ok, %{appointment: appointment}} ->
+        AppointmentTracker.broadcast_new_appointment(appointment.id)
+      _ ->
+        :ok
+    end
+
+    result
   end
 
   @doc """
@@ -82,7 +93,7 @@ defmodule MobileCarWash.Scheduling.Booking do
             {:ok, appointment} ->
               {:ok, appointment} =
                 appointment
-                |> Ash.Changeset.for_update(:confirm, %{})
+                |> Ash.Changeset.for_update(:payment_confirm, %{})
                 |> Ash.update()
 
               # Enqueue confirmation email
@@ -288,7 +299,7 @@ defmodule MobileCarWash.Scheduling.Booking do
       # Fully covered by subscription — no payment needed, auto-confirm
       {:ok, appointment} =
         appointment
-        |> Ash.Changeset.for_update(:confirm, %{})
+        |> Ash.Changeset.for_update(:payment_confirm, %{})
         |> Ash.update()
 
       enqueue_confirmation_email(appointment)
