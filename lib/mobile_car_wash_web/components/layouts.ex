@@ -96,6 +96,7 @@ defmodule MobileCarWashWeb.Layouts do
                   <li><a href="/admin/formation">Formation</a></li>
                   <li><a href="/admin/org-chart">Org Chart</a></li>
                   <li><a href="/admin/procedures">SOPs</a></li>
+                  <li><a href="/admin/cash-flow">Cash Flow</a></li>
                   <li><a href="/admin/settings">Settings</a></li>
                 </ul>
               </li>

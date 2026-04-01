@@ -18,7 +18,8 @@ config :mobile_car_wash,
     MobileCarWash.Analytics,
     MobileCarWash.Audit,
     MobileCarWash.Operations,
-    MobileCarWash.Compliance
+    MobileCarWash.Compliance,
+    MobileCarWash.CashFlow
   ]
 
 # Oban background job configuration

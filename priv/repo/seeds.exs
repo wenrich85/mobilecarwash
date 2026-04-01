@@ -444,6 +444,56 @@ for attrs <- demo_accounts do
   end
 end
 
+# --- Cash Flow System ---
+
+alias MobileCarWash.CashFlow.{Account, Config}
+
+IO.puts("\nSeeding cash flow accounts...")
+
+account_data = [
+  %{account_type: :expense, name: "Expense Account", color: :blue},
+  %{account_type: :tax, name: "Tax Account", color: :red},
+  %{account_type: :business_savings, name: "Business Savings", color: :blue},
+  %{account_type: :investment, name: "Investment Account", color: :blue},
+  %{account_type: :personal_salary, name: "Personal Salary", color: :green}
+]
+
+for attrs <- account_data do
+  existing = Account |> Ash.Query.filter(account_type == ^attrs.account_type) |> Ash.read!()
+
+  case existing do
+    [] ->
+      Account
+      |> Ash.Changeset.for_create(:create, attrs)
+      |> Ash.create!()
+
+      IO.puts("  ✓ #{attrs.name}")
+
+    [_] ->
+      IO.puts("  - #{attrs.name} (exists)")
+  end
+end
+
+IO.puts("\nSeeding cash flow config...")
+
+existing_config = Config |> Ash.read!()
+
+case existing_config do
+  [] ->
+    Config
+    |> Ash.Changeset.for_create(:create, %{
+      monthly_opex_cents: 500_000,
+      salary_cents: 400_000,
+      investment_target_cents: 2_000_000
+    })
+    |> Ash.create!()
+
+    IO.puts("  ✓ Cash flow config created")
+
+  [_] ->
+    IO.puts("  - Cash flow config (exists)")
+end
+
 IO.puts("\nDemo login credentials:")
 IO.puts("  Customer:   customer@demo.com / Password123!")
 IO.puts("  Technician: tech@demo.com / Password123!")

@@ -112,6 +112,7 @@ defmodule MobileCarWashWeb.Router do
       live "/procedures", ProceduresLive
       live "/dispatch", DispatchLive
       live "/settings", SettingsLive
+      live "/cash-flow", CashFlowLive
     end
   end
 
