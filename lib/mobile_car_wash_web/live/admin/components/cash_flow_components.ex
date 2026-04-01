@@ -313,17 +313,17 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
       <!-- Label above bucket with background -->
       <rect
-        x={@cx - 65}
-        y={@cy - 62}
-        width="130"
-        height="22"
+        x={@cx - 85}
+        y={@cy - 65}
+        width="170"
+        height="26"
         fill="#1E2A38"
         opacity="0.95"
-        rx="4"
+        rx="5"
       />
       <text
         x={@cx}
-        y={@cy - 48}
+        y={@cy - 50}
         text-anchor="middle"
         font-size="18"
         font-weight="bold"
