@@ -358,27 +358,56 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
   attr :color_stroke, :string, required: true
 
   defp cash_stack(assigns) do
-    # Generate individual cash bill rectangles
-    num_bills = max(trunc(assigns.fill_height / 4), 0)
+    # Generate individual realistic USD bills
+    num_bills = max(trunc(assigns.fill_height / 3.5), 0)
 
     assigns = assign(assigns, num_bills: num_bills)
 
     ~H"""
     <%= for i <- 0..max(@num_bills - 1, 0) do %>
-      <% bill_y = @cy + 70 - (i + 1) * 4 %>
-      <% bill_color = case rem(i, 3) do
-        0 -> "#2ECC71"
-        1 -> "#F39C12"
-        _ -> "#E74C3C"
+      <% bill_index = rem(i, 6) %>
+      <% bill_y = @cy + 70 - (i + 1) * 3.5 %>
+
+      <!-- Bill denomination colors (realistic USD) -->
+      <% {bill_color, bill_text} = case bill_index do
+        0 -> {"#1F7F31", "$100"}
+        1 -> {"#C1121F", "$50"}
+        2 -> {"#0066CC", "$20"}
+        3 -> {"#0A3161", "$10"}
+        4 -> {"#8B4513", "$5"}
+        _ -> {"#228B22", "$1"}
       end %>
-      <% rotation = rem(i, 2) * 1.5 - 0.75 %>
-      <g transform={"translate(#{@cx}, #{bill_y}) rotate(#{rotation})"}>
-        <!-- Cash bill with shading -->
-        <rect x="-32" y="0" width="64" height="3.5" fill={bill_color} opacity="0.9" rx="0.5"/>
-        <!-- Bill highlight -->
-        <rect x="-32" y="0.5" width="64" height="1" fill="white" opacity="0.3" rx="0.25"/>
-        <!-- Bill shadow -->
-        <rect x="-32" y="3" width="64" height="0.5" fill={@color_stroke} opacity="0.2" rx="0.25"/>
+
+      <!-- Slight offset and rotation for realistic stacking -->
+      <% x_offset = rem(i, 2) * 2.5 - 1.25 %>
+      <% rotation = rem(i, 3) * 1.2 - 1.2 %>
+
+      <g transform={"translate(#{@cx + x_offset}, #{bill_y}) rotate(#{rotation})"}>
+        <!-- Main bill base -->
+        <rect x="-36" y="0" width="72" height="3.2" fill={bill_color} rx="0.4" opacity="0.95"/>
+
+        <!-- Bill darker shade on edges (depth) -->
+        <rect x="-36" y="2.8" width="72" height="0.4" fill="#000000" opacity="0.25" rx="0.4"/>
+        <rect x="-36" y="0" width="2" height="3.2" fill="#000000" opacity="0.15" rx="0.4"/>
+
+        <!-- Bill top highlight (shine) -->
+        <rect x="-36" y="0.1" width="72" height="0.6" fill="#FFFFFF" opacity="0.35" rx="0.4"/>
+
+        <!-- Subtle texture pattern -->
+        <circle cx="-28" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
+        <circle cx="-18" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
+        <circle cx="-8" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
+        <circle cx="2" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
+        <circle cx="12" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
+        <circle cx="22" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
+
+        <!-- Bill denomination value (small text on corner) -->
+        <text x="-30" y="2.2" font-size="1.8" font-weight="bold" fill="#FFFFFF" opacity="0.8">
+          {bill_text}
+        </text>
+        <text x="24" y="2.2" font-size="1.8" font-weight="bold" fill="#FFFFFF" opacity="0.8">
+          {bill_text}
+        </text>
       </g>
     <% end %>
     """
