@@ -311,14 +311,14 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-linecap="round"
       />
 
-      <!-- Label above bucket - theme aware text color -->
+      <!-- Label above bucket - steel blue for light mode -->
       <text
         x={@cx}
         y={@cy - 50}
         text-anchor="middle"
         font-size="18"
         font-weight="bold"
-        class="fill-base-content"
+        fill="#3A7CA5"
       >
         {@label}
       </text>
