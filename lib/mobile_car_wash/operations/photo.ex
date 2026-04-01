@@ -8,6 +8,20 @@ defmodule MobileCarWash.Operations.Photo do
   - :after — taken by technician at completion
   - :problem_area — uploaded by customer to highlight areas needing attention
   - :step_completion — taken by technician during a specific checklist step
+
+  Car parts (for detailed documentation):
+  - :exterior — body panels, hood, doors
+  - :windows — windshield, side windows, rear window
+  - :wheels — tires, rims, wheel wells
+  - :interior — dashboard, seats, carpets, floor mats
+  - :trunk — boot/trunk area
+  - :engine_bay — under the hood
+  - :undercarriage — chassis, underside
+  - :mirrors — side and rear view mirrors
+  - :headlights_taillights — lighting assembly
+  - :bumper — front and rear bumpers
+  - :roof — roof panel and trim
+  - :sunroof — sunroof area
   """
   use Ash.Resource,
     otp_app: :mobile_car_wash,
@@ -51,6 +65,16 @@ defmodule MobileCarWash.Operations.Photo do
       public? true
     end
 
+    attribute :car_part, :atom do
+      constraints one_of: [
+        :exterior, :windows, :wheels, :interior, :trunk, :engine_bay,
+        :undercarriage, :mirrors, :headlights_taillights, :bumper, :roof, :sunroof
+      ]
+      allow_nil? true
+      public? true
+      description "Specific part of the car being documented (optional)"
+    end
+
     create_timestamp :inserted_at
   end
 
@@ -68,7 +92,7 @@ defmodule MobileCarWash.Operations.Photo do
     defaults [:read, :destroy]
 
     create :upload do
-      accept [:file_path, :original_filename, :content_type, :photo_type, :caption, :uploaded_by]
+      accept [:file_path, :original_filename, :content_type, :photo_type, :caption, :uploaded_by, :car_part]
     end
 
     read :for_appointment do

@@ -61,6 +61,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
             active_item_id: nil,
             elapsed_seconds: 0,
             show_photo_upload: nil,
+            editing_note_id: nil,
+            skipping_item_id: nil,
             now: DateTime.utc_now()
           )
           |> allow_upload(:photo, accept: ~w(.jpg .jpeg .png .webp), max_entries: 1, max_file_size: 10_000_000)
@@ -80,7 +82,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
   def mount(_params, _session, socket) do
     {:ok, assign(socket, page_title: "Checklist", checklist: nil, items: [], appointment: nil,
       problem_photos: [], total: 0, done: 0, pct: 0, active_item_id: nil,
-      elapsed_seconds: 0, show_photo_upload: nil, now: DateTime.utc_now())}
+      elapsed_seconds: 0, show_photo_upload: nil, editing_note_id: nil, skipping_item_id: nil, now: DateTime.utc_now())}
   end
 
   # Timer tick — updates elapsed time for the active step
@@ -192,13 +194,18 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
-  def handle_event("save_photo", _params, socket) do
+  def handle_event("save_photo", params, socket) do
     %{type: type_str, item_id: item_id} = socket.assigns.show_photo_upload
     photo_type = String.to_existing_atom(type_str)
     appointment_id = socket.assigns.appointment.id
 
+    car_part_str = params["car_part"]
+    car_part = if car_part_str && car_part_str != "", do: String.to_atom(car_part_str), else: nil
+
     consume_uploaded_entries(socket, :photo, fn %{path: path}, entry ->
       opts = [uploaded_by: :technician, checklist_item_id: item_id]
+      opts = if car_part, do: opts ++ [car_part: car_part], else: opts
+
       case PhotoUpload.save_file(appointment_id, path, entry.client_name, photo_type, opts) do
         {:ok, photo} -> {:ok, photo}
         {:error, reason} -> {:postpone, reason}
@@ -211,6 +218,77 @@ defmodule MobileCarWashWeb.ChecklistLive do
      socket
      |> assign(show_photo_upload: nil)
      |> put_flash(:info, "Photo uploaded")}
+  end
+
+  def handle_event("edit_note", %{"id" => item_id}, socket) do
+    {:noreply, assign(socket, editing_note_id: item_id)}
+  end
+
+  def handle_event("cancel_note", _params, socket) do
+    {:noreply, assign(socket, editing_note_id: nil)}
+  end
+
+  def handle_event("save_note", %{"id" => item_id, "notes" => notes}, socket) do
+    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
+
+    if item do
+      {:ok, updated} =
+        item
+        |> Ash.Changeset.for_update(:add_note, %{notes: notes})
+        |> Ash.update()
+
+      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
+      {:noreply, assign(socket, items: items, editing_note_id: nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("show_skip_reason", %{"id" => item_id}, socket) do
+    {:noreply, assign(socket, skipping_item_id: item_id)}
+  end
+
+  def handle_event("cancel_skip", _params, socket) do
+    {:noreply, assign(socket, skipping_item_id: nil)}
+  end
+
+  def handle_event("confirm_skip", %{"id" => item_id, "reason" => reason}, socket) do
+    alias MobileCarWash.Booking.WashStateMachine
+
+    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
+
+    if item && !item.required do
+      # Add note with reason
+      {:ok, updated} =
+        item
+        |> Ash.Changeset.for_update(:add_note, %{notes: "Skipped: #{reason}"})
+        |> Ash.update()
+
+      # Then mark as completed
+      {:ok, completed} =
+        updated
+        |> Ash.Changeset.for_update(:check, %{})
+        |> Ash.update()
+
+      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: completed, else: i end)
+      done = Enum.count(items, & &1.completed)
+      pct = if socket.assigns.total > 0, do: Float.round(done / socket.assigns.total * 100, 0), else: 0
+
+      # Broadcast to customer
+      next = WashStateMachine.next_step(items)
+      next_name = if next, do: next.title, else: "Finishing up"
+
+      AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+        current_step: next_name,
+        steps_done: done,
+        steps_total: socket.assigns.total,
+        items: items
+      })
+
+      {:noreply, assign(socket, items: items, done: done, pct: pct, skipping_item_id: nil)}
+    else
+      {:noreply, put_flash(socket, :error, "Cannot skip required steps")}
+    end
   end
 
   @impl true
@@ -254,11 +332,31 @@ defmodule MobileCarWashWeb.ChecklistLive do
         <!-- Photo Upload Modal -->
         <div :if={@show_photo_upload} class="card bg-base-200 shadow mb-4 p-4">
           <h3 class="font-semibold mb-2">Upload Photo ({@show_photo_upload.type})</h3>
-          <form phx-submit="save_photo" phx-change="validate_upload">
-            <.live_file_input upload={@uploads.photo} class="file-input file-input-bordered w-full mb-2" />
+          <form phx-submit="save_photo" phx-change="validate_upload" class="space-y-2">
+            <.live_file_input upload={@uploads.photo} class="file-input file-input-bordered w-full" />
             <div :for={entry <- @uploads.photo.entries} class="mb-2">
               <.live_img_preview entry={entry} class="w-full h-40 object-cover rounded" />
             </div>
+
+            <div class="form-control">
+              <label class="label"><span class="label-text text-xs">Car Part (Optional)</span></label>
+              <select name="car_part" class="select select-bordered select-sm">
+                <option value="">None selected</option>
+                <option value="exterior">Exterior (body panels, hood, doors)</option>
+                <option value="windows">Windows (windshield, side windows)</option>
+                <option value="wheels">Wheels (tires, rims, wheel wells)</option>
+                <option value="interior">Interior (dashboard, seats, carpets)</option>
+                <option value="trunk">Trunk (boot area)</option>
+                <option value="engine_bay">Engine Bay</option>
+                <option value="undercarriage">Undercarriage (chassis, underside)</option>
+                <option value="mirrors">Mirrors (side and rear view mirrors)</option>
+                <option value="headlights_taillights">Headlights & Taillights</option>
+                <option value="bumper">Bumper (front and rear)</option>
+                <option value="roof">Roof Panel & Trim</option>
+                <option value="sunroof">Sunroof</option>
+              </select>
+            </div>
+
             <div class="flex gap-2">
               <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
               <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_upload">Cancel</button>
@@ -317,12 +415,36 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     <span class="text-base-content/40"> / Est: {item.estimated_minutes || 5} min</span>
                   </div>
 
-                  <p :if={item.notes} class="text-xs text-info mt-1">Note: {item.notes}</p>
+                  <!-- Notes Section -->
+                  <div :if={@editing_note_id == item.id} class="mt-2 space-y-2">
+                    <form phx-submit="save_note" phx-value-id={item.id}>
+                      <textarea
+                        name="notes"
+                        class="textarea textarea-bordered textarea-sm w-full"
+                        placeholder="Add a note about this step..."
+                      >{item.notes}</textarea>
+                      <div class="flex gap-1 mt-1">
+                        <button type="submit" class="btn btn-primary btn-xs flex-1">Save</button>
+                        <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_note">Cancel</button>
+                      </div>
+                    </form>
+                  </div>
+                  <div :if={@editing_note_id != item.id} class="mt-2">
+                    <p :if={item.notes} class="text-xs text-info">Note: {item.notes}</p>
+                    <button
+                      :if={item.notes || !item.completed}
+                      class="text-xs link link-primary mt-1"
+                      phx-click="edit_note"
+                      phx-value-id={item.id}
+                    >
+                      {if item.notes, do: "Edit note", else: "Add note"}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <!-- Action Buttons -->
-              <div :if={!item.completed} class="mt-2 flex gap-2 justify-end">
+              <div :if={!item.completed} class="mt-2 flex gap-2 justify-end flex-wrap">
                 <button
                   :if={!item.started_at}
                   class="btn btn-primary btn-sm"
@@ -339,6 +461,27 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 >
                   Done ✓
                 </button>
+                <button
+                  :if={!item.required && @skipping_item_id != item.id}
+                  class="btn btn-outline btn-sm"
+                  phx-click="show_skip_reason"
+                  phx-value-id={item.id}
+                >
+                  Skip (Opt)
+                </button>
+                <div :if={@skipping_item_id == item.id} class="flex gap-1 w-full">
+                  <form phx-submit="confirm_skip" phx-value-id={item.id} class="flex gap-1 flex-1">
+                    <input
+                      type="text"
+                      name="reason"
+                      class="input input-bordered input-sm flex-1"
+                      placeholder="Why skip?"
+                      required
+                    />
+                    <button type="submit" class="btn btn-sm btn-outline">Skip</button>
+                    <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_skip">Cancel</button>
+                  </form>
+                </div>
                 <button
                   class="btn btn-ghost btn-xs"
                   phx-click="show_upload"

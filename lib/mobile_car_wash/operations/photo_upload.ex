@@ -27,6 +27,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     uploaded_by = Keyword.get(opts, :uploaded_by, :technician)
     caption = Keyword.get(opts, :caption)
     checklist_item_id = Keyword.get(opts, :checklist_item_id)
+    car_part = Keyword.get(opts, :car_part)
     client_id = Keyword.get(opts, :client_id, "default")
 
     ext = Path.extname(original_filename) |> String.downcase()
@@ -34,7 +35,8 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     # Validate file content matches claimed extension
     with :ok <- validate_file_content(source_path, ext) do
       save_file_validated(appointment_id, source_path, original_filename, ext, photo_type,
-        uploaded_by: uploaded_by, caption: caption, checklist_item_id: checklist_item_id, client_id: client_id)
+        uploaded_by: uploaded_by, caption: caption, checklist_item_id: checklist_item_id,
+        car_part: car_part, client_id: client_id)
     end
   end
 
@@ -55,6 +57,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     uploaded_by = Keyword.get(opts, :uploaded_by, :technician)
     caption = Keyword.get(opts, :caption)
     checklist_item_id = Keyword.get(opts, :checklist_item_id)
+    car_part = Keyword.get(opts, :car_part)
     client_id = Keyword.get(opts, :client_id, "default")
 
     filename = "#{photo_type}_#{Ash.UUID.generate()}#{ext}"
@@ -71,15 +74,20 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     |> case do
       {:ok, url_path} ->
         # Create photo record
-        Photo
-        |> Ash.Changeset.for_create(:upload, %{
+        changeset_attrs = %{
           file_path: url_path,
           original_filename: original_filename,
           content_type: content_type,
           photo_type: photo_type,
           caption: caption,
           uploaded_by: uploaded_by
-        })
+        }
+
+        changeset_attrs =
+          if car_part, do: Map.put(changeset_attrs, :car_part, car_part), else: changeset_attrs
+
+        Photo
+        |> Ash.Changeset.for_create(:upload, changeset_attrs)
         |> Ash.Changeset.force_change_attribute(:appointment_id, appointment_id)
         |> then(fn cs ->
           if checklist_item_id do

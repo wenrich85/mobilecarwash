@@ -412,6 +412,25 @@ defmodule MobileCarWashWeb.BookingLive do
             <input type="text" name="caption" class="input input-bordered input-sm" placeholder="Describe the issue (optional)" />
           </div>
 
+          <div class="form-control">
+            <label class="label"><span class="label-text text-xs">Car Part (Optional)</span></label>
+            <select name="car_part" class="select select-bordered select-sm">
+              <option value="">None selected</option>
+              <option value="exterior">Exterior (body panels, hood, doors)</option>
+              <option value="windows">Windows (windshield, side windows)</option>
+              <option value="wheels">Wheels (tires, rims, wheel wells)</option>
+              <option value="interior">Interior (dashboard, seats, carpets)</option>
+              <option value="trunk">Trunk (boot area)</option>
+              <option value="engine_bay">Engine Bay</option>
+              <option value="undercarriage">Undercarriage (chassis, underside)</option>
+              <option value="mirrors">Mirrors (side and rear view mirrors)</option>
+              <option value="headlights_taillights">Headlights & Taillights</option>
+              <option value="bumper">Bumper (front and rear)</option>
+              <option value="roof">Roof Panel & Trim</option>
+              <option value="sunroof">Sunroof</option>
+            </select>
+          </div>
+
           <button :if={@uploads.problem_photo.entries != []} type="submit" class="btn btn-warning btn-sm">
             Upload Photos
           </button>
@@ -684,23 +703,33 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, cancel_upload(socket, :problem_photo, ref)}
   end
 
-  def handle_event("save_problem_photos", %{"caption" => caption}, socket) do
+  def handle_event("save_problem_photos", params, socket) do
     # Photos are saved temporarily — they'll be linked to the appointment after booking
     # For now, store them in socket assigns so they persist through the flow
+    caption = params["caption"]
+    car_part_str = params["car_part"]
+    car_part = if car_part_str && car_part_str != "", do: String.to_atom(car_part_str), else: nil
+
     uploaded =
       consume_uploaded_entries(socket, :problem_photo, fn %{path: path}, entry ->
         # Save to storage backend (local or S3)
+        photo_opts = [
+          uploaded_by: :customer,
+          caption: caption
+        ]
+
+        photo_opts = if car_part, do: photo_opts ++ [car_part: car_part], else: photo_opts
+
         {:ok, %{file_path: url}} =
           MobileCarWash.Operations.PhotoUpload.save_file(
             "pending_#{socket.assigns.booking_session_id}",
             path,
             entry.client_name,
             :problem_area,
-            uploaded_by: :customer,
-            caption: caption
+            photo_opts
           )
 
-        {:ok, %{file_path: url, caption: caption, original_filename: entry.client_name}}
+        {:ok, %{file_path: url, caption: caption, original_filename: entry.client_name, car_part: car_part}}
       end)
 
     {:noreply,
