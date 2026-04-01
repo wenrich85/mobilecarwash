@@ -365,18 +365,11 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
     ~H"""
     <%= for i <- 0..max(@num_bills - 1, 0) do %>
-      <% bill_index = rem(i, 6) %>
       <% bill_y = @cy + 70 - (i + 1) * 3.5 %>
 
-      <!-- Bill denomination colors (realistic USD) -->
-      <% {bill_color, bill_text} = case bill_index do
-        0 -> {"#1F7F31", "$100"}
-        1 -> {"#C1121F", "$50"}
-        2 -> {"#0066CC", "$20"}
-        3 -> {"#0A3161", "$10"}
-        4 -> {"#8B4513", "$5"}
-        _ -> {"#228B22", "$1"}
-      end %>
+      <!-- All bills in classic green (US currency) -->
+      <% bill_color = "#1B5E20" %>
+      <% bill_text = "$" %>
 
       <!-- Slight offset and rotation for realistic stacking -->
       <% x_offset = rem(i, 2) * 2.5 - 1.25 %>
