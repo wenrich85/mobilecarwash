@@ -311,41 +311,68 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-linecap="round"
       />
 
-      <!-- Label above bucket -->
+      <!-- Label above bucket with outline -->
       <text
         x={@cx}
         y={@cy - 50}
         text-anchor="middle"
-        class="text-sm font-bold fill-base-content"
-        font-size="18"
+        font-size="19"
+        font-weight="bold"
+        fill="white"
+        stroke="#1E2A38"
+        stroke-width="1.5"
+        paint-order="stroke"
       >
         {@label}
       </text>
 
-      <!-- Fill percentage inside bucket -->
+      <!-- Fill percentage inside bucket with outline -->
       <text
         x={@cx}
         y={@cy + 35}
         text-anchor="middle"
-        class="text-xs font-bold fill-base-content"
-        font-size="16"
+        font-size="17"
+        font-weight="bold"
+        fill="white"
+        stroke="#1E2A38"
+        stroke-width="1.2"
+        paint-order="stroke"
       >
         {trunc(@fill_pct * 100)}%
       </text>
 
-      <!-- Balance below bucket -->
+      <!-- Balance below bucket with outline and background -->
+      <rect
+        x={@cx - 48}
+        y={@cy + 82}
+        width="96"
+        height="18"
+        fill="#FFFFFF"
+        opacity="0.95"
+        rx="3"
+      />
       <text
         x={@cx}
-        y={@cy + 95}
+        y={@cy + 97}
         text-anchor="middle"
-        class="text-sm font-semibold fill-base-content"
-        font-size="16"
+        font-size="17"
+        font-weight="bold"
+        fill="#1E2A38"
       >
         ${format_cents(@balance_cents)}
       </text>
 
       <!-- Threshold indicator -->
-      <text :if={@threshold_cents} x={@cx} y={@cy + 115} text-anchor="middle" class="text-xs fill-base-content/50" font-size="13">
+      <text
+        :if={@threshold_cents}
+        x={@cx}
+        y={@cy + 116}
+        text-anchor="middle"
+        font-size="12"
+        font-weight="600"
+        fill="#1E2A38"
+        opacity="0.8"
+      >
         Target: ${format_cents(@threshold_cents)}
       </text>
     </g>
