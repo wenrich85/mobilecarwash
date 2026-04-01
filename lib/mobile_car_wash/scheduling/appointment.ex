@@ -149,6 +149,10 @@ defmodule MobileCarWash.Scheduling.Appointment do
 
       change after_action(fn _changeset, record, _context ->
         MobileCarWash.Scheduling.AppointmentTracker.broadcast_completed(record.id)
+        # Enqueue wash completed notification
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.WashCompletedWorker.new(queue: :notifications)
+        |> Oban.insert()
         {:ok, record}
       end)
     end

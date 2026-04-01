@@ -100,6 +100,10 @@ defmodule MobileCarWash.Scheduling.Booking do
               enqueue_confirmation_email(appointment)
               # Schedule reminder
               enqueue_appointment_reminder(appointment)
+              # Enqueue payment receipt
+              enqueue_payment_receipt(payment)
+              # Sync to accounting system
+              enqueue_accounting_sync(payment)
 
               {:ok, %{payment: payment, appointment: appointment}}
 
@@ -353,6 +357,18 @@ defmodule MobileCarWash.Scheduling.Booking do
       queue: :notifications,
       scheduled_at: scheduled_at
     )
+    |> Oban.insert()
+  end
+
+  defp enqueue_payment_receipt(payment) do
+    %{payment_id: payment.id}
+    |> MobileCarWash.Notifications.PaymentReceiptWorker.new(queue: :notifications)
+    |> Oban.insert()
+  end
+
+  defp enqueue_accounting_sync(payment) do
+    %{payment_id: payment.id}
+    |> MobileCarWash.Accounting.SyncWorker.new(queue: :billing)
     |> Oban.insert()
   end
 

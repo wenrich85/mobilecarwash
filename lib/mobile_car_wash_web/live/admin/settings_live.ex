@@ -175,6 +175,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
       <div class="tabs tabs-boxed mb-8">
         <button class={["tab", @tab == :services && "tab-active"]} phx-click="switch_tab" phx-value-tab="services">Services</button>
         <button class={["tab", @tab == :plans && "tab-active"]} phx-click="switch_tab" phx-value-tab="plans">Membership Plans</button>
+        <button class={["tab", @tab == :accounting && "tab-active"]} phx-click="switch_tab" phx-value-tab="accounting">Accounting</button>
       </div>
 
       <!-- Services Tab -->
@@ -369,11 +370,82 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
           </div>
         </div>
       </div>
+
+      <!-- Accounting Tab -->
+      <div :if={@tab == :accounting}>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-6">
+            <h3 class="font-bold text-lg mb-4">Accounting Integration</h3>
+            <p class="text-sm text-base-content/60 mb-6">
+              Select your accounting provider. Payments will automatically sync to the configured system.
+              Credentials are managed via environment variables at deployment time.
+            </p>
+
+            <!-- Current Configuration Display -->
+            <div class="bg-base-200 rounded-lg p-4 mb-6">
+              <h4 class="font-semibold mb-3">Current Configuration</h4>
+              <table class="table table-sm w-full">
+                <tr>
+                  <td class="font-semibold">Active Provider:</td>
+                  <td>
+                    {case Application.get_env(:mobile_car_wash, :accounting_provider) do
+                      MobileCarWash.Accounting.ZohoBooks -> "Zoho Books"
+                      MobileCarWash.Accounting.QuickBooks -> "QuickBooks Online"
+                      nil -> "None (Accounting Disabled)"
+                      _ -> "Unknown"
+                    end}
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Environment Variables Reference -->
+            <div class="bg-info/10 border border-info rounded-lg p-4">
+              <h4 class="font-semibold text-info mb-3">Required Environment Variables</h4>
+              <div class="space-y-3 text-sm">
+                <div>
+                  <p class="font-mono font-semibold">ACCOUNTING_PROVIDER</p>
+                  <p class="text-base-content/70">Set to: "zoho", "quickbooks", or "none"</p>
+                </div>
+                <div :if={is_zoho_configured()} class="border-t border-info/30 pt-3">
+                  <p class="font-mono font-semibold">Zoho Books (when ACCOUNTING_PROVIDER=zoho):</p>
+                  <ul class="text-base-content/70 ml-4 mt-1 space-y-1">
+                    <li>• ZOHO_ORG_ID</li>
+                    <li>• ZOHO_CLIENT_ID</li>
+                    <li>• ZOHO_CLIENT_SECRET</li>
+                    <li>• ZOHO_REFRESH_TOKEN</li>
+                  </ul>
+                </div>
+                <div :if={is_quickbooks_configured()} class="border-t border-info/30 pt-3">
+                  <p class="font-mono font-semibold">QuickBooks Online (when ACCOUNTING_PROVIDER=quickbooks):</p>
+                  <ul class="text-base-content/70 ml-4 mt-1 space-y-1">
+                    <li>• QUICKBOOKS_COMPANY_ID</li>
+                    <li>• QUICKBOOKS_CLIENT_ID</li>
+                    <li>• QUICKBOOKS_CLIENT_SECRET</li>
+                    <li>• QUICKBOOKS_REFRESH_TOKEN</li>
+                  </ul>
+                </div>
+              </div>
+              <p class="text-sm text-info mt-4">
+                Update environment variables and redeploy to change providers.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end
 
   # --- Helpers ---
+
+  defp is_zoho_configured do
+    Application.get_env(:mobile_car_wash, :accounting_provider) == MobileCarWash.Accounting.ZohoBooks
+  end
+
+  defp is_quickbooks_configured do
+    Application.get_env(:mobile_car_wash, :accounting_provider) == MobileCarWash.Accounting.QuickBooks
+  end
 
   defp load_services do
     ServiceType |> Ash.Query.sort(base_price_cents: :asc) |> Ash.read!()

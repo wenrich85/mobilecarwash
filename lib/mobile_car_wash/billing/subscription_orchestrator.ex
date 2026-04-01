@@ -40,6 +40,11 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
       # Create initial usage record
       create_usage_record(subscription, today, period_end)
 
+      # Send welcome email
+      %{subscription_id: subscription.id, event: "created"}
+      |> MobileCarWash.Notifications.SubscriptionNotificationWorker.new(queue: :notifications)
+      |> Oban.insert()
+
       {:ok, subscription}
     end
   end
@@ -63,9 +68,17 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
   def handle_deleted(stripe_subscription) do
     case find_subscription(stripe_subscription.id) do
       {:ok, subscription} ->
-        subscription
-        |> Ash.Changeset.for_update(:cancel, %{})
-        |> Ash.update()
+        {:ok, cancelled_subscription} =
+          subscription
+          |> Ash.Changeset.for_update(:cancel, %{})
+          |> Ash.update()
+
+        # Send cancellation email
+        %{subscription_id: cancelled_subscription.id, event: "cancelled"}
+        |> MobileCarWash.Notifications.SubscriptionNotificationWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        {:ok, cancelled_subscription}
 
       error ->
         error
