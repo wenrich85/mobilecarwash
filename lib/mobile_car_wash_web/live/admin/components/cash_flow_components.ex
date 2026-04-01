@@ -345,11 +345,11 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
       <!-- Details positioning -->
       <%= if @details_position == "left_middle" do %>
-        <!-- Details on left middle side (Business Savings) -->
+        <!-- Details on left middle side (Business Savings) - closer and lower -->
         <!-- Fill percentage -->
         <text
-          x={@cx - 85}
-          y={@cy - 25}
+          x={@cx - 50}
+          y={@cy + 15}
           text-anchor="end"
           font-size="16"
           font-weight="bold"
@@ -360,8 +360,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
         <!-- Balance amount with background -->
         <rect
-          x={@cx - 165}
-          y={@cy - 10}
+          x={@cx - 130}
+          y={@cy + 25}
           width="85"
           height="20"
           fill="#FFFFFF"
@@ -371,8 +371,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           stroke-width="1.5"
         />
         <text
-          x={@cx - 122}
-          y={@cy + 2}
+          x={@cx - 87}
+          y={@cy + 37}
           text-anchor="middle"
           font-size="15"
           font-weight="bold"
@@ -384,8 +384,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         <!-- Threshold indicator -->
         <text
           :if={@threshold_cents}
-          x={@cx - 85}
-          y={@cy + 20}
+          x={@cx - 50}
+          y={@cy + 55}
           text-anchor="end"
           font-size="11"
           font-weight="600"
