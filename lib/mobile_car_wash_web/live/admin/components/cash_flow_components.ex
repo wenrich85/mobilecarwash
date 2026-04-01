@@ -103,6 +103,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           cx={500}
           cy={120}
           gradient_id="blueGrad"
+          threshold_label="Threshold:"
         />
 
         <.bucket
@@ -125,6 +126,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           cy={380}
           gradient_id="blueGrad"
           details_position="left_middle"
+          threshold_label="Threshold:"
         />
 
         <.bucket
@@ -232,6 +234,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
   attr :balance_position, :string, default: "upper_right"
   attr :label_position, :string, default: "left"
   attr :details_position, :string, default: "upper_right"
+  attr :threshold_label, :string, default: "Target:"
 
   defp bucket(assigns) do
     fill_pct =
@@ -407,7 +410,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           fill="#3A7CA5"
           opacity="0.8"
         >
-          Target: ${format_cents(@threshold_cents)}
+          {@threshold_label} ${format_cents(@threshold_cents)}
         </text>
       <% else %>
         <%= if @balance_position == "upper_right" do %>
@@ -457,7 +460,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             fill="#3A7CA5"
             opacity="0.8"
           >
-            Target: ${format_cents(@threshold_cents)}
+            {@threshold_label} ${format_cents(@threshold_cents)}
           </text>
         <% else %>
           <!-- Balance at bottom of bucket -->
