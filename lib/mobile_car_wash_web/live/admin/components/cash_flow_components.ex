@@ -318,6 +318,21 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-linecap="round"
       />
 
+      <!-- Percentage on top of money in bucket -->
+      <text
+        x={@cx}
+        y={@cy + 25}
+        text-anchor="middle"
+        font-size="20"
+        font-weight="bold"
+        fill="white"
+        stroke="#1E2A38"
+        stroke-width="1"
+        paint-order="stroke"
+      >
+        {trunc(@fill_pct * 100)}%
+      </text>
+
       <!-- Label positioning - left or right of bucket -->
       <%= if @label_position == "left" do %>
         <text
