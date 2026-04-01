@@ -187,23 +187,24 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto py-8 px-4">
-      <div class="mb-6">
-        <h1 class="text-3xl font-bold">Cash Flow Management</h1>
-        <p class="text-base-content/60 text-sm mt-2">
+      <!-- Header -->
+      <div class="mb-8 bg-gradient-to-r from-primary-700 to-primary-900 text-secondary-50 rounded-2xl p-8 shadow-lg">
+        <h1 class="text-4xl font-bold mb-2">💰 Cash Flow Management</h1>
+        <p class="text-secondary-100 text-base">
           Donald Miller's 5-bucket system: Expense → Tax, Business Savings, Investment, Personal Salary
         </p>
       </div>
 
       <!-- SVG Diagram with Toggle -->
-      <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card bg-gradient-to-br from-secondary-50 to-tertiary-50 shadow-2xl mb-6 border border-tertiary-200 rounded-2xl">
         <div class="card-body">
           <div class="flex justify-between items-center mb-4">
-            <h2 class="card-title">5-Bucket Cash Flow System</h2>
-            <label class="label cursor-pointer">
-              <span class="label-text mr-3">Enable Animations</span>
+            <h2 class="card-title text-2xl text-primary-700">5-Bucket Cash Flow System</h2>
+            <label class="label cursor-pointer gap-3">
+              <span class="label-text font-semibold text-primary-700">Enable Animations</span>
               <input
                 type="checkbox"
-                class="checkbox checkbox-primary"
+                class="toggle toggle-primary"
                 checked={@animations_enabled}
                 phx-click="toggle_animations"
               />
@@ -220,10 +221,11 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex gap-2 mb-6 flex-wrap">
+      <div class="flex gap-3 mb-8 flex-wrap">
         <button
           type="button"
-          class="btn btn-primary btn-sm"
+          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+          style="background-color: #27AE60; border-color: #27AE60;"
           phx-click="open_modal"
           phx-value-modal="deposit"
         >
@@ -232,7 +234,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
 
         <button
           type="button"
-          class="btn btn-primary btn-sm"
+          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+          style="background-color: #E74C3C; border-color: #E74C3C;"
           phx-click="open_modal"
           phx-value-modal="withdrawal"
         >
@@ -241,7 +244,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
 
         <button
           type="button"
-          class="btn btn-warning btn-sm"
+          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+          style="background-color: #E8A03C; border-color: #E8A03C;"
           phx-click="open_modal"
           phx-value-modal="transfer"
         >
@@ -250,7 +254,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
 
         <button
           type="button"
-          class="btn btn-primary btn-sm"
+          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+          style="background-color: #3A7CA5; border-color: #3A7CA5;"
           phx-click="pay_salary"
         >
           💰 Pay Salary
@@ -258,7 +263,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
 
         <button
           type="button"
-          class="btn btn-primary btn-sm"
+          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+          style="background-color: #1E2A38; border-color: #1E2A38;"
           phx-click="open_modal"
           phx-value-modal="config"
         >
@@ -267,58 +273,58 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       </div>
 
       <!-- Thresholds Info -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div class="stat bg-base-100 shadow rounded-box">
-          <div class="stat-title text-sm">Expense Threshold</div>
-          <div class="stat-value text-success text-lg">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div class="stat bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg rounded-xl border border-green-200 p-6">
+          <div class="stat-title text-sm font-semibold text-green-900">Expense Threshold</div>
+          <div class="stat-value text-green-600 text-2xl font-bold">
             ${format_cents(@thresholds.expense)}
           </div>
-          <div class="stat-desc text-xs">= Monthly Opex × 1.25</div>
+          <div class="stat-desc text-xs text-green-700">= Monthly Opex × 1.25</div>
         </div>
 
-        <div class="stat bg-base-100 shadow rounded-box">
-          <div class="stat-title text-sm">Savings Threshold</div>
-          <div class="stat-value text-info text-lg">
+        <div class="stat bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg rounded-xl border border-blue-200 p-6">
+          <div class="stat-title text-sm font-semibold text-blue-900">Savings Threshold</div>
+          <div class="stat-value text-blue-600 text-2xl font-bold">
             ${format_cents(@thresholds.business_savings)}
           </div>
-          <div class="stat-desc text-xs">= Expense Threshold × 4</div>
+          <div class="stat-desc text-xs text-blue-700">= Expense Threshold × 4</div>
         </div>
 
-        <div class="stat bg-base-100 shadow rounded-box">
-          <div class="stat-title text-sm">Investment Target</div>
-          <div class="stat-value text-warning text-lg">
+        <div class="stat bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg rounded-xl border border-amber-200 p-6">
+          <div class="stat-title text-sm font-semibold text-amber-900">Investment Target</div>
+          <div class="stat-value text-amber-600 text-2xl font-bold">
             ${format_cents(@config.investment_target_cents)}
           </div>
-          <div class="stat-desc text-xs">User-defined goal</div>
+          <div class="stat-desc text-xs text-amber-700">User-defined goal</div>
         </div>
       </div>
 
       <!-- Recent Transactions -->
-      <div class="card bg-base-100 shadow-xl">
+      <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl border border-secondary-200 rounded-2xl">
         <div class="card-body">
-          <h2 class="card-title text-lg">Recent Transactions</h2>
+          <h2 class="card-title text-2xl text-primary-700 mb-4">📋 Recent Transactions</h2>
 
           <div class="overflow-x-auto">
             <table class="table table-sm">
-              <thead>
+              <thead class="bg-primary-100 text-primary-900">
                 <tr>
-                  <th class="text-sm">Type</th>
-                  <th class="text-sm">Amount</th>
-                  <th class="text-sm">Description</th>
-                  <th class="text-sm">Date</th>
+                  <th class="text-sm font-bold">Type</th>
+                  <th class="text-sm font-bold">Amount</th>
+                  <th class="text-sm font-bold">Description</th>
+                  <th class="text-sm font-bold">Date</th>
                 </tr>
               </thead>
 
               <tbody>
-                <tr :for={txn <- @recent_txns} class="hover">
+                <tr :for={txn <- @recent_txns} class="hover:bg-primary-50 border-b border-secondary-200">
                   <td class="text-sm">
-                    <span class={["badge badge-sm", type_badge_class(txn.type)]}>
+                    <span class={["badge badge-sm font-bold", type_badge_class(txn.type)]}>
                       {format_type(txn.type)}
                     </span>
                   </td>
-                  <td class="text-sm font-mono">${format_cents(txn.amount_cents)}</td>
-                  <td class="text-xs text-base-content/60">{txn.description}</td>
-                  <td class="text-xs text-base-content/50">
+                  <td class="text-sm font-mono font-bold text-primary-700">${format_cents(txn.amount_cents)}</td>
+                  <td class="text-xs text-base-content/70">{txn.description}</td>
+                  <td class="text-xs text-base-content/60">
                     {Calendar.strftime(txn.inserted_at, "%m/%d %H:%M")}
                   </td>
                 </tr>
@@ -326,7 +332,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
             </table>
           </div>
 
-          <p :if={@recent_txns == []} class="text-center text-base-content/50 py-8">
+          <p :if={@recent_txns == []} class="text-center text-base-content/50 py-8 text-lg">
             No transactions yet
           </p>
         </div>
