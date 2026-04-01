@@ -323,36 +323,36 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         {@label}
       </text>
 
-      <!-- Fill percentage inside bucket with outline -->
+      <!-- Details in upper right -->
+      <!-- Fill percentage -->
       <text
-        x={@cx}
-        y={@cy + 35}
-        text-anchor="middle"
-        font-size="17"
+        x={@cx + 70}
+        y={@cy - 25}
+        text-anchor="start"
+        font-size="16"
         font-weight="bold"
-        fill="white"
-        stroke="#1E2A38"
-        stroke-width="1.2"
-        paint-order="stroke"
+        fill="#3A7CA5"
       >
         {trunc(@fill_pct * 100)}%
       </text>
 
-      <!-- Balance below bucket with outline and background -->
+      <!-- Balance amount with background -->
       <rect
-        x={@cx - 48}
-        y={@cy + 82}
-        width="96"
-        height="18"
+        x={@cx + 65}
+        y={@cy - 10}
+        width="85"
+        height="20"
         fill="#FFFFFF"
         opacity="0.95"
         rx="3"
+        stroke="#3A7CA5"
+        stroke-width="1.5"
       />
       <text
-        x={@cx}
-        y={@cy + 97}
+        x={@cx + 108}
+        y={@cy + 2}
         text-anchor="middle"
-        font-size="17"
+        font-size="15"
         font-weight="bold"
         fill="#1E2A38"
       >
@@ -362,15 +362,13 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <!-- Threshold indicator -->
       <text
         :if={@threshold_cents}
-        x={@cx}
-        y={@cy + 116}
-        text-anchor="middle"
-        font-size="12"
-        font-weight="bold"
-        fill="#1E2A38"
-        stroke="white"
-        stroke-width="0.8"
-        paint-order="stroke"
+        x={@cx + 70}
+        y={@cy + 20}
+        text-anchor="start"
+        font-size="11"
+        font-weight="600"
+        fill="#3A7CA5"
+        opacity="0.8"
       >
         Target: ${format_cents(@threshold_cents)}
       </text>
