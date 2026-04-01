@@ -369,9 +369,11 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         y={@cy + 116}
         text-anchor="middle"
         font-size="12"
-        font-weight="600"
+        font-weight="bold"
         fill="#1E2A38"
-        opacity="0.8"
+        stroke="white"
+        stroke-width="0.8"
+        paint-order="stroke"
       >
         Target: ${format_cents(@threshold_cents)}
       </text>
@@ -486,7 +488,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <text
         x={div(@x1 + @x2, 2) + 20}
         y={div(@y1 + @y2, 2) - 40}
-        class="text-xs font-semibold fill-base-content/70"
+        class="text-xs font-bold fill-primary-700 drop-shadow"
         font-size="14"
       >
         {@label}
@@ -548,7 +550,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <text
         x={div(@x1 + @x2, 2) - 20}
         y={div(@y1 + @y2, 2) + 40}
-        class="text-xs font-semibold fill-base-content/70"
+        class="text-xs font-bold fill-primary-700 drop-shadow"
         font-size="14"
       >
         {@label}
