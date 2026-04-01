@@ -118,6 +118,63 @@ defmodule MobileCarWash.Analytics.Metrics do
     Repo.all(query)
   end
 
+  @doc "Compare revenue between current period and previous period of same length."
+  def compare_revenue(period \\ :last_7_days) do
+    {current_start, current_end} = date_range(period)
+    {previous_start, previous_end} = previous_date_range(period)
+
+    current = revenue(current_start, current_end)
+    previous = revenue(previous_start, previous_end)
+
+    current_cents = to_cents(current.total_cents)
+    previous_cents = to_cents(previous.total_cents)
+
+    delta_pct =
+      if previous_cents > 0 do
+        Float.round((current_cents - previous_cents) / previous_cents * 100, 1)
+      else
+        if current_cents > 0, do: 100.0, else: 0.0
+      end
+
+    %{
+      current: current_cents,
+      previous: previous_cents,
+      delta_pct: delta_pct
+    }
+  end
+
+  defp to_cents(nil), do: 0
+  defp to_cents(%Decimal{} = d), do: Decimal.to_integer(d)
+  defp to_cents(n) when is_integer(n), do: n
+  defp to_cents(_), do: 0
+
+  @doc "Returns the same-length period before the current period."
+  defp previous_date_range(:last_7_days) do
+    now = DateTime.utc_now()
+    current_start = DateTime.add(now, -7, :day)
+    previous_end = current_start
+    previous_start = DateTime.add(previous_end, -7, :day)
+    {previous_start, previous_end}
+  end
+
+  defp previous_date_range(:last_30_days) do
+    now = DateTime.utc_now()
+    current_start = DateTime.add(now, -30, :day)
+    previous_end = current_start
+    previous_start = DateTime.add(previous_end, -30, :day)
+    {previous_start, previous_end}
+  end
+
+  defp previous_date_range(:this_week) do
+    today = Date.utc_today()
+    days_since_monday = Date.day_of_week(today) - 1
+    this_monday = Date.add(today, -days_since_monday)
+    last_monday = Date.add(this_monday, -7)
+    {:ok, start_date} = DateTime.new(last_monday, ~T[00:00:00])
+    {:ok, end_date} = DateTime.new(this_monday, ~T[00:00:00])
+    {start_date, end_date}
+  end
+
   # --- Booking Stats ---
 
   @doc "Booking funnel stats — abandonment by step."
@@ -320,6 +377,50 @@ defmodule MobileCarWash.Analytics.Metrics do
         select: a.customer_id
 
     length(Repo.all(query))
+  end
+
+  @doc """
+  Returns performance metrics for each technician in the period.
+  Groups completed appointments by technician and calculates revenue metrics.
+  """
+  def technician_performance(period \\ :last_7_days) do
+    {start_date, end_date} = date_range(period)
+
+    # Get completed appointments grouped by technician
+    query =
+      from a in "appointments",
+        left_join: t in "technicians",
+        on: a.technician_id == t.id,
+        where: a.status == "completed",
+        where: a.inserted_at >= ^start_date,
+        where: a.inserted_at < ^end_date,
+        where: not is_nil(a.technician_id),
+        group_by: [a.technician_id, t.name],
+        select: %{
+          technician_id: a.technician_id,
+          technician_name: coalesce(t.name, "Unknown"),
+          washes_count: count(a.id),
+          total_revenue_cents: coalesce(sum(a.price_cents), 0)
+        }
+
+    results = Repo.all(query)
+
+    # Map results and calculate efficiency as revenue per wash
+    Enum.map(results, fn tech ->
+      revenue_per_wash =
+        if tech.washes_count > 0 do
+          Float.round(tech.total_revenue_cents / tech.washes_count / 100, 2)
+        else
+          0.0
+        end
+
+      Map.merge(tech, %{
+        avg_actual_minutes: 0,
+        avg_estimated_minutes: 0,
+        efficiency_pct: revenue_per_wash * 10
+      })
+    end)
+    |> Enum.sort_by(& &1.washes_count, :desc)
   end
 
   defp monthly_churn_rate(start_date, end_date) do

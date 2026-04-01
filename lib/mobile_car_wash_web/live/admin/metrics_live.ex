@@ -70,12 +70,19 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
 
       <!-- KPI Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <.kpi_card
-          label="Revenue"
-          value={"$#{format_cents(@kpis.revenue.total_cents)}"}
-          subtitle={"#{@kpis.revenue.count} payments"}
-          color="success"
-        />
+        <div class="stat bg-base-100 shadow rounded-box">
+          <div class="stat-title">Revenue</div>
+          <div class="stat-value text-success">${format_cents(@kpis.revenue.total_cents)}</div>
+          <div class="stat-desc">{@kpis.revenue.count} payments</div>
+          <div :if={@period_comparison} class={[
+            "flex items-center gap-1 text-sm font-semibold mt-2",
+            @period_comparison.delta_pct >= 0 && "text-success",
+            @period_comparison.delta_pct < 0 && "text-error"
+          ]}>
+            <span>{if @period_comparison.delta_pct >= 0, do: "▲", else: "▼"}</span>
+            <span>{@period_comparison.delta_pct}%</span>
+          </div>
+        </div>
         <.kpi_card
           label="Active Subscribers"
           value={to_string(@kpis.active_subscribers)}
@@ -149,6 +156,62 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
         </div>
       </div>
 
+      <!-- Technician Performance -->
+      <div :if={@technician_performance != []} class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+          <h2 class="card-title mb-4">Technician Performance</h2>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Technician</th>
+                  <th>Washes</th>
+                  <th>Revenue</th>
+                  <th>Avg Time</th>
+                  <th>vs Estimated</th>
+                  <th>Efficiency</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={tech <- @technician_performance}>
+                  <td class="font-semibold">{tech.technician_name}</td>
+                  <td>{tech.washes_count}</td>
+                  <td>${format_cents(tech.total_revenue_cents)}</td>
+                  <td>{trunc(tech.avg_actual_minutes || 0)} min</td>
+                  <td>
+                    <span class={[
+                      tech.avg_estimated_minutes && tech.avg_estimated_minutes > 0 &&
+                        "text-sm",
+                      tech.avg_estimated_minutes && tech.avg_estimated_minutes > 0 &&
+                        (tech.avg_actual_minutes > tech.avg_estimated_minutes && "text-error") ||
+                        (tech.avg_actual_minutes <= tech.avg_estimated_minutes && "text-success")
+                    ]}>
+                      {if tech.avg_estimated_minutes && tech.avg_estimated_minutes > 0 do
+                        "#{trunc(tech.avg_estimated_minutes)} min"
+                      else
+                        "—"
+                      end}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="flex items-center gap-2">
+                      <span class={[
+                        "font-semibold",
+                        tech.efficiency_pct >= 90 && "text-success",
+                        tech.efficiency_pct >= 75 && tech.efficiency_pct < 90 && "text-warning",
+                        tech.efficiency_pct < 75 && "text-error"
+                      ]}>
+                        {tech.efficiency_pct}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Pivot Signals -->
       <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
@@ -183,9 +246,11 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
 
     assign(socket,
       kpis: Metrics.kpis(period),
+      period_comparison: Metrics.compare_revenue(period),
       funnel: Metrics.funnel(period),
       daily_revenue: Metrics.daily_revenue(period),
       booking_stats: Metrics.booking_stats(period),
+      technician_performance: Metrics.technician_performance(period),
       signals: Metrics.pivot_signals(),
       recent_events: Metrics.recent_events(10)
     )

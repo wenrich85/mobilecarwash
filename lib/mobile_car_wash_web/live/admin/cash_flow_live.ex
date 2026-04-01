@@ -21,6 +21,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       socket
       |> assign(page_title: "Cash Flow")
       |> assign(animations_enabled: true)
+      |> assign(page: 1)
       |> reload_data()
 
     {:ok, socket}
@@ -38,6 +39,16 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
   def handle_event("toggle_animations", _params, socket) do
     new_state = !socket.assigns.animations_enabled
     {:noreply, assign(socket, animations_enabled: new_state)}
+  end
+
+  def handle_event("next_page", _params, socket) do
+    page = socket.assigns.page + 1
+    {:noreply, socket |> assign(page: page) |> reload_data()}
+  end
+
+  def handle_event("prev_page", _params, socket) do
+    page = max(1, socket.assigns.page - 1)
+    {:noreply, socket |> assign(page: page) |> reload_data()}
   end
 
   def handle_event("transfer", %{"amount" => amount, "description" => description}, socket) do
@@ -335,6 +346,29 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           <p :if={@recent_txns == []} class="text-center text-base-content/50 py-8 text-lg">
             No transactions yet
           </p>
+
+          <!-- Pagination -->
+          <div :if={@total_txn_count > 0} class="flex items-center justify-between mt-6 pt-4 border-t border-secondary-200">
+            <span class="text-sm text-base-content/70">
+              Page {[@page]} of {[@max_page]} ({[@total_txn_count]} total)
+            </span>
+            <div class="flex gap-2">
+              <button
+                class="btn btn-sm btn-outline"
+                phx-click="prev_page"
+                disabled={@page == 1}
+              >
+                ← Previous
+              </button>
+              <button
+                class="btn btn-sm btn-outline"
+                phx-click="next_page"
+                disabled={@page >= @max_page}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -362,17 +396,34 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       |> Enum.map(&{&1.account_type, &1})
       |> Map.new()
 
+    page = socket.assigns[:page] || 1
+    per_page = 20
+    offset = (page - 1) * per_page
+
+    # Get total transaction count for pagination
+    total_txn_count =
+      CashFlow.Transaction
+      |> Ash.Query.select([:id])
+      |> Ash.read!()
+      |> length()
+
     recent_txns =
       CashFlow.Transaction
       |> Ash.Query.sort(inserted_at: :desc)
-      |> Ash.Query.limit(20)
+      |> Ash.Query.limit(per_page)
+      |> Ash.Query.offset(offset)
       |> Ash.read!()
+
+    max_page = ceil(total_txn_count / per_page)
 
     assign(socket,
       accounts: account_map,
       config: config,
       thresholds: thresholds,
       recent_txns: recent_txns,
+      total_txn_count: total_txn_count,
+      page: page,
+      max_page: max_page,
       active_modal: nil,
       form_error: nil,
       animating_flows: []

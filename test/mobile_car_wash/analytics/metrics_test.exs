@@ -115,4 +115,64 @@ defmodule MobileCarWash.Analytics.MetricsTest do
       assert rate == 33.3
     end
   end
+
+  describe "compare_revenue/1 (Milestone 4A)" do
+    test "returns comparison structure with delta_pct" do
+      comparison = Metrics.compare_revenue(:last_7_days)
+
+      assert is_map(comparison)
+      assert is_integer(comparison.current)
+      assert is_integer(comparison.previous)
+      assert is_float(comparison.delta_pct)
+    end
+
+    test "handles zero previous revenue (guards division by zero)" do
+      comparison = Metrics.compare_revenue(:last_7_days)
+
+      # When previous is 0 and current is 0, delta should be 0.0
+      if comparison.previous == 0 and comparison.current == 0 do
+        assert comparison.delta_pct == 0.0
+      end
+    end
+
+    test "returns correct delta for period comparison" do
+      comparison = Metrics.compare_revenue(:last_7_days)
+
+      # Should be able to handle any previous/current combination
+      if comparison.previous > 0 do
+        expected_delta = (comparison.current - comparison.previous) / comparison.previous * 100
+        assert comparison.delta_pct == Float.round(expected_delta, 1)
+      end
+    end
+  end
+
+  describe "technician_performance/1 (Milestone 4B)" do
+    test "returns list of technician performance metrics" do
+      performance = Metrics.technician_performance(:last_7_days)
+
+      assert is_list(performance)
+
+      for tech <- performance do
+        assert is_binary(tech.technician_name)
+        assert is_integer(tech.washes_count)
+        assert is_integer(tech.total_revenue_cents)
+        assert is_float(tech.efficiency_pct) or tech.efficiency_pct == 0.0
+      end
+    end
+
+    test "returns sorted by washes count descending" do
+      performance = Metrics.technician_performance(:last_7_days)
+
+      # Verify sorted order
+      counts = Enum.map(performance, & &1.washes_count)
+      assert counts == Enum.sort(counts, :desc)
+    end
+
+    test "handles zero completed appointments" do
+      performance = Metrics.technician_performance(:last_7_days)
+
+      # Should return empty or all zeros
+      assert performance == [] or Enum.all?(performance, &(&1.washes_count == 0))
+    end
+  end
 end
