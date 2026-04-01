@@ -124,6 +124,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           cx={500}
           cy={380}
           gradient_id="blueGrad"
+          details_position="left_middle"
         />
 
         <.bucket
@@ -135,6 +136,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           cy={380}
           gradient_id="greenGrad"
           balance_position="bottom"
+          label_position="right"
         />
 
         <.bucket
@@ -228,6 +230,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
   attr :cy, :integer, required: true
   attr :gradient_id, :string, required: true
   attr :balance_position, :string, default: "upper_right"
+  attr :label_position, :string, default: "left"
+  attr :details_position, :string, default: "upper_right"
 
   defp bucket(assigns) do
     fill_pct =
@@ -314,25 +318,39 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-linecap="round"
       />
 
-      <!-- Label to the left of bucket - steel blue for light mode -->
-      <text
-        x={@cx - 75}
-        y={@cy - 8}
-        text-anchor="end"
-        font-size="16"
-        font-weight="bold"
-        fill="#3A7CA5"
-      >
-        {@label}
-      </text>
+      <!-- Label positioning - left or right of bucket -->
+      <%= if @label_position == "left" do %>
+        <text
+          x={@cx - 75}
+          y={@cy - 8}
+          text-anchor="end"
+          font-size="16"
+          font-weight="bold"
+          fill="#3A7CA5"
+        >
+          {@label}
+        </text>
+      <% else %>
+        <text
+          x={@cx + 75}
+          y={@cy - 8}
+          text-anchor="start"
+          font-size="16"
+          font-weight="bold"
+          fill="#3A7CA5"
+        >
+          {@label}
+        </text>
+      <% end %>
 
-      <!-- Details positioning based on balance_position -->
-      <%= if @balance_position == "upper_right" do %>
+      <!-- Details positioning -->
+      <%= if @details_position == "left_middle" do %>
+        <!-- Details on left middle side (Business Savings) -->
         <!-- Fill percentage -->
         <text
-          x={@cx + 85}
+          x={@cx - 85}
           y={@cy - 25}
-          text-anchor="start"
+          text-anchor="end"
           font-size="16"
           font-weight="bold"
           fill="#3A7CA5"
@@ -342,7 +360,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
         <!-- Balance amount with background -->
         <rect
-          x={@cx + 80}
+          x={@cx - 165}
           y={@cy - 10}
           width="85"
           height="20"
@@ -353,7 +371,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           stroke-width="1.5"
         />
         <text
-          x={@cx + 123}
+          x={@cx - 122}
           y={@cy + 2}
           text-anchor="middle"
           font-size="15"
@@ -366,9 +384,9 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         <!-- Threshold indicator -->
         <text
           :if={@threshold_cents}
-          x={@cx + 85}
+          x={@cx - 85}
           y={@cy + 20}
-          text-anchor="start"
+          text-anchor="end"
           font-size="11"
           font-weight="600"
           fill="#3A7CA5"
@@ -377,28 +395,79 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           Target: ${format_cents(@threshold_cents)}
         </text>
       <% else %>
-        <!-- Balance at bottom of bucket -->
-        <rect
-          x={@cx - 45}
-          y={@cy + 78}
-          width="90"
-          height="22"
-          fill="#FFFFFF"
-          opacity="0.95"
-          rx="3"
-          stroke="#3A7CA5"
-          stroke-width="1.5"
-        />
-        <text
-          x={@cx}
-          y={@cy + 96}
-          text-anchor="middle"
-          font-size="15"
-          font-weight="bold"
-          fill="#1E2A38"
-        >
-          ${format_cents(@balance_cents)}
-        </text>
+        <%= if @balance_position == "upper_right" do %>
+          <!-- Fill percentage -->
+          <text
+            x={@cx + 85}
+            y={@cy - 25}
+            text-anchor="start"
+            font-size="16"
+            font-weight="bold"
+            fill="#3A7CA5"
+          >
+            {trunc(@fill_pct * 100)}%
+          </text>
+
+          <!-- Balance amount with background -->
+          <rect
+            x={@cx + 80}
+            y={@cy - 10}
+            width="85"
+            height="20"
+            fill="#FFFFFF"
+            opacity="0.95"
+            rx="3"
+            stroke="#3A7CA5"
+            stroke-width="1.5"
+          />
+          <text
+            x={@cx + 123}
+            y={@cy + 2}
+            text-anchor="middle"
+            font-size="15"
+            font-weight="bold"
+            fill="#1E2A38"
+          >
+            ${format_cents(@balance_cents)}
+          </text>
+
+          <!-- Threshold indicator -->
+          <text
+            :if={@threshold_cents}
+            x={@cx + 85}
+            y={@cy + 20}
+            text-anchor="start"
+            font-size="11"
+            font-weight="600"
+            fill="#3A7CA5"
+            opacity="0.8"
+          >
+            Target: ${format_cents(@threshold_cents)}
+          </text>
+        <% else %>
+          <!-- Balance at bottom of bucket -->
+          <rect
+            x={@cx - 45}
+            y={@cy + 78}
+            width="90"
+            height="22"
+            fill="#FFFFFF"
+            opacity="0.95"
+            rx="3"
+            stroke="#3A7CA5"
+            stroke-width="1.5"
+          />
+          <text
+            x={@cx}
+            y={@cy + 96}
+            text-anchor="middle"
+            font-size="15"
+            font-weight="bold"
+            fill="#1E2A38"
+          >
+            ${format_cents(@balance_cents)}
+          </text>
+        <% end %>
       <% end %>
     </g>
     """
