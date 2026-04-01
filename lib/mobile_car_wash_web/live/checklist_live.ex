@@ -41,8 +41,11 @@ defmodule MobileCarWashWeb.ChecklistLive do
         done = Enum.count(items, & &1.completed)
         pct = if total > 0, do: Float.round(done / total * 100, 0), else: 0
 
-        # Start the 1-second timer tick
-        if connected?(socket), do: Process.send_after(self(), :tick, @timer_tick_ms)
+        # Subscribe to real-time updates and start the 1-second timer tick
+        if connected?(socket) do
+          AppointmentTracker.subscribe(checklist.appointment_id)
+          Process.send_after(self(), :tick, @timer_tick_ms)
+        end
 
         socket =
           socket
@@ -85,6 +88,27 @@ defmodule MobileCarWashWeb.ChecklistLive do
   def handle_info(:tick, socket) do
     Process.send_after(self(), :tick, @timer_tick_ms)
     {:noreply, assign(socket, now: DateTime.utc_now())}
+  end
+
+  # Incoming appointment updates (e.g., step completed by another tech or system)
+  @impl true
+  def handle_info({:appointment_update, _data}, socket) do
+    case Ash.get(AppointmentChecklist, socket.assigns.checklist.id) do
+      {:ok, checklist} ->
+        items =
+          ChecklistItem
+          |> Ash.Query.filter(checklist_id == ^checklist.id)
+          |> Ash.Query.sort(step_number: :asc)
+          |> Ash.read!()
+
+        done = Enum.count(items, & &1.completed)
+        pct = if socket.assigns.total > 0, do: Float.round(done / socket.assigns.total * 100, 0), else: 0
+
+        {:noreply, assign(socket, checklist: checklist, items: items, done: done, pct: pct)}
+
+      {:error, _} ->
+        {:noreply, socket}
+    end
   end
 
   @impl true

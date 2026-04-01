@@ -5,7 +5,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   use MobileCarWashWeb, :live_view
 
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType}
-  alias MobileCarWash.Operations.{Photo, PhotoUpload}
+  alias MobileCarWash.Operations.PhotoUpload
 
   require Ash.Query
 
@@ -83,7 +83,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   end
 
   @impl true
-  def handle_info({:appointment_update, data}, socket) do
+  def handle_info({:appointment_update, _data}, socket) do
     # Reload appointments from DB to get fresh status
     customer = socket.assigns.current_customer
 

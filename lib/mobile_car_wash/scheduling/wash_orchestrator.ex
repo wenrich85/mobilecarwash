@@ -7,7 +7,7 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
 
   alias MobileCarWash.Repo
   alias MobileCarWash.Booking.WashStateMachine
-  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker}
+  alias MobileCarWash.Scheduling.Appointment
   alias MobileCarWash.Operations.{Procedure, ProcedureStep, AppointmentChecklist, ChecklistItem}
 
   require Ash.Query

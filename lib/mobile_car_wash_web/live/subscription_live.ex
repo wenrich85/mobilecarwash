@@ -197,7 +197,7 @@ defmodule MobileCarWashWeb.SubscriptionLive do
 
         <div class="card bg-base-100 shadow max-w-md">
           <div class="card-body">
-            <.link navigate={~p"/auth/sign_in"} class="btn btn-primary btn-block mb-3">
+            <.link navigate={~p"/sign-in"} class="btn btn-primary btn-block mb-3">
               Sign In
             </.link>
             <p class="text-center text-sm text-base-content/50">

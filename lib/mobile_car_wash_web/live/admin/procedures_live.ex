@@ -5,8 +5,6 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
   """
   use MobileCarWashWeb, :live_view
 
-  import MobileCarWashWeb.Admin.OperationsComponents
-
   alias MobileCarWash.Operations.{Procedure, ProcedureStep}
 
   require Ash.Query
@@ -111,7 +109,7 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
     end
   end
 
-  def handle_event("reorder_steps", %{"procedure_id" => proc_id, "step_ids" => step_ids}, socket) do
+  def handle_event("reorder_steps", %{"procedure_id" => _proc_id, "step_ids" => step_ids}, socket) do
     import Ecto.Query
 
     # Update step_number for each step based on new position

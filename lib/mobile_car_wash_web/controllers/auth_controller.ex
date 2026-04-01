@@ -35,7 +35,7 @@ defmodule MobileCarWashWeb.AuthController do
     case AshAuthentication.Jwt.verify(token, :mobile_car_wash) do
       {:ok, %{"sub" => subject}, _} ->
         case AshAuthentication.subject_to_user(subject, MobileCarWash.Accounts.Customer) do
-          {:ok, user} ->
+          {:ok, _user} ->
             strategy = AshAuthentication.Info.strategy!(MobileCarWash.Accounts.Customer, :password)
 
             case AshAuthentication.Strategy.action(strategy, :sign_in_with_token, %{"token" => token}) do

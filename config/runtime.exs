@@ -140,21 +140,50 @@ if config_env() == :prod do
     config :mobile_car_wash, :google_analytics_id, ga_id
   end
 
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :mobile_car_wash, MobileCarWash.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+  # Mailer — Zoho SMTP (swap relay/port/credentials for any SMTP provider)
+  config :mobile_car_wash, MobileCarWash.Mailer,
+    adapter: Swoosh.Adapters.SMTP,
+    relay: System.get_env("SMTP_RELAY") || "smtp.zoho.com",
+    port: String.to_integer(System.get_env("SMTP_PORT") || "465"),
+    username: System.get_env("SMTP_USERNAME") || raise("SMTP_USERNAME is required"),
+    password: System.get_env("SMTP_PASSWORD") || raise("SMTP_PASSWORD is required"),
+    ssl: true,
+    auth: :always
+
+  # From email address
+  config :mobile_car_wash, :from_email,
+    System.get_env("FROM_EMAIL") || "hello@drivewaydetail.co"
+
+  # Accounting provider — configurable: "zoho" (default), "quickbooks", or "none"
+  accounting_provider =
+    case System.get_env("ACCOUNTING_PROVIDER", "zoho") do
+      "quickbooks" -> MobileCarWash.Accounting.QuickBooks
+      "zoho" -> MobileCarWash.Accounting.ZohoBooks
+      "none" -> nil
+      _ -> MobileCarWash.Accounting.ZohoBooks
+    end
+
+  if accounting_provider do
+    config :mobile_car_wash, :accounting_provider, accounting_provider
+  end
+
+  # Zoho Books credentials (used when ACCOUNTING_PROVIDER=zoho)
+  if System.get_env("ZOHO_ORG_ID") do
+    config :mobile_car_wash, :zoho_books,
+      organization_id: System.get_env("ZOHO_ORG_ID"),
+      client_id: System.get_env("ZOHO_CLIENT_ID"),
+      client_secret: System.get_env("ZOHO_CLIENT_SECRET"),
+      refresh_token: System.get_env("ZOHO_REFRESH_TOKEN"),
+      api_url: System.get_env("ZOHO_API_URL") || "https://www.zohoapis.com/books/v3"
+  end
+
+  # QuickBooks Online credentials (used when ACCOUNTING_PROVIDER=quickbooks)
+  if System.get_env("QUICKBOOKS_COMPANY_ID") do
+    config :mobile_car_wash, :quickbooks,
+      company_id: System.get_env("QUICKBOOKS_COMPANY_ID"),
+      client_id: System.get_env("QUICKBOOKS_CLIENT_ID"),
+      client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
+      refresh_token: System.get_env("QUICKBOOKS_REFRESH_TOKEN"),
+      api_url: System.get_env("QUICKBOOKS_API_URL") || "https://quickbooks.api.intuit.com"
+  end
 end

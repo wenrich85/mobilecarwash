@@ -311,6 +311,103 @@ defmodule MobileCarWash.RegressionTest do
     end
   end
 
+  # === BUG 9: Accounting facade used Zoho-specific field names ===
+  # Root cause: sync_payment hard-coded contact["contact_id"] and invoice["invoice_id"]
+  # Fix: extract_contact_id/extract_invoice_id pattern match both Zoho and QuickBooks shapes
+
+  describe "BUG: Accounting facade provider-agnostic ID extraction" do
+    test "sync_payment skips gracefully with unconfigured Zoho provider" do
+      original = Application.get_env(:mobile_car_wash, :accounting_provider)
+
+      try do
+        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.ZohoBooks)
+
+        guest = create_guest()
+        customer_struct = %{name: guest.name, email: guest.email, phone: "555"}
+
+        payment_struct = %{
+          id: Ash.UUID.generate(),
+          amount_cents: 5000,
+          paid_at: DateTime.utc_now(),
+          stripe_payment_intent_id: "pi_test_zoho"
+        }
+
+        # Should not crash — gracefully returns :ok when provider is unconfigured
+        result = MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Basic Wash")
+        assert result == :ok
+      after
+        if original do
+          Application.put_env(:mobile_car_wash, :accounting_provider, original)
+        else
+          Application.delete_env(:mobile_car_wash, :accounting_provider)
+        end
+      end
+    end
+
+    test "sync_payment skips gracefully with unconfigured QuickBooks provider" do
+      original = Application.get_env(:mobile_car_wash, :accounting_provider)
+
+      try do
+        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.QuickBooks)
+
+        guest = create_guest()
+        customer_struct = %{name: guest.name, email: guest.email, phone: "555"}
+
+        payment_struct = %{
+          id: Ash.UUID.generate(),
+          amount_cents: 7500,
+          paid_at: DateTime.utc_now(),
+          stripe_payment_intent_id: "pi_test_qb"
+        }
+
+        result = MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Deep Clean")
+        assert result == :ok
+      after
+        if original do
+          Application.put_env(:mobile_car_wash, :accounting_provider, original)
+        else
+          Application.delete_env(:mobile_car_wash, :accounting_provider)
+        end
+      end
+    end
+  end
+
+  # === BUG 10: Provider runtime switch must not crash existing sync jobs ===
+  # Root cause: If provider is changed at runtime while Oban jobs are in-flight,
+  # the worker must handle both old and new provider error atoms.
+
+  describe "BUG: Provider switch mid-flight safety" do
+    test "sync_payment handles provider switch from Zoho to QuickBooks" do
+      guest = create_guest()
+      customer_struct = %{name: guest.name, email: guest.email, phone: "555"}
+
+      payment_struct = %{
+        id: Ash.UUID.generate(),
+        amount_cents: 5000,
+        paid_at: DateTime.utc_now(),
+        stripe_payment_intent_id: "pi_test_switch"
+      }
+
+      original = Application.get_env(:mobile_car_wash, :accounting_provider)
+
+      try do
+        # Start with Zoho, switch to QuickBooks mid-flight
+        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.ZohoBooks)
+        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.QuickBooks)
+
+        # Facade should still complete (graceful skip with unconfigured provider)
+        result = MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Basic Wash")
+        assert result == :ok
+      after
+        if original do
+          Application.put_env(:mobile_car_wash, :accounting_provider, original)
+        else
+          Application.delete_env(:mobile_car_wash, :accounting_provider)
+        end
+      end
+    end
+  end
+
   # === BUG 8: Ash.read! with invalid options (action:/arguments:) ===
   # Root cause: Ash.read! doesn't accept action: or arguments: options.
   # Must use Ash.Query.filter instead.

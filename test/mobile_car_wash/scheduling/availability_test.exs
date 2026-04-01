@@ -3,8 +3,8 @@ defmodule MobileCarWash.Scheduling.AvailabilityTest do
 
   alias MobileCarWash.Scheduling.Availability
 
-  # Monday March 30, 2026
-  @test_date ~D[2026-03-30]
+  # Far-future Monday to avoid past-slot filtering for today
+  @test_date ~D[2030-03-04]
 
   defp make_appointment(date, hour, minute \\ 0, duration \\ 45) do
     {:ok, scheduled_at} = DateTime.new(date, Time.new!(hour, minute, 0))
@@ -86,13 +86,13 @@ defmodule MobileCarWash.Scheduling.AvailabilityTest do
 
   describe "slot_available?/3" do
     test "returns true for an open slot" do
-      {:ok, datetime} = DateTime.new(~D[2026-03-30], ~T[10:00:00])
+      {:ok, datetime} = DateTime.new(~D[2030-03-04], ~T[10:00:00])
       assert Availability.slot_available?(datetime, 45, [])
     end
 
     test "returns false for a conflicting slot" do
-      {:ok, datetime} = DateTime.new(~D[2026-03-30], ~T[10:00:00])
-      existing = [make_appointment(~D[2026-03-30], 10)]
+      {:ok, datetime} = DateTime.new(~D[2030-03-04], ~T[10:00:00])
+      existing = [make_appointment(~D[2030-03-04], 10)]
 
       refute Availability.slot_available?(datetime, 45, existing)
     end

@@ -8,7 +8,7 @@ defmodule MobileCarWash.Operations.TechEarnings do
   alias MobileCarWash.Scheduling.Appointment
   alias MobileCarWash.Scheduling.ServiceType
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Operations.{Technician, AppointmentChecklist, ChecklistItem}
+  alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem}
 
   require Ash.Query
 
