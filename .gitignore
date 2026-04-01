@@ -30,13 +30,13 @@ mobile_car_wash-*.tar
 
 # Ignore assets that are produced by build tools.
 /priv/static/assets/
-/priv/static/*.ico
-/priv/static/*.png
-/priv/static/*.svg
-/priv/static/*.svg.gz
-/priv/static/*.txt
-/priv/static/*.txt.gz
-/priv/static/*.xml
+/priv/static/**/*.ico
+/priv/static/**/*.png
+/priv/static/**/*.svg
+/priv/static/**/*.svg.gz
+/priv/static/**/*.txt
+/priv/static/**/*.txt.gz
+/priv/static/**/*.xml
 
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
