@@ -311,17 +311,23 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-linecap="round"
       />
 
-      <!-- Label above bucket with outline -->
+      <!-- Label above bucket with background -->
+      <rect
+        x={@cx - 65}
+        y={@cy - 62}
+        width="130"
+        height="22"
+        fill="#1E2A38"
+        opacity="0.95"
+        rx="4"
+      />
       <text
         x={@cx}
-        y={@cy - 50}
+        y={@cy - 48}
         text-anchor="middle"
-        font-size="19"
+        font-size="18"
         font-weight="bold"
         fill="white"
-        stroke="#1E2A38"
-        stroke-width="1.5"
-        paint-order="stroke"
       >
         {@label}
       </text>
