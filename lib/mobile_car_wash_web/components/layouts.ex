@@ -145,9 +145,15 @@ defmodule MobileCarWashWeb.Layouts do
               <div>
                 <h4 class="font-semibold mb-3 text-sm">Account</h4>
                 <ul class="space-y-2 text-sm text-base-content/60">
-                  <li><a href="/sign-in" class="hover:text-base-content">Sign In</a></li>
-                  <li><a href="/appointments" class="hover:text-base-content">My Appointments</a></li>
-                  <li><a href="/account/subscription" class="hover:text-base-content">My Plan</a></li>
+                  <li :if={@current_scope}>
+                    <span class="font-semibold text-base-content">{Map.get(@current_scope, :name, "")}</span>
+                  </li>
+                  <li :if={!@current_scope}>
+                    <a href="/sign-in" class="hover:text-base-content">Sign In</a>
+                  </li>
+                  <li :if={@current_scope}><a href="/sign-out" class="hover:text-base-content">Sign Out</a></li>
+                  <li :if={@current_scope}><a href="/appointments" class="hover:text-base-content">My Appointments</a></li>
+                  <li :if={@current_scope}><a href="/account/subscription" class="hover:text-base-content">My Plan</a></li>
                 </ul>
               </div>
               <div>
