@@ -292,23 +292,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         opacity="0.6"
       />
 
-      <!-- Bucket liquid fill -->
-      <path
-        d={
-          "M #{@cx - 38} #{@cy + 70 - @fill_height} L #{@cx - 36} #{@cy + 70} Q #{@cx} #{@cy + 76} #{@cx + 36} #{@cy + 70} L #{@cx + 38} #{@cy + 70 - @fill_height} Q #{@cx} #{@cy + 66 - @fill_height} #{@cx - 38} #{@cy + 70 - @fill_height}"
-        }
-        fill={"url(##{@gradient_id})"}
-        opacity="0.7"
-      />
-
-      <!-- Liquid surface (shimmer effect) -->
-      <ellipse
+      <!-- Stacked Cash Bills Fill -->
+      <.cash_stack
         cx={@cx}
-        cy={@cy + 70 - @fill_height}
-        rx="36"
-        ry="6"
-        fill={@color_stroke}
-        opacity="0.15"
+        cy={@cy}
+        fill_height={@fill_height}
+        color_stroke={@color_stroke}
       />
 
       <!-- Bucket handle -->
@@ -360,6 +349,38 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         Target: ${format_cents(@threshold_cents)}
       </text>
     </g>
+    """
+  end
+
+  attr :cx, :integer, required: true
+  attr :cy, :integer, required: true
+  attr :fill_height, :integer, required: true
+  attr :color_stroke, :string, required: true
+
+  defp cash_stack(assigns) do
+    # Generate individual cash bill rectangles
+    num_bills = max(trunc(assigns.fill_height / 4), 0)
+
+    assigns = assign(assigns, num_bills: num_bills)
+
+    ~H"""
+    <%= for i <- 0..max(@num_bills - 1, 0) do %>
+      <% bill_y = @cy + 70 - (i + 1) * 4 %>
+      <% bill_color = case rem(i, 3) do
+        0 -> "#2ECC71"
+        1 -> "#F39C12"
+        _ -> "#E74C3C"
+      end %>
+      <% rotation = rem(i, 2) * 1.5 - 0.75 %>
+      <g transform={"translate(#{@cx}, #{bill_y}) rotate(#{rotation})"}>
+        <!-- Cash bill with shading -->
+        <rect x="-32" y="0" width="64" height="3.5" fill={bill_color} opacity="0.9" rx="0.5"/>
+        <!-- Bill highlight -->
+        <rect x="-32" y="0.5" width="64" height="1" fill="white" opacity="0.3" rx="0.25"/>
+        <!-- Bill shadow -->
+        <rect x="-32" y="3" width="64" height="0.5" fill={@color_stroke} opacity="0.2" rx="0.25"/>
+      </g>
+    <% end %>
     """
   end
 
