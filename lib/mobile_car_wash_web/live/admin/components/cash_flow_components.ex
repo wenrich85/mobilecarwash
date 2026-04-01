@@ -313,7 +313,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
       <!-- Label to the left of bucket - steel blue for light mode -->
       <text
-        x={@cx - 60}
+        x={@cx - 75}
         y={@cy - 8}
         text-anchor="end"
         font-size="16"
@@ -326,7 +326,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <!-- Details in upper right -->
       <!-- Fill percentage -->
       <text
-        x={@cx + 70}
+        x={@cx + 85}
         y={@cy - 25}
         text-anchor="start"
         font-size="16"
@@ -338,7 +338,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
       <!-- Balance amount with background -->
       <rect
-        x={@cx + 65}
+        x={@cx + 80}
         y={@cy - 10}
         width="85"
         height="20"
@@ -349,7 +349,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-width="1.5"
       />
       <text
-        x={@cx + 108}
+        x={@cx + 123}
         y={@cy + 2}
         text-anchor="middle"
         font-size="15"
@@ -362,7 +362,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <!-- Threshold indicator -->
       <text
         :if={@threshold_cents}
-        x={@cx + 70}
+        x={@cx + 85}
         y={@cy + 20}
         text-anchor="start"
         font-size="11"
