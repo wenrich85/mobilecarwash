@@ -484,12 +484,25 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         </text>
       </g>
 
-      <!-- Flow label -->
+      <!-- Flow label with background -->
+      <% label_x = div(@x1 + @x2, 2) + 20 %>
+      <% label_y = div(@y1 + @y2, 2) - 40 %>
+      <rect
+        x={label_x - 28}
+        y={label_y - 9}
+        width="56"
+        height="14"
+        fill="white"
+        opacity="0.95"
+        rx="3"
+      />
       <text
-        x={div(@x1 + @x2, 2) + 20}
-        y={div(@y1 + @y2, 2) - 40}
-        class="text-xs font-bold fill-primary-700 drop-shadow"
+        x={label_x}
+        y={label_y}
+        text-anchor="middle"
         font-size="14"
+        font-weight="bold"
+        fill="#1E2A38"
       >
         {@label}
       </text>
@@ -546,12 +559,25 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         </text>
       </g>
 
-      <!-- Flow label -->
+      <!-- Flow label with background -->
+      <% label_x = div(@x1 + @x2, 2) - 20 %>
+      <% label_y = div(@y1 + @y2, 2) + 40 %>
+      <rect
+        x={label_x - 28}
+        y={label_y - 9}
+        width="56"
+        height="14"
+        fill="white"
+        opacity="0.95"
+        rx="3"
+      />
       <text
-        x={div(@x1 + @x2, 2) - 20}
-        y={div(@y1 + @y2, 2) + 40}
-        class="text-xs font-bold fill-primary-700 drop-shadow"
+        x={label_x}
+        y={label_y}
+        text-anchor="middle"
         font-size="14"
+        font-weight="bold"
+        fill="#1E2A38"
       >
         {@label}
       </text>
