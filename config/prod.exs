@@ -13,6 +13,7 @@ config :mobile_car_wash, MobileCarWashWeb.Endpoint,
 # Note `:force_ssl` is required to be set at compile-time.
 config :mobile_car_wash, MobileCarWashWeb.Endpoint,
   force_ssl: [
+    hsts: true,
     rewrite_on: [:x_forwarded_proto],
     exclude: [
       # paths: ["/health"],

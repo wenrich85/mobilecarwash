@@ -69,7 +69,7 @@ defmodule MobileCarWash.MixProject do
       {:bandit, "~> 1.5"},
 
       # Ash Framework — domain modeling & resource layer
-      {:ash, "~> 3.21"},
+      {:ash, "~> 3.22"},
       {:ash_postgres, "~> 2.8"},
       {:ash_phoenix, "~> 2.3"},
       {:ash_authentication, "~> 4.13"},

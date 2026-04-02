@@ -19,7 +19,7 @@ defmodule MobileCarWashWeb.StripeWebhookController do
   """
   def handle(conn, _params) do
     with {:ok, payload} <- get_raw_body(conn),
-         signature <- get_stripe_signature(conn),
+         {:ok, signature} <- get_stripe_signature(conn),
          {:ok, event} <- StripeClient.construct_webhook_event(payload, signature) do
       process_event(event)
       json(conn, %{status: "ok"})
@@ -43,8 +43,8 @@ defmodule MobileCarWashWeb.StripeWebhookController do
 
   defp get_stripe_signature(conn) do
     case Plug.Conn.get_req_header(conn, "stripe-signature") do
-      [signature] -> signature
-      _ -> nil
+      [signature] -> {:ok, signature}
+      _ -> {:error, :missing_signature}
     end
   end
 
