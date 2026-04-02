@@ -10,29 +10,37 @@ defmodule MobileCarWashWeb.SignInRateLimit do
   connect_info). Falls back gracefully if peer data is unavailable.
   """
   import Phoenix.LiveView
-  import Phoenix.Component, only: [assign: 2]
 
   @table :rate_limit_buckets
   @max 15
   @period 60_000
 
   def on_mount(:limit_sign_in, _params, _session, socket) do
-    ip = get_peer_ip(socket)
-    key = "sign_in:#{ip}"
-    now = System.monotonic_time(:millisecond)
+    # Only check rate limit during WebSocket mount, not static render.
+    # get_connect_info(:peer_data) is only populated on WebSocket connect —
+    # checking during static render maps every request to "unknown" and
+    # causes the shared bucket to fill up, halting all WebSocket connections
+    # and leaving form fields permanently disabled.
+    if connected?(socket) do
+      ip = get_peer_ip(socket)
+      key = "sign_in:#{ip}"
+      now = System.monotonic_time(:millisecond)
 
-    case check_rate(key, now) do
-      :allow ->
-        {:cont, socket}
+      case check_rate(key, now) do
+        :allow ->
+          {:cont, socket}
 
-      :deny ->
-        require Logger
-        Logger.warning("Sign-in rate limit exceeded from #{ip}")
+        :deny ->
+          require Logger
+          Logger.warning("Sign-in rate limit exceeded from #{ip}")
 
-        {:halt,
-         socket
-         |> put_flash(:error, "Too many sign-in attempts. Please wait a minute and try again.")
-         |> redirect(to: "/")}
+          {:halt,
+           socket
+           |> put_flash(:error, "Too many sign-in attempts. Please wait a minute and try again.")
+           |> redirect(to: "/")}
+      end
+    else
+      {:cont, socket}
     end
   end
 
