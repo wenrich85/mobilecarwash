@@ -103,6 +103,9 @@ defmodule MobileCarWashWeb.Router do
       live "/appointments/:id/status", AppointmentStatusLive
       live "/account/subscription", SubscriptionManageLive
     end
+
+    # Photo serving — requires auth, controller checks appointment ownership
+    get "/photos/appointments/:appointment_id/:filename", PhotoController, :show
   end
 
   # Technician routes — technician or admin role

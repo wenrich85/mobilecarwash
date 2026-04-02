@@ -10,7 +10,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
 
   alias MobileCarWash.Operations.Photo
 
-  @local_upload_dir "priv/static/uploads"
+  @local_upload_dir "priv/uploads"
 
   @doc """
   Saves an uploaded file and creates a Photo record.
@@ -128,7 +128,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     dest = Path.join(dir, filename)
     File.cp!(source_path, dest)
 
-    url_path = "/uploads/appointments/#{appointment_id}/#{filename}"
+    url_path = "/photos/appointments/#{appointment_id}/#{filename}"
     {:ok, url_path}
   rescue
     e -> {:error, Exception.message(e)}
