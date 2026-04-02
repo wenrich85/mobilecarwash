@@ -475,15 +475,3 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(str), do: str
 end
-
-# Simple slug helper
-defmodule Slug do
-  def slugify(nil), do: ""
-  def slugify(str) do
-    str
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9\s-]/, "")
-    |> String.replace(~r/[\s-]+/, "_")
-    |> String.trim("_")
-  end
-end

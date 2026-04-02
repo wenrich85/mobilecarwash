@@ -97,6 +97,7 @@ defmodule MobileCarWashWeb.Layouts do
                   <li><a href="/admin/org-chart">Org Chart</a></li>
                   <li><a href="/admin/procedures">SOPs</a></li>
                   <li><a href="/admin/cash-flow">Cash Flow</a></li>
+                  <li><a href="/admin/vans">Vans</a></li>
                   <li><a href="/admin/settings">Settings</a></li>
                 </ul>
               </li>
@@ -195,6 +196,7 @@ defmodule MobileCarWashWeb.Layouts do
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/formation">Formation</a></li>
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/org-chart">Org Chart</a></li>
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/procedures">SOPs</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/vans">Vans</a></li>
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/settings">Settings</a></li>
 
           <li :if={@current_scope} class="mt-4"><a href="/sign-out" class="text-error">Sign Out</a></li>

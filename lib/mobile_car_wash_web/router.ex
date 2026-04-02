@@ -63,6 +63,7 @@ defmodule MobileCarWashWeb.Router do
       live "/subscribe/success", SubscriptionSuccessLive
       live "/subscribe/cancel", SubscriptionCancelLive
       live "/style-guide", Admin.StyleGuideLive
+      live "/sign-in", Auth.SignInLive
     end
 
     # Authentication routes
@@ -113,6 +114,7 @@ defmodule MobileCarWashWeb.Router do
       live "/dispatch", DispatchLive
       live "/settings", SettingsLive
       live "/cash-flow", CashFlowLive
+      live "/vans", VansLive
     end
   end
 

@@ -169,6 +169,54 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
   defp format_status(:cancelled), do: "Cancelled"
   defp format_status(s), do: to_string(s)
 
+  attr :title, :string, required: true
+  attr :status, :atom, required: true
+  attr :appointments, :list, required: true
+  attr :count, :integer, required: true
+  attr :badge_color, :string, required: true
+  attr :technicians, :list, required: true
+  attr :customer_map, :map, required: true
+  attr :service_map, :map, required: true
+  attr :address_map, :map, required: true
+  attr :vehicle_map, :map, required: true
+  attr :tech_requests, :map, required: true
+
+  def kanban_column(assigns) do
+    ~H"""
+    <div class="bg-base-100 rounded-lg shadow-sm p-4 flex flex-col h-full">
+      <!-- Column Header -->
+      <div class="flex items-center justify-between gap-2 mb-4">
+        <h3 class="font-bold text-lg">{@title}</h3>
+        <span class={["badge", @badge_color]}>{@count}</span>
+      </div>
+
+      <!-- Appointments List -->
+      <div class="space-y-3 flex-1 overflow-y-auto">
+        <div :if={@appointments == []} class="text-sm text-base-content/50 text-center py-8">
+          No appointments
+        </div>
+        <.appointment_card
+          :for={appt <- @appointments}
+          appointment={appt}
+          customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
+          service_name={Map.get(@service_map, appt.service_type_id, "Service")}
+          technicians={@technicians}
+          address_zone={get_address_zone(appt, @address_map)}
+          vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+          requested_by={Map.get(@tech_requests, appt.id)}
+        />
+      </div>
+    </div>
+    """
+  end
+
+  defp get_address_zone(appointment, address_map) do
+    case Map.get(address_map, appointment.address_id) do
+      %{zone: zone} -> zone
+      _ -> nil
+    end
+  end
+
   defp vehicle_label(%{make: make, model: model, size: size}) do
     type = case size do
       :car -> "Car"

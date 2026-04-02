@@ -48,6 +48,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         show_manage_techs: false,
         service_map: load_service_map(),
         customer_map: %{},
+        address_map: %{},
+        vehicle_map: %{},
         tech_requests: %{}
       )
       |> load_appointments()
@@ -225,99 +227,91 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-7xl mx-auto py-8 px-4">
+    <div class="max-w-full mx-auto py-8 px-4 bg-base-200 min-h-screen">
       <!-- Header -->
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h1 class="text-3xl font-bold">Dispatch Center</h1>
-          <p class="text-base-content/60">{length(@filtered_appointments)} appointments</p>
+      <div class="max-w-7xl mx-auto mb-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-3xl font-bold">Dispatch Center</h1>
+            <p class="text-base-content/60">Kanban-style appointment management</p>
+          </div>
+          <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
         </div>
-        <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
       </div>
 
       <!-- Filters -->
-      <form phx-change="filter" class="flex flex-wrap gap-3 mb-6 items-end">
-        <div class="form-control">
-          <label class="label label-text text-xs">Date</label>
-          <input
-            type="date"
-            name="date"
-            class="input input-bordered input-sm"
-            value={@filter_date && Date.to_string(@filter_date)}
-          />
-        </div>
-
-        <div class="form-control">
-          <label class="label label-text text-xs">Status</label>
-          <select name="status" class="select select-bordered select-sm">
-            <option value="" selected={is_nil(@filter_status)}>All Statuses</option>
-            <option value="pending" selected={@filter_status == "pending"}>Pending</option>
-            <option value="confirmed" selected={@filter_status == "confirmed"}>Confirmed</option>
-            <option value="in_progress" selected={@filter_status == "in_progress"}>In Progress</option>
-            <option value="completed" selected={@filter_status == "completed"}>Completed</option>
-          </select>
-        </div>
-
-        <div class="form-control">
-          <label class="label label-text text-xs">Technician</label>
-          <select name="tech" class="select select-bordered select-sm">
-            <option value="" selected={is_nil(@filter_tech)}>All Techs</option>
-            <option value="unassigned" selected={@filter_tech == "unassigned"}>Unassigned</option>
-            <option
-              :for={tech <- @technicians}
-              value={tech.id}
-              selected={@filter_tech == tech.id}
-            >
-              {tech.name}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-control">
-          <label class="label label-text text-xs">Zone</label>
-          <select name="zone" class="select select-bordered select-sm">
-            <option value="" selected={is_nil(@filter_zone)}>All Zones</option>
-            <option :for={z <- Zones.all()} value={z} selected={@filter_zone == to_string(z)}>
-              {Zones.short_label(z)}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-control">
-          <label class="label label-text text-xs">Requested</label>
-          <label class="label cursor-pointer gap-2 justify-start">
+      <div class="max-w-7xl mx-auto mb-6">
+        <form phx-change="filter" class="flex flex-wrap gap-2 items-end bg-base-100 p-4 rounded-lg shadow-sm">
+          <div class="form-control">
+            <label class="label label-text text-xs">Date</label>
             <input
-              type="checkbox"
-              name="requested"
-              value="true"
-              checked={@filter_requested}
-              class="checkbox checkbox-sm checkbox-primary"
+              type="date"
+              name="date"
+              class="input input-bordered input-sm"
+              value={@filter_date && Date.to_string(@filter_date)}
             />
-            <span class="label-text text-sm">
-              Only requested
-              <span :if={map_size(@tech_requests) > 0} class="badge badge-warning badge-xs ml-1">{map_size(@tech_requests)}</span>
-            </span>
-          </label>
-        </div>
+          </div>
 
-        <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
-      </form>
+          <div class="form-control">
+            <label class="label label-text text-xs">Technician</label>
+            <select name="tech" class="select select-bordered select-sm">
+              <option value="" selected={is_nil(@filter_tech)}>All Techs</option>
+              <option value="unassigned" selected={@filter_tech == "unassigned"}>Unassigned</option>
+              <option
+                :for={tech <- @technicians}
+                value={tech.id}
+                selected={@filter_tech == tech.id}
+              >
+                {tech.name}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label label-text text-xs">Zone</label>
+            <select name="zone" class="select select-bordered select-sm">
+              <option value="" selected={is_nil(@filter_zone)}>All Zones</option>
+              <option :for={z <- Zones.all()} value={z} selected={@filter_zone == to_string(z)}>
+                {Zones.short_label(z)}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label cursor-pointer gap-2 justify-start">
+              <input
+                type="checkbox"
+                name="requested"
+                value="true"
+                checked={@filter_requested}
+                class="checkbox checkbox-sm checkbox-primary"
+              />
+              <span class="label-text text-sm">
+                Requested
+                <span :if={map_size(@tech_requests) > 0} class="badge badge-warning badge-xs ml-1">{map_size(@tech_requests)}</span>
+              </span>
+            </label>
+          </div>
+
+          <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
+        </form>
+      </div>
 
       <!-- Map -->
-      <div class="mb-8">
+      <div class="max-w-7xl mx-auto mb-8 bg-base-100 p-4 rounded-lg shadow">
         <h2 class="text-lg font-bold mb-3">Map</h2>
         <div
           id="dispatch-map"
           phx-hook="DispatchMap"
           phx-update="ignore"
-          class="w-full h-80 rounded-lg shadow border border-base-300 z-0"
+          class="w-full h-80 rounded-lg border border-base-300 z-0"
         />
       </div>
 
       <!-- Active Washes (always show if any) -->
-      <div :if={@active != []} class="mb-8">
+      <div :if={@active != []} class="max-w-7xl mx-auto mb-8">
         <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-          <span class="badge badge-success">{length(@active)}</span>
+          <span class="badge badge-success badge-lg">{length(@active)}</span>
           Active Washes
         </h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -332,26 +326,67 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         </div>
       </div>
 
-      <!-- Filtered Appointments -->
-      <div class="mb-8">
-        <h2 class="text-lg font-bold mb-4">
-          Appointments
-        </h2>
-
-        <div :if={@filtered_appointments == []} class="text-center py-8 text-base-content/50">
-          No appointments match your filters
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <.appointment_card
-            :for={appt <- @filtered_appointments}
-            appointment={appt}
-            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
-            service_name={Map.get(@service_map, appt.service_type_id, "Service")}
+      <!-- Kanban Board -->
+      <div class="min-h-screen">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-7xl mx-auto pb-8">
+          <!-- PENDING COLUMN -->
+          <.kanban_column
+            title="Pending"
+            status={:pending}
+            appointments={filter_appointments_by_status(@all_appointments, :pending, @filter_date, @filter_tech, @filter_zone, @address_map)}
+            count={length(filter_appointments_by_status(@all_appointments, :pending, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            badge_color="badge-warning"
             technicians={@technicians}
-            address_zone={Map.get(@address_map, appt.address_id) && Map.get(@address_map, appt.address_id).zone}
-            requested_by={Map.get(@tech_requests, appt.id)}
-            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+            customer_map={@customer_map}
+            service_map={@service_map}
+            address_map={@address_map}
+            vehicle_map={@vehicle_map}
+            tech_requests={@tech_requests}
+          />
+
+          <!-- CONFIRMED COLUMN -->
+          <.kanban_column
+            title="Confirmed"
+            status={:confirmed}
+            appointments={filter_appointments_by_status(@all_appointments, :confirmed, @filter_date, @filter_tech, @filter_zone, @address_map)}
+            count={length(filter_appointments_by_status(@all_appointments, :confirmed, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            badge_color="badge-info"
+            technicians={@technicians}
+            customer_map={@customer_map}
+            service_map={@service_map}
+            address_map={@address_map}
+            vehicle_map={@vehicle_map}
+            tech_requests={@tech_requests}
+          />
+
+          <!-- IN PROGRESS COLUMN -->
+          <.kanban_column
+            title="In Progress"
+            status={:in_progress}
+            appointments={filter_appointments_by_status(@all_appointments, :in_progress, @filter_date, @filter_tech, @filter_zone, @address_map)}
+            count={length(filter_appointments_by_status(@all_appointments, :in_progress, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            badge_color="badge-success"
+            technicians={@technicians}
+            customer_map={@customer_map}
+            service_map={@service_map}
+            address_map={@address_map}
+            vehicle_map={@vehicle_map}
+            tech_requests={@tech_requests}
+          />
+
+          <!-- COMPLETED COLUMN -->
+          <.kanban_column
+            title="Completed"
+            status={:completed}
+            appointments={filter_appointments_by_status(@all_appointments, :completed, @filter_date, @filter_tech, @filter_zone, @address_map)}
+            count={length(filter_appointments_by_status(@all_appointments, :completed, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            badge_color="badge-ghost"
+            technicians={@technicians}
+            customer_map={@customer_map}
+            service_map={@service_map}
+            address_map={@address_map}
+            vehicle_map={@vehicle_map}
+            tech_requests={@tech_requests}
           />
         </div>
       </div>
@@ -606,5 +641,33 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
   defp schedule_refresh do
     Process.send_after(self(), :refresh, @refresh_interval)
+  end
+
+  defp filter_appointments_by_status(appointments, status, filter_date, filter_tech, filter_zone, address_map) do
+    appointments
+    |> Enum.filter(fn appt ->
+      # Status filter
+      appt.status == status &&
+      # Date filter
+      (is_nil(filter_date) || date_matches(appt.scheduled_at, filter_date)) &&
+      # Technician filter
+      (is_nil(filter_tech) || (filter_tech == "unassigned" && is_nil(appt.technician_id)) || appt.technician_id == filter_tech) &&
+      # Zone filter
+      (is_nil(filter_zone) || zone_matches(appt, filter_zone, address_map))
+    end)
+  end
+
+  defp date_matches(scheduled_at, filter_date) do
+    {:ok, day_start} = DateTime.new(filter_date, ~T[00:00:00])
+    {:ok, day_end} = DateTime.new(Date.add(filter_date, 1), ~T[00:00:00])
+    DateTime.compare(scheduled_at, day_start) in [:gt, :eq] && DateTime.compare(scheduled_at, day_end) == :lt
+  end
+
+  defp zone_matches(appointment, filter_zone, address_map) do
+    zone = String.to_existing_atom(filter_zone)
+    case Map.get(address_map, appointment.address_id) do
+      %{zone: appt_zone} -> appt_zone == zone
+      _ -> false
+    end
   end
 end

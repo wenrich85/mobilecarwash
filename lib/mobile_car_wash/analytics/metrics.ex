@@ -148,7 +148,6 @@ defmodule MobileCarWash.Analytics.Metrics do
   defp to_cents(n) when is_integer(n), do: n
   defp to_cents(_), do: 0
 
-  @doc "Returns the same-length period before the current period."
   defp previous_date_range(:last_7_days) do
     now = DateTime.utc_now()
     current_start = DateTime.add(now, -7, :day)

@@ -11,7 +11,7 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    procedures = Ash.read!(Procedure) |> Enum.sort_by(& &1.name)
+    procedures = load_procedures()
     steps_by_proc = load_steps(procedures)
 
     {:ok,
@@ -20,7 +20,8 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
        procedures: procedures,
        steps_by_proc: steps_by_proc,
        expanded: MapSet.new(),
-       editing_step: nil
+       editing_step: nil,
+       editing_procedure: nil
      )}
   end
 
@@ -110,19 +111,94 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
   end
 
   def handle_event("reorder_steps", %{"procedure_id" => _proc_id, "step_ids" => step_ids}, socket) do
-    import Ecto.Query
-
     # Update step_number for each step based on new position
     step_ids
     |> Enum.with_index(1)
     |> Enum.each(fn {step_id, new_number} ->
-      MobileCarWash.Repo.update_all(
-        from(s in "procedure_steps", where: s.id == type(^step_id, :binary_id)),
-        set: [step_number: new_number]
-      )
+      with {:ok, step} <- Ash.get(ProcedureStep, step_id) do
+        step
+        |> Ash.Changeset.for_update(:update, %{step_number: new_number})
+        |> Ash.update()
+      end
     end)
 
     {:noreply, socket |> reload_steps() |> put_flash(:info, "Steps reordered")}
+  end
+
+  # === Procedure CRUD ===
+
+  def handle_event("add_procedure", %{"procedure" => params}, socket) do
+    attrs = %{
+      name: params["name"],
+      slug: Slug.slugify(params["name"]),
+      description: params["description"],
+      category: String.to_atom(params["category"] || "wash"),
+      active: true
+    }
+
+    case Procedure |> Ash.Changeset.for_create(:create, attrs) |> Ash.create() do
+      {:ok, _} ->
+        {:noreply, socket |> assign(procedures: load_procedures()) |> reload_steps() |> put_flash(:info, "Procedure added")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not add procedure")}
+    end
+  end
+
+  def handle_event("edit_procedure", %{"id" => id}, socket) do
+    {:noreply, assign(socket, editing_procedure: id)}
+  end
+
+  def handle_event("update_procedure", %{"id" => id, "procedure" => params}, socket) do
+    case Ash.get(Procedure, id) do
+      {:ok, proc} ->
+        attrs = %{
+          name: params["name"],
+          description: params["description"],
+          category: String.to_atom(params["category"] || "wash")
+        }
+
+        case proc |> Ash.Changeset.for_update(:update, attrs) |> Ash.update() do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> assign(procedures: load_procedures(), editing_procedure: nil)
+             |> reload_steps()
+             |> put_flash(:info, "Procedure updated")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Could not update procedure")}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("delete_procedure", %{"id" => id}, socket) do
+    with {:ok, proc} <- Ash.get(Procedure, id) do
+      # Check if procedure has steps
+      steps = ProcedureStep |> Ash.Query.filter(procedure_id == ^id) |> Ash.read!()
+
+      if length(steps) > 0 do
+        {:noreply, put_flash(socket, :error, "Cannot delete procedure with steps. Delete all steps first.")}
+      else
+        case Ash.destroy(proc) do
+          :ok ->
+            {:noreply,
+             socket
+             |> assign(procedures: load_procedures())
+             |> reload_steps()
+             |> put_flash(:info, "Procedure deleted")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Could not delete procedure")}
+        end
+      end
+    else
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   # === Render ===
@@ -142,10 +218,38 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
         </div>
       </div>
 
+      <!-- Add Procedure -->
+      <div class="card bg-base-100 shadow mb-6">
+        <div class="card-body p-4">
+          <h3 class="font-bold mb-3">Add Procedure</h3>
+          <form phx-submit="add_procedure" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <div class="form-control">
+              <label class="label label-text text-xs">Name</label>
+              <input type="text" name="procedure[name]" class="input input-bordered input-sm" required placeholder="Procedure name" />
+            </div>
+            <div class="form-control">
+              <label class="label label-text text-xs">Category</label>
+              <select name="procedure[category]" class="select select-bordered select-sm">
+                <option value="wash">Wash</option>
+                <option value="admin">Admin</option>
+                <option value="customer_service">Customer Service</option>
+                <option value="safety">Safety</option>
+              </select>
+            </div>
+            <div class="form-control md:col-span-2">
+              <label class="label label-text text-xs">Description</label>
+              <input type="text" name="procedure[description]" class="input input-bordered input-sm" placeholder="What does this procedure do?" />
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Add Procedure</button>
+          </form>
+        </div>
+      </div>
+
       <div class="space-y-6">
         <div :for={proc <- @procedures} class="card bg-base-100 shadow-xl">
           <div class="card-body">
-            <div class="flex justify-between items-start">
+            <!-- View mode -->
+            <div :if={@editing_procedure != proc.id} class="flex justify-between items-start">
               <div>
                 <h3 class="card-title">{proc.name}</h3>
                 <p :if={proc.description} class="text-sm text-base-content/60 mt-1">{proc.description}</p>
@@ -156,6 +260,33 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
                 <span class="badge badge-outline">{proc.category}</span>
               </div>
             </div>
+
+            <!-- Edit mode -->
+            <form :if={@editing_procedure == proc.id} phx-submit="update_procedure" phx-value-id={proc.id} class="space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="form-control">
+                  <label class="label label-text text-xs">Name</label>
+                  <input type="text" name="procedure[name]" class="input input-bordered input-sm" value={proc.name} required />
+                </div>
+                <div class="form-control">
+                  <label class="label label-text text-xs">Category</label>
+                  <select name="procedure[category]" class="select select-bordered select-sm">
+                    <option value="wash" selected={proc.category == :wash}>Wash</option>
+                    <option value="admin" selected={proc.category == :admin}>Admin</option>
+                    <option value="customer_service" selected={proc.category == :customer_service}>Customer Service</option>
+                    <option value="safety" selected={proc.category == :safety}>Safety</option>
+                  </select>
+                </div>
+                <div class="form-control md:col-span-2">
+                  <label class="label label-text text-xs">Description</label>
+                  <input type="text" name="procedure[description]" class="input input-bordered input-sm" value={proc.description} placeholder="What does this procedure do?" />
+                </div>
+              </div>
+              <div class="flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
+                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">Cancel</button>
+              </div>
+            </form>
 
             <div :if={MapSet.member?(@expanded, proc.id)} class="mt-4">
               <!-- Draggable step list -->
@@ -211,10 +342,12 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
               </button>
             </div>
 
-            <div class="card-actions justify-end mt-4">
+            <div :if={@editing_procedure != proc.id} class="card-actions justify-end mt-4">
               <button class="btn btn-ghost btn-sm" phx-click="toggle_procedure" phx-value-id={proc.id}>
                 {if MapSet.member?(@expanded, proc.id), do: "Collapse", else: "View & Edit Steps"}
               </button>
+              <button class="btn btn-ghost btn-xs" phx-click="edit_procedure" phx-value-id={proc.id}>Edit</button>
+              <button class="btn btn-ghost btn-xs text-error" phx-click="delete_procedure" phx-value-id={proc.id}>Delete</button>
             </div>
           </div>
         </div>
@@ -236,6 +369,10 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
   end
 
   # === Private ===
+
+  defp load_procedures do
+    Procedure |> Ash.read!() |> Enum.sort_by(& &1.name)
+  end
 
   defp load_steps(procedures) do
     for proc <- procedures, into: %{} do
@@ -262,8 +399,6 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
   end
 
   defp renumber_steps(procedure_id, _socket) do
-    import Ecto.Query
-
     steps =
       ProcedureStep
       |> Ash.Query.filter(procedure_id == ^procedure_id)
@@ -273,10 +408,9 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
     steps
     |> Enum.with_index(1)
     |> Enum.each(fn {step, new_number} ->
-      MobileCarWash.Repo.update_all(
-        from(s in "procedure_steps", where: s.id == type(^step.id, :binary_id)),
-        set: [step_number: new_number]
-      )
+      step
+      |> Ash.Changeset.for_update(:update, %{step_number: new_number})
+      |> Ash.update()
     end)
   end
 

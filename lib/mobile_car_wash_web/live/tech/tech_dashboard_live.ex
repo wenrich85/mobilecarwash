@@ -82,7 +82,21 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         requested_appts: []
       )
 
+    # Subscribe to new appointment broadcasts
+    if connected?(socket) do
+      AppointmentTracker.subscribe_to_new_appointments()
+    end
+
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:new_appointment, _id}, socket) do
+    {:noreply, reload_appointments(socket)}
+  end
+
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -631,6 +645,50 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       end
     end)
     |> Enum.reject(&is_nil/1)
+  end
+
+  defp reload_appointments(socket) do
+    tech_record = socket.assigns.tech_record
+
+    today = Date.utc_today()
+    tomorrow = Date.add(today, 1)
+
+    # Reload appointments for tech
+    {todays, tomorrows} =
+      if tech_record do
+        {load_appointments(today, tech_record.id), load_appointments(tomorrow, tech_record.id)}
+      else
+        # Admin without a tech record — show all appointments
+        all_today = Dispatch.appointments_for_date(today)
+        all_tomorrow = Dispatch.appointments_for_date(tomorrow)
+        {all_today, all_tomorrow}
+      end
+
+    all_today = Dispatch.appointments_for_date(today)
+    all_tomorrow = Dispatch.appointments_for_date(tomorrow)
+    unassigned = Enum.filter(all_today ++ all_tomorrow, &is_nil(&1.technician_id))
+
+    # Reload maps
+    all_appts = todays ++ tomorrows
+    service_map = socket.assigns.service_map
+    customer_map = load_customer_map(all_appts)
+    address_map = load_address_map(all_appts)
+    vehicle_map = load_vehicle_map(all_appts)
+    map_pins = build_map_pins(todays, service_map, customer_map, address_map, vehicle_map)
+
+    # Reload zone appointments
+    zone_appointments = load_zone_appointments(tech_record, address_map, service_map)
+
+    assign(socket,
+      todays_appointments: todays,
+      tomorrows_appointments: tomorrows,
+      unassigned_count: length(unassigned),
+      customer_map: customer_map,
+      address_map: address_map,
+      vehicle_map: vehicle_map,
+      map_pins: map_pins,
+      zone_appointments: zone_appointments
+    )
   end
 
   defp get_checklist_id(appointment_id) do

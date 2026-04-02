@@ -22,7 +22,8 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
         page_title: "Business Formation",
         categories: categories,
         filter_category: nil,
-        filter_status: nil
+        filter_status: nil,
+        show_add_form: false
       )
       |> load_tasks()
 
@@ -75,6 +76,75 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
     end
   end
 
+  def handle_event("toggle_add_form", _params, socket) do
+    {:noreply, assign(socket, show_add_form: !socket.assigns.show_add_form)}
+  end
+
+  def handle_event("create_task", %{"task" => params}, socket) do
+    attrs = %{
+      name: params["name"],
+      description: params["description"],
+      priority: String.to_atom(params["priority"] || "medium"),
+      due_date: parse_date(params["due_date"]),
+      external_url: blank_to_nil(params["external_url"])
+    }
+
+    case FormationTask
+         |> Ash.Changeset.for_create(:create, attrs)
+         |> Ash.Changeset.force_change_attribute(:category_id, params["category_id"])
+         |> Ash.create() do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(show_add_form: false)
+         |> load_tasks()
+         |> put_flash(:info, "Task created")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not create task")}
+    end
+  end
+
+  def handle_event("add_category", %{"category" => params}, socket) do
+    attrs = %{
+      name: params["name"],
+      description: params["description"],
+      sort_order: parse_int(params["sort_order"])
+    }
+
+    case TaskCategory |> Ash.Changeset.for_create(:create, attrs) |> Ash.create() do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(categories: Ash.read!(TaskCategory) |> Enum.sort_by(& &1.sort_order))
+         |> put_flash(:info, "Category created")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not create category")}
+    end
+  end
+
+  def handle_event("delete_task", %{"id" => id}, socket) do
+    case Ash.get(FormationTask, id) do
+      {:ok, task} ->
+        # Guard: reject if task is completed (historical record)
+        if task.status == :completed do
+          {:noreply, put_flash(socket, :error, "Cannot delete completed tasks")}
+        else
+          case Ash.destroy(task) do
+            :ok ->
+              {:noreply, socket |> load_tasks() |> put_flash(:info, "Task deleted")}
+
+            {:error, _} ->
+              {:noreply, put_flash(socket, :error, "Could not delete task")}
+          end
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -111,6 +181,77 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
           <option value="completed" selected={@filter_status == :completed}>Completed</option>
           <option value="blocked" selected={@filter_status == :blocked}>Blocked</option>
         </select>
+      </div>
+
+      <!-- Add Task / Add Category -->
+      <div class="mb-6">
+        <button class="btn btn-primary btn-sm mb-4" phx-click="toggle_add_form">
+          {if @show_add_form, do: "Cancel", else: "+ Add Task"}
+        </button>
+
+        <div :if={@show_add_form} class="card bg-base-100 shadow mb-4">
+          <div class="card-body p-4">
+            <h3 class="font-bold mb-4">Add Task</h3>
+            <form phx-submit="create_task" class="space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="form-control">
+                  <label class="label label-text text-xs">Task Name</label>
+                  <input type="text" name="task[name]" class="input input-bordered input-sm" required placeholder="Task name" />
+                </div>
+                <div class="form-control">
+                  <label class="label label-text text-xs">Category</label>
+                  <select name="task[category_id]" class="select select-bordered select-sm" required>
+                    <option value="">Select Category</option>
+                    <option :for={cat <- @categories} value={cat.id}>{cat.name}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="form-control">
+                  <label class="label label-text text-xs">Priority</label>
+                  <select name="task[priority]" class="select select-bordered select-sm">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div class="form-control">
+                  <label class="label label-text text-xs">Due Date</label>
+                  <input type="date" name="task[due_date]" class="input input-bordered input-sm" />
+                </div>
+                <div class="form-control">
+                  <label class="label label-text text-xs">External URL</label>
+                  <input type="url" name="task[external_url]" class="input input-bordered input-sm" placeholder="https://..." />
+                </div>
+              </div>
+              <div class="form-control">
+                <label class="label label-text text-xs">Description</label>
+                <textarea name="task[description]" class="textarea textarea-bordered textarea-sm" placeholder="Task details..."></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Create Task</button>
+            </form>
+
+            <!-- Add Category Form -->
+            <div class="divider mt-6">Or Add Category</div>
+            <form phx-submit="add_category" class="space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="form-control">
+                  <label class="label label-text text-xs">Category Name</label>
+                  <input type="text" name="category[name]" class="input input-bordered input-sm" required placeholder="e.g., Texas State" />
+                </div>
+                <div class="form-control">
+                  <label class="label label-text text-xs">Sort Order</label>
+                  <input type="number" name="category[sort_order]" class="input input-bordered input-sm" value="0" />
+                </div>
+              </div>
+              <div class="form-control">
+                <label class="label label-text text-xs">Description</label>
+                <input type="text" name="category[description]" class="input input-bordered input-sm" placeholder="Category description" />
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Add Category</button>
+            </form>
+          </div>
+        </div>
       </div>
 
       <!-- Tasks by Category -->
@@ -187,4 +328,30 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
       overdue: overdue
     )
   end
+
+  # === Helpers ===
+
+  defp parse_date(nil), do: nil
+  defp parse_date(""), do: nil
+  defp parse_date(str) when is_binary(str) do
+    case Date.from_iso8601(str) do
+      {:ok, date} -> date
+      :error -> nil
+    end
+  end
+  defp parse_date(d), do: d
+
+  defp parse_int(nil), do: nil
+  defp parse_int(""), do: nil
+  defp parse_int(str) when is_binary(str) do
+    case Integer.parse(str) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+  defp parse_int(n) when is_integer(n), do: n
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(nil), do: nil
+  defp blank_to_nil(str), do: str
 end

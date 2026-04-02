@@ -98,6 +98,14 @@ defmodule MobileCarWashWeb.Admin.FormationComponents do
           >
             ✓
           </button>
+          <button
+            :if={@task.status != :completed}
+            class="btn btn-ghost btn-xs text-error"
+            phx-click="delete_task"
+            phx-value-id={@task.id}
+          >
+            ×
+          </button>
         </div>
       </td>
     </tr>
