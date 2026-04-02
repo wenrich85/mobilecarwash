@@ -20,9 +20,23 @@ defmodule MobileCarWashWeb.Router do
     plug :put_root_layout, html: {MobileCarWashWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers, %{
-      "content-security-policy" => @csp_policy
+      "content-security-policy" => @csp_policy,
+      "x-content-type-options" => "nosniff",
+      "x-xss-protection" => "1; mode=block",
+      "referrer-policy" => "strict-origin-when-cross-origin",
+      "permissions-policy" => "geolocation=(), microphone=(), camera=()"
     }
+    plug :put_hsts_header
     plug :load_from_session
+  end
+
+  # Add HSTS header in production only
+  defp put_hsts_header(conn, _opts) do
+    if Mix.env() == :prod do
+      put_resp_header(conn, "strict-transport-security", "max-age=31536000; includeSubDomains")
+    else
+      conn
+    end
   end
 
   pipeline :api do
