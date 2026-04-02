@@ -80,10 +80,11 @@ defmodule MobileCarWashWeb.Router do
       live "/sign-in", Auth.SignInLive
     end
 
-    # Authentication routes
+    # Authentication routes — rate-limited via on_mount hook
     sign_in_route(
       auth_routes_prefix: "/auth",
-      overrides: [MobileCarWashWeb.AuthOverrides, AshAuthentication.Phoenix.Overrides.Default]
+      overrides: [MobileCarWashWeb.AuthOverrides, AshAuthentication.Phoenix.Overrides.Default],
+      on_mount: [{MobileCarWashWeb.SignInRateLimit, :limit_sign_in}]
     )
     sign_out_route AuthController
 

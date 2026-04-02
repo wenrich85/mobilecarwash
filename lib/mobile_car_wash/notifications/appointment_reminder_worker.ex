@@ -20,7 +20,7 @@ defmodule MobileCarWash.Notifications.AppointmentReminderWorker do
     with {:ok, appointment} <- Ash.get(Appointment, appointment_id),
          true <- appointment.status in [:confirmed, :pending],
          {:ok, service_type} <- Ash.get(ServiceType, appointment.service_type_id),
-         {:ok, customer} <- Ash.get(Customer, appointment.customer_id),
+         {:ok, customer} <- Ash.get(Customer, appointment.customer_id, authorize?: false),
          {:ok, address} <- Ash.get(Address, appointment.address_id) do
       email = Email.appointment_reminder(appointment, service_type, customer, address)
 

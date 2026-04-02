@@ -11,7 +11,7 @@ defmodule MobileCarWash.Notifications.WashCompletedWorker do
   @impl true
   def perform(%Oban.Job{args: %{"appointment_id" => appointment_id}}) do
     with {:ok, appt} <- Ash.get(Appointment, appointment_id),
-         {:ok, customer} <- Ash.get(Customer, appt.customer_id),
+         {:ok, customer} <- Ash.get(Customer, appt.customer_id, authorize?: false),
          {:ok, service} <- Ash.get(ServiceType, appt.service_type_id) do
       Email.wash_completed(customer, appt, service.name)
       |> MobileCarWash.Mailer.deliver()

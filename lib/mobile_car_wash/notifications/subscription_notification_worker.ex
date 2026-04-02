@@ -11,7 +11,7 @@ defmodule MobileCarWash.Notifications.SubscriptionNotificationWorker do
   @impl true
   def perform(%Oban.Job{args: %{"subscription_id" => sub_id, "event" => event}}) do
     with {:ok, sub} <- Ash.get(Subscription, sub_id),
-         {:ok, customer} <- Ash.get(Customer, sub.customer_id),
+         {:ok, customer} <- Ash.get(Customer, sub.customer_id, authorize?: false),
          {:ok, plan} <- Ash.get(SubscriptionPlan, sub.plan_id) do
       case event do
         "created" ->

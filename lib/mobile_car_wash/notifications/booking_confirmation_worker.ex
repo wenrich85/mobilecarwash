@@ -18,7 +18,7 @@ defmodule MobileCarWash.Notifications.BookingConfirmationWorker do
   def perform(%Oban.Job{args: %{"appointment_id" => appointment_id}}) do
     with {:ok, appointment} <- Ash.get(Appointment, appointment_id),
          {:ok, service_type} <- Ash.get(ServiceType, appointment.service_type_id),
-         {:ok, customer} <- Ash.get(Customer, appointment.customer_id),
+         {:ok, customer} <- Ash.get(Customer, appointment.customer_id, authorize?: false),
          {:ok, address} <- Ash.get(Address, appointment.address_id) do
       email = Email.booking_confirmation(appointment, service_type, customer, address)
 

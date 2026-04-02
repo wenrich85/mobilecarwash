@@ -15,7 +15,7 @@ defmodule MobileCarWash.Accounting.SyncWorker do
   @impl true
   def perform(%Oban.Job{args: %{"payment_id" => payment_id}}) do
     with {:ok, payment} <- Ash.get(Payment, payment_id),
-         {:ok, customer} <- Ash.get(Customer, payment.customer_id) do
+         {:ok, customer} <- Ash.get(Customer, payment.customer_id, authorize?: false) do
       service_name = resolve_service_name(payment)
       Accounting.sync_payment(customer, payment, service_name)
     else

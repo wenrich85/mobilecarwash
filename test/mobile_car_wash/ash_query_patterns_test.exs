@@ -174,7 +174,7 @@ defmodule MobileCarWash.AshQueryPatternsTest do
       results =
         MobileCarWash.Accounts.Customer
         |> Ash.Query.filter(email == ^to_string(customer.email))
-        |> Ash.read!()
+        |> Ash.read!(authorize?: false)
 
       assert length(results) == 1
     end
@@ -183,7 +183,7 @@ defmodule MobileCarWash.AshQueryPatternsTest do
       results =
         MobileCarWash.Accounts.Customer
         |> Ash.Query.filter(role == :technician)
-        |> Ash.read!()
+        |> Ash.read!(authorize?: false)
 
       assert is_list(results)
     end

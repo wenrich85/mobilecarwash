@@ -323,7 +323,7 @@ defmodule MobileCarWash.Scheduling.Booking do
         |> Ash.create()
 
       # Create Stripe Checkout session
-      customer = Ash.get!(MobileCarWash.Accounts.Customer, params.customer_id)
+      customer = Ash.get!(MobileCarWash.Accounts.Customer, params.customer_id, authorize?: false)
 
       case StripeClient.create_checkout_session(appointment, service_type, to_string(customer.email)) do
         {:ok, session} ->

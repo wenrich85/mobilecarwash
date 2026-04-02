@@ -37,10 +37,35 @@ defmodule MobileCarWash.Accounts.Customer do
   end
 
   policies do
-    # Authorization is enforced at the controller/LiveView layer.
-    # Resource policies allow authenticated operations; boundary checks ensure proper access.
-    policy always() do
+    # Unauthenticated registration and guest creation — no actor required
+    policy action(:register_with_password) do
       authorize_if always()
+    end
+
+    policy action(:create_guest) do
+      authorize_if always()
+    end
+
+    # Customers can read and update their own record only
+    policy action_type(:read) do
+      authorize_if expr(id == ^actor(:id))
+    end
+
+    policy action_type(:read) do
+      authorize_if expr(^actor(:role) == :admin)
+    end
+
+    policy action_type(:update) do
+      authorize_if expr(id == ^actor(:id))
+    end
+
+    policy action_type(:update) do
+      authorize_if expr(^actor(:role) == :admin)
+    end
+
+    # Deletion is admin-only
+    policy action_type(:destroy) do
+      authorize_if expr(^actor(:role) == :admin)
     end
   end
 
