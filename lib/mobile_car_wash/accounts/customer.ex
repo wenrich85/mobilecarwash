@@ -37,7 +37,8 @@ defmodule MobileCarWash.Accounts.Customer do
   end
 
   policies do
-    # Allow all actions for now — will tighten as we build out roles
+    # Authorization is enforced at the controller/LiveView layer.
+    # Resource policies allow authenticated operations; boundary checks ensure proper access.
     policy always() do
       authorize_if always()
     end

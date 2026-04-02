@@ -9,15 +9,11 @@ defmodule MobileCarWashWeb.AdminAuth do
   import Phoenix.Component, only: [assign: 2]
 
   def on_mount(:require_admin, _params, session, socket) do
-    admin_emails = Application.get_env(:mobile_car_wash, :admin_emails, [])
-
     case session do
       %{"customer_token" => token} when is_binary(token) ->
         case verify_and_load_user(token) do
           {:ok, customer} ->
-            email = to_string(customer.email)
-
-            if customer.role == :admin or email in admin_emails do
+            if customer.role == :admin do
               {:cont, assign(socket, current_customer: customer, admin: true)}
             else
               {:halt, socket |> put_flash(:error, "Admin access required") |> redirect(to: ~p"/")}
