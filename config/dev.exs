@@ -69,6 +69,7 @@ config :mobile_car_wash, MobileCarWashWeb.Endpoint,
 
 # Enable dev routes for dashboard and mailbox
 config :mobile_car_wash, dev_routes: true
+config :mobile_car_wash, :env, :dev
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

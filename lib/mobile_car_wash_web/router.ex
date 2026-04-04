@@ -30,9 +30,11 @@ defmodule MobileCarWashWeb.Router do
     plug :load_from_session
   end
 
-  # Add HSTS header in production only
+  # Add HSTS header in production only (evaluated at compile time — Mix not available in releases)
+  @is_prod Application.compile_env(:mobile_car_wash, :env, :prod) == :prod
+
   defp put_hsts_header(conn, _opts) do
-    if Mix.env() == :prod do
+    if @is_prod do
       put_resp_header(conn, "strict-transport-security", "max-age=31536000; includeSubDomains")
     else
       conn
