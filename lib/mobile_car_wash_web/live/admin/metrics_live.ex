@@ -47,8 +47,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
     {:noreply, load_all_metrics(socket)}
   end
 
-  # Phoenix.Presence broadcasts a map with joins/leaves when users connect/disconnect
-  def handle_info(%{joins: _, leaves: _}, socket) do
+  # Phoenix.Presence broadcasts presence_diff as a %Phoenix.Socket.Broadcast{} struct
+  def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
     {:noreply, assign(socket, online_users: Presence.list_users())}
   end
 
