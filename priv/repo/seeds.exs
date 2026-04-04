@@ -579,12 +579,35 @@ vehicles_data = [
 ]
 
 addresses_data = [
-  %{street: "18503 Statesman Dr",   city: "San Antonio", zip: "78259", state: "TX"},
-  %{street: "4122 Thousand Oaks Dr",city: "San Antonio", zip: "78217", state: "TX"},
-  %{street: "7810 Midcrown Dr",     city: "Converse",    zip: "78109", state: "TX"},
+  %{street: "18503 Statesman Dr",   city: "San Antonio",  zip: "78259", state: "TX"},
+  %{street: "4122 Thousand Oaks Dr",city: "San Antonio",  zip: "78217", state: "TX"},
+  %{street: "7810 Midcrown Dr",     city: "Converse",     zip: "78109", state: "TX"},
   %{street: "1305 Pat Booker Rd",   city: "Universal City", zip: "78148", state: "TX"},
-  %{street: "9203 Village Field",   city: "Live Oak",    zip: "78233", state: "TX"}
+  %{street: "9203 Village Field",   city: "Live Oak",     zip: "78233", state: "TX"}
 ]
+
+IO.puts("\nRemoving outdated Austin addresses and their appointments...")
+
+import Ecto.Query
+
+old_address_ids =
+  MobileCarWash.Repo.all(from a in "addresses", where: a.city == "Austin", select: a.id)
+
+if old_address_ids != [] do
+  {appts_deleted, _} =
+    MobileCarWash.Repo.delete_all(
+      from a in "appointments", where: a.address_id in ^old_address_ids
+    )
+
+  {addrs_deleted, _} =
+    MobileCarWash.Repo.delete_all(
+      from a in "addresses", where: a.id in ^old_address_ids
+    )
+
+  IO.puts("  ✓ Removed #{appts_deleted} appointment(s) and #{addrs_deleted} Austin address(es)")
+else
+  IO.puts("  - No outdated addresses found")
+end
 
 customer_vehicle_address =
   seeded_customers
