@@ -23,17 +23,16 @@ RUN mix deps.get --only prod
 # Compile dependencies
 RUN mix deps.compile
 
-# Copy config files (needed before asset compilation)
+# Copy config + source and compile Elixir first.
+# This generates _build/prod/phoenix-colocated/ which esbuild needs.
 COPY config config
-
-# Install Node/esbuild/tailwind and build assets
-COPY assets assets
-COPY priv priv
-RUN mix assets.deploy
-
-# Copy source and compile
 COPY lib lib
+COPY priv priv
 RUN mix compile
+
+# Now build assets (esbuild can resolve phoenix-colocated from _build/prod/)
+COPY assets assets
+RUN mix assets.deploy
 
 # Build the release
 RUN mix release
