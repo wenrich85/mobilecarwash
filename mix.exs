@@ -15,9 +15,7 @@ defmodule MobileCarWash.MixProject do
       releases: [
         mobile_car_wash: [
           include_executables_for: [:unix],
-          applications: [runtime_tools: :permanent],
-          steps: [:assemble, :tar],
-          overlays: ["priv"]
+          applications: [runtime_tools: :permanent]
         ]
       ]
     ]
