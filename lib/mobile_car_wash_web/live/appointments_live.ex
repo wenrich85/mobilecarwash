@@ -23,9 +23,11 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         []
       end
 
-    # Subscribe to real-time updates for active/upcoming appointments
     if connected?(socket) do
-      for appt <- appointments, appt.status in [:pending, :confirmed, :in_progress] do
+      # New appointments (e.g. booked in another tab)
+      AppointmentTracker.subscribe_to_new_appointments()
+      # All non-cancelled appointments so status changes update in-place immediately
+      for appt <- appointments, appt.status != :cancelled do
         AppointmentTracker.subscribe(appt.id)
       end
     end
@@ -33,12 +35,21 @@ defmodule MobileCarWashWeb.AppointmentsLive do
     # Load service types for display
     service_types = Ash.read!(ServiceType) |> Map.new(&{&1.id, &1})
 
+    loyalty_card =
+      if customer do
+        case MobileCarWash.Loyalty.get_or_create_card(customer.id) do
+          {:ok, card} -> card
+          _ -> nil
+        end
+      end
+
     socket =
       socket
       |> assign(
         page_title: "My Appointments",
         appointments: appointments,
         service_types: service_types,
+        loyalty_card: loyalty_card,
         uploading_for: nil
       )
       |> allow_upload(:problem_photo, accept: ~w(.jpg .jpeg .png .webp), max_entries: 3, max_file_size: 10_000_000)
@@ -83,8 +94,35 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   end
 
   @impl true
-  def handle_info({:appointment_update, _data}, socket) do
-    # Reload appointments from DB to get fresh status
+  # Step progress — nothing to update in the list view, no-op
+  def handle_info({:appointment_update, %{event: :step_update}}, socket) do
+    {:noreply, socket}
+  end
+
+  # Photo uploaded — nothing to update in the list view, no-op
+  def handle_info({:appointment_update, %{event: :photo_uploaded}}, socket) do
+    {:noreply, socket}
+  end
+
+  # Status/assignment changes — reload just the one appointment in-place
+  def handle_info({:appointment_update, %{appointment_id: id}}, socket) do
+    case Ash.get(Appointment, id) do
+      {:ok, updated} ->
+        appointments = Enum.map(socket.assigns.appointments, fn a ->
+          if a.id == updated.id, do: updated, else: a
+        end)
+        {:noreply, assign(socket, appointments: appointments)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info({:new_appointment, _id}, socket) do
+    {:noreply, reload_appointments(socket)}
+  end
+
+  defp reload_appointments(socket) do
     customer = socket.assigns.current_customer
 
     appointments =
@@ -97,7 +135,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         []
       end
 
-    {:noreply, assign(socket, appointments: appointments)}
+    assign(socket, appointments: appointments)
   end
 
   @impl true
@@ -105,6 +143,51 @@ defmodule MobileCarWashWeb.AppointmentsLive do
     ~H"""
     <div class="max-w-4xl mx-auto py-8 px-4">
       <h1 class="text-3xl font-bold mb-6">My Appointments</h1>
+
+      <!-- Loyalty Punch Card -->
+      <div :if={@loyalty_card} class="card bg-base-100 shadow mb-6">
+        <div class="card-body p-4">
+          <% free = MobileCarWash.Loyalty.available_free_washes(@loyalty_card) %>
+          <% punches = MobileCarWash.Loyalty.punches_in_cycle(@loyalty_card) %>
+          <% total = MobileCarWash.Loyalty.punches_per_reward() %>
+
+          <!-- Free wash available banner -->
+          <div :if={free > 0} class="alert alert-success mb-3">
+            <span class="font-semibold">
+              🎁 You have {free} free wash{if free != 1, do: "es"} ready! Apply it at your next booking.
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-semibold">Loyalty Card</h3>
+            <span class="text-xs text-base-content/50">
+              {if free > 0, do: "#{punches} punches toward next reward", else: "#{punches} / #{total} punches"}
+            </span>
+          </div>
+
+          <!-- Punch slots: 2 rows of 5 -->
+          <div class="grid grid-cols-5 gap-2">
+            <div
+              :for={n <- 1..total}
+              class={[
+                "aspect-square rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all",
+                n <= punches && "bg-primary border-primary text-primary-content" ||
+                  "border-base-300 text-base-content/20"
+              ]}
+            >
+              {if n <= punches, do: "✓", else: n}
+            </div>
+          </div>
+
+          <p class="text-xs text-base-content/40 mt-2 text-center">
+            {cond do
+              free > 0 -> "#{total - punches} more punch#{if total - punches != 1, do: "es"} until your next free wash"
+              punches == 0 -> "Every wash earns a punch — 10 punches = 1 free wash"
+              true -> "#{total - punches} more punch#{if total - punches != 1, do: "es"} to earn a free wash"
+            end}
+          </p>
+        </div>
+      </div>
 
       <div :if={@appointments == []} class="text-center py-12">
         <p class="text-base-content/50 mb-4">No appointments yet</p>

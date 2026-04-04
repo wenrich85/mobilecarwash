@@ -37,29 +37,40 @@ defmodule MobileCarWash.Accounts.Customer do
   end
 
   policies do
-    # Unauthenticated registration and guest creation — no actor required
-    policy action(:register_with_password) do
+    # Authentication actions — bypass so they short-circuit before actor-based policies.
+    # These are :read/:create actions with no actor present during sign-in/registration.
+    bypass action(:register_with_password) do
       authorize_if always()
     end
 
-    policy action(:create_guest) do
+    bypass action(:sign_in_with_password) do
       authorize_if always()
     end
 
-    # Customers can read and update their own record only
+    bypass action(:sign_in_with_token) do
+      authorize_if always()
+    end
+
+    bypass action(:get_by_subject) do
+      authorize_if always()
+    end
+
+    bypass action(:by_email) do
+      authorize_if always()
+    end
+
+    bypass action(:create_guest) do
+      authorize_if always()
+    end
+
+    # Customers can read and update their own record; admins can read/update anyone
     policy action_type(:read) do
       authorize_if expr(id == ^actor(:id))
-    end
-
-    policy action_type(:read) do
       authorize_if expr(^actor(:role) == :admin)
     end
 
     policy action_type(:update) do
       authorize_if expr(id == ^actor(:id))
-    end
-
-    policy action_type(:update) do
       authorize_if expr(^actor(:role) == :admin)
     end
 

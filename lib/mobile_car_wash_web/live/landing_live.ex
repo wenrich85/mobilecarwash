@@ -73,8 +73,8 @@ defmodule MobileCarWashWeb.LandingLive do
       "@type": "AutoWash",
       "name": "Driveway Detail Co",
       "description": "Professional mobile car wash and auto detailing. We come to your home or office. Veteran-owned in San Antonio, TX.",
-      "url": "https://drivewaydetail.co",
-      "image": "https://drivewaydetail.co/images/og-share.png",
+      "url": "https://drivewaydetailcosa.com",
+      "image": "https://drivewaydetailcosa.com/images/og-share.png",
       "priceRange": "$50-$200",
       "address": {
         "@type": "PostalAddress",

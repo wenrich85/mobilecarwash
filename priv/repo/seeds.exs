@@ -403,7 +403,7 @@ demo_accounts = [
 ]
 
 for attrs <- demo_accounts do
-  existing = Customer |> Ash.Query.filter(email == ^attrs.email) |> Ash.read!()
+  existing = Customer |> Ash.Query.filter(email == ^attrs.email) |> Ash.read!(authorize?: false)
 
   case existing do
     [] ->
@@ -498,5 +498,214 @@ IO.puts("\nDemo login credentials:")
 IO.puts("  Customer:   customer@demo.com / Password123!")
 IO.puts("  Technician: tech@demo.com / Password123!")
 IO.puts("  Admin:      admin@mobilecarwash.com / Password123!")
+
+# --- Additional Technicians ---
+
+alias MobileCarWash.Operations.Technician
+
+IO.puts("\nSeeding additional technicians...")
+
+additional_techs = [
+  %{name: "Marcus Rivera", phone: "512-555-0101", active: true, zone: :nw, pay_rate_cents: 2500},
+  %{name: "Deja Thompson", phone: "512-555-0102", active: true, zone: :se, pay_rate_cents: 2500}
+]
+
+seeded_techs =
+  for attrs <- additional_techs do
+    existing = Technician |> Ash.Query.filter(name == ^attrs.name) |> Ash.read!()
+
+    case existing do
+      [] ->
+        tech = Technician |> Ash.Changeset.for_create(:create, attrs) |> Ash.create!()
+        IO.puts("  ✓ #{attrs.name} (zone: #{attrs.zone})")
+        tech
+
+      [tech] ->
+        IO.puts("  - #{attrs.name} (exists)")
+        tech
+    end
+  end
+
+# --- Additional Customers ---
+
+IO.puts("\nSeeding additional customers...")
+
+additional_customers = [
+  %{email: "alex.morgan@example.com",  name: "Alex Morgan",    phone: "512-555-2001"},
+  %{email: "brianna.cole@example.com", name: "Brianna Cole",   phone: "512-555-2002"},
+  %{email: "carlos.vega@example.com",  name: "Carlos Vega",    phone: "512-555-2003"},
+  %{email: "diana.park@example.com",   name: "Diana Park",     phone: "512-555-2004"},
+  %{email: "ethan.james@example.com",  name: "Ethan James",    phone: "512-555-2005"}
+]
+
+seeded_customers =
+  for attrs <- additional_customers do
+    existing = Customer |> Ash.Query.filter(email == ^attrs.email) |> Ash.read!(authorize?: false)
+
+    case existing do
+      [] ->
+        {:ok, customer} =
+          Customer
+          |> Ash.Changeset.for_create(:register_with_password, %{
+            email: attrs.email,
+            password: "Password123!",
+            password_confirmation: "Password123!",
+            name: attrs.name,
+            phone: attrs.phone
+          })
+          |> Ash.create()
+
+        IO.puts("  ✓ #{attrs.email}")
+        customer
+
+      [customer] ->
+        IO.puts("  - #{attrs.email} (exists)")
+        customer
+    end
+  end
+
+# --- Vehicles & Addresses for Each Customer ---
+
+alias MobileCarWash.Fleet.{Vehicle, Address}
+
+IO.puts("\nSeeding vehicles and addresses...")
+
+vehicles_data = [
+  %{make: "Toyota",  model: "Camry",    year: 2021, color: "Silver",  size: :car},
+  %{make: "Honda",   model: "CR-V",     year: 2020, color: "White",   size: :suv_van},
+  %{make: "Ford",    model: "F-150",    year: 2019, color: "Black",   size: :pickup},
+  %{make: "Chevy",   model: "Suburban", year: 2022, color: "Blue",    size: :suv_van},
+  %{make: "Hyundai", model: "Elantra",  year: 2023, color: "Red",     size: :car}
+]
+
+addresses_data = [
+  %{street: "1204 Oak Creek Dr",    city: "Austin", zip: "78750", state: "TX"},
+  %{street: "832 Sunset Ridge Rd",  city: "Austin", zip: "78745", state: "TX"},
+  %{street: "5617 Manchaca Rd",     city: "Austin", zip: "78745", state: "TX"},
+  %{street: "2910 E Riverside Dr",  city: "Austin", zip: "78741", state: "TX"},
+  %{street: "401 Congress Ave",     city: "Austin", zip: "78701", state: "TX"}
+]
+
+customer_vehicle_address =
+  seeded_customers
+  |> Enum.zip(vehicles_data)
+  |> Enum.zip(addresses_data)
+  |> Enum.map(fn {{customer, veh_attrs}, addr_attrs} ->
+    # Vehicle
+    existing_veh =
+      Vehicle
+      |> Ash.Query.filter(customer_id == ^customer.id and make == ^veh_attrs.make and model == ^veh_attrs.model)
+      |> Ash.read!(authorize?: false)
+
+    vehicle =
+      case existing_veh do
+        [] ->
+          v =
+            Vehicle
+            |> Ash.Changeset.for_create(:create, veh_attrs)
+            |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+            |> Ash.create!()
+          IO.puts("  ✓ Vehicle: #{veh_attrs.year} #{veh_attrs.make} #{veh_attrs.model} → #{customer.name}")
+          v
+        [v] -> v
+      end
+
+    # Address
+    existing_addr =
+      Address
+      |> Ash.Query.filter(customer_id == ^customer.id and street == ^addr_attrs.street)
+      |> Ash.read!(authorize?: false)
+
+    address =
+      case existing_addr do
+        [] ->
+          a =
+            Address
+            |> Ash.Changeset.for_create(:create, addr_attrs)
+            |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+            |> Ash.create!()
+          IO.puts("  ✓ Address: #{addr_attrs.street} → #{customer.name}")
+          a
+        [a] -> a
+      end
+
+    {customer, vehicle, address}
+  end)
+
+# --- Random Appointments ---
+
+alias MobileCarWash.Scheduling.Appointment
+
+IO.puts("\nSeeding random appointments...")
+
+service_types = ServiceType |> Ash.read!()
+all_techs = Technician |> Ash.read!() |> Enum.filter(& &1.active)
+
+statuses = [:pending, :confirmed, :in_progress, :completed, :completed, :completed]
+
+# Spread appointments over the past 30 days and next 14 days
+base = DateTime.utc_now()
+
+appointments_config = [
+  # Recent completed
+  {-20, :completed}, {-18, :completed}, {-15, :completed},
+  {-14, :completed}, {-10, :completed}, {-8, :completed},
+  {-7, :completed},  {-5, :completed},  {-3, :completed},
+  {-2, :completed},  {-1, :completed},
+  # Today / upcoming
+  {0, :confirmed}, {0, :pending},
+  {1, :pending},   {2, :pending},   {3, :confirmed},
+  {5, :pending},   {7, :pending},   {10, :pending},
+  {12, :pending},  {14, :pending}
+]
+
+appointments_config
+|> Enum.with_index()
+|> Enum.each(fn {{day_offset, status}, idx} ->
+  {customer, vehicle, address} = Enum.at(customer_vehicle_address, rem(idx, length(customer_vehicle_address)))
+  service_type = Enum.at(service_types, rem(idx, length(service_types)))
+  technician = if status in [:confirmed, :in_progress, :completed], do: Enum.at(all_techs, rem(idx, length(all_techs))), else: nil
+
+  hour = Enum.at([8, 9, 10, 11, 13, 14, 15, 16], rem(idx, 8))
+  scheduled_at = DateTime.add(base, day_offset * 86400 + (hour - 12) * 3600, :second) |> DateTime.truncate(:second)
+
+  # Skip if appointment already exists for this customer+vehicle+time
+  existing =
+    Appointment
+    |> Ash.Query.filter(customer_id == ^customer.id and scheduled_at == ^scheduled_at)
+    |> Ash.read!(authorize?: false)
+
+  case existing do
+    [_] ->
+      IO.puts("  - Appointment already exists, skipping")
+
+    [] ->
+      base_changeset =
+        Appointment
+        |> Ash.Changeset.for_create(:create, %{
+          scheduled_at: scheduled_at,
+          duration_minutes: service_type.duration_minutes,
+          price_cents: service_type.base_price_cents,
+          notes: Enum.at(["Sensitive paint", "Dog hair inside", "Please rinse wheels twice", nil, nil], rem(idx, 5))
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+        |> Ash.Changeset.force_change_attribute(:vehicle_id, vehicle.id)
+        |> Ash.Changeset.force_change_attribute(:address_id, address.id)
+        |> Ash.Changeset.force_change_attribute(:service_type_id, service_type.id)
+        |> Ash.Changeset.force_change_attribute(:status, status)
+
+      changeset =
+        if technician do
+          Ash.Changeset.force_change_attribute(base_changeset, :technician_id, technician.id)
+        else
+          base_changeset
+        end
+
+      appt = Ash.create!(changeset)
+
+      tech_label = if technician, do: " → #{technician.name}", else: " (unassigned)"
+      IO.puts("  ✓ #{service_type.name} | #{customer.name} | #{Date.to_string(DateTime.to_date(scheduled_at))} #{status}#{tech_label}")
+  end
+end)
 
 IO.puts("\n✅ Seeding complete!")

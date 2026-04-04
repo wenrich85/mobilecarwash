@@ -4,8 +4,9 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
   Stripe is the source of truth — this module mirrors state into the local DB.
   """
 
-  alias MobileCarWash.Billing.{Subscription, SubscriptionPlan, SubscriptionUsage}
+  alias MobileCarWash.Billing.{Subscription, SubscriptionPlan, SubscriptionUsage, Payment}
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.CashFlow.Engine, as: CashFlowEngine
 
   require Ash.Query
   require Logger
@@ -44,6 +45,9 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
       %{subscription_id: subscription.id, event: "created"}
       |> MobileCarWash.Notifications.SubscriptionNotificationWorker.new(queue: :notifications)
       |> Oban.insert()
+
+      # Record initial subscription payment in cash flow ledger
+      CashFlowEngine.record_deposit(plan.price_cents, "New subscription — #{plan.name}")
 
       {:ok, subscription}
     end
@@ -107,12 +111,46 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
           |> Ash.update()
 
         create_usage_record(subscription, period_start, period_end)
+
+        # Create a Payment record for this renewal and sync to accounting + cash flow
+        amount_cents = Map.get(stripe_invoice, :amount_paid, 0)
+        stripe_intent = Map.get(stripe_invoice, :payment_intent)
+        record_subscription_renewal(subscription, amount_cents, stripe_intent)
+
         {:ok, subscription}
 
       error ->
         error
     end
   end
+
+  defp record_subscription_renewal(subscription, amount_cents, stripe_payment_intent_id)
+       when is_integer(amount_cents) and amount_cents > 0 do
+    plan = Ash.get!(SubscriptionPlan, subscription.plan_id)
+
+    # Create a Payment record so the renewal is traceable
+    {:ok, payment} =
+      Payment
+      |> Ash.Changeset.for_create(:create, %{
+        amount_cents: amount_cents,
+        status: :succeeded,
+        paid_at: DateTime.utc_now(),
+        stripe_payment_intent_id: if(is_binary(stripe_payment_intent_id), do: stripe_payment_intent_id)
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, subscription.customer_id)
+      |> Ash.Changeset.force_change_attribute(:subscription_id, subscription.id)
+      |> Ash.create()
+
+    # Sync to external accounting (ZohoBooks/QB)
+    %{payment_id: payment.id}
+    |> MobileCarWash.Accounting.SyncWorker.new(queue: :billing)
+    |> Oban.insert()
+
+    # Record in local cash flow ledger
+    CashFlowEngine.record_deposit(amount_cents, "Subscription renewal — #{plan.name}")
+  end
+
+  defp record_subscription_renewal(_subscription, _amount, _intent), do: :ok
 
   @doc "Called from webhook: invoice.payment_failed"
   def handle_invoice_failed(stripe_invoice) do

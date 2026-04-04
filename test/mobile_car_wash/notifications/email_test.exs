@@ -144,7 +144,7 @@ defmodule MobileCarWash.Notifications.EmailTest do
 
       email = Email.subscription_created(customer, plan)
 
-      assert email.html_body =~ "drivewaydetail.co/book"
+      assert email.html_body =~ "drivewaydetailcosa.com/book"
     end
 
     test "includes branding footer" do
@@ -185,7 +185,7 @@ defmodule MobileCarWash.Notifications.EmailTest do
 
       email = Email.subscription_cancelled(customer, plan)
 
-      assert email.html_body =~ "drivewaydetail.co/subscribe"
+      assert email.html_body =~ "drivewaydetailcosa.com/subscribe"
       assert email.html_body =~ "resubscribe"
     end
 

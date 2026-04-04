@@ -10,6 +10,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   alias MobileCarWash.Fleet.{Address, Vehicle}
   alias MobileCarWash.Operations.TechEarnings
   alias MobileCarWash.Zones
+  alias MobileCarWash.Inventory
 
   require Ash.Query
 
@@ -29,14 +30,17 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     tomorrow = Date.add(today, 1)
 
     # Admins see all appointments; techs see only their own
-    {todays, tomorrows} =
+    {todays, tomorrows, upcoming} =
       if tech_record do
-        {load_appointments(today, tech_record.id), load_appointments(tomorrow, tech_record.id)}
+        {
+          load_appointments(today, tech_record.id),
+          load_appointments(tomorrow, tech_record.id),
+          load_upcoming_appointments(tomorrow, tech_record.id)
+        }
       else
-        # Admin without a tech record — show all appointments
         all_today = Dispatch.appointments_for_date(today)
         all_tomorrow = Dispatch.appointments_for_date(tomorrow)
-        {all_today, all_tomorrow}
+        {all_today, all_tomorrow, []}
       end
 
     all_today = Dispatch.appointments_for_date(today)
@@ -48,16 +52,19 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     earnings_ref = Date.utc_today()
     earnings = if tech_record, do: TechEarnings.earnings_for_period(tech_record, earnings_tab, earnings_ref), else: nil
 
-    all_appts = todays ++ tomorrows
+    all_appts = todays ++ tomorrows ++ upcoming
     service_map = Ash.read!(ServiceType) |> Map.new(&{&1.id, &1})
     customer_map = load_customer_map(all_appts)
     address_map = load_address_map(all_appts)
     vehicle_map = load_vehicle_map(all_appts)
     map_pins = build_map_pins(todays, service_map, customer_map, address_map, vehicle_map)
     map_view = :today
+    progress_map = build_progress_map(all_appts)
 
     # Load unassigned appointments in tech's zone
     zone_appointments = load_zone_appointments(tech_record, address_map, service_map)
+
+    supplies = Inventory.list_supplies()
 
     socket =
       assign(socket,
@@ -66,6 +73,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         tech_record: tech_record,
         todays_appointments: todays,
         tomorrows_appointments: tomorrows,
+        upcoming_appointments: upcoming,
         unassigned_count: length(unassigned),
         is_admin: is_admin,
         earnings: earnings,
@@ -77,14 +85,28 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         vehicle_map: vehicle_map,
         map_pins: map_pins,
         map_view: map_view,
+        progress_map: progress_map,
         zone_appointments: zone_appointments,
         requested_ids: MapSet.new(),
-        requested_appts: []
+        requested_appts: [],
+        supplies: supplies,
+        logging_supplies_for: nil,
+        supply_log_rows: [%{supply_id: "", qty: ""}],
+        supply_log_error: nil
       )
 
-    # Subscribe to new appointment broadcasts
     if connected?(socket) do
       AppointmentTracker.subscribe_to_new_appointments()
+      # Personal channel — receives broadcasts when dispatch assigns this tech to an appointment.
+      # This fires even before the appointment appears in our list, so we learn about new
+      # assignments without having a pre-existing per-appointment subscription.
+      if tech_record do
+        AppointmentTracker.subscribe_to_tech_assignments(tech_record.id)
+      end
+      # Subscribe to currently-assigned appointments for in-place status updates.
+      for appt <- todays ++ tomorrows ++ upcoming do
+        AppointmentTracker.subscribe(appt.id)
+      end
     end
 
     {:ok, socket}
@@ -92,6 +114,16 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   @impl true
   def handle_info({:new_appointment, _id}, socket) do
+    {:noreply, reload_appointments(socket)}
+  end
+
+  # Dispatch assigned this appointment to us — subscribe to it and reload.
+  def handle_info({:appointment_assigned, appointment_id}, socket) do
+    AppointmentTracker.subscribe(appointment_id)
+    {:noreply, reload_appointments(socket)}
+  end
+
+  def handle_info({:appointment_update, _data}, socket) do
     {:noreply, reload_appointments(socket)}
   end
 
@@ -167,7 +199,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     new_cust_ids = Enum.map(appts, & &1.customer_id) |> Enum.uniq()
     customer_map =
       if new_cust_ids != [] do
-        Customer |> Ash.Query.filter(id in ^new_cust_ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
+        Customer |> Ash.Query.filter(id in ^new_cust_ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
       else
         %{}
       end
@@ -213,6 +245,82 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Could not start wash: #{inspect(reason)}")}
+    end
+  end
+
+  def handle_event("open_supply_log", %{"id" => appointment_id}, socket) do
+    {:noreply,
+     assign(socket,
+       logging_supplies_for: appointment_id,
+       supply_log_rows: [%{supply_id: "", qty: ""}],
+       supply_log_error: nil
+     )}
+  end
+
+  def handle_event("close_supply_log", _params, socket) do
+    {:noreply, assign(socket, logging_supplies_for: nil, supply_log_error: nil)}
+  end
+
+  def handle_event("add_supply_row", _params, socket) do
+    rows = socket.assigns.supply_log_rows ++ [%{supply_id: "", qty: ""}]
+    {:noreply, assign(socket, supply_log_rows: rows)}
+  end
+
+  def handle_event("remove_supply_row", %{"index" => idx_str}, socket) do
+    idx = String.to_integer(idx_str)
+    rows = List.delete_at(socket.assigns.supply_log_rows, idx)
+    rows = if rows == [], do: [%{supply_id: "", qty: ""}], else: rows
+    {:noreply, assign(socket, supply_log_rows: rows)}
+  end
+
+  def handle_event("save_supply_log", params, socket) do
+    appointment_id = socket.assigns.logging_supplies_for
+    tech = socket.assigns.tech_record
+
+    rows = params["rows"] || []
+
+    entries =
+      rows
+      |> Enum.with_index()
+      |> Enum.map(fn {row, _i} ->
+        supply_id = row["supply_id"]
+        qty_str = String.trim(row["qty"] || "")
+
+        case {supply_id, Decimal.parse(qty_str)} do
+          {"", _} -> {:skip}
+          {_, {qty, ""}} ->
+            if Decimal.gt?(qty, Decimal.new(0)) do
+              {:ok, %{
+                supply_id: supply_id,
+                appointment_id: appointment_id,
+                technician_id: tech && tech.id,
+                van_id: tech && tech.van_id,
+                quantity_used: qty
+              }}
+            else
+              {:error, "Quantity must be greater than zero"}
+            end
+          _ -> {:error, "Invalid quantity for a supply row"}
+        end
+      end)
+
+    errors = for {:error, msg} <- entries, do: msg
+    valid = for {:ok, e} <- entries, do: e
+
+    cond do
+      errors != [] ->
+        {:noreply, assign(socket, supply_log_error: hd(errors))}
+
+      valid == [] ->
+        {:noreply, assign(socket, supply_log_error: "Add at least one supply entry")}
+
+      true ->
+        Enum.each(valid, &Inventory.log_usage/1)
+
+        {:noreply,
+         socket
+         |> assign(logging_supplies_for: nil, supply_log_error: nil)
+         |> put_flash(:info, "#{length(valid)} supply usage(s) logged")}
     end
   end
 
@@ -277,6 +385,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             address={Map.get(@address_map, appt.address_id)}
             vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+            progress={Map.get(@progress_map, appt.id, %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil})}
           />
 
         </div>
@@ -296,6 +405,23 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             address={Map.get(@address_map, appt.address_id)}
             vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+            progress={Map.get(@progress_map, appt.id, %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil})}
+          />
+        </div>
+      </div>
+
+      <!-- Upcoming -->
+      <div :if={@upcoming_appointments != []} class="mb-8">
+        <h2 class="text-lg font-bold mb-3">Upcoming</h2>
+        <div class="space-y-3">
+          <.appointment_row
+            :for={appt <- @upcoming_appointments}
+            appointment={appt}
+            service={Map.get(@service_map, appt.service_type_id)}
+            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
+            address={Map.get(@address_map, appt.address_id)}
+            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+            progress={Map.get(@progress_map, appt.id, %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil})}
           />
         </div>
       </div>
@@ -458,6 +584,64 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         </div>
       </div>
     </div>
+
+    <!-- Supply Log Modal -->
+    <div :if={@logging_supplies_for} class="modal modal-open">
+      <div class="modal-box w-full max-w-md">
+        <h3 class="font-bold text-lg mb-4">Log Supply Usage</h3>
+
+        <div :if={@supply_log_error} class="alert alert-error mb-4 text-sm">
+          {@supply_log_error}
+        </div>
+
+        <form phx-submit="save_supply_log">
+          <div class="space-y-3">
+            <div
+              :for={{row, idx} <- Enum.with_index(@supply_log_rows)}
+              class="flex gap-2 items-center"
+            >
+              <select name={"rows[#{idx}][supply_id]"} class="select select-bordered select-sm flex-1">
+                <option value="">— Select supply —</option>
+                <option :for={s <- @supplies} value={s.id} selected={row.supply_id == s.id}>
+                  {s.name} ({s.unit})
+                </option>
+              </select>
+              <input
+                type="text"
+                name={"rows[#{idx}][qty]"}
+                value={row.qty}
+                placeholder="Qty"
+                class="input input-bordered input-sm w-20"
+              />
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm btn-square"
+                phx-click="remove_supply_row"
+                phx-value-index={idx}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm mt-3"
+            phx-click="add_supply_row"
+          >
+            + Add row
+          </button>
+
+          <div class="modal-action">
+            <button type="button" class="btn btn-ghost btn-sm" phx-click="close_supply_log">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_supply_log"></div>
+    </div>
     """
   end
 
@@ -484,17 +668,13 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   defp format_period_label(:year, date, _), do: "#{date.year}"
 
   defp appointment_row(assigns) do
-    # Check for existing checklist
-    progress = Dispatch.checklist_progress(assigns.appointment.id)
-    assigns = assign(assigns, progress: progress)
-
     ~H"""
     <div class="card bg-base-100 shadow-sm">
       <div class="card-body p-4">
         <div class="flex justify-between items-start">
           <div>
             <span class="font-bold">{@service && @service.name}</span>
-            <p class="text-sm">{Calendar.strftime(@appointment.scheduled_at, "%I:%M %p")}</p>
+            <p class="text-sm">{Calendar.strftime(@appointment.scheduled_at, "%b %d · %I:%M %p")}</p>
             <p class="text-sm text-base-content/60">{@customer_name}</p>
             <p :if={@vehicle} class="text-xs text-base-content/50">{vehicle_label(@vehicle)}</p>
             <p :if={@address} class="text-xs text-base-content/40">{@address.street}, {@address.city}</p>
@@ -515,7 +695,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         </div>
 
         <!-- Action buttons -->
-        <div class="mt-3">
+        <div class="mt-3 flex gap-2">
           <!-- Start Wash: for confirmed appointments without a checklist -->
           <button
             :if={@progress.steps_total == 0 and @appointment.status == :confirmed}
@@ -528,12 +708,22 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
           <!-- Continue/Start Checklist: when checklist already exists -->
           <.link
-            :if={@progress.steps_total > 0}
-            navigate={~p"/tech/checklist/#{get_checklist_id(@appointment.id)}"}
-            class="btn btn-primary btn-sm btn-block"
+            :if={@progress.steps_total > 0 and @progress.checklist_id}
+            navigate={~p"/tech/checklist/#{@progress.checklist_id}"}
+            class="btn btn-primary btn-sm flex-1"
           >
             {if @progress.steps_done > 0, do: "Continue Checklist", else: "Start Checklist"}
           </.link>
+
+          <!-- Log supplies for completed washes -->
+          <button
+            :if={@appointment.status == :completed}
+            class="btn btn-outline btn-sm"
+            phx-click="open_supply_log"
+            phx-value-id={@appointment.id}
+          >
+            Log Supplies
+          </button>
 
           <span :if={@appointment.status == :pending} class="text-xs text-base-content/50">
             Awaiting confirmation
@@ -557,10 +747,23 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     |> Ash.read!()
   end
 
+  # All appointments assigned to this tech after the given date (exclusive).
+  defp load_upcoming_appointments(after_date, technician_id) do
+    {:ok, after_dt} = DateTime.new(Date.add(after_date, 1), ~T[00:00:00])
+
+    Appointment
+    |> Ash.Query.filter(
+      scheduled_at >= ^after_dt and
+        technician_id == ^technician_id and status != :cancelled
+    )
+    |> Ash.Query.sort(scheduled_at: :asc)
+    |> Ash.read!()
+  end
+
   defp load_customer_map(appointments) do
     ids = Enum.map(appointments, & &1.customer_id) |> Enum.uniq()
     if ids == [], do: %{}, else:
-      Customer |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
+      Customer |> Ash.Query.filter(id in ^ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
   end
 
   defp load_address_map(appointments) do
@@ -653,51 +856,49 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     today = Date.utc_today()
     tomorrow = Date.add(today, 1)
 
-    # Reload appointments for tech
-    {todays, tomorrows} =
+    {todays, tomorrows, upcoming} =
       if tech_record do
-        {load_appointments(today, tech_record.id), load_appointments(tomorrow, tech_record.id)}
+        {
+          load_appointments(today, tech_record.id),
+          load_appointments(tomorrow, tech_record.id),
+          load_upcoming_appointments(tomorrow, tech_record.id)
+        }
       else
-        # Admin without a tech record — show all appointments
         all_today = Dispatch.appointments_for_date(today)
         all_tomorrow = Dispatch.appointments_for_date(tomorrow)
-        {all_today, all_tomorrow}
+        {all_today, all_tomorrow, []}
       end
 
     all_today = Dispatch.appointments_for_date(today)
     all_tomorrow = Dispatch.appointments_for_date(tomorrow)
     unassigned = Enum.filter(all_today ++ all_tomorrow, &is_nil(&1.technician_id))
 
-    # Reload maps
-    all_appts = todays ++ tomorrows
+    all_appts = todays ++ tomorrows ++ upcoming
     service_map = socket.assigns.service_map
     customer_map = load_customer_map(all_appts)
     address_map = load_address_map(all_appts)
     vehicle_map = load_vehicle_map(all_appts)
     map_pins = build_map_pins(todays, service_map, customer_map, address_map, vehicle_map)
+    progress_map = build_progress_map(all_appts)
 
-    # Reload zone appointments
     zone_appointments = load_zone_appointments(tech_record, address_map, service_map)
 
     assign(socket,
       todays_appointments: todays,
       tomorrows_appointments: tomorrows,
+      upcoming_appointments: upcoming,
       unassigned_count: length(unassigned),
       customer_map: customer_map,
       address_map: address_map,
       vehicle_map: vehicle_map,
       map_pins: map_pins,
+      progress_map: progress_map,
       zone_appointments: zone_appointments
     )
   end
 
-  defp get_checklist_id(appointment_id) do
-    case MobileCarWash.Operations.AppointmentChecklist
-         |> Ash.Query.filter(appointment_id == ^appointment_id)
-         |> Ash.read!() do
-      [cl | _] -> cl.id
-      [] -> "none"
-    end
+  defp build_progress_map(appointments) do
+    Map.new(appointments, fn appt -> {appt.id, Dispatch.checklist_progress(appt.id)} end)
   end
 
   defp status_class(:pending), do: "badge-ghost"

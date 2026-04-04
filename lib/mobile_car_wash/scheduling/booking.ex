@@ -17,6 +17,7 @@ defmodule MobileCarWash.Scheduling.Booking do
   alias MobileCarWash.Scheduling.{Appointment, ServiceType, Availability, AppointmentTracker}
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Billing.{Payment, Subscription, SubscriptionUsage, StripeClient}
+  alias MobileCarWash.CashFlow.Engine, as: CashFlowEngine
 
   require Ash.Query
 
@@ -46,6 +47,8 @@ defmodule MobileCarWash.Scheduling.Booking do
              {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
              :ok <- check_availability(params.scheduled_at, service_type.duration_minutes),
              {:ok, price_cents, discount_cents} <- calculate_price(service_type, vehicle.size, params[:subscription_id]),
+             {price_cents, discount_cents} = apply_loyalty_discount(price_cents, discount_cents, params[:loyalty_redeem]),
+             :ok <- maybe_redeem_loyalty(params[:loyalty_redeem], params.customer_id),
              {:ok, appointment} <- create_appointment(params, service_type, price_cents, discount_cents),
              :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
              {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
@@ -102,8 +105,10 @@ defmodule MobileCarWash.Scheduling.Booking do
               enqueue_appointment_reminder(appointment)
               # Enqueue payment receipt
               enqueue_payment_receipt(payment)
-              # Sync to accounting system
+              # Sync to external accounting system (ZohoBooks/QB)
               enqueue_accounting_sync(payment)
+              # Record income in local cash flow ledger
+              record_payment_in_cash_flow(payment, appointment)
 
               {:ok, %{payment: payment, appointment: appointment}}
 
@@ -141,6 +146,21 @@ defmodule MobileCarWash.Scheduling.Booking do
   end
 
   # --- Private ---
+
+  defp apply_loyalty_discount(price_cents, discount_cents, true) when price_cents > 0 do
+    # Loyalty free wash — full discount, net becomes 0
+    {0, price_cents + discount_cents}
+  end
+  defp apply_loyalty_discount(price_cents, discount_cents, _), do: {price_cents, discount_cents}
+
+  defp maybe_redeem_loyalty(true, customer_id) do
+    case MobileCarWash.Loyalty.redeem(customer_id) do
+      {:ok, _} -> :ok
+      {:error, :no_free_washes} -> {:error, :no_loyalty_free_washes}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+  defp maybe_redeem_loyalty(_, _), do: :ok
 
   defp fetch_service_type(service_type_id) do
     case Ash.get(ServiceType, service_type_id) do
@@ -341,6 +361,16 @@ defmodule MobileCarWash.Scheduling.Booking do
           {:ok, %{appointment: appointment, checkout_url: nil}}
       end
     end
+  end
+
+  defp record_payment_in_cash_flow(payment, appointment) do
+    service_name =
+      case Ash.get(ServiceType, appointment.service_type_id) do
+        {:ok, st} -> st.name
+        _ -> "Car wash"
+      end
+
+    CashFlowEngine.record_deposit(payment.amount_cents, "Wash payment — #{service_name}")
   end
 
   defp enqueue_confirmation_email(appointment) do

@@ -7,17 +7,35 @@ defmodule MobileCarWashWeb.ChecklistLive do
   - Yellow: 45 seconds remaining
   - Red: over time
 
+  Photo flow:
+  - Tech must upload BEFORE photos for all key areas before starting any steps.
+  - Tech must upload AFTER photos for all key areas before wash can complete.
+  - Before/after photos are paired by area for side-by-side documentation.
+
   Every step completion broadcasts to the customer's status page via PubSub.
   Actual vs estimated time is recorded for process optimization.
   """
   use MobileCarWashWeb, :live_view
 
+  alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Photo, PhotoUpload}
-  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker}
+  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, WashOrchestrator}
 
   require Ash.Query
 
   @timer_tick_ms 1000
+
+  # Key areas requiring before + after photos to document the wash.
+  # 6 areas = 3 rows × 2 columns grid. Values must exist in Photo resource's car_part enum.
+  @key_areas [
+    %{id: :front,          label: "Front",           instruction: "Full front bumper & headlights"},
+    %{id: :rear,           label: "Rear",            instruction: "Full rear bumper & taillights"},
+    %{id: :driver_side,    label: "Driver Side",     instruction: "Full side panel, front to back"},
+    %{id: :passenger_side, label: "Passenger Side",  instruction: "Full side panel, front to back"},
+    %{id: :interior,       label: "Interior",        instruction: "Dashboard, steering wheel & seats"},
+    %{id: :wheels,         label: "Wheels",          instruction: "One wheel — representative of all"}
+  ]
+  @key_area_ids Enum.map(@key_areas, & &1.id)
 
   @impl true
   def mount(%{"id" => checklist_id}, _session, socket) do
@@ -31,17 +49,28 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
         appointment = Ash.get!(Appointment, checklist.appointment_id)
 
-        # Load customer problem area photos
         problem_photos =
           Photo
           |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :problem_area)
           |> Ash.read!()
+          |> Enum.map(&PhotoUpload.apply_url/1)
+
+        before_photos =
+          Photo
+          |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :before)
+          |> Ash.read!()
+          |> Enum.map(&PhotoUpload.apply_url/1)
+
+        after_photos =
+          Photo
+          |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :after)
+          |> Ash.read!()
+          |> Enum.map(&PhotoUpload.apply_url/1)
 
         total = length(items)
         done = Enum.count(items, & &1.completed)
         pct = if total > 0, do: Float.round(done / total * 100, 0), else: 0
 
-        # Subscribe to real-time updates and start the 1-second timer tick
         if connected?(socket) do
           AppointmentTracker.subscribe(checklist.appointment_id)
           Process.send_after(self(), :tick, @timer_tick_ms)
@@ -55,6 +84,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
             items: items,
             appointment: appointment,
             problem_photos: problem_photos,
+            before_photos: before_photos,
+            after_photos: after_photos,
+            key_areas: @key_areas,
             total: total,
             done: done,
             pct: pct,
@@ -72,27 +104,65 @@ defmodule MobileCarWashWeb.ChecklistLive do
       {:error, _} ->
         {:ok,
          socket
-         |> assign(page_title: "Checklist", checklist: nil, items: [], appointment: nil,
-            problem_photos: [], total: 0, done: 0, pct: 0, active_item_id: nil,
-            elapsed_seconds: 0, show_photo_upload: nil, now: DateTime.utc_now())
+         |> assign(
+           page_title: "Checklist",
+           checklist: nil,
+           items: [],
+           appointment: nil,
+           problem_photos: [],
+           before_photos: [],
+           after_photos: [],
+           key_areas: @key_areas,
+           total: 0,
+           done: 0,
+           pct: 0,
+           active_item_id: nil,
+           elapsed_seconds: 0,
+           show_photo_upload: nil,
+           editing_note_id: nil,
+           skipping_item_id: nil,
+           now: DateTime.utc_now()
+         )
          |> put_flash(:error, "Checklist not found")}
     end
   end
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Checklist", checklist: nil, items: [], appointment: nil,
-      problem_photos: [], total: 0, done: 0, pct: 0, active_item_id: nil,
-      elapsed_seconds: 0, show_photo_upload: nil, editing_note_id: nil, skipping_item_id: nil, now: DateTime.utc_now())}
+    {:ok,
+     assign(socket,
+       page_title: "Checklist",
+       checklist: nil,
+       items: [],
+       appointment: nil,
+       problem_photos: [],
+       before_photos: [],
+       after_photos: [],
+       key_areas: @key_areas,
+       total: 0,
+       done: 0,
+       pct: 0,
+       active_item_id: nil,
+       elapsed_seconds: 0,
+       show_photo_upload: nil,
+       editing_note_id: nil,
+       skipping_item_id: nil,
+       now: DateTime.utc_now()
+     )}
   end
 
-  # Timer tick — updates elapsed time for the active step
+  # Timer tick
   @impl true
   def handle_info(:tick, socket) do
     Process.send_after(self(), :tick, @timer_tick_ms)
     {:noreply, assign(socket, now: DateTime.utc_now())}
   end
 
-  # Incoming appointment updates (e.g., step completed by another tech or system)
+  # Photo uploaded elsewhere — reload our photo assigns
+  def handle_info({:appointment_update, %{event: :photo_uploaded}}, socket) do
+    {:noreply, reload_photos(socket)}
+  end
+
+  # Other appointment updates — reload checklist/items
   @impl true
   def handle_info({:appointment_update, _data}, socket) do
     case Ash.get(AppointmentChecklist, socket.assigns.checklist.id) do
@@ -115,28 +185,27 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   @impl true
   def handle_event("start_step", %{"id" => item_id}, socket) do
-    alias MobileCarWash.Booking.WashStateMachine
-
-    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
-
-    if item && WashStateMachine.can_start_step?(item, socket.assigns.items) do
-      {:ok, updated} =
-        item
-        |> Ash.Changeset.for_update(:start_step, %{})
-        |> Ash.update()
-
-      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
-
-      {:noreply, assign(socket, items: items, active_item_id: item_id)}
+    unless before_photos_complete?(socket.assigns.before_photos) do
+      {:noreply, put_flash(socket, :error, "Upload all before photos first.")}
     else
-      {:noreply, put_flash(socket, :error, "Cannot start this step yet — complete previous required steps first.")}
+      item = Enum.find(socket.assigns.items, &(&1.id == item_id))
+
+      if item && WashStateMachine.can_start_step?(item, socket.assigns.items) do
+        {:ok, updated} =
+          item
+          |> Ash.Changeset.for_update(:start_step, %{})
+          |> Ash.update()
+
+        items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
+
+        {:noreply, assign(socket, items: items, active_item_id: item_id)}
+      else
+        {:noreply, put_flash(socket, :error, "Cannot start this step yet — complete previous required steps first.")}
+      end
     end
   end
 
   def handle_event("complete_step", %{"id" => item_id}, socket) do
-    alias MobileCarWash.Booking.WashStateMachine
-    alias MobileCarWash.Scheduling.WashOrchestrator
-
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
     if item && WashStateMachine.can_complete_step?(item) do
@@ -149,11 +218,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
       done = Enum.count(items, & &1.completed)
       pct = if socket.assigns.total > 0, do: Float.round(done / socket.assigns.total * 100, 0), else: 0
 
-      # Find next incomplete step
       next = WashStateMachine.next_step(items)
       next_name = if next, do: next.title, else: "Finishing up"
 
-      # Broadcast to customer
       AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
         current_step: next_name,
         steps_done: done,
@@ -161,31 +228,19 @@ defmodule MobileCarWashWeb.ChecklistLive do
         items: items
       })
 
-      # Auto-complete wash if all required done
       socket =
-        if WashStateMachine.all_required_complete?(items) and socket.assigns.checklist.status != :completed do
-          {:ok, checklist} =
-            socket.assigns.checklist
-            |> Ash.Changeset.for_update(:complete_checklist, %{})
-            |> Ash.update()
+        socket
+        |> assign(items: items, done: done, pct: pct, active_item_id: next && next.id)
+        |> maybe_complete_wash()
 
-          # Also complete the appointment
-          WashOrchestrator.complete_wash(socket.assigns.appointment.id)
-
-          assign(socket, checklist: checklist)
-        else
-          socket
-        end
-
-      {:noreply, assign(socket, items: items, done: done, pct: pct, active_item_id: next && next.id)}
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
   end
 
-  def handle_event("show_upload", %{"type" => type} = params, socket) do
-    item_id = params["item-id"]
-    {:noreply, assign(socket, show_photo_upload: %{type: type, item_id: item_id})}
+  def handle_event("show_upload", %{"type" => type, "area" => area}, socket) do
+    {:noreply, assign(socket, show_photo_upload: %{type: type, area: String.to_existing_atom(area)})}
   end
 
   def handle_event("cancel_upload", _params, socket) do
@@ -194,17 +249,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
-  def handle_event("save_photo", params, socket) do
-    %{type: type_str, item_id: item_id} = socket.assigns.show_photo_upload
+  def handle_event("save_photo", _params, socket) do
+    %{type: type_str, area: area} = socket.assigns.show_photo_upload
     photo_type = String.to_existing_atom(type_str)
     appointment_id = socket.assigns.appointment.id
 
-    car_part_str = params["car_part"]
-    car_part = if car_part_str && car_part_str != "", do: String.to_atom(car_part_str), else: nil
-
     consume_uploaded_entries(socket, :photo, fn %{path: path}, entry ->
-      opts = [uploaded_by: :technician, checklist_item_id: item_id]
-      opts = if car_part, do: opts ++ [car_part: car_part], else: opts
+      opts = [uploaded_by: :technician, car_part: area]
 
       case PhotoUpload.save_file(appointment_id, path, entry.client_name, photo_type, opts) do
         {:ok, photo} -> {:ok, photo}
@@ -214,10 +265,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
     AppointmentTracker.broadcast_photo(appointment_id, photo_type)
 
-    {:noreply,
-     socket
-     |> assign(show_photo_upload: nil)
-     |> put_flash(:info, "Photo uploaded")}
+    socket =
+      socket
+      |> assign(show_photo_upload: nil)
+      |> reload_photos()
+      |> maybe_complete_wash()
+
+    {:noreply, put_flash(socket, :info, "Photo saved.")}
   end
 
   def handle_event("edit_note", %{"id" => item_id}, socket) do
@@ -253,18 +307,14 @@ defmodule MobileCarWashWeb.ChecklistLive do
   end
 
   def handle_event("confirm_skip", %{"id" => item_id, "reason" => reason}, socket) do
-    alias MobileCarWash.Booking.WashStateMachine
-
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
     if item && !item.required do
-      # Add note with reason
       {:ok, updated} =
         item
         |> Ash.Changeset.for_update(:add_note, %{notes: "Skipped: #{reason}"})
         |> Ash.update()
 
-      # Then mark as completed
       {:ok, completed} =
         updated
         |> Ash.Changeset.for_update(:check, %{})
@@ -274,7 +324,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
       done = Enum.count(items, & &1.completed)
       pct = if socket.assigns.total > 0, do: Float.round(done / socket.assigns.total * 100, 0), else: 0
 
-      # Broadcast to customer
       next = WashStateMachine.next_step(items)
       next_name = if next, do: next.title, else: "Finishing up"
 
@@ -285,7 +334,12 @@ defmodule MobileCarWashWeb.ChecklistLive do
         items: items
       })
 
-      {:noreply, assign(socket, items: items, done: done, pct: pct, skipping_item_id: nil)}
+      socket =
+        socket
+        |> assign(items: items, done: done, pct: pct, skipping_item_id: nil)
+        |> maybe_complete_wash()
+
+      {:noreply, socket}
     else
       {:noreply, put_flash(socket, :error, "Cannot skip required steps")}
     end
@@ -322,46 +376,96 @@ defmodule MobileCarWashWeb.ChecklistLive do
           </div>
         </div>
 
-        <!-- Before Photo Prompt -->
-        <div :if={@done == 0 and @checklist.status != :completed} class="mb-4">
-          <button class="btn btn-warning btn-block btn-sm" phx-click="show_upload" phx-value-type="before">
-            Take BEFORE Photo
-          </button>
+        <!-- Before Photos Grid (required before steps can start) -->
+        <div :if={@checklist.status != :completed} class="mb-6">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h3 class="font-bold">Before Photos</h3>
+              <p class="text-xs text-base-content/50">Required before starting</p>
+            </div>
+            <span :if={before_photos_complete?(@before_photos)} class="badge badge-success">
+              ✓ Complete
+            </span>
+            <span :if={!before_photos_complete?(@before_photos)} class="badge badge-warning">
+              {Enum.count(@key_areas, &area_photo(@before_photos, &1.id) != nil)}/{length(@key_areas)}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div :for={area <- @key_areas}>
+              <% photo = area_photo(@before_photos, area.id) %>
+              <!-- Filled -->
+              <div :if={photo} class="relative h-40 rounded-2xl overflow-hidden shadow">
+                <img src={photo.file_path} class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-2">
+                  <p class="text-white text-xs font-bold leading-tight">{area.label}</p>
+                </div>
+                <div class="absolute top-2 right-2 bg-success rounded-full w-6 h-6 flex items-center justify-center shadow">
+                  <span class="text-white text-xs font-bold">✓</span>
+                </div>
+                <button
+                  class="absolute top-2 left-2 bg-black/40 rounded-full px-2 py-0.5 text-white text-xs"
+                  phx-click="show_upload"
+                  phx-value-type="before"
+                  phx-value-area={area.id}
+                >
+                  Retake
+                </button>
+              </div>
+              <!-- Empty -->
+              <button
+                :if={!photo}
+                class="w-full h-40 rounded-2xl border-2 border-dashed border-warning bg-warning/5 flex flex-col items-center justify-center gap-1 active:bg-warning/20 transition-colors"
+                phx-click="show_upload"
+                phx-value-type="before"
+                phx-value-area={area.id}
+              >
+                <span class="text-5xl font-thin text-warning/70">+</span>
+                <span class="text-sm font-bold text-warning">{area.label}</span>
+                <span class="text-xs text-base-content/40 text-center px-3 leading-tight">{area.instruction}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Photo Upload Modal -->
-        <div :if={@show_photo_upload} class="card bg-base-200 shadow mb-4 p-4">
-          <h3 class="font-semibold mb-2">Upload Photo ({@show_photo_upload.type})</h3>
-          <form phx-submit="save_photo" phx-change="validate_upload" class="space-y-2">
-            <.live_file_input upload={@uploads.photo} class="file-input file-input-bordered w-full" />
-            <div :for={entry <- @uploads.photo.entries} class="mb-2">
-              <.live_img_preview entry={entry} class="w-full h-40 object-cover rounded" />
+        <!-- Photo Upload Overlay (full-screen on mobile) -->
+        <div :if={@show_photo_upload} class="fixed inset-0 z-50 bg-base-100 flex flex-col">
+          <div class="flex items-center justify-between p-4 border-b border-base-300">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                {String.capitalize(@show_photo_upload.type)} Photo
+              </p>
+              <h3 class="text-lg font-bold leading-tight">{area_label(@show_photo_upload.area)}</h3>
+              <p class="text-sm text-base-content/50">{area_instruction(@show_photo_upload.area)}</p>
             </div>
+            <button phx-click="cancel_upload" class="btn btn-ghost btn-sm btn-circle text-lg">✕</button>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4">
+            <form phx-submit="save_photo" phx-change="validate_upload" class="flex flex-col gap-4">
+              <!-- Preview (shown once a file is selected) -->
+              <div :if={@uploads.photo.entries != []}>
+                <div :for={entry <- @uploads.photo.entries}>
+                  <.live_img_preview entry={entry} class="w-full rounded-2xl object-cover max-h-72" />
+                </div>
+              </div>
 
-            <div class="form-control">
-              <label class="label"><span class="label-text text-xs">Car Part (Optional)</span></label>
-              <select name="car_part" class="select select-bordered select-sm">
-                <option value="">None selected</option>
-                <option value="exterior">Exterior (body panels, hood, doors)</option>
-                <option value="windows">Windows (windshield, side windows)</option>
-                <option value="wheels">Wheels (tires, rims, wheel wells)</option>
-                <option value="interior">Interior (dashboard, seats, carpets)</option>
-                <option value="trunk">Trunk (boot area)</option>
-                <option value="engine_bay">Engine Bay</option>
-                <option value="undercarriage">Undercarriage (chassis, underside)</option>
-                <option value="mirrors">Mirrors (side and rear view mirrors)</option>
-                <option value="headlights_taillights">Headlights & Taillights</option>
-                <option value="bumper">Bumper (front and rear)</option>
-                <option value="roof">Roof Panel & Trim</option>
-                <option value="sunroof">Sunroof</option>
-              </select>
-            </div>
+              <!-- Placeholder (shown when no file yet) — non-interactive, file input below handles taps -->
+              <div :if={@uploads.photo.entries == []} class="rounded-2xl border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 py-16 pointer-events-none">
+                <span class="text-6xl font-thin text-base-content/20">+</span>
+                <p class="text-sm text-base-content/40">Select photo below</p>
+              </div>
 
-            <div class="flex gap-2">
-              <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
-              <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_upload">Cancel</button>
-            </div>
-          </form>
+              <!-- Single file input — always mounted so LiveView's upload hook stays attached -->
+              <.live_file_input upload={@uploads.photo} class="file-input file-input-bordered w-full" />
+
+              <button
+                type="submit"
+                class="btn btn-primary btn-lg w-full rounded-2xl"
+                disabled={@uploads.photo.entries == []}
+              >
+                Save Photo
+              </button>
+            </form>
+          </div>
         </div>
 
         <!-- Checklist Items with Timers -->
@@ -482,24 +586,70 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_skip">Cancel</button>
                   </form>
                 </div>
-                <button
-                  class="btn btn-ghost btn-xs"
-                  phx-click="show_upload"
-                  phx-value-type="step_completion"
-                  phx-value-item-id={item.id}
-                >
-                  + Photo
-                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- After Photo Prompt -->
-        <div :if={all_required_complete?(@items) and @checklist.status != :completed} class="mt-4">
-          <button class="btn btn-success btn-block" phx-click="show_upload" phx-value-type="after">
-            Take AFTER Photo to Complete
-          </button>
+        <!-- After Photos Grid (shown when all required steps done) -->
+        <div :if={all_required_complete?(@items) and @checklist.status != :completed} class="mt-6">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h3 class="font-bold">After Photos</h3>
+              <p class="text-xs text-base-content/50">Match each before photo</p>
+            </div>
+            <span :if={after_photos_complete?(@after_photos)} class="badge badge-success">
+              ✓ Complete
+            </span>
+            <span :if={!after_photos_complete?(@after_photos)} class="badge badge-success animate-pulse">
+              {Enum.count(@key_areas, &area_photo(@after_photos, &1.id) != nil)}/{length(@key_areas)}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div :for={area <- @key_areas}>
+              <% before_photo = area_photo(@before_photos, area.id) %>
+              <% after_photo = area_photo(@after_photos, area.id) %>
+              <!-- Filled -->
+              <div :if={after_photo} class="relative h-40 rounded-2xl overflow-hidden shadow">
+                <img src={after_photo.file_path} class="w-full h-full object-cover" />
+                <!-- Before thumbnail inset -->
+                <div :if={before_photo} class="absolute bottom-2 left-2 w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow">
+                  <img src={before_photo.file_path} class="w-full h-full object-cover" />
+                </div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-2 pl-16">
+                  <p class="text-white text-xs font-bold leading-tight">{area.label}</p>
+                </div>
+                <div class="absolute top-2 right-2 bg-success rounded-full w-6 h-6 flex items-center justify-center shadow">
+                  <span class="text-white text-xs font-bold">✓</span>
+                </div>
+                <button
+                  class="absolute top-2 left-2 bg-black/40 rounded-full px-2 py-0.5 text-white text-xs"
+                  phx-click="show_upload"
+                  phx-value-type="after"
+                  phx-value-area={area.id}
+                >
+                  Retake
+                </button>
+              </div>
+              <!-- Empty -->
+              <button
+                :if={!after_photo}
+                class="relative w-full h-40 rounded-2xl border-2 border-dashed border-success bg-success/5 flex flex-col items-center justify-center gap-1 active:bg-success/20 transition-colors overflow-hidden"
+                phx-click="show_upload"
+                phx-value-type="after"
+                phx-value-area={area.id}
+              >
+                <!-- Faded before photo as background guide -->
+                <img :if={before_photo} src={before_photo.file_path} class="absolute inset-0 w-full h-full object-cover opacity-20" />
+                <span class="relative text-5xl font-thin text-success/70">+</span>
+                <span class="relative text-sm font-bold text-success">{area.label}</span>
+                <span class="relative text-xs text-base-content/40 text-center px-3 leading-tight">{area.instruction}</span>
+              </button>
+            </div>
+          </div>
+          <div :if={after_photos_complete?(@after_photos)} class="mt-4 alert alert-success rounded-2xl">
+            <span class="font-semibold">All photos complete — finishing wash...</span>
+          </div>
         </div>
 
         <!-- Complete Banner -->
@@ -532,6 +682,71 @@ defmodule MobileCarWashWeb.ChecklistLive do
       </div>
     </div>
     """
+  end
+
+  # --- Photo Helpers ---
+
+  defp reload_photos(socket) do
+    appointment_id = socket.assigns.appointment.id
+
+    before_photos =
+      Photo
+      |> Ash.Query.filter(appointment_id == ^appointment_id and photo_type == :before)
+      |> Ash.read!()
+      |> Enum.map(&PhotoUpload.apply_url/1)
+
+    after_photos =
+      Photo
+      |> Ash.Query.filter(appointment_id == ^appointment_id and photo_type == :after)
+      |> Ash.read!()
+      |> Enum.map(&PhotoUpload.apply_url/1)
+
+    assign(socket, before_photos: before_photos, after_photos: after_photos)
+  end
+
+  defp maybe_complete_wash(socket) do
+    if WashStateMachine.all_required_complete?(socket.assigns.items) and
+         after_photos_complete?(socket.assigns.after_photos) and
+         socket.assigns.checklist.status != :completed do
+      {:ok, checklist} =
+        socket.assigns.checklist
+        |> Ash.Changeset.for_update(:complete_checklist, %{})
+        |> Ash.update()
+
+      WashOrchestrator.complete_wash(socket.assigns.appointment.id)
+
+      assign(socket, checklist: checklist)
+    else
+      socket
+    end
+  end
+
+  defp before_photos_complete?(before_photos) do
+    taken = MapSet.new(before_photos, & &1.car_part)
+    Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
+  end
+
+  defp after_photos_complete?(after_photos) do
+    taken = MapSet.new(after_photos, & &1.car_part)
+    Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
+  end
+
+  defp area_photo(photos, area_id) do
+    Enum.find(photos, &(&1.car_part == area_id))
+  end
+
+  defp area_label(area_id) do
+    case Enum.find(@key_areas, &(&1.id == area_id)) do
+      %{label: label} -> label
+      nil -> to_string(area_id)
+    end
+  end
+
+  defp area_instruction(area_id) do
+    case Enum.find(@key_areas, &(&1.id == area_id)) do
+      %{instruction: instruction} -> instruction
+      nil -> ""
+    end
   end
 
   # --- Timer Helpers ---

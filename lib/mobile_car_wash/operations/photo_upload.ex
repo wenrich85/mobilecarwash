@@ -10,7 +10,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
 
   alias MobileCarWash.Operations.Photo
 
-  @local_upload_dir "priv/uploads"
+  @local_upload_dir "priv/static/uploads"
 
   @doc """
   Saves an uploaded file and creates a Photo record.
@@ -119,6 +119,79 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     end
   end
 
+  @doc """
+  Returns a display URL for a photo.
+  - Local: returns `file_path` as-is — already a `/uploads/...` path served by Plug.Static.
+  - S3: generates a presigned GET URL valid for 4 hours. The stored `file_path` is the
+    S3 object key (e.g. `appointments/<id>/before_<uuid>.jpg`). Legacy records that stored
+    the full `https://...` URL are handled transparently.
+
+  Call this when loading photos into LiveView assigns, not in render loops.
+  """
+  def url_for(%{file_path: path}) do
+    case storage_backend() do
+      :s3 -> presign_url(path)
+      _ -> path
+    end
+  end
+
+  @doc "Returns the photo with `file_path` replaced by its display URL. Useful for Enum.map."
+  def apply_url(photo), do: %{photo | file_path: url_for(photo)}
+
+  @doc """
+  Deletes the photo file from storage (local disk or S3).
+  Does not touch the database record — callers are responsible for that.
+  Returns `:ok` even if the file no longer exists (idempotent).
+  """
+  def delete_file(%{file_path: path}) do
+    case storage_backend() do
+      :s3 ->
+        bucket = s3_bucket()
+        region = Application.get_env(:mobile_car_wash, :s3_region, "us-east-1")
+        key = normalize_s3_key(path, bucket, region)
+
+        case ExAws.S3.delete_object(bucket, key) |> ExAws.request() do
+          {:ok, _} -> :ok
+          {:error, reason} -> {:error, reason}
+        end
+
+      _ ->
+        # path is like /uploads/appointments/<id>/filename
+        local = Path.join("priv/static", path)
+
+        case File.rm(local) do
+          :ok -> :ok
+          {:error, :enoent} -> :ok  # already gone — treat as success
+          {:error, reason} -> {:error, reason}
+        end
+    end
+  end
+
+  defp presign_url(path) do
+    bucket = s3_bucket()
+    region = Application.get_env(:mobile_car_wash, :s3_region, "us-east-1")
+    key = normalize_s3_key(path, bucket, region)
+    config = ExAws.Config.new(:s3, region: region)
+
+    case ExAws.S3.presigned_url(config, :get, bucket, key, expires_in: 14_400) do
+      {:ok, url} -> url
+      _ -> path  # fallback — will 403 in browser but won't crash the app
+    end
+  end
+
+  # Handles both storage formats:
+  #   Legacy full URL: "https://bucket.s3.region.amazonaws.com/appointments/id/file.jpg"
+  #   Current key:     "appointments/id/file.jpg"
+  defp normalize_s3_key(path, bucket, region) do
+    prefix = "https://#{bucket}.s3.#{region}.amazonaws.com/"
+
+    if String.starts_with?(path, prefix) do
+      String.replace_prefix(path, prefix, "")
+    else
+      path
+    end
+  end
+
   # --- Local Storage ---
 
   defp save_to_local(appointment_id, source_path, filename) do
@@ -128,7 +201,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     dest = Path.join(dir, filename)
     File.cp!(source_path, dest)
 
-    url_path = "/photos/appointments/#{appointment_id}/#{filename}"
+    url_path = "/uploads/appointments/#{appointment_id}/#{filename}"
     {:ok, url_path}
   rescue
     e -> {:error, Exception.message(e)}
@@ -150,9 +223,8 @@ defmodule MobileCarWash.Operations.PhotoUpload do
 
         case ExAws.request(request) do
           {:ok, _response} ->
-            region = Application.get_env(:mobile_car_wash, :s3_region, "us-east-1")
-            url = "https://#{bucket}.s3.#{region}.amazonaws.com/#{s3_key}"
-            {:ok, url}
+            # Store the S3 key, not the full URL. url_for/1 generates presigned URLs at display time.
+            {:ok, s3_key}
 
           {:error, reason} ->
             {:error, "S3 upload failed: #{inspect(reason)}"}

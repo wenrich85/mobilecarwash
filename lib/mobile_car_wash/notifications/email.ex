@@ -243,7 +243,7 @@ defmodule MobileCarWash.Notifications.Email do
 
     <p>We hope you love the results! You can view details and any before/after photos in your account.</p>
 
-    <p><a href="https://drivewaydetail.co/appointments/#{appointment.id}/status">View Details →</a></p>
+    <p><a href="https://drivewaydetailcosa.com/appointments/#{appointment.id}/status">View Details →</a></p>
 
     <p>Thank you for choosing Driveway Detail Co!</p>
 
@@ -256,7 +256,7 @@ defmodule MobileCarWash.Notifications.Email do
 
     Your #{service_name} on #{Calendar.strftime(appointment.scheduled_at, "%B %d")} has been completed.
 
-    View details: https://drivewaydetail.co/appointments/#{appointment.id}/status
+    View details: https://drivewaydetailcosa.com/appointments/#{appointment.id}/status
 
     Thank you! — Driveway Detail Co
     """)
@@ -286,7 +286,7 @@ defmodule MobileCarWash.Notifications.Email do
       #{if plan.deep_clean_discount_percent > 0, do: "<li>#{plan.deep_clean_discount_percent}% off deep cleans</li>", else: ""}
     </ul>
 
-    <p><a href="https://drivewaydetail.co/book">Book your first wash now →</a></p>
+    <p><a href="https://drivewaydetailcosa.com/book">Book your first wash now →</a></p>
 
     <p>Thank you for choosing Driveway Detail Co!</p>
 
@@ -299,7 +299,7 @@ defmodule MobileCarWash.Notifications.Email do
 
     Your #{plan.name} subscription ($#{price}/month) is now active.
 
-    Book your first wash at https://drivewaydetail.co/book
+    Book your first wash at https://drivewaydetailcosa.com/book
 
     Thank you for choosing Driveway Detail Co!
     """)
@@ -320,7 +320,7 @@ defmodule MobileCarWash.Notifications.Email do
 
     <p>Your <strong>#{plan.name}</strong> plan has been cancelled. You'll continue to have access until the end of your current billing period.</p>
 
-    <p>You can resubscribe anytime at <a href="https://drivewaydetail.co/subscribe">drivewaydetail.co/subscribe</a>.</p>
+    <p>You can resubscribe anytime at <a href="https://drivewaydetailcosa.com/subscribe">drivewaydetailcosa.com/subscribe</a>.</p>
 
     <p>We'd love to have you back!</p>
 
@@ -333,7 +333,7 @@ defmodule MobileCarWash.Notifications.Email do
 
     Your #{plan.name} plan has been cancelled. Access continues until the end of your billing period.
 
-    Resubscribe anytime: https://drivewaydetail.co/subscribe
+    Resubscribe anytime: https://drivewaydetailcosa.com/subscribe
 
     We'd love to have you back! — Driveway Detail Co
     """)

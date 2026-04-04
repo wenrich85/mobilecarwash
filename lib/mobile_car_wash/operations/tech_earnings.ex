@@ -63,12 +63,12 @@ defmodule MobileCarWash.Operations.TechEarnings do
   def earnings_summary(technician) do
     {period_start, period_end} = pay_period_range(technician)
     washes = completed_washes(technician.id, period_start, period_end)
-    rate = technician.pay_rate_cents || 2500
 
     %{
       washes_count: length(washes),
-      total_cents: length(washes) * rate,
-      rate_cents: rate,
+      total_cents: compute_total_earnings(washes, technician),
+      rate_cents: Map.get(technician, :pay_rate_cents) || 2500,
+      pay_rate_pct: Map.get(technician, :pay_rate_pct),
       period_start: period_start,
       period_end: period_end,
       washes: washes
@@ -112,12 +112,12 @@ defmodule MobileCarWash.Operations.TechEarnings do
     ref = ref_date || Date.utc_today()
     {start_date, end_date} = period_range(period, technician, ref)
     washes = completed_washes(technician.id, start_date, end_date)
-    rate = technician.pay_rate_cents || 2500
 
     %{
       washes_count: length(washes),
-      total_cents: length(washes) * rate,
-      rate_cents: rate,
+      total_cents: compute_total_earnings(washes, technician),
+      rate_cents: Map.get(technician, :pay_rate_cents) || 2500,
+      pay_rate_pct: Map.get(technician, :pay_rate_pct),
       period_start: start_date,
       period_end: end_date,
       washes: washes
@@ -165,7 +165,31 @@ defmodule MobileCarWash.Operations.TechEarnings do
   def shift_period(:year, ref, :prev), do: Date.new!(ref.year - 1, 1, 1)
   def shift_period(:year, ref, :next), do: Date.new!(ref.year + 1, 1, 1)
 
+  @doc """
+  Computes earnings for a single wash given the technician's pay model.
+  Returns integer cents.
+  """
+  def wash_earnings(wash, technician) do
+    pct = Map.get(technician, :pay_rate_pct)
+    if pct do
+      round(Decimal.to_float(Decimal.mult(Decimal.new(wash.price_cents), pct)))
+    else
+      Map.get(technician, :pay_rate_cents) || 2500
+    end
+  end
+
   # --- Private ---
+
+  defp compute_total_earnings(washes, technician) do
+    pct = Map.get(technician, :pay_rate_pct)
+    if pct do
+      Enum.reduce(washes, 0, fn w, acc ->
+        acc + round(Decimal.to_float(Decimal.mult(Decimal.new(w.price_cents), pct)))
+      end)
+    else
+      length(washes) * (Map.get(technician, :pay_rate_cents) || 2500)
+    end
+  end
 
   defp load_service_map(appointments) do
     ids = appointments |> Enum.map(& &1.service_type_id) |> Enum.uniq()
@@ -176,7 +200,7 @@ defmodule MobileCarWash.Operations.TechEarnings do
   defp load_customer_map(appointments) do
     ids = appointments |> Enum.map(& &1.customer_id) |> Enum.uniq()
     if ids == [], do: %{}, else:
-      Customer |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
+      Customer |> Ash.Query.filter(id in ^ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
   end
 
   defp load_checklist_times(appointments) do

@@ -27,6 +27,18 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     PubSub.subscribe(@pubsub, "appointments:tech_requests")
   end
 
+  @doc "Subscribe to appointments assigned to a specific technician (for tech dashboard)."
+  def subscribe_to_tech_assignments(technician_id) do
+    PubSub.subscribe(@pubsub, "tech:#{technician_id}:assigned")
+  end
+
+  @doc "Broadcast that an appointment was assigned to a technician."
+  def broadcast_assigned_to_tech(_appointment_id, nil), do: :ok
+
+  def broadcast_assigned_to_tech(appointment_id, technician_id) do
+    PubSub.broadcast(@pubsub, "tech:#{technician_id}:assigned", {:appointment_assigned, appointment_id})
+  end
+
   @doc "Broadcast that a tech is requesting an appointment."
   def broadcast_tech_request(appointment_id, technician_id, technician_name) do
     PubSub.broadcast(@pubsub, "appointments:tech_requests", {:tech_request, %{
@@ -36,8 +48,17 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     }})
   end
 
+  @doc "Broadcast that an appointment's technician assignment or confirmation status changed."
+  def broadcast_assignment_changed(appointment_id) do
+    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
+      appointment_id: appointment_id,
+      event: :assignment_changed
+    }})
+  end
+
   def broadcast_started(appointment_id) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
+      appointment_id: appointment_id,
       status: :in_progress,
       event: :started,
       message: "Your wash has begun!"
@@ -52,6 +73,7 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     remaining_minutes = calculate_remaining_minutes(data[:items] || [])
 
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
+      appointment_id: appointment_id,
       status: :in_progress,
       event: :step_update,
       current_step: data[:current_step],
@@ -65,6 +87,7 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
 
   def broadcast_photo(appointment_id, photo_type) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
+      appointment_id: appointment_id,
       status: :in_progress,
       event: :photo_uploaded,
       photo_type: photo_type
@@ -73,6 +96,7 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
 
   def broadcast_completed(appointment_id) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
+      appointment_id: appointment_id,
       status: :completed,
       event: :completed,
       eta_minutes: 0,

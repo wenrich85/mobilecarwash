@@ -12,6 +12,8 @@ defmodule MobileCarWash.Application do
       MobileCarWash.Repo,
       {DNSCluster, query: Application.get_env(:mobile_car_wash, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: MobileCarWash.PubSub},
+      # Presence — must start after PubSub, before Endpoint
+      MobileCarWashWeb.Presence,
       # Oban background job processor
       {Oban, Application.fetch_env!(:mobile_car_wash, Oban)},
       # Start to serve requests, typically the last entry

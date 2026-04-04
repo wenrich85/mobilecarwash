@@ -77,7 +77,6 @@ defmodule MobileCarWashWeb.Router do
       live "/subscribe/success", SubscriptionSuccessLive
       live "/subscribe/cancel", SubscriptionCancelLive
       live "/style-guide", Admin.StyleGuideLive
-      live "/sign-in", Auth.SignInLive
     end
 
     # Authentication routes — rate-limited via on_mount hook
@@ -87,19 +86,18 @@ defmodule MobileCarWashWeb.Router do
       on_mount: [{MobileCarWashWeb.SignInRateLimit, :limit_sign_in}]
     )
     sign_out_route AuthController
-
-    # Manual auth callback route (rate-limited)
-    scope "/auth" do
-      pipe_through :rate_limited_auth
-      get "/customer/password/sign_in_with_token", AuthController, :sign_in_with_token
-    end
+    auth_routes(AuthController, MobileCarWash.Accounts.Customer, auth_routes_prefix: "/auth")
   end
 
   # Customer routes — any authenticated user
   scope "/", MobileCarWashWeb do
     pipe_through :browser
 
-    live_session :authenticated, on_mount: {MobileCarWashWeb.LiveAuth, :require_customer} do
+    live_session :authenticated,
+      on_mount: [
+        {MobileCarWashWeb.LiveAuth, :require_customer},
+        {MobileCarWashWeb.TrackPresence, :track}
+      ] do
       live "/appointments", AppointmentsLive
       live "/appointments/:id/status", AppointmentStatusLive
       live "/account/subscription", SubscriptionManageLive
@@ -113,7 +111,11 @@ defmodule MobileCarWashWeb.Router do
   scope "/tech", MobileCarWashWeb do
     pipe_through :browser
 
-    live_session :technician, on_mount: {MobileCarWashWeb.LiveAuth, :require_technician} do
+    live_session :technician,
+      on_mount: [
+        {MobileCarWashWeb.LiveAuth, :require_technician},
+        {MobileCarWashWeb.TrackPresence, :track}
+      ] do
       live "/", TechDashboardLive
       live "/checklist/:id", ChecklistLive
     end
@@ -123,16 +125,22 @@ defmodule MobileCarWashWeb.Router do
   scope "/admin", MobileCarWashWeb.Admin do
     pipe_through :browser
 
-    live_session :admin, on_mount: {MobileCarWashWeb.AdminAuth, :require_admin} do
+    live_session :admin,
+      on_mount: [
+        {MobileCarWashWeb.AdminAuth, :require_admin},
+        {MobileCarWashWeb.TrackPresence, :track}
+      ] do
       live "/metrics", MetricsLive
       live "/events", EventsLive
       live "/formation", FormationLive
       live "/org-chart", OrgChartLive
       live "/procedures", ProceduresLive
       live "/dispatch", DispatchLive
+      live "/technicians/:id", TechnicianProfileLive
       live "/settings", SettingsLive
       live "/cash-flow", CashFlowLive
       live "/vans", VansLive
+      live "/supplies", SuppliesLive
     end
   end
 

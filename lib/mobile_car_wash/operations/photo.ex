@@ -67,6 +67,7 @@ defmodule MobileCarWash.Operations.Photo do
 
     attribute :car_part, :atom do
       constraints one_of: [
+        :front, :rear, :driver_side, :passenger_side,
         :exterior, :windows, :wheels, :interior, :trunk, :engine_bay,
         :undercarriage, :mirrors, :headlights_taillights, :bumper, :roof, :sunroof
       ]

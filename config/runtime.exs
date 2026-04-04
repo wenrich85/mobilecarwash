@@ -152,7 +152,7 @@ if config_env() == :prod do
 
   # From email address
   config :mobile_car_wash, :from_email,
-    System.get_env("FROM_EMAIL") || "hello@drivewaydetail.co"
+    System.get_env("FROM_EMAIL") || "hello@drivewaydetailcosa.com"
 
   # Accounting provider — configurable: "zoho" (default), "quickbooks", or "none"
   accounting_provider =

@@ -19,7 +19,9 @@ config :mobile_car_wash,
     MobileCarWash.Audit,
     MobileCarWash.Operations,
     MobileCarWash.Compliance,
-    MobileCarWash.CashFlow
+    MobileCarWash.CashFlow,
+    MobileCarWash.Loyalty,
+    MobileCarWash.Inventory
   ]
 
 # Oban background job configuration
@@ -29,7 +31,8 @@ config :mobile_car_wash, Oban,
     default: 10,
     notifications: 5,
     billing: 3,
-    analytics: 5
+    analytics: 5,
+    maintenance: 2
   ],
   plugins: [
     {Oban.Plugins.Cron,
@@ -37,9 +40,15 @@ config :mobile_car_wash, Oban,
        # Daily at 8am — check for upcoming formation/compliance deadlines
        {"0 8 * * *", MobileCarWash.Notifications.DeadlineReminderScheduler},
        # Every hour — clean up expired booking sessions
-       {"0 * * * *", MobileCarWash.Booking.SessionCleanupWorker}
+       {"0 * * * *", MobileCarWash.Booking.SessionCleanupWorker},
+       # Daily at 2am — delete photos older than the retention period
+       {"0 2 * * *", MobileCarWash.Operations.PhotoCleanupWorker}
      ]}
   ]
+
+# Photo retention: how many days before before/after/problem photos are deleted.
+# S3 storage costs ~$0.023/GB/month; 90 days covers any reasonable dispute window.
+config :mobile_car_wash, :photo_retention_days, 90
 
 # Configure the endpoint
 config :mobile_car_wash, MobileCarWashWeb.Endpoint,

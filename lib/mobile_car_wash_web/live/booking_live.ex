@@ -83,6 +83,9 @@ defmodule MobileCarWashWeb.BookingLive do
         uploaded_photos: [],
         # Subscription
         active_subscription: load_active_subscription(customer),
+        # Loyalty punch card
+        loyalty_card: load_loyalty_card(customer),
+        redeem_loyalty: false,
         # Timing
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
@@ -475,11 +478,30 @@ defmodule MobileCarWashWeb.BookingLive do
           </div>
         </div>
 
+        <!-- Loyalty punch card redemption -->
+        <% loyalty_free = MobileCarWash.Loyalty.available_free_washes(@loyalty_card) %>
+        <div :if={loyalty_free > 0 && !@active_subscription} class={["alert mb-4", @redeem_loyalty && "alert-success" || "alert-info"]}>
+          <div class="flex items-center justify-between w-full flex-wrap gap-2">
+            <div>
+              <p class="font-semibold">
+                {if @redeem_loyalty, do: "🎁 Free wash applied!", else: "🎁 You have #{loyalty_free} free wash#{if loyalty_free != 1, do: "es"} available!"}
+              </p>
+              <p class="text-sm opacity-75">
+                {if @redeem_loyalty, do: "This booking is on us.", else: "Earned from your loyalty punch card."}
+              </p>
+            </div>
+            <button class={["btn btn-sm", @redeem_loyalty && "btn-outline" || "btn-primary"]} phx-click="toggle_loyalty">
+              {if @redeem_loyalty, do: "Remove", else: "Apply Free Wash"}
+            </button>
+          </div>
+        </div>
+
+        <% base_price = MobileCarWash.Billing.Pricing.calculate(@selected_service.base_price_cents, @selected_vehicle.size) %>
         <.booking_summary
           appointment={%{
             scheduled_at: @selected_slot,
-            price_cents: MobileCarWash.Billing.Pricing.calculate(@selected_service.base_price_cents, @selected_vehicle.size),
-            discount_cents: 0
+            price_cents: base_price,
+            discount_cents: if(@redeem_loyalty, do: base_price, else: 0)
           }}
           service={@selected_service}
           vehicle={@selected_vehicle}
@@ -488,7 +510,7 @@ defmodule MobileCarWashWeb.BookingLive do
         <div class="mt-8 flex gap-4 justify-end">
           <button class="btn btn-outline" phx-click="prev_step">Back</button>
           <button class="btn btn-primary btn-lg" phx-click="confirm_booking">
-            Confirm Booking
+            {if @redeem_loyalty, do: "Confirm — Free Wash!", else: "Confirm Booking"}
           </button>
         </div>
       </div>
@@ -562,7 +584,7 @@ defmodule MobileCarWashWeb.BookingLive do
     alias MobileCarWash.Accounts.Customer
 
     require Ash.Query
-    existing = Customer |> Ash.Query.filter(email == ^guest_params["email"]) |> Ash.read!()
+    existing = Customer |> Ash.Query.filter(email == ^guest_params["email"]) |> Ash.read!(authorize?: false)
 
     result =
       case existing do
@@ -732,6 +754,11 @@ defmodule MobileCarWashWeb.BookingLive do
         {:ok, %{file_path: url, caption: caption, original_filename: entry.client_name, car_part: car_part}}
       end)
 
+    # Apply presigned URLs so thumbnails display correctly in S3 mode
+    uploaded = Enum.map(uploaded, fn photo ->
+      Map.put(photo, :file_path, MobileCarWash.Operations.PhotoUpload.url_for(photo))
+    end)
+
     {:noreply,
      socket
      |> assign(uploaded_photos: socket.assigns.uploaded_photos ++ uploaded)
@@ -768,6 +795,10 @@ defmodule MobileCarWashWeb.BookingLive do
     end
   end
 
+  def handle_event("toggle_loyalty", _params, socket) do
+    {:noreply, assign(socket, redeem_loyalty: !socket.assigns.redeem_loyalty)}
+  end
+
   def handle_event("confirm_booking", _params, socket) do
     %{
       current_customer: customer,
@@ -783,7 +814,8 @@ defmodule MobileCarWashWeb.BookingLive do
       vehicle_id: vehicle.id,
       address_id: address.id,
       scheduled_at: slot,
-      subscription_id: socket.assigns.active_subscription && socket.assigns.active_subscription.id
+      subscription_id: socket.assigns.active_subscription && socket.assigns.active_subscription.id,
+      loyalty_redeem: socket.assigns.redeem_loyalty
     }
 
     case Booking.create_booking(booking_params) do
@@ -959,6 +991,14 @@ defmodule MobileCarWashWeb.BookingLive do
     )
     |> Ash.read!()
     |> Enum.map(&%{scheduled_at: &1.scheduled_at, duration_minutes: &1.duration_minutes})
+  end
+
+  defp load_loyalty_card(nil), do: nil
+  defp load_loyalty_card(customer) do
+    case MobileCarWash.Loyalty.get_or_create_card(customer.id) do
+      {:ok, card} -> card
+      _ -> nil
+    end
   end
 
   defp load_active_subscription(nil), do: nil

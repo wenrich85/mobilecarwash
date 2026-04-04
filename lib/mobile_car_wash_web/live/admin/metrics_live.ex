@@ -9,16 +9,21 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
   import MobileCarWashWeb.Admin.DashboardComponents
 
   alias MobileCarWash.Analytics.Metrics
+  alias MobileCarWashWeb.Presence
 
   @refresh_interval :timer.seconds(60)
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: schedule_refresh()
+    if connected?(socket) do
+      schedule_refresh()
+      Phoenix.PubSub.subscribe(MobileCarWash.PubSub, Presence.topic())
+    end
 
     socket =
       socket
       |> assign(page_title: "Metrics Dashboard", period: :last_7_days)
+      |> assign(online_users: Presence.list_users())
       |> load_all_metrics()
 
     {:ok, socket}
@@ -40,6 +45,11 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
   def handle_info(:refresh, socket) do
     schedule_refresh()
     {:noreply, load_all_metrics(socket)}
+  end
+
+  # Phoenix.Presence broadcasts a map with joins/leaves when users connect/disconnect
+  def handle_info(%{joins: _, leaves: _}, socket) do
+    {:noreply, assign(socket, online_users: Presence.list_users())}
   end
 
   @impl true
@@ -65,6 +75,47 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           <.link navigate={~p"/admin/events"} class="btn btn-outline btn-sm">
             Event Explorer
           </.link>
+        </div>
+      </div>
+
+      <!-- Who's Online -->
+      <div class="mb-8">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="w-2 h-2 rounded-full bg-success inline-block animate-pulse"></span>
+          <h2 class="font-semibold text-sm text-base-content/70 uppercase tracking-wide">
+            Online Now
+          </h2>
+          <span class="badge badge-sm badge-ghost">{length(@online_users)}</span>
+        </div>
+
+        <div :if={@online_users == []} class="text-sm text-base-content/40 italic">
+          No one else is online
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <div
+            :for={user <- @online_users}
+            class="flex items-center gap-2 bg-base-100 shadow-sm rounded-full px-3 py-1.5 border border-base-200"
+          >
+            <!-- Role dot -->
+            <span class={["w-2 h-2 rounded-full flex-shrink-0", presence_dot_class(user.role)]}></span>
+
+            <!-- Name + page -->
+            <div class="min-w-0">
+              <span class="text-sm font-medium">{user.name}</span>
+              <span class="text-xs text-base-content/40 ml-1">· {user.page}</span>
+            </div>
+
+            <!-- Role badge -->
+            <span class={["badge badge-xs flex-shrink-0", presence_role_badge(user.role)]}>
+              {format_role(user.role)}
+            </span>
+
+            <!-- Time online -->
+            <span class="text-xs text-base-content/40 flex-shrink-0 font-mono">
+              {format_duration(System.system_time(:second) - user.online_at)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -267,4 +318,22 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
   defp period_label(:this_week), do: "this week"
   defp period_label(:last_7_days), do: "last 7 days"
   defp period_label(:last_30_days), do: "last 30 days"
+
+  # --- Presence helpers ---
+
+  defp presence_dot_class(:admin), do: "bg-error"
+  defp presence_dot_class(:technician), do: "bg-warning"
+  defp presence_dot_class(_), do: "bg-success"
+
+  defp presence_role_badge(:admin), do: "badge-error"
+  defp presence_role_badge(:technician), do: "badge-warning"
+  defp presence_role_badge(_), do: "badge-ghost"
+
+  defp format_role(:admin), do: "Admin"
+  defp format_role(:technician), do: "Tech"
+  defp format_role(_), do: "Customer"
+
+  defp format_duration(secs) when secs < 60, do: "#{secs}s"
+  defp format_duration(secs) when secs < 3600, do: "#{div(secs, 60)}m"
+  defp format_duration(secs), do: "#{div(secs, 3600)}h"
 end

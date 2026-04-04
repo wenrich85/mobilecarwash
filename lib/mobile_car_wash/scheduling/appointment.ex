@@ -153,6 +153,8 @@ defmodule MobileCarWash.Scheduling.Appointment do
         %{appointment_id: record.id}
         |> MobileCarWash.Notifications.WashCompletedWorker.new(queue: :notifications)
         |> Oban.insert()
+        # Award loyalty punch for this customer
+        MobileCarWash.Loyalty.add_punch(record.customer_id)
         {:ok, record}
       end)
     end

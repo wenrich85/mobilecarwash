@@ -33,7 +33,13 @@ defmodule MobileCarWash.Operations.Technician do
     attribute :pay_rate_cents, :integer do
       default 2500
       public? true
-      description "Per-wash pay rate in cents (e.g., 2500 = $25.00/wash)"
+      description "Legacy flat per-wash pay rate in cents. Superseded by pay_rate_pct when set."
+    end
+
+    attribute :pay_rate_pct, :decimal do
+      allow_nil? true
+      public? true
+      description "Per-wash pay as a fraction of the wash price (e.g., 0.30 = 30%). When set, supersedes pay_rate_cents."
     end
 
     attribute :pay_period_start_day, :integer do

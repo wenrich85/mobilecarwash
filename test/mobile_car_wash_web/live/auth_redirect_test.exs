@@ -45,7 +45,7 @@ defmodule MobileCarWashWeb.AuthRedirectTest do
     test "/sign-in page is accessible (200)", %{conn: conn} do
       conn = get(conn, "/sign-in")
       assert conn.status == 200
-      assert conn.resp_body =~ "Sign In"
+      assert conn.resp_body =~ "Password"
     end
   end
 end

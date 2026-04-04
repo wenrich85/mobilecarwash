@@ -7,10 +7,19 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   use MobileCarWashWeb, :live_view
 
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType}
-  alias MobileCarWash.Operations.Photo
+  alias MobileCarWash.Operations.{Photo, PhotoUpload}
   alias MobileCarWash.Fleet.Address
 
   require Ash.Query
+
+  @key_areas [
+    %{id: :front,           label: "Front"},
+    %{id: :rear,            label: "Rear"},
+    %{id: :driver_side,     label: "Driver Side"},
+    %{id: :passenger_side,  label: "Passenger Side"},
+    %{id: :interior,        label: "Interior"},
+    %{id: :wheels,          label: "Wheels"}
+  ]
 
   @impl true
   def mount(%{"id" => appointment_id}, _session, socket) do
@@ -25,7 +34,12 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           AppointmentTracker.subscribe(appointment_id)
         end
 
-        photos = Photo |> Ash.Query.filter(appointment_id == ^appointment_id) |> Ash.read!()
+        photos =
+          Photo
+          |> Ash.Query.filter(appointment_id == ^appointment_id)
+          |> Ash.read!()
+          |> Enum.map(&PhotoUpload.apply_url/1)
+
         problem_photos = Enum.filter(photos, &(&1.photo_type == :problem_area))
         before_photos = Enum.filter(photos, &(&1.photo_type == :before))
         after_photos = Enum.filter(photos, &(&1.photo_type == :after))
@@ -43,6 +57,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
            problem_photos: problem_photos,
            before_photos: before_photos,
            after_photos: after_photos,
+           key_areas: @key_areas,
            # Real-time state (loaded from DB, then updated via PubSub)
            live_status: if(appointment.status == :in_progress, do: :in_progress, else: nil),
            current_step: current_step,
@@ -173,20 +188,46 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           </div>
         </div>
 
-        <!-- Before/After Photos -->
-        <div :if={@before_photos != [] or @after_photos != []} class="mb-6">
-          <h3 class="font-semibold mb-3">Photos</h3>
-          <div class="grid grid-cols-2 gap-4">
-            <div :if={@before_photos != []}>
-              <h4 class="text-sm text-base-content/60 mb-1">Before</h4>
-              <div :for={photo <- @before_photos}>
-                <img src={photo.file_path} class="w-full rounded-lg shadow" />
-              </div>
-            </div>
-            <div :if={@after_photos != []}>
-              <h4 class="text-sm text-base-content/60 mb-1">After</h4>
-              <div :for={photo <- @after_photos}>
-                <img src={photo.file_path} class="w-full rounded-lg shadow" />
+        <!-- Before/After Photos (live) -->
+        <div :if={@live_status == :in_progress or @before_photos != [] or @after_photos != []} class="mb-6">
+          <div class="flex items-center gap-2 mb-3">
+            <h3 class="font-semibold">Photos</h3>
+            <span :if={@live_status == :in_progress} class="flex items-center gap-1 text-xs text-error font-medium">
+              <span class="w-2 h-2 rounded-full bg-error inline-block animate-pulse"></span> Live
+            </span>
+          </div>
+
+          <!-- Column headers -->
+          <div class="grid grid-cols-2 gap-2 mb-1 px-1">
+            <span class="text-xs text-base-content/40 text-center">Before</span>
+            <span class="text-xs text-base-content/40 text-center">After</span>
+          </div>
+
+          <div class="space-y-2">
+            <div :for={area <- @key_areas}>
+              <% before_p = Enum.find(@before_photos, &(&1.car_part == area.id)) %>
+              <% after_p  = Enum.find(@after_photos,  &(&1.car_part == area.id)) %>
+              <div :if={before_p || after_p || @live_status == :in_progress}>
+                <p class="text-xs text-base-content/40 mb-1">{area.label}</p>
+                <div class="grid grid-cols-2 gap-2">
+                  <!-- Before cell -->
+                  <div class="aspect-[4/3] rounded-xl overflow-hidden bg-base-200">
+                    <img :if={before_p} src={before_p.file_path} class="w-full h-full object-cover" />
+                    <div :if={!before_p} class="w-full h-full flex items-center justify-center">
+                      <span class="text-base-content/20 text-2xl">○</span>
+                    </div>
+                  </div>
+                  <!-- After cell -->
+                  <div class="aspect-[4/3] rounded-xl overflow-hidden bg-base-200">
+                    <img :if={after_p} src={after_p.file_path} class="w-full h-full object-cover" />
+                    <div :if={!after_p && before_p} class="w-full h-full flex items-center justify-center">
+                      <span class="text-base-content/20 text-2xl animate-pulse">⋯</span>
+                    </div>
+                    <div :if={!after_p && !before_p} class="w-full h-full flex items-center justify-center">
+                      <span class="text-base-content/20 text-2xl">○</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -228,7 +269,12 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   defp reload_photos(socket) do
     appointment_id = socket.assigns.appointment.id
-    photos = Photo |> Ash.Query.filter(appointment_id == ^appointment_id) |> Ash.read!()
+
+    photos =
+      Photo
+      |> Ash.Query.filter(appointment_id == ^appointment_id)
+      |> Ash.read!()
+      |> Enum.map(&PhotoUpload.apply_url/1)
 
     assign(socket,
       before_photos: Enum.filter(photos, &(&1.photo_type == :before)),

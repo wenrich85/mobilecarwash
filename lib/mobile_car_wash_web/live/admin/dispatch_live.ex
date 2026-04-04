@@ -31,7 +31,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     tech_users =
       Customer
       |> Ash.Query.filter(role in [:technician, :admin])
-      |> Ash.read!()
+      |> Ash.read!(authorize?: false)
 
     socket =
       socket
@@ -50,7 +50,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         customer_map: %{},
         address_map: %{},
         vehicle_map: %{},
-        tech_requests: %{}
+        tech_requests: %{},
+        subscribed_appointment_ids: MapSet.new()
       )
       |> load_appointments()
 
@@ -126,7 +127,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     case Ash.get(Appointment, id) do
       {:ok, appt} ->
         case appt |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update() do
-          {:ok, _} ->
+          {:ok, confirmed} ->
+            AppointmentTracker.broadcast_assignment_changed(id)
+            AppointmentTracker.broadcast_assigned_to_tech(id, confirmed.technician_id)
             {:noreply, socket |> load_appointments() |> put_flash(:info, "Appointment confirmed")}
 
           {:error, _} ->
@@ -188,8 +191,28 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     {:noreply, load_appointments(socket)}
   end
 
-  def handle_info({:appointment_update, _data}, socket) do
-    {:noreply, load_appointments(socket)}
+  # Step progress — update the active panel in-memory, no DB query
+  def handle_info({:appointment_update, %{event: :step_update, appointment_id: id} = data}, socket) do
+    active =
+      Enum.map(socket.assigns.active, fn {appt, progress} ->
+        if appt.id == id do
+          {appt, %{progress |
+            steps_done: data[:steps_done] || progress.steps_done,
+            steps_total: data[:steps_total] || progress.steps_total,
+            current_step: data[:current_step] || progress.current_step,
+            eta_minutes: data[:eta_minutes]
+          }}
+        else
+          {appt, progress}
+        end
+      end)
+
+    {:noreply, assign(socket, active: active)}
+  end
+
+  # Status changes — targeted reload of just the affected appointment
+  def handle_info({:appointment_update, %{appointment_id: id}}, socket) do
+    {:noreply, reload_one_appointment(socket, id)}
   end
 
   def handle_info({:new_appointment, _id}, socket) do
@@ -427,7 +450,11 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
               </thead>
               <tbody>
                 <tr :for={tech <- @technicians}>
-                  <td class="font-semibold">{tech.name}</td>
+                  <td class="font-semibold">
+                    <.link navigate={~p"/admin/technicians/#{tech.id}"} class="link link-hover">
+                      {tech.name}
+                    </.link>
+                  </td>
                   <td>
                     <select
                       class="select select-bordered select-xs"
@@ -484,17 +511,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   # === Private ===
 
   defp load_appointments(socket) do
-    # Build query based on filters
-    query = Appointment |> Ash.Query.sort(scheduled_at: :asc)
-
-    # Status filter
+    # Build query based on filters — always load all non-cancelled appointments
+    # so each kanban column can display its own status independently.
     query =
-      case socket.assigns.filter_status do
-        nil -> Ash.Query.filter(query, status != :cancelled)
-        status_str ->
-          status = String.to_existing_atom(status_str)
-          Ash.Query.filter(query, status == ^status)
-      end
+      Appointment
+      |> Ash.Query.sort(scheduled_at: :asc)
+      |> Ash.Query.filter(status != :cancelled)
 
     # Date filter
     query =
@@ -520,7 +542,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     customer_ids = Enum.map(all, & &1.customer_id) |> Enum.uniq()
     customer_map =
       if customer_ids != [] do
-        Customer |> Ash.Query.filter(id in ^customer_ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
+        Customer |> Ash.Query.filter(id in ^customer_ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
       else
         %{}
       end
@@ -572,12 +594,18 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         {appt, Dispatch.checklist_progress(appt.id)}
       end)
 
-    # Subscribe to active PubSub
-    if connected?(socket) do
-      for appt <- active_appts do
-        AppointmentTracker.subscribe(appt.id)
+    # Subscribe to ALL loaded appointment topics so any status change updates immediately.
+    # Track already-subscribed IDs to avoid redundant subscribe calls.
+    socket =
+      if connected?(socket) do
+        already = socket.assigns.subscribed_appointment_ids
+        new_ids = all |> Enum.map(& &1.id) |> MapSet.new()
+        to_subscribe = MapSet.difference(new_ids, already)
+        for id <- to_subscribe, do: AppointmentTracker.subscribe(id)
+        assign(socket, subscribed_appointment_ids: MapSet.union(already, to_subscribe))
+      else
+        socket
       end
-    end
 
     # Build map pin data for filtered appointments
     map_pins =
@@ -624,6 +652,38 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       push_event(socket, "update_map_pins", %{pins: map_pins})
     else
       socket
+    end
+  end
+
+  # Reload a single appointment and update all relevant assigns in-place.
+  defp reload_one_appointment(socket, appointment_id) do
+    case Ash.get(Appointment, appointment_id) do
+      {:ok, updated} ->
+        all = Enum.map(socket.assigns.all_appointments, fn a ->
+          if a.id == updated.id, do: updated, else: a
+        end)
+
+        # Re-derive active list from updated all_appointments
+        active_appts = Enum.filter(all, &(&1.status == :in_progress))
+        active =
+          Enum.map(active_appts, fn appt ->
+            existing = Enum.find(socket.assigns.active, fn {a, _} -> a.id == appt.id end)
+            if existing, do: existing, else: {appt, Dispatch.checklist_progress(appt.id)}
+          end)
+
+        # Subscribe to the appointment topic if newly loaded (e.g., just confirmed)
+        socket =
+          if connected?(socket) && !MapSet.member?(socket.assigns.subscribed_appointment_ids, appointment_id) do
+            AppointmentTracker.subscribe(appointment_id)
+            assign(socket, subscribed_appointment_ids: MapSet.put(socket.assigns.subscribed_appointment_ids, appointment_id))
+          else
+            socket
+          end
+
+        assign(socket, all_appointments: all, active: active)
+
+      _ ->
+        socket
     end
   end
 

@@ -5,7 +5,7 @@ defmodule MobileCarWash.Scheduling.Dispatch do
   """
 
   alias MobileCarWash.Repo
-  alias MobileCarWash.Scheduling.Appointment
+  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker}
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem}
 
   import Ecto.Query
@@ -20,6 +20,8 @@ defmodule MobileCarWash.Scheduling.Dispatch do
       set: [technician_id: tech_uuid]
     )
 
+    AppointmentTracker.broadcast_assignment_changed(appointment_id)
+    AppointmentTracker.broadcast_assigned_to_tech(appointment_id, technician_id)
     Ash.get(Appointment, appointment_id)
   end
 
@@ -30,6 +32,7 @@ defmodule MobileCarWash.Scheduling.Dispatch do
       set: [technician_id: nil]
     )
 
+    AppointmentTracker.broadcast_assignment_changed(appointment_id)
     Ash.get(Appointment, appointment_id)
   end
 
@@ -67,6 +70,7 @@ defmodule MobileCarWash.Scheduling.Dispatch do
         eta = items |> Enum.reject(& &1.completed) |> Enum.reduce(0, fn i, acc -> acc + (i.estimated_minutes || 5) end)
 
         %{
+          checklist_id: checklist.id,
           steps_done: done,
           steps_total: total,
           current_step: current && current.title,
@@ -75,7 +79,7 @@ defmodule MobileCarWash.Scheduling.Dispatch do
         }
 
       [] ->
-        %{steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil}
+        %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil}
     end
   end
 end
