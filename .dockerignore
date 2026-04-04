@@ -1,0 +1,31 @@
+# Build artifacts
+_build/
+deps/
+
+# Node/asset artifacts
+assets/node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Test files
+test/
+cover/
+
+# Dev/local config
+.env
+.env.*
+config/dev.exs
+config/test.exs
+
+# Editor
+.elixir_ls/
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Docs (not needed in image)
+*.md
