@@ -17,7 +17,7 @@ GitHub (push to main)
 - **Droplet**: Ubuntu 22.04, 2GB RAM ($12/mo)
 - **Managed PostgreSQL**: 1GB ($15/mo)
 - **Spaces**: S3-compatible object storage for photos ($5/mo)
-- **Domain**: drivewaydetail.co → Droplet IP
+- **Domain**: drivewaydetailcosa.com → Droplet IP
 
 ## Initial Setup
 
@@ -33,8 +33,8 @@ GitHub (push to main)
 ### 2. Point DNS
 
 Add A records:
-- `drivewaydetail.co` → Droplet IP
-- `www.drivewaydetail.co` → Droplet IP
+- `drivewaydetailcosa.com` → Droplet IP
+- `www.drivewaydetailcosa.com` → Droplet IP
 
 ### 3. Run Server Setup
 
@@ -66,7 +66,7 @@ mix phx.gen.secret  # Use for TOKEN_SIGNING_SECRET
 
 ```bash
 ssh root@YOUR_DROPLET_IP
-certbot --nginx -d drivewaydetail.co -d www.drivewaydetail.co
+certbot --nginx -d drivewaydetailcosa.com -d www.drivewaydetailcosa.com
 # Certbot auto-renews via systemd timer
 ```
 
@@ -150,7 +150,7 @@ sudo tail -f /var/log/nginx/access.log
 
 /etc/systemd/system/mobile_car_wash.service
 /etc/nginx/sites-available/mobile_car_wash
-/etc/letsencrypt/live/drivewaydetail.co/
+/etc/letsencrypt/live/drivewaydetailcosa.com/
 ```
 
 ## Monthly Cost
