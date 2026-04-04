@@ -96,15 +96,22 @@ function vehicleIcon(pin) {
   })
 }
 
+const STADIA_API_KEY = window.stadiaApiKey || null
+
 const TILES = {
   light: {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
-  dark: {
-    url: "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
-    attr: '&copy; <a href="https://www.stadiamaps.com/">Stadia</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  },
+  dark: STADIA_API_KEY
+    ? {
+        url: `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${STADIA_API_KEY}`,
+        attr: '&copy; <a href="https://www.stadiamaps.com/">Stadia</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }
+    : {
+        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      },
 }
 
 function isDarkMode() {
