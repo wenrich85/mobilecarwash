@@ -579,11 +579,11 @@ vehicles_data = [
 ]
 
 addresses_data = [
-  %{street: "1204 Oak Creek Dr",    city: "Austin", zip: "78750", state: "TX"},
-  %{street: "832 Sunset Ridge Rd",  city: "Austin", zip: "78745", state: "TX"},
-  %{street: "5617 Manchaca Rd",     city: "Austin", zip: "78745", state: "TX"},
-  %{street: "2910 E Riverside Dr",  city: "Austin", zip: "78741", state: "TX"},
-  %{street: "401 Congress Ave",     city: "Austin", zip: "78701", state: "TX"}
+  %{street: "18503 Statesman Dr",   city: "San Antonio", zip: "78259", state: "TX"},
+  %{street: "4122 Thousand Oaks Dr",city: "San Antonio", zip: "78217", state: "TX"},
+  %{street: "7810 Midcrown Dr",     city: "Converse",    zip: "78109", state: "TX"},
+  %{street: "1305 Pat Booker Rd",   city: "Universal City", zip: "78148", state: "TX"},
+  %{street: "9203 Village Field",   city: "Live Oak",    zip: "78233", state: "TX"}
 ]
 
 customer_vehicle_address =
