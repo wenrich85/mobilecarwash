@@ -408,7 +408,8 @@ defmodule MobileCarWash.Analytics.Metrics do
     Enum.map(results, fn tech ->
       revenue_per_wash =
         if tech.washes_count > 0 do
-          Float.round(tech.total_revenue_cents / tech.washes_count / 100, 2)
+          total = tech.total_revenue_cents |> Decimal.to_integer()
+          Float.round(total / tech.washes_count / 100, 2)
         else
           0.0
         end
