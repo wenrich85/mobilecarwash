@@ -32,6 +32,9 @@ config :mobile_car_wash, Oban, testing: :inline
 # Token signing secret for authentication (test)
 config :mobile_car_wash, :token_signing_secret, "test-only-secret-change-in-production-at-least-64-chars-long-please"
 
+# Use mock Twilio client in tests
+config :mobile_car_wash, :twilio_client, MobileCarWash.Notifications.TwilioClientMock
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

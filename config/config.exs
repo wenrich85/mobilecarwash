@@ -110,6 +110,12 @@ config :stripity_stripe,
   api_key: "sk_test_placeholder",
   json_library: Jason
 
+# Twilio SMS — dev/test defaults (no-ops). Production set in runtime.exs.
+config :mobile_car_wash, :twilio,
+  account_sid: nil,
+  auth_token: nil,
+  from_number: nil
+
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 

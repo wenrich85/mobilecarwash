@@ -139,6 +139,10 @@ defmodule MobileCarWash.Scheduling.Appointment do
 
       change after_action(fn _changeset, record, _context ->
         MobileCarWash.Scheduling.AppointmentTracker.broadcast_started(record.id)
+        # SMS: tech is on the way
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.SMSTechOnTheWayWorker.new(queue: :notifications)
+        |> Oban.insert()
         {:ok, record}
       end)
     end
@@ -149,9 +153,12 @@ defmodule MobileCarWash.Scheduling.Appointment do
 
       change after_action(fn _changeset, record, _context ->
         MobileCarWash.Scheduling.AppointmentTracker.broadcast_completed(record.id)
-        # Enqueue wash completed notification
+        # Enqueue wash completed notification (email + SMS)
         %{appointment_id: record.id}
         |> MobileCarWash.Notifications.WashCompletedWorker.new(queue: :notifications)
+        |> Oban.insert()
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.SMSWashCompletedWorker.new(queue: :notifications)
         |> Oban.insert()
         # Award loyalty punch for this customer
         MobileCarWash.Loyalty.add_punch(record.customer_id)

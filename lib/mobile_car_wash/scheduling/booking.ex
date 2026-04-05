@@ -99,10 +99,12 @@ defmodule MobileCarWash.Scheduling.Booking do
                 |> Ash.Changeset.for_update(:payment_confirm, %{})
                 |> Ash.update()
 
-              # Enqueue confirmation email
+              # Enqueue confirmation email + SMS
               enqueue_confirmation_email(appointment)
-              # Schedule reminder
+              enqueue_sms_confirmation(appointment)
+              # Schedule reminder email + SMS
               enqueue_appointment_reminder(appointment)
+              enqueue_sms_reminder(appointment)
               # Enqueue payment receipt
               enqueue_payment_receipt(payment)
               # Sync to external accounting system (ZohoBooks/QB)
@@ -327,7 +329,9 @@ defmodule MobileCarWash.Scheduling.Booking do
         |> Ash.update()
 
       enqueue_confirmation_email(appointment)
+      enqueue_sms_confirmation(appointment)
       enqueue_appointment_reminder(appointment)
+      enqueue_sms_reminder(appointment)
 
       {:ok, %{appointment: appointment, checkout_url: nil}}
     else
@@ -384,6 +388,23 @@ defmodule MobileCarWash.Scheduling.Booking do
 
     %{appointment_id: appointment.id}
     |> MobileCarWash.Notifications.AppointmentReminderWorker.new(
+      queue: :notifications,
+      scheduled_at: scheduled_at
+    )
+    |> Oban.insert()
+  end
+
+  defp enqueue_sms_confirmation(appointment) do
+    %{appointment_id: appointment.id}
+    |> MobileCarWash.Notifications.SMSBookingConfirmationWorker.new(queue: :notifications)
+    |> Oban.insert()
+  end
+
+  defp enqueue_sms_reminder(appointment) do
+    scheduled_at = DateTime.add(appointment.scheduled_at, -24 * 3600)
+
+    %{appointment_id: appointment.id}
+    |> MobileCarWash.Notifications.SMSAppointmentReminderWorker.new(
       queue: :notifications,
       scheduled_at: scheduled_at
     )

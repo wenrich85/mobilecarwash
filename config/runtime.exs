@@ -135,6 +135,14 @@ if config_env() == :prod do
     }
   end
 
+  # Twilio SMS (optional — SMS disabled if not set)
+  if System.get_env("TWILIO_ACCOUNT_SID") do
+    config :mobile_car_wash, :twilio,
+      account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
+      auth_token: System.get_env("TWILIO_AUTH_TOKEN"),
+      from_number: System.get_env("TWILIO_FROM_NUMBER")
+  end
+
   # Google Analytics (optional — only loads if set)
   if ga_id = System.get_env("GOOGLE_ANALYTICS_ID") do
     config :mobile_car_wash, :google_analytics_id, ga_id

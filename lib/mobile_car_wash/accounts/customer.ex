@@ -31,7 +31,7 @@ defmodule MobileCarWash.Accounts.Customer do
         identity_field :email
         hashed_password_field :hashed_password
 
-        register_action_accept [:name, :phone]
+        register_action_accept [:name, :phone, :sms_opt_in]
       end
     end
   end
@@ -108,6 +108,12 @@ defmodule MobileCarWash.Accounts.Customer do
       public? true
     end
 
+    attribute :sms_opt_in, :boolean do
+      default false
+      allow_nil? false
+      public? true
+    end
+
     attribute :hashed_password, :string do
       allow_nil? true
       sensitive? true
@@ -152,7 +158,7 @@ defmodule MobileCarWash.Accounts.Customer do
   end
 
   actions do
-    defaults [:read]
+    defaults [:read, update: :*]
 
     create :create_guest do
       @doc "Creates a lightweight guest customer — no password required"
