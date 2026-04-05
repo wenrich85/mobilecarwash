@@ -103,6 +103,7 @@ defmodule MobileCarWashWeb.Router do
       live "/appointments", AppointmentsLive
       live "/appointments/:id/status", AppointmentStatusLive
       live "/account/subscription", SubscriptionManageLive
+      live "/account/recurring", RecurringScheduleManageLive
     end
 
     # Photo serving — requires auth, controller checks appointment ownership

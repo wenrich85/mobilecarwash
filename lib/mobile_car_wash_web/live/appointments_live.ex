@@ -142,7 +142,12 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   def render(assigns) do
     ~H"""
     <div class="max-w-4xl mx-auto py-8 px-4">
-      <h1 class="text-3xl font-bold mb-6">My Appointments</h1>
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">My Appointments</h1>
+        <.link navigate={~p"/account/recurring"} class="btn btn-outline btn-sm">
+          Recurring Schedules
+        </.link>
+      </div>
 
       <!-- Loyalty Punch Card -->
       <div :if={@loyalty_card} class="card bg-base-100 shadow mb-6">

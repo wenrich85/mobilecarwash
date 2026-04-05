@@ -171,6 +171,10 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
             Book a Wash
           </.link>
 
+          <.link navigate={~p"/account/recurring"} class="btn btn-outline btn-block">
+            Manage Recurring Schedules
+          </.link>
+
           <button
             :if={@subscription.status == :active}
             class="btn btn-outline btn-block"
