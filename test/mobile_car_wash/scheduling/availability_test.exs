@@ -72,7 +72,9 @@ defmodule MobileCarWash.Scheduling.AvailabilityTest do
     end
 
     test "returns slots for Saturdays" do
-      saturday = ~D[2026-04-04]
+      # Use a future Saturday to avoid date-sensitivity
+      days_ahead = rem(6 - Date.day_of_week(Date.utc_today()) + 7, 7) + 7
+      saturday = Date.add(Date.utc_today(), days_ahead)
       slots = Availability.available_slots(saturday, 45, [])
       assert length(slots) > 0
     end
