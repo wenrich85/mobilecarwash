@@ -51,6 +51,10 @@ defmodule MobileCarWash.Scheduling.Appointment do
       public? true
     end
 
+    attribute :referral_code_used, :string do
+      public? true
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end

@@ -86,6 +86,10 @@ defmodule MobileCarWashWeb.BookingLive do
         # Loyalty punch card
         loyalty_card: load_loyalty_card(customer),
         redeem_loyalty: false,
+        # Referral
+        referral_code: nil,
+        referral_discount: 0,
+        referral_error: nil,
         # Timing
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
@@ -496,12 +500,36 @@ defmodule MobileCarWashWeb.BookingLive do
           </div>
         </div>
 
+        <!-- Referral code -->
+        <div :if={!@redeem_loyalty && !@active_subscription} class="alert mb-4">
+          <div :if={!@referral_code} class="w-full">
+            <form phx-submit="apply_referral" class="flex items-center gap-2">
+              <input
+                type="text"
+                name="code"
+                class="input input-bordered input-sm flex-1"
+                placeholder="Referral code"
+                maxlength="8"
+              />
+              <button type="submit" class="btn btn-sm btn-outline">Apply</button>
+            </form>
+            <p :if={@referral_error} class="text-error text-sm mt-1">{@referral_error}</p>
+          </div>
+          <div :if={@referral_code} class="flex items-center justify-between w-full">
+            <div>
+              <p class="font-semibold text-success">$10 referral discount applied!</p>
+              <p class="text-sm opacity-75">Code: {@referral_code}</p>
+            </div>
+            <button class="btn btn-sm btn-outline" phx-click="clear_referral">Remove</button>
+          </div>
+        </div>
+
         <% base_price = MobileCarWash.Billing.Pricing.calculate(@selected_service.base_price_cents, @selected_vehicle.size) %>
         <.booking_summary
           appointment={%{
             scheduled_at: @selected_slot,
-            price_cents: base_price,
-            discount_cents: if(@redeem_loyalty, do: base_price, else: 0)
+            price_cents: base_price - @referral_discount,
+            discount_cents: if(@redeem_loyalty, do: base_price, else: @referral_discount)
           }}
           service={@selected_service}
           vehicle={@selected_vehicle}
@@ -799,6 +827,29 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, assign(socket, redeem_loyalty: !socket.assigns.redeem_loyalty)}
   end
 
+  def handle_event("apply_referral", %{"code" => code}, socket) do
+    customer = socket.assigns.current_customer
+
+    if customer do
+      case MobileCarWash.Scheduling.Booking.validate_referral_code(String.trim(String.upcase(code)), customer.id) do
+        {:ok, _referrer} ->
+          {:noreply, assign(socket, referral_code: String.trim(String.upcase(code)), referral_discount: 1000, referral_error: nil)}
+
+        {:error, :self_referral} ->
+          {:noreply, assign(socket, referral_code: nil, referral_discount: 0, referral_error: "You can't use your own referral code")}
+
+        {:error, :not_found} ->
+          {:noreply, assign(socket, referral_code: nil, referral_discount: 0, referral_error: "Invalid referral code")}
+      end
+    else
+      {:noreply, assign(socket, referral_error: "Sign in to use a referral code")}
+    end
+  end
+
+  def handle_event("clear_referral", _params, socket) do
+    {:noreply, assign(socket, referral_code: nil, referral_discount: 0, referral_error: nil)}
+  end
+
   def handle_event("confirm_booking", _params, socket) do
     %{
       current_customer: customer,
@@ -815,7 +866,8 @@ defmodule MobileCarWashWeb.BookingLive do
       address_id: address.id,
       scheduled_at: slot,
       subscription_id: socket.assigns.active_subscription && socket.assigns.active_subscription.id,
-      loyalty_redeem: socket.assigns.redeem_loyalty
+      loyalty_redeem: socket.assigns.redeem_loyalty,
+      referral_code: socket.assigns.referral_code
     }
 
     case Booking.create_booking(booking_params) do

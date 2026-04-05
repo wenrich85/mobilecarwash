@@ -34,6 +34,12 @@ defmodule MobileCarWash.Notifications.SMS do
       "Thanks for choosing us. We'd love a review at drivewaydetailcosa.com"
   end
 
+  @doc "Referral credit earned SMS"
+  def referral_credit(referrer, referee_name) do
+    "Driveway Detail Co: You earned $10! #{referee_name} used your referral code. " <>
+      "Your credit will be applied to your next booking. Thanks, #{referrer.name}!"
+  end
+
   @doc "Post-wash review request SMS"
   def review_request(customer) do
     "Hi #{customer.name}! Thanks for choosing Driveway Detail Co. " <>

@@ -49,6 +49,7 @@ defmodule MobileCarWash.Scheduling.Booking do
              {:ok, price_cents, discount_cents} <- calculate_price(service_type, vehicle.size, params[:subscription_id]),
              {price_cents, discount_cents} = apply_loyalty_discount(price_cents, discount_cents, params[:loyalty_redeem]),
              :ok <- maybe_redeem_loyalty(params[:loyalty_redeem], params.customer_id),
+             {price_cents, discount_cents} = maybe_apply_referral(price_cents, discount_cents, params[:referral_code]),
              {:ok, appointment} <- create_appointment(params, service_type, price_cents, discount_cents),
              :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
              {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
@@ -111,6 +112,8 @@ defmodule MobileCarWash.Scheduling.Booking do
               enqueue_accounting_sync(payment)
               # Record income in local cash flow ledger
               record_payment_in_cash_flow(payment, appointment)
+              # Credit referrer if a referral code was used
+              enqueue_referral_credit(appointment)
 
               {:ok, %{payment: payment, appointment: appointment}}
 
@@ -260,20 +263,33 @@ defmodule MobileCarWash.Scheduling.Booking do
     end
   end
 
+  defp maybe_apply_referral(price_cents, discount_cents, nil), do: {price_cents, discount_cents}
+  defp maybe_apply_referral(price_cents, discount_cents, ""), do: {price_cents, discount_cents}
+  defp maybe_apply_referral(price_cents, discount_cents, _code), do: apply_referral_discount(price_cents, discount_cents)
+
   defp create_appointment(params, service_type, price_cents, discount_cents) do
-    Appointment
-    |> Ash.Changeset.for_create(:book, %{
-      customer_id: params.customer_id,
-      vehicle_id: params.vehicle_id,
-      address_id: params.address_id,
-      service_type_id: params.service_type_id,
-      scheduled_at: params.scheduled_at,
-      notes: params[:notes],
-      price_cents: price_cents,
-      duration_minutes: service_type.duration_minutes,
-      discount_cents: discount_cents
-    })
-    |> Ash.create()
+    changeset =
+      Appointment
+      |> Ash.Changeset.for_create(:book, %{
+        customer_id: params.customer_id,
+        vehicle_id: params.vehicle_id,
+        address_id: params.address_id,
+        service_type_id: params.service_type_id,
+        scheduled_at: params.scheduled_at,
+        notes: params[:notes],
+        price_cents: price_cents,
+        duration_minutes: service_type.duration_minutes,
+        discount_cents: discount_cents
+      })
+
+    changeset =
+      if params[:referral_code] do
+        Ash.Changeset.force_change_attribute(changeset, :referral_code_used, params[:referral_code])
+      else
+        changeset
+      end
+
+    Ash.create(changeset)
   end
 
   defp maybe_update_subscription_usage(nil, _service_type), do: :ok
@@ -415,6 +431,39 @@ defmodule MobileCarWash.Scheduling.Booking do
     %{payment_id: payment.id}
     |> MobileCarWash.Notifications.PaymentReceiptWorker.new(queue: :notifications)
     |> Oban.insert()
+  end
+
+  @referral_discount_cents 1000
+
+  @doc "Validates a referral code. Returns {:ok, referrer} or {:error, reason}."
+  def validate_referral_code(code, customer_id) do
+    case MobileCarWash.Accounts.Customer
+         |> Ash.Query.for_read(:by_referral_code, %{referral_code: code})
+         |> Ash.read!(authorize?: false) do
+      [referrer] ->
+        if referrer.id == customer_id do
+          {:error, :self_referral}
+        else
+          {:ok, referrer}
+        end
+
+      [] ->
+        {:error, :not_found}
+    end
+  end
+
+  @doc "Applies $10 referral discount. Returns {new_price, new_discount}."
+  def apply_referral_discount(price_cents, existing_discount_cents) do
+    discount = min(@referral_discount_cents, price_cents)
+    {price_cents - discount, existing_discount_cents + discount}
+  end
+
+  defp enqueue_referral_credit(appointment) do
+    if appointment.referral_code_used do
+      %{referral_code: appointment.referral_code_used, referee_name: "a new customer"}
+      |> MobileCarWash.Notifications.ReferralCreditWorker.new(queue: :notifications)
+      |> Oban.insert()
+    end
   end
 
   defp enqueue_accounting_sync(payment) do

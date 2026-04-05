@@ -63,6 +63,10 @@ defmodule MobileCarWash.Accounts.Customer do
       authorize_if always()
     end
 
+    bypass action(:by_referral_code) do
+      authorize_if always()
+    end
+
     # Customers can read and update their own record; admins can read/update anyone
     policy action_type(:read) do
       authorize_if expr(id == ^actor(:id))
@@ -114,6 +118,16 @@ defmodule MobileCarWash.Accounts.Customer do
       public? true
     end
 
+    attribute :referral_code, :string do
+      public? true
+    end
+
+    attribute :referral_credit_cents, :integer do
+      default 0
+      allow_nil? false
+      public? true
+    end
+
     attribute :hashed_password, :string do
       allow_nil? true
       sensitive? true
@@ -123,8 +137,13 @@ defmodule MobileCarWash.Accounts.Customer do
     update_timestamp :updated_at
   end
 
+  relationships do
+    belongs_to :referred_by, __MODULE__, allow_nil?: true
+  end
+
   identities do
     identity :unique_email, [:email]
+    identity :unique_referral_code, [:referral_code]
   end
 
   validations do
@@ -170,5 +189,26 @@ defmodule MobileCarWash.Accounts.Customer do
       argument :email, :ci_string, allow_nil?: false
       filter expr(email == ^arg(:email))
     end
+
+    read :by_referral_code do
+      argument :referral_code, :string, allow_nil?: false
+      filter expr(referral_code == ^arg(:referral_code))
+    end
+  end
+
+  changes do
+    change fn changeset, _context ->
+      if changeset.action.type == :create && !Ash.Changeset.get_attribute(changeset, :referral_code) do
+        Ash.Changeset.force_change_attribute(changeset, :referral_code, generate_referral_code())
+      else
+        changeset
+      end
+    end, on: [:create]
+  end
+
+  defp generate_referral_code do
+    :crypto.strong_rand_bytes(5)
+    |> Base.encode32(padding: false)
+    |> String.slice(0, 8)
   end
 end
