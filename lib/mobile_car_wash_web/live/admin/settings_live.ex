@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Scheduling.ServiceType
+  alias MobileCarWash.Scheduling.{ServiceType, BlockedDate}
   alias MobileCarWash.Billing.SubscriptionPlan
   alias MobileCarWash.CatalogBroadcaster
 
@@ -19,7 +19,8 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
        services: load_services(),
        plans: load_plans(),
        editing_service: nil,
-       editing_plan: nil
+       editing_plan: nil,
+       blocked_dates: load_blocked_dates()
      )}
   end
 
@@ -164,6 +165,43 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
     end
   end
 
+  # === Blocked Dates ===
+
+  def handle_event("add_blocked_date", %{"blocked" => params}, socket) do
+    case Date.from_iso8601(params["date"] || "") do
+      {:ok, date} ->
+        case BlockedDate
+             |> Ash.Changeset.for_create(:create, %{date: date, reason: params["reason"]})
+             |> Ash.create() do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> assign(blocked_dates: load_blocked_dates())
+             |> put_flash(:info, "Date blocked: #{date}")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Could not block date (may already be blocked)")}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Invalid date")}
+    end
+  end
+
+  def handle_event("remove_blocked_date", %{"id" => id}, socket) do
+    case Ash.get(BlockedDate, id) do
+      {:ok, blocked} ->
+        Ash.destroy!(blocked)
+        {:noreply,
+         socket
+         |> assign(blocked_dates: load_blocked_dates())
+         |> put_flash(:info, "Date unblocked")}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -175,6 +213,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
       <div class="tabs tabs-boxed mb-8">
         <button class={["tab", @tab == :services && "tab-active"]} phx-click="switch_tab" phx-value-tab="services">Services</button>
         <button class={["tab", @tab == :plans && "tab-active"]} phx-click="switch_tab" phx-value-tab="plans">Membership Plans</button>
+        <button class={["tab", @tab == :blocked_dates && "tab-active"]} phx-click="switch_tab" phx-value-tab="blocked_dates">Blocked Dates</button>
         <button class={["tab", @tab == :accounting && "tab-active"]} phx-click="switch_tab" phx-value-tab="accounting">Accounting</button>
       </div>
 
@@ -371,6 +410,62 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
         </div>
       </div>
 
+      <!-- Blocked Dates Tab -->
+      <div :if={@tab == :blocked_dates}>
+        <div class="card bg-base-100 shadow mb-6">
+          <div class="card-body p-4">
+            <h3 class="font-bold mb-3">Block a Date</h3>
+            <p class="text-sm text-base-content/60 mb-3">
+              Blocked dates won't have available slots. Customers can't book and recurring schedules will skip them.
+            </p>
+            <form phx-submit="add_blocked_date" class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <div class="form-control">
+                <label class="label label-text text-xs">Date</label>
+                <input type="date" name="blocked[date]" class="input input-bordered input-sm" required />
+              </div>
+              <div class="form-control">
+                <label class="label label-text text-xs">Reason (optional)</label>
+                <input type="text" name="blocked[reason]" class="input input-bordered input-sm" placeholder="Holiday, vacation, etc." />
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Block Date</button>
+            </form>
+          </div>
+        </div>
+
+        <div :if={@blocked_dates == []} class="text-center py-8 text-base-content/50">
+          No dates blocked
+        </div>
+
+        <div class="overflow-x-auto">
+          <table :if={@blocked_dates != []} class="table table-sm">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Day</th>
+                <th>Reason</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={bd <- @blocked_dates}>
+                <td>{Calendar.strftime(bd.date, "%b %-d, %Y")}</td>
+                <td>{Calendar.strftime(bd.date, "%A")}</td>
+                <td class="text-base-content/60">{bd.reason || "—"}</td>
+                <td>
+                  <button
+                    class="btn btn-ghost btn-xs text-error"
+                    phx-click="remove_blocked_date"
+                    phx-value-id={bd.id}
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Accounting Tab -->
       <div :if={@tab == :accounting}>
         <div class="card bg-base-100 shadow">
@@ -445,6 +540,10 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
 
   defp is_quickbooks_configured do
     Application.get_env(:mobile_car_wash, :accounting_provider) == MobileCarWash.Accounting.QuickBooks
+  end
+
+  defp load_blocked_dates do
+    BlockedDate |> Ash.Query.sort(date: :asc) |> Ash.read!()
   end
 
   defp load_services do

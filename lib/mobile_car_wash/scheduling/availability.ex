@@ -54,6 +54,9 @@ defmodule MobileCarWash.Scheduling.Availability do
       past_date?(date) ->
         []
 
+      blocked_date?(date) ->
+        []
+
       true ->
         generate_slots(date, duration_minutes, existing_appointments, timezone, open_time, close_time, buffer)
     end
@@ -75,6 +78,7 @@ defmodule MobileCarWash.Scheduling.Availability do
     cond do
       closed_day?(date) -> false
       past_date?(date) -> false
+      blocked_date?(date) -> false
       Time.compare(time, open_time) == :lt -> false
       Time.compare(end_time, close_time) == :gt -> false
       conflicts?(datetime, duration_minutes, existing_appointments, buffer) -> false
@@ -133,6 +137,14 @@ defmodule MobileCarWash.Scheduling.Availability do
 
   defp closed_day?(date) do
     Date.day_of_week(date) in @closed_days
+  end
+
+  defp blocked_date?(date) do
+    try do
+      MobileCarWash.Scheduling.BlockedDate.blocked?(date)
+    rescue
+      _ -> false
+    end
   end
 
   defp past_date?(date) do
