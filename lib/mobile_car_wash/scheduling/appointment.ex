@@ -165,6 +165,13 @@ defmodule MobileCarWash.Scheduling.Appointment do
         %{appointment_id: record.id}
         |> MobileCarWash.Notifications.SMSWashCompletedWorker.new(queue: :notifications)
         |> Oban.insert()
+        # Request a review 2 hours after completion
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.SMSReviewRequestWorker.new(
+          queue: :notifications,
+          scheduled_at: DateTime.add(DateTime.utc_now(), 2 * 3600)
+        )
+        |> Oban.insert()
         # Award loyalty punch for this customer
         MobileCarWash.Loyalty.add_punch(record.customer_id)
         {:ok, record}

@@ -57,4 +57,14 @@ defmodule MobileCarWash.Notifications.SMSTest do
       assert is_binary(msg)
     end
   end
+
+  describe "review_request/1" do
+    test "includes review prompt and link" do
+      msg = SMS.review_request(%{name: "Jane"})
+
+      assert msg =~ "Jane"
+      assert msg =~ "review"
+      assert is_binary(msg)
+    end
+  end
 end

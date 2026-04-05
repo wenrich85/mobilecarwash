@@ -34,6 +34,12 @@ defmodule MobileCarWash.Notifications.SMS do
       "Thanks for choosing us. We'd love a review at drivewaydetailcosa.com"
   end
 
+  @doc "Post-wash review request SMS"
+  def review_request(customer) do
+    "Hi #{customer.name}! Thanks for choosing Driveway Detail Co. " <>
+      "We'd love your review: g.page/r/drivewaydetailcosa/review"
+  end
+
   defp format_time(datetime) do
     Calendar.strftime(datetime, "%-I:%M %p")
   end
