@@ -42,7 +42,9 @@ config :mobile_car_wash, Oban,
        # Every hour — clean up expired booking sessions
        {"0 * * * *", MobileCarWash.Booking.SessionCleanupWorker},
        # Daily at 2am — delete photos older than the retention period
-       {"0 2 * * *", MobileCarWash.Operations.PhotoCleanupWorker}
+       {"0 2 * * *", MobileCarWash.Operations.PhotoCleanupWorker},
+       # Daily at 6am — create appointments from recurring schedules
+       {"0 6 * * *", MobileCarWash.Scheduling.RecurringAppointmentScheduler}
      ]}
   ]
 

@@ -76,6 +76,11 @@ defmodule MobileCarWash.Scheduling.Appointment do
     belongs_to :technician, MobileCarWash.Operations.Technician do
       allow_nil? true
     end
+
+    # Links to the recurring schedule that auto-created this appointment
+    belongs_to :recurring_schedule, MobileCarWash.Scheduling.RecurringSchedule do
+      allow_nil? true
+    end
   end
 
   actions do

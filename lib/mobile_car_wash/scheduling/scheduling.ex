@@ -7,5 +7,6 @@ defmodule MobileCarWash.Scheduling do
   resources do
     resource MobileCarWash.Scheduling.ServiceType
     resource MobileCarWash.Scheduling.Appointment
+    resource MobileCarWash.Scheduling.RecurringSchedule
   end
 end
