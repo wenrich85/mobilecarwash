@@ -66,4 +66,4 @@ ENV PHX_SERVER=true
 
 EXPOSE 8080
 
-CMD ["bin/mobile_car_wash", "start"]
+CMD ["sh", "-c", "bin/mobile_car_wash eval 'MobileCarWash.Release.migrate()' && bin/mobile_car_wash start"]
