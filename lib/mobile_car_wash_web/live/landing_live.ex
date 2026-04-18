@@ -67,7 +67,7 @@ defmodule MobileCarWashWeb.LandingLive do
   def render(assigns) do
     ~H"""
     <!-- Structured Data for Google -->
-    <script type="application/ld+json">
+    <script type="application/ld+json" nonce={@csp_nonce}>
     {
       "@context": "https://schema.org",
       "@type": "AutoWash",

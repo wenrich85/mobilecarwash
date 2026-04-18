@@ -3,15 +3,6 @@ defmodule MobileCarWashWeb.Router do
   use AshAuthentication.Phoenix.Router
 
   @ws_connect if Application.compile_env(:mobile_car_wash, :dev_routes), do: "ws://localhost:*", else: ""
-  @csp_policy [
-    "default-src 'self'",
-    "script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://unpkg.com",
-    "style-src 'self' 'unsafe-inline' https://unpkg.com",
-    "img-src 'self' data: https: http://*.tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://tiles.stadiamaps.com",
-    "font-src 'self'",
-    "connect-src 'self' wss: #{@ws_connect} https://www.google-analytics.com https://analytics.google.com",
-    "frame-ancestors 'none'"
-  ] |> Enum.join("; ")
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -19,23 +10,53 @@ defmodule MobileCarWashWeb.Router do
     plug :fetch_live_flash
     plug :put_root_layout, html: {MobileCarWashWeb.Layouts, :root}
     plug :protect_from_forgery
-    plug :put_secure_browser_headers, %{
-      "content-security-policy" => @csp_policy,
-      "x-content-type-options" => "nosniff",
-      "x-xss-protection" => "1; mode=block",
-      "referrer-policy" => "strict-origin-when-cross-origin",
-      "permissions-policy" => "geolocation=(), microphone=(), camera=()"
-    }
-    plug :put_hsts_header
+    plug MobileCarWashWeb.Plugs.CspNonce
+    plug :put_security_headers
     plug :load_from_session
+  end
+
+  # Nonce + 'strict-dynamic' replaces host allowlists in script-src so
+  # scripts loaded by trusted (nonce-tagged) code inherit trust — fixes
+  # Lighthouse's "Weak CSP" host-allowlist bypass warning while still
+  # permitting GTM, which is now loaded dynamically by ga-init.js.
+  defp put_security_headers(conn, _opts) do
+    nonce = conn.assigns.csp_nonce
+
+    csp =
+      [
+        "default-src 'self'",
+        "script-src 'self' 'nonce-#{nonce}' 'strict-dynamic' https: http:",
+        "style-src 'self' 'unsafe-inline' https://unpkg.com",
+        "img-src 'self' data: https: http://*.tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://tiles.stadiamaps.com",
+        "font-src 'self'",
+        "connect-src 'self' wss: #{@ws_connect} https://www.google-analytics.com https://analytics.google.com",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "object-src 'none'"
+      ]
+      |> Enum.join("; ")
+
+    conn
+    |> put_resp_header("content-security-policy", csp)
+    |> put_resp_header("x-content-type-options", "nosniff")
+    |> put_resp_header("x-xss-protection", "1; mode=block")
+    |> put_resp_header("referrer-policy", "strict-origin-when-cross-origin")
+    |> put_resp_header("permissions-policy", "geolocation=(), microphone=(), camera=()")
+    |> put_resp_header("cross-origin-opener-policy", "same-origin")
+    |> put_hsts_header()
   end
 
   # Add HSTS header in production only (evaluated at compile time — Mix not available in releases)
   @is_prod Application.compile_env(:mobile_car_wash, :env, :prod) == :prod
 
-  defp put_hsts_header(conn, _opts) do
+  defp put_hsts_header(conn) do
     if @is_prod do
-      put_resp_header(conn, "strict-transport-security", "max-age=31536000; includeSubDomains")
+      put_resp_header(
+        conn,
+        "strict-transport-security",
+        "max-age=63072000; includeSubDomains; preload"
+      )
     else
       conn
     end
@@ -70,7 +91,11 @@ defmodule MobileCarWashWeb.Router do
     pipe_through :browser
 
     # LiveView pages with optional auth
-    live_session :public, on_mount: {MobileCarWashWeb.LiveAuth, :maybe_load_customer} do
+    live_session :public,
+      on_mount: [
+        MobileCarWashWeb.AssignCspNonce,
+        {MobileCarWashWeb.LiveAuth, :maybe_load_customer}
+      ] do
       live "/", LandingLive
       live "/book", BookingLive
       live "/book/success", BookingSuccessLive
@@ -86,7 +111,10 @@ defmodule MobileCarWashWeb.Router do
     sign_in_route(
       auth_routes_prefix: "/auth",
       overrides: [MobileCarWashWeb.AuthOverrides, AshAuthentication.Phoenix.Overrides.Default],
-      on_mount: [{MobileCarWashWeb.SignInRateLimit, :limit_sign_in}]
+      on_mount: [
+        MobileCarWashWeb.AssignCspNonce,
+        {MobileCarWashWeb.SignInRateLimit, :limit_sign_in}
+      ]
     )
     sign_out_route AuthController
     auth_routes(AuthController, MobileCarWash.Accounts.Customer, auth_routes_prefix: "/auth")
@@ -98,6 +126,7 @@ defmodule MobileCarWashWeb.Router do
 
     live_session :authenticated,
       on_mount: [
+        MobileCarWashWeb.AssignCspNonce,
         {MobileCarWashWeb.LiveAuth, :require_customer},
         {MobileCarWashWeb.TrackPresence, :track}
       ] do
@@ -117,6 +146,7 @@ defmodule MobileCarWashWeb.Router do
 
     live_session :technician,
       on_mount: [
+        MobileCarWashWeb.AssignCspNonce,
         {MobileCarWashWeb.LiveAuth, :require_technician},
         {MobileCarWashWeb.TrackPresence, :track}
       ] do
@@ -131,6 +161,7 @@ defmodule MobileCarWashWeb.Router do
 
     live_session :admin,
       on_mount: [
+        MobileCarWashWeb.AssignCspNonce,
         {MobileCarWashWeb.AdminAuth, :require_admin},
         {MobileCarWashWeb.TrackPresence, :track}
       ] do

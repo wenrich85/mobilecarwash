@@ -41,11 +41,11 @@
     </.live_title>
     <link phx-track-static rel="preload" as="style" href={~p"/assets/css/app.css"} />
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    <script defer phx-track-static type="text/javascript" nonce={@conn.assigns.csp_nonce} src={~p"/assets/js/app.js"}>
     </script>
     <%= if ga_id = Application.get_env(:mobile_car_wash, :google_analytics_id) do %>
       <meta name="ga-id" content={ga_id} />
-      <script defer src={~p"/assets/js/ga-init.js"}></script>
+      <script defer nonce={@conn.assigns.csp_nonce} src={~p"/assets/js/ga-init.js"}></script>
     <% end %>
   </head>
   <body>
