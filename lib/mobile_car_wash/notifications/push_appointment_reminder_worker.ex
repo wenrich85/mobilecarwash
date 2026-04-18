@@ -1,8 +1,8 @@
-defmodule MobileCarWash.Notifications.PushBookingConfirmationWorker do
+defmodule MobileCarWash.Notifications.PushAppointmentReminderWorker do
   @moduledoc """
-  Oban worker that sends an APNs push notification for a confirmed booking.
-  Mirrors `SMSBookingConfirmationWorker` — same queue, same trigger sites
-  in `Scheduling.Booking.complete_payment/2`.
+  24-hour appointment reminder push. Enqueued alongside the SMS reminder in
+  `Scheduling.Booking` after a booking is paid, scheduled 24h before the
+  appointment.
   """
   use Oban.Worker, queue: :notifications, max_attempts: 3
 
@@ -18,11 +18,11 @@ defmodule MobileCarWash.Notifications.PushBookingConfirmationWorker do
          {:ok, service_type} <-
            Ash.get(ServiceType, appointment.service_type_id, authorize?: false),
          {:ok, address} <- Ash.get(Address, appointment.address_id, authorize?: false) do
-      Push.booking_confirmation(appointment, service_type, address)
+      Push.appointment_reminder(appointment, service_type, address)
       |> then(&Push.send_to_customer(appointment.customer_id, &1))
     else
       {:error, reason} ->
-        Logger.error("Push booking confirmation data load failed: #{inspect(reason)}")
+        Logger.error("Push appointment reminder data load failed: #{inspect(reason)}")
         :ok
     end
   end

@@ -1,8 +1,8 @@
-defmodule MobileCarWash.Notifications.PushBookingConfirmationWorker do
+defmodule MobileCarWash.Notifications.PushBlockScheduledWorker do
   @moduledoc """
-  Oban worker that sends an APNs push notification for a confirmed booking.
-  Mirrors `SMSBookingConfirmationWorker` — same queue, same trigger sites
-  in `Scheduling.Booking.complete_payment/2`.
+  Arrival-window-confirmed push. Enqueued by `Scheduling.BlockOptimizer`
+  after the route optimizer assigns a specific arrival time inside the
+  customer's booked block.
   """
   use Oban.Worker, queue: :notifications, max_attempts: 3
 
@@ -18,11 +18,11 @@ defmodule MobileCarWash.Notifications.PushBookingConfirmationWorker do
          {:ok, service_type} <-
            Ash.get(ServiceType, appointment.service_type_id, authorize?: false),
          {:ok, address} <- Ash.get(Address, appointment.address_id, authorize?: false) do
-      Push.booking_confirmation(appointment, service_type, address)
+      Push.block_scheduled(appointment, service_type, address)
       |> then(&Push.send_to_customer(appointment.customer_id, &1))
     else
       {:error, reason} ->
-        Logger.error("Push booking confirmation data load failed: #{inspect(reason)}")
+        Logger.error("Push block scheduled data load failed: #{inspect(reason)}")
         :ok
     end
   end

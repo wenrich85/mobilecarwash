@@ -13,7 +13,7 @@ defmodule MobileCarWash.Scheduling.BlockOptimizer do
   alias MobileCarWash.Fleet.Address
   alias MobileCarWash.Operations.ShopConfig
   alias MobileCarWash.Routing.Haversine
-  alias MobileCarWash.Notifications.SMSBlockScheduledWorker
+  alias MobileCarWash.Notifications.{PushBlockScheduledWorker, SMSBlockScheduledWorker}
   alias MobileCarWash.Zones
 
   require Ash.Query
@@ -120,6 +120,10 @@ defmodule MobileCarWash.Scheduling.BlockOptimizer do
     Enum.each(appointments, fn appt ->
       %{appointment_id: appt.id}
       |> SMSBlockScheduledWorker.new(queue: :notifications)
+      |> Oban.insert()
+
+      %{appointment_id: appt.id}
+      |> PushBlockScheduledWorker.new(queue: :notifications)
       |> Oban.insert()
     end)
   end
