@@ -87,6 +87,10 @@ defmodule MobileCarWash.MixProject do
       # Background jobs
       {:oban, "~> 2.21"},
 
+      # Push notifications (APNs / FCM)
+      {:pigeon, "~> 2.0"},
+      {:kadabra, "~> 0.6"},
+
       # Security
       {:hammer, "~> 7.2"},
       {:cloak_ecto, "~> 1.3"},

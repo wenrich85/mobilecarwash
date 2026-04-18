@@ -148,6 +148,21 @@ if config_env() == :prod do
       from_number: System.get_env("TWILIO_FROM_NUMBER")
   end
 
+  # APNs push notifications (optional — disabled if not set). Requires
+  # APNS_TEAM_ID, APNS_KEY_ID, APNS_P8_KEY, and APNS_TOPIC at minimum.
+  # APNS_ENV defaults to "prod" in production; set to "dev" for Xcode
+  # debug builds pointed at sandbox.apns.apple.com.
+  if System.get_env("APNS_TEAM_ID") do
+    config :mobile_car_wash, :push_enabled, true
+
+    config :mobile_car_wash, :apns,
+      team_id: System.get_env("APNS_TEAM_ID"),
+      key_id: System.get_env("APNS_KEY_ID"),
+      key: System.get_env("APNS_P8_KEY"),
+      topic: System.get_env("APNS_TOPIC") || "com.wendellrichards.DrivewayDetailCo",
+      env: String.to_atom(System.get_env("APNS_ENV") || "prod")
+  end
+
   # Mailer — Zoho SMTP (swap relay/port/credentials for any SMTP provider)
   config :mobile_car_wash, MobileCarWash.Mailer,
     adapter: Swoosh.Adapters.SMTP,

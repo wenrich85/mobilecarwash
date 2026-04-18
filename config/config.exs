@@ -123,6 +123,21 @@ config :mobile_car_wash, :twilio,
   auth_token: nil,
   from_number: nil
 
+# APNs push notifications — dev/test defaults (no-ops). Production set in
+# runtime.exs. Delivery is additionally gated by :push_enabled so a
+# half-configured staging env never accidentally blasts users.
+config :mobile_car_wash, :push_enabled, false
+
+config :mobile_car_wash, :apns,
+  team_id: nil,
+  key_id: nil,
+  key: nil,
+  topic: "com.wendellrichards.DrivewayDetailCo",
+  env: :dev
+
+# Swap this out in config/test.exs to route all push sends to the ETS mock.
+config :mobile_car_wash, :apns_client, MobileCarWash.Notifications.ApnsClient
+
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 

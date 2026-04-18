@@ -35,6 +35,9 @@ config :mobile_car_wash, :token_signing_secret, "test-only-secret-change-in-prod
 # Use mock Twilio client in tests
 config :mobile_car_wash, :twilio_client, MobileCarWash.Notifications.TwilioClientMock
 
+# Use mock APNs client in tests
+config :mobile_car_wash, :apns_client, MobileCarWash.Notifications.ApnsClientMock
+
 # Use mock Stripe Product/Price modules in tests so ServiceType/SubscriptionPlan
 # CRUD doesn't hit the live Stripe API.
 config :mobile_car_wash, :stripe_product_module, MobileCarWash.Billing.StripeProductMock

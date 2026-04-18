@@ -125,9 +125,10 @@ defmodule MobileCarWash.Scheduling.Booking do
                 |> Ash.Changeset.for_update(:payment_confirm, %{})
                 |> Ash.update()
 
-              # Enqueue confirmation email + SMS
+              # Enqueue confirmation email + SMS + push
               enqueue_confirmation_email(appointment)
               enqueue_sms_confirmation(appointment)
+              enqueue_push_confirmation(appointment)
               # Schedule reminder email + SMS
               enqueue_appointment_reminder(appointment)
               enqueue_sms_reminder(appointment)
@@ -418,6 +419,7 @@ defmodule MobileCarWash.Scheduling.Booking do
 
         enqueue_confirmation_email(appointment)
         enqueue_sms_confirmation(appointment)
+        enqueue_push_confirmation(appointment)
         enqueue_appointment_reminder(appointment)
         enqueue_sms_reminder(appointment)
 
@@ -524,6 +526,12 @@ defmodule MobileCarWash.Scheduling.Booking do
   defp enqueue_sms_confirmation(appointment) do
     %{appointment_id: appointment.id}
     |> MobileCarWash.Notifications.SMSBookingConfirmationWorker.new(queue: :notifications)
+    |> Oban.insert()
+  end
+
+  defp enqueue_push_confirmation(appointment) do
+    %{appointment_id: appointment.id}
+    |> MobileCarWash.Notifications.PushBookingConfirmationWorker.new(queue: :notifications)
     |> Oban.insert()
   end
 
