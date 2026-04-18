@@ -21,7 +21,8 @@ config :mobile_car_wash,
     MobileCarWash.Compliance,
     MobileCarWash.CashFlow,
     MobileCarWash.Loyalty,
-    MobileCarWash.Inventory
+    MobileCarWash.Inventory,
+    MobileCarWash.Notifications
   ]
 
 # Oban background job configuration

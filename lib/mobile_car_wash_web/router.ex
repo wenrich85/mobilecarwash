@@ -214,6 +214,10 @@ defmodule MobileCarWashWeb.Router do
     post "/subscriptions/:id/pause", SubscriptionsController, :pause
     post "/subscriptions/:id/resume", SubscriptionsController, :resume
     post "/subscriptions/:id/cancel", SubscriptionsController, :cancel
+
+    # Push notification device tokens (iOS + Android)
+    post "/device_tokens", DeviceTokensController, :create
+    delete "/device_tokens/:id", DeviceTokensController, :delete
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

@@ -68,8 +68,9 @@ defmodule MobileCarWashWeb.Api.V1.AuthController do
       nil ->
         conn |> put_status(:unauthorized) |> json(%{error: "unauthorized"})
 
-      _customer ->
+      customer ->
         revoke_bearer_token(conn)
+        deactivate_device_tokens(customer)
         json(conn, %{ok: true})
     end
   end
@@ -102,5 +103,23 @@ defmodule MobileCarWashWeb.Api.V1.AuthController do
       _ ->
         :ok
     end
+  end
+
+  # Backstop in case the iOS client fails to call DELETE /device_tokens/:id
+  # before clearing its JWT — stops further pushes from reaching a device
+  # the customer no longer controls.
+  defp deactivate_device_tokens(customer) do
+    require Ash.Query
+
+    MobileCarWash.Notifications.DeviceToken
+    |> Ash.Query.filter(customer_id == ^customer.id and active == true)
+    |> Ash.read!(authorize?: false)
+    |> Enum.each(fn token ->
+      token
+      |> Ash.Changeset.for_update(:deactivate, %{})
+      |> Ash.update(authorize?: false)
+    end)
+
+    :ok
   end
 end

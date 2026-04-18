@@ -137,5 +137,41 @@ defmodule MobileCarWashWeb.Api.V1.AuthControllerTest do
 
       assert json_response(conn, 200) == %{"ok" => true}
     end
+
+    test "deactivates all device tokens belonging to the signed-in customer",
+         %{conn: conn} do
+      require Ash.Query
+
+      email = "signout-dt-#{:rand.uniform(100_000)}@example.com"
+      customer = create_customer(email)
+
+      # Register two active device tokens for this customer.
+      for tok <- ["ios-token-a", "ios-token-b"] do
+        MobileCarWash.Notifications.DeviceToken
+        |> Ash.Changeset.for_create(
+          :register,
+          %{token: tok, customer_id: customer.id},
+          actor: customer
+        )
+        |> Ash.create(actor: customer)
+      end
+
+      signin =
+        post(conn, ~p"/api/v1/auth/sign_in", %{email: email, password: "Password123!"})
+
+      jwt = json_response(signin, 200)["token"]
+
+      build_conn()
+      |> put_req_header("authorization", "Bearer #{jwt}")
+      |> post(~p"/api/v1/auth/sign_out")
+
+      {:ok, rows} =
+        MobileCarWash.Notifications.DeviceToken
+        |> Ash.Query.filter(customer_id == ^customer.id)
+        |> Ash.read(authorize?: false)
+
+      assert length(rows) == 2
+      assert Enum.all?(rows, &(&1.active == false))
+    end
   end
 end
