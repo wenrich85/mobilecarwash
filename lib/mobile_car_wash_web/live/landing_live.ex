@@ -116,7 +116,7 @@ defmodule MobileCarWashWeb.LandingLive do
 
       <div class="hero-content text-center relative z-10">
         <div class="max-w-2xl">
-          <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-12 mx-auto mb-6" />
+          <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="288" height="48" fetchpriority="high" decoding="async" class="h-12 w-auto mx-auto mb-6" />
           <h1 class="text-5xl font-bold leading-tight">Professional Detailing <br />at Your Door</h1>
           <p class="text-tertiary-200 font-medium tracking-wide uppercase text-sm mt-4">Veteran-Owned &amp; Operated</p>
           <p class="py-6 text-lg text-primary-200">
@@ -236,7 +236,7 @@ defmodule MobileCarWashWeb.LandingLive do
     <!-- Veteran Badge -->
     <section class="py-16 px-4 bg-primary-700 text-white">
       <div class="max-w-2xl mx-auto text-center">
-        <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-10 mx-auto mb-4 opacity-80" />
+        <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="240" height="40" loading="lazy" decoding="async" class="h-10 w-auto mx-auto mb-4 opacity-80" />
         <p class="text-xl font-semibold">
           Proudly veteran-owned and operated
         </p>

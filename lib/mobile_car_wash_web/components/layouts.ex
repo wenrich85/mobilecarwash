@@ -69,8 +69,8 @@ defmodule MobileCarWashWeb.Layouts do
           <!-- Brand -->
           <div class="flex-1">
             <a href="/" class="btn btn-ghost h-auto py-1 px-2">
-              <img src="/images/logo_light.svg" alt="Driveway Detail Co" class="h-9 dark:hidden" />
-              <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-9 hidden dark:block" />
+              <img src="/images/logo_light.svg" alt="Driveway Detail Co" width="216" height="36" class="h-9 w-auto dark:hidden" />
+              <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="216" height="36" class="h-9 w-auto hidden dark:block" />
             </a>
           </div>
 
@@ -118,8 +118,8 @@ defmodule MobileCarWashWeb.Layouts do
           <div class="max-w-7xl mx-auto px-4 py-12">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
-                <img src="/images/logo_light.svg" alt="Driveway Detail Co" class="h-8 mb-3 dark:hidden" />
-                <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-8 mb-3 hidden dark:block" />
+                <img src="/images/logo_light.svg" alt="Driveway Detail Co" width="192" height="32" class="h-8 w-auto mb-3 dark:hidden" />
+                <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="192" height="32" class="h-8 w-auto mb-3 hidden dark:block" />
                 <p class="text-sm text-base-content/60">
                   Professional mobile detailing at your door. Veteran-owned in San Antonio, TX.
                 </p>
@@ -166,8 +166,8 @@ defmodule MobileCarWashWeb.Layouts do
         <label for="mobile-drawer" class="drawer-overlay"></label>
         <ul class="menu p-4 w-72 min-h-full bg-base-200">
           <li class="mb-4 px-2">
-            <img src="/images/logo_light.svg" alt="Driveway Detail Co" class="h-10 dark:hidden" />
-            <img src="/images/logo_dark.svg" alt="Driveway Detail Co" class="h-10 hidden dark:block" />
+            <img src="/images/logo_light.svg" alt="Driveway Detail Co" width="240" height="40" class="h-10 w-auto dark:hidden" />
+            <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="240" height="40" class="h-10 w-auto hidden dark:block" />
           </li>
           <li><a href="/">Home</a></li>
           <li><a href="/book">Book a Wash</a></li>
