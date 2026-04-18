@@ -167,8 +167,8 @@ defmodule MobileCarWashWeb.RecurringScheduleManageLive do
 
       <!-- Schedule List -->
       <div :if={@schedules == [] && !@show_form} class="text-center py-12">
-        <p class="text-base-content/50 mb-4">No recurring schedules yet</p>
-        <p class="text-sm text-base-content/40">Set up automatic bookings so you never have to think about it</p>
+        <p class="text-base-content/70 mb-4">No recurring schedules yet</p>
+        <p class="text-sm text-base-content/70">Set up automatic bookings so you never have to think about it</p>
       </div>
 
       <div :for={schedule <- @schedules} class="card bg-base-100 shadow mb-4">
@@ -176,10 +176,10 @@ defmodule MobileCarWashWeb.RecurringScheduleManageLive do
           <div class="flex justify-between items-start">
             <div>
               <h3 class="font-bold">{schedule.service_type_name}</h3>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/80">
                 {format_frequency(schedule.frequency)} · {format_day(schedule.preferred_day)}s at {format_time(schedule.preferred_time)}
               </p>
-              <p class="text-xs text-base-content/40 mt-1">
+              <p class="text-xs text-base-content/70 mt-1">
                 {schedule.vehicle_label} · {schedule.address_label}
               </p>
             </div>

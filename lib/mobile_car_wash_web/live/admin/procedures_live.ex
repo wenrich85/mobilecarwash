@@ -210,7 +210,7 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
       <div class="flex justify-between items-center mb-8">
         <div>
           <h1 class="text-3xl font-bold">Standard Operating Procedures</h1>
-          <p class="text-base-content/60">The systems that run the business</p>
+          <p class="text-base-content/80">The systems that run the business</p>
         </div>
         <div class="flex gap-2">
           <.link navigate={~p"/admin/org-chart"} class="btn btn-outline btn-sm">Org Chart</.link>
@@ -252,7 +252,7 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
             <div :if={@editing_procedure != proc.id} class="flex justify-between items-start">
               <div>
                 <h3 class="card-title">{proc.name}</h3>
-                <p :if={proc.description} class="text-sm text-base-content/60 mt-1">{proc.description}</p>
+                <p :if={proc.description} class="text-sm text-base-content/80 mt-1">{proc.description}</p>
               </div>
               <div class="flex gap-2">
                 <span class="badge badge-primary">{length(Map.get(@steps_by_proc, proc.id, []))} steps</span>
@@ -305,12 +305,12 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
                   <span class="text-base-content/30 select-none">⠿</span>
 
                   <div :if={@editing_step != step.id} class="flex-1 flex items-center gap-3">
-                    <span class="font-mono text-sm text-base-content/40 w-6">{step.step_number}</span>
+                    <span class="font-mono text-sm text-base-content/70 w-6">{step.step_number}</span>
                     <div class="flex-1">
                       <span class="font-semibold">{step.title}</span>
-                      <span :if={step.description} class="text-xs text-base-content/50 ml-2">{step.description}</span>
+                      <span :if={step.description} class="text-xs text-base-content/70 ml-2">{step.description}</span>
                     </div>
-                    <span class="text-xs text-base-content/50">{step.estimated_minutes || 5}m</span>
+                    <span class="text-xs text-base-content/70">{step.estimated_minutes || 5}m</span>
                     <span :if={step.required} class="badge badge-error badge-xs">Req</span>
                     <span :if={!step.required} class="badge badge-ghost badge-xs">Opt</span>
                     <button class="btn btn-ghost btn-xs" phx-click="edit_step" phx-value-id={step.id}>Edit</button>
@@ -353,12 +353,12 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
         </div>
       </div>
 
-      <div :if={@procedures == []} class="text-center py-12 text-base-content/50">
+      <div :if={@procedures == []} class="text-center py-12 text-base-content/70">
         No procedures defined yet.
       </div>
 
       <div class="mt-8 p-4 bg-base-200 rounded-lg">
-        <p class="text-sm text-base-content/60">
+        <p class="text-sm text-base-content/80">
           <strong>E-Myth Principle:</strong> The system is the solution.
           Every procedure is documented so anyone can follow it and deliver consistent results.
           Drag steps to reorder. When an appointment starts, a live checklist is created from these SOPs.

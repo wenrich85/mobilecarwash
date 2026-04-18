@@ -43,14 +43,14 @@ defmodule MobileCarWashWeb.Auth.SignInLive do
               class="input input-bordered"
               disabled
             />
-            <p class="text-xs text-base-content/60 mt-1">
+            <p class="text-xs text-base-content/80 mt-1">
               Sign-in is handled through the mobile app or via email link.
             </p>
           </div>
 
           <div class="divider my-2"></div>
 
-          <p class="text-sm text-center text-base-content/60">
+          <p class="text-sm text-center text-base-content/80">
             If you need help signing in, contact support.
           </p>
 

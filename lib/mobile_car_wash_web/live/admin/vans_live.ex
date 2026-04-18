@@ -84,7 +84,7 @@ defmodule MobileCarWashWeb.Admin.VansLive do
     ~H"""
     <div class="max-w-5xl mx-auto py-8 px-4">
       <h1 class="text-3xl font-bold mb-2">Vans</h1>
-      <p class="text-base-content/60 mb-6">Manage service vans and equipment.</p>
+      <p class="text-base-content/80 mb-6">Manage service vans and equipment.</p>
 
       <!-- Add Van -->
       <div class="card bg-base-100 shadow mb-6">

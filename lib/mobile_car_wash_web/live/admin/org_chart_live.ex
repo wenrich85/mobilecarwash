@@ -164,7 +164,7 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
       <div class="flex justify-between items-center mb-8">
         <div>
           <h1 class="text-3xl font-bold">Organization Chart</h1>
-          <p class="text-base-content/60">E-Myth franchise prototype — every position defined</p>
+          <p class="text-base-content/80">E-Myth franchise prototype — every position defined</p>
         </div>
         <div class="flex gap-2">
           <.link navigate={~p"/admin/procedures"} class="btn btn-outline btn-sm">SOPs</.link>
@@ -219,7 +219,7 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
               <div class="flex-1 cursor-pointer" phx-click="select_position" phx-value-id={pos.id}>
                 <h3 class="font-bold hover:text-primary">{pos.name}</h3>
                 <span class="badge badge-primary badge-sm">Level {pos.level}</span>
-                <p :if={pos.description} class="text-sm text-base-content/60 mt-2">{pos.description}</p>
+                <p :if={pos.description} class="text-sm text-base-content/80 mt-2">{pos.description}</p>
               </div>
               <div class="flex gap-1">
                 <button class="btn btn-ghost btn-xs" phx-click="edit_position" phx-value-id={pos.id}>Edit</button>
@@ -323,14 +323,14 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
             </div>
           </div>
 
-          <div :if={@contracts == []} class="text-center py-8 text-base-content/50">
+          <div :if={@contracts == []} class="text-center py-8 text-base-content/70">
             No contracts defined for this position yet.
           </div>
         </div>
       </div>
 
       <div class="mt-8 p-4 bg-base-200 rounded-lg">
-        <p class="text-sm text-base-content/60">
+        <p class="text-sm text-base-content/80">
           <strong>E-Myth Principle:</strong> Build it as if you're going to franchise 5,000 of them.
           Define every position now — when you hire, the systems (not the people) run the business.
         </p>

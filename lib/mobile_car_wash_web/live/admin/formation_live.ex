@@ -152,7 +152,7 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
       <div class="flex justify-between items-center mb-8">
         <div>
           <h1 class="text-3xl font-bold">Business Formation</h1>
-          <p class="text-base-content/60">TX State · Federal · Veteran Certs · Compliance</p>
+          <p class="text-base-content/80">TX State · Federal · Veteran Certs · Compliance</p>
         </div>
         <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">
           ← Dashboard
@@ -259,10 +259,10 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
         <div class="card-body p-0">
           <div class="px-6 py-4 bg-base-200 rounded-t-2xl">
             <h2 class="font-bold text-lg">{group.category.name}</h2>
-            <p :if={group.category.description} class="text-sm text-base-content/60">{group.category.description}</p>
+            <p :if={group.category.description} class="text-sm text-base-content/80">{group.category.description}</p>
           </div>
 
-          <div :if={group.tasks == []} class="px-6 py-4 text-base-content/50 text-sm">
+          <div :if={group.tasks == []} class="px-6 py-4 text-base-content/70 text-sm">
             No tasks match your filters.
           </div>
 

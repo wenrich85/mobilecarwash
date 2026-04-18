@@ -83,7 +83,7 @@ defmodule MobileCarWashWeb.Admin.ScheduleTemplatesLive do
     ~H"""
     <div class="max-w-5xl mx-auto py-8 px-4">
       <h1 class="text-3xl font-bold mb-2">Schedule Templates</h1>
-      <p class="text-base-content/60 mb-6">
+      <p class="text-base-content/80 mb-6">
         Each row defines a recurring block slot. When the daily generator runs, it creates an AppointmentBlock for every active row whose day-of-week matches the target date.
       </p>
 
@@ -122,7 +122,7 @@ defmodule MobileCarWashWeb.Admin.ScheduleTemplatesLive do
       </div>
 
       <!-- Templates list -->
-      <div :if={@templates == []} class="text-center py-12 text-base-content/50">
+      <div :if={@templates == []} class="text-center py-12 text-base-content/70">
         No templates yet. The generator will fall back to default 8am + 1pm slots until you add some.
       </div>
 

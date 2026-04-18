@@ -165,7 +165,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
 
           <div class="flex items-center justify-between mb-2">
             <h3 class="font-semibold">Loyalty Card</h3>
-            <span class="text-xs text-base-content/50">
+            <span class="text-xs text-base-content/70">
               {if free > 0, do: "#{punches} punches toward next reward", else: "#{punches} / #{total} punches"}
             </span>
           </div>
@@ -184,7 +184,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
             </div>
           </div>
 
-          <p class="text-xs text-base-content/40 mt-2 text-center">
+          <p class="text-xs text-base-content/70 mt-2 text-center">
             {cond do
               free > 0 -> "#{total - punches} more punch#{if total - punches != 1, do: "es"} until your next free wash"
               punches == 0 -> "Every wash earns a punch — 10 punches = 1 free wash"
@@ -195,7 +195,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
       </div>
 
       <div :if={@appointments == []} class="text-center py-12">
-        <p class="text-base-content/50 mb-4">No appointments yet</p>
+        <p class="text-base-content/70 mb-4">No appointments yet</p>
         <.link navigate={~p"/book"} class="btn btn-primary">Book a Wash</.link>
       </div>
 
@@ -205,7 +205,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
             <div class="flex justify-between items-start">
               <div>
                 <h3 class="font-bold">{Map.get(@service_types, appt.service_type_id, %{name: "Service"}).name}</h3>
-                <p class="text-sm text-base-content/60">
+                <p class="text-sm text-base-content/80">
                   {Calendar.strftime(appt.scheduled_at, "%B %d, %Y at %I:%M %p")}
                 </p>
               </div>
@@ -238,7 +238,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
             <!-- Photo Upload Form -->
             <div :if={@uploading_for == appt.id} class="mt-4 bg-base-200 rounded-lg p-4">
               <h4 class="font-semibold text-sm mb-2">Upload Problem Area Photos</h4>
-              <p class="text-xs text-base-content/60 mb-3">
+              <p class="text-xs text-base-content/80 mb-3">
                 Show us areas that need extra attention. The technician will see these before starting.
               </p>
               <form phx-submit="save_problem_photos" phx-change="validate_upload">

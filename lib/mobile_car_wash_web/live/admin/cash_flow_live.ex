@@ -425,7 +425,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
             class="input input-ghost input-xs w-14 font-mono text-sm p-0 text-right focus:outline-none"
           />
         </form>
-        <span class="text-base-content/40 text-xs ml-1">subs</span>
+        <span class="text-base-content/70 text-xs ml-1">subs</span>
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">×</td>
@@ -528,7 +528,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
             phx-blur={JS.dispatch("submit", to: "#proj-field-service_count_#{@service.id}")}
             class="input input-ghost input-xs w-16 font-mono text-sm p-0 text-right focus:outline-none"
           />
-          <span class="text-base-content/40 text-xs">/ mo</span>
+          <span class="text-base-content/70 text-xs">/ mo</span>
         </form>
       </td>
 
@@ -755,7 +755,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                   </td>
                   <td class="text-sm font-mono font-bold text-primary-700">${format_cents(txn.amount_cents)}</td>
                   <td class="text-xs text-base-content/70">{txn.description}</td>
-                  <td class="text-xs text-base-content/60">
+                  <td class="text-xs text-base-content/80">
                     {Calendar.strftime(txn.inserted_at, "%m/%d %H:%M")}
                   </td>
                 </tr>
@@ -763,7 +763,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
             </table>
           </div>
 
-          <p :if={@recent_txns == []} class="text-center text-base-content/50 py-8 text-lg">
+          <p :if={@recent_txns == []} class="text-center text-base-content/70 py-8 text-lg">
             No transactions yet
           </p>
 
@@ -806,7 +806,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       <div :if={@active_view == :projections}>
 
         <!-- Loading state (before first switch) -->
-        <div :if={is_nil(@proj_inputs)} class="text-center py-12 text-base-content/50">
+        <div :if={is_nil(@proj_inputs)} class="text-center py-12 text-base-content/70">
           Loading projections…
         </div>
 
@@ -834,7 +834,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                   <div>
                     <label class="label text-sm font-semibold pb-1">
                       Monthly growth rate
-                      <span class="label-text-alt text-base-content/50 ml-1">(0 = flat)</span>
+                      <span class="label-text-alt text-base-content/70 ml-1">(0 = flat)</span>
                     </label>
                     <div class="flex items-center gap-2">
                       <input
@@ -854,7 +854,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                   </div>
                 </div>
                 <div class="flex items-end gap-3">
-                  <p :if={@proj_actuals} class="text-xs text-base-content/40 mb-1">
+                  <p :if={@proj_actuals} class="text-xs text-base-content/70 mb-1">
                     {@proj_actuals.active_subscription_count} active subs ·
                     last {@proj_actuals.lookback_days}d avg
                   </p>
@@ -928,13 +928,13 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
             <div class="card-body p-5">
               <h3 class="font-semibold text-sm mb-3">
                 Subscription Plans
-                <span class="text-base-content/40 text-xs font-normal ml-1">
+                <span class="text-base-content/70 text-xs font-normal ml-1">
                   — click subscriber count or price to edit
                 </span>
               </h3>
               <table class="table table-sm">
                 <thead>
-                  <tr class="text-xs text-base-content/40 uppercase tracking-wide">
+                  <tr class="text-xs text-base-content/70 uppercase tracking-wide">
                     <th>Plan</th>
                     <th class="text-right">Subscribers</th>
                     <th></th>
@@ -954,7 +954,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                 </tbody>
                 <tfoot>
                   <tr class="border-t-2 border-base-300 font-semibold">
-                    <td colspan="5" class="pt-3 text-sm text-base-content/60">
+                    <td colspan="5" class="pt-3 text-sm text-base-content/80">
                       Total MRR
                     </td>
                     <td class="pt-3 text-right font-mono text-sm">
@@ -972,13 +972,13 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
             <div class="card-body p-5">
               <h3 class="font-semibold text-sm mb-3">
                 Service Revenue Breakdown
-                <span class="text-base-content/40 text-xs font-normal ml-1">
+                <span class="text-base-content/70 text-xs font-normal ml-1">
                   — click count or price to edit
                 </span>
               </h3>
               <table class="table table-sm">
                 <thead>
-                  <tr class="text-xs text-base-content/40 uppercase tracking-wide">
+                  <tr class="text-xs text-base-content/70 uppercase tracking-wide">
                     <th>Service</th>
                     <th class="text-right">Avg / mo</th>
                     <th></th>
@@ -998,7 +998,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                 </tbody>
                 <tfoot>
                   <tr class="border-t-2 border-base-300 font-semibold">
-                    <td colspan="5" class="pt-3 text-sm text-base-content/60">
+                    <td colspan="5" class="pt-3 text-sm text-base-content/80">
                       Total one-time revenue
                     </td>
                     <td class="pt-3 text-right font-mono text-sm">
@@ -1017,11 +1017,11 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
               <h3 class="font-bold text-base mb-3">Break-Even Analysis</h3>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <p class="text-xs text-base-content/50 mb-1">Total monthly costs to cover</p>
+                  <p class="text-xs text-base-content/70 mb-1">Total monthly costs to cover</p>
                   <p class="text-2xl font-bold">${format_cents(@projections.break_even.total_monthly_costs)}</p>
                 </div>
                 <div>
-                  <p class="text-xs text-base-content/50 mb-1">MRR covers</p>
+                  <p class="text-xs text-base-content/70 mb-1">MRR covers</p>
                   <div class="flex items-center gap-3">
                     <p class="text-2xl font-bold text-primary">{@projections.break_even.mrr_coverage_pct}%</p>
                     <div class="flex-1">
@@ -1034,13 +1034,13 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                   </div>
                 </div>
                 <div>
-                  <p class="text-xs text-base-content/50 mb-1">Additional washes needed/month</p>
+                  <p class="text-xs text-base-content/70 mb-1">Additional washes needed/month</p>
                   <p class="text-2xl font-bold text-warning">
                     {if @projections.break_even.washes_needed_per_month,
                       do: @projections.break_even.washes_needed_per_month,
                       else: "—"}
                   </p>
-                  <p class="text-xs text-base-content/40 mt-1">
+                  <p class="text-xs text-base-content/70 mt-1">
                     at avg ${format_cents(@projections.avg_wash_price)} / wash
                   </p>
                 </div>
@@ -1057,7 +1057,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                     do: "#{@proj_inputs.months}-Month Projection (#{round(@proj_inputs.growth_rate * 100)}% monthly growth)",
                     else: "#{@proj_inputs.months}-Month Projection (flat baseline)"}
                 </h3>
-                <p class="text-xs text-base-content/40 mt-1">
+                <p class="text-xs text-base-content/70 mt-1">
                   MRR stays flat; one-time wash revenue grows by the growth rate compounded monthly.
                 </p>
               </div>
@@ -1073,7 +1073,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                       <th class="text-right text-warning">Variable</th>
                       <th class="text-right font-bold">Net Profit</th>
                       <th class="text-right">Margin</th>
-                      <th class="text-right text-base-content/50">Cumulative</th>
+                      <th class="text-right text-base-content/70">Cumulative</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1083,7 +1083,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                       <td class="font-semibold text-sm">{row.month_label}</td>
                       <td class="text-right text-sm font-mono">${format_cents(row.projected_income)}</td>
                       <td class="text-right text-sm font-mono text-primary">${format_cents(row.mrr_component)}</td>
-                      <td class="text-right text-sm font-mono text-base-content/60">${format_cents(row.one_time_component)}</td>
+                      <td class="text-right text-sm font-mono text-base-content/80">${format_cents(row.one_time_component)}</td>
                       <td class="text-right text-sm font-mono text-error">${format_cents(row.fixed_costs)}</td>
                       <td class="text-right text-sm font-mono text-warning">${format_cents(row.variable_costs)}</td>
                       <td class={["text-right text-sm font-bold font-mono",

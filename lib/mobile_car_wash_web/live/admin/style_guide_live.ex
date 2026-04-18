@@ -14,7 +14,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
     ~H"""
     <div class="max-w-7xl mx-auto py-8 px-4">
       <h1 class="text-4xl font-bold mb-2">Style Guide</h1>
-      <p class="text-base-content/60 mb-8">Brand colors, component library, and sizing guidelines.</p>
+      <p class="text-base-content/80 mb-8">Brand colors, component library, and sizing guidelines.</p>
 
       <!-- TABLE OF CONTENTS -->
       <div class="flex flex-wrap gap-2 mb-12">
@@ -38,7 +38,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <!-- Primary — Navy -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Primary — Navy</h3>
-          <p class="text-sm text-base-content/60 mb-3">Base: #1E2A38 (700). Used for headers, primary actions, and brand identity.</p>
+          <p class="text-sm text-base-content/80 mb-3">Base: #1E2A38 (700). Used for headers, primary actions, and brand identity.</p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#F0F2F5" label="50" dark={false} />
             <.swatch hex="#D4DAE2" label="100" dark={false} />
@@ -56,7 +56,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <!-- Secondary — White/Neutral -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Secondary — White / Neutral</h3>
-          <p class="text-sm text-base-content/60 mb-3">Base: #FFFFFF (50). Used for backgrounds, cards, and clean space.</p>
+          <p class="text-sm text-base-content/80 mb-3">Base: #FFFFFF (50). Used for backgrounds, cards, and clean space.</p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#FFFFFF" label="50" dark={false} border={true} />
             <.swatch hex="#F8F9FA" label="100" dark={false} />
@@ -74,7 +74,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <!-- Tertiary — Steel Blue -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Tertiary — Steel Blue</h3>
-          <p class="text-sm text-base-content/60 mb-3">Base: #3A7CA5 (400). Used for links, interactive elements, and accent touches.</p>
+          <p class="text-sm text-base-content/80 mb-3">Base: #3A7CA5 (400). Used for links, interactive elements, and accent touches.</p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#EBF4F9" label="50" dark={false} />
             <.swatch hex="#C8E1EF" label="100" dark={false} />
@@ -92,7 +92,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <!-- DaisyUI Semantic Colors -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Semantic Colors (DaisyUI)</h3>
-          <p class="text-sm text-base-content/60 mb-3">Mapped from brand palette. Adapt to light/dark theme automatically.</p>
+          <p class="text-sm text-base-content/80 mb-3">Mapped from brand palette. Adapt to light/dark theme automatically.</p>
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
             <div class="flex flex-col items-center gap-1">
               <div class="w-full h-16 rounded-lg bg-primary"></div>
@@ -132,7 +132,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
       <!-- Color Usage Reference -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-3">Tailwind Class Reference</h3>
-          <p class="text-sm text-base-content/60 mb-4">
+          <p class="text-sm text-base-content/80 mb-4">
             Every shade is a real Tailwind utility. Use them with any property prefix:
             <code class="bg-base-200 px-1 rounded">bg-</code>,
             <code class="bg-base-200 px-1 rounded">text-</code>,
@@ -263,39 +263,39 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
 
         <div class="space-y-4 mb-8">
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-5xl</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-5xl</span>
             <span class="text-5xl font-bold">Page Title (3rem / 48px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-4xl</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-4xl</span>
             <span class="text-4xl font-bold">Hero Heading (2.25rem / 36px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-3xl</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-3xl</span>
             <span class="text-3xl font-bold">Section Heading (1.875rem / 30px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-2xl</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-2xl</span>
             <span class="text-2xl font-bold">Card Title (1.5rem / 24px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-xl</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-xl</span>
             <span class="text-xl font-semibold">Subsection (1.25rem / 20px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-lg</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-lg</span>
             <span class="text-lg">Large body text (1.125rem / 18px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-base</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-base</span>
             <span class="text-base">Body text — default (1rem / 16px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-sm</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-sm</span>
             <span class="text-sm">Secondary text, labels (0.875rem / 14px)</span>
           </div>
           <div class="flex items-baseline gap-4">
-            <span class="text-xs font-mono text-base-content/50 w-20 shrink-0">text-xs</span>
+            <span class="text-xs font-mono text-base-content/70 w-20 shrink-0">text-xs</span>
             <span class="text-xs">Captions, meta (0.75rem / 12px)</span>
           </div>
         </div>
@@ -312,8 +312,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <div>
             <h4 class="font-semibold mb-2">Text Colors</h4>
             <p class="text-base-content">base-content — primary text</p>
-            <p class="text-base-content/60">base-content/60 — secondary text</p>
-            <p class="text-base-content/40">base-content/40 — muted text</p>
+            <p class="text-base-content/80">base-content/60 — secondary text</p>
+            <p class="text-base-content/70">base-content/40 — muted text</p>
             <p class="text-primary">primary — links, emphasis</p>
             <p class="text-error">error — validation messages</p>
           </div>
@@ -324,8 +324,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
               <li>Section headings: text-xl font-bold</li>
               <li>Card titles: text-lg font-semibold</li>
               <li>Body: text-base font-normal</li>
-              <li>Labels: text-sm text-base-content/60</li>
-              <li>Captions: text-xs text-base-content/40</li>
+              <li>Labels: text-sm text-base-content/80</li>
+              <li>Captions: text-xs text-base-content/70</li>
             </ul>
           </div>
         </div>
@@ -385,19 +385,19 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <div class="card bg-base-100 shadow-sm">
             <div class="card-body">
               <h3 class="card-title">Shadow Small</h3>
-              <p class="text-sm text-base-content/60">shadow-sm — subtle elevation for list items</p>
+              <p class="text-sm text-base-content/80">shadow-sm — subtle elevation for list items</p>
             </div>
           </div>
           <div class="card bg-base-100 shadow">
             <div class="card-body">
               <h3 class="card-title">Shadow Default</h3>
-              <p class="text-sm text-base-content/60">shadow — standard cards and containers</p>
+              <p class="text-sm text-base-content/80">shadow — standard cards and containers</p>
             </div>
           </div>
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <h3 class="card-title">Shadow XL</h3>
-              <p class="text-sm text-base-content/60">shadow-xl — featured cards, modals</p>
+              <p class="text-sm text-base-content/80">shadow-xl — featured cards, modals</p>
             </div>
           </div>
         </div>
@@ -406,13 +406,13 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <div class="card bg-base-100 shadow border-l-4 border-primary">
             <div class="card-body p-4">
               <h3 class="card-title text-base">Left Border — Primary</h3>
-              <p class="text-sm text-base-content/60">border-l-4 border-primary — dispatch cards, status indicators</p>
+              <p class="text-sm text-base-content/80">border-l-4 border-primary — dispatch cards, status indicators</p>
             </div>
           </div>
           <div class="card bg-base-100 shadow border-l-4 border-success">
             <div class="card-body p-4">
               <h3 class="card-title text-base">Left Border — Success</h3>
-              <p class="text-sm text-base-content/60">border-l-4 border-success — active/complete items</p>
+              <p class="text-sm text-base-content/80">border-l-4 border-success — active/complete items</p>
             </div>
           </div>
         </div>
@@ -547,19 +547,19 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div class="bg-base-100 rounded-lg p-6 text-center" style="box-shadow: var(--shadow-sm)">
             <p class="font-mono text-sm">--shadow-sm</p>
-            <p class="text-xs text-base-content/50 mt-1">List items, subtle</p>
+            <p class="text-xs text-base-content/70 mt-1">List items, subtle</p>
           </div>
           <div class="bg-base-100 rounded-lg p-6 text-center" style="box-shadow: var(--shadow-md)">
             <p class="font-mono text-sm">--shadow-md</p>
-            <p class="text-xs text-base-content/50 mt-1">Cards, dropdowns</p>
+            <p class="text-xs text-base-content/70 mt-1">Cards, dropdowns</p>
           </div>
           <div class="bg-base-100 rounded-lg p-6 text-center" style="box-shadow: var(--shadow-lg)">
             <p class="font-mono text-sm">--shadow-lg</p>
-            <p class="text-xs text-base-content/50 mt-1">Modals, popovers</p>
+            <p class="text-xs text-base-content/70 mt-1">Modals, popovers</p>
           </div>
           <div class="bg-base-100 rounded-lg p-6 text-center" style="box-shadow: var(--shadow-xl)">
             <p class="font-mono text-sm">--shadow-xl</p>
-            <p class="text-xs text-base-content/50 mt-1">Featured, hero</p>
+            <p class="text-xs text-base-content/70 mt-1">Featured, hero</p>
           </div>
         </div>
 
@@ -637,8 +637,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         class={["w-full aspect-square rounded-lg", @border && "border border-base-300"]}
         style={"background-color: #{@hex}"}
       />
-      <span class="text-xs font-mono text-base-content/60">{@label}</span>
-      <span class="text-[10px] font-mono text-base-content/40">{@hex}</span>
+      <span class="text-xs font-mono text-base-content/80">{@label}</span>
+      <span class="text-[10px] font-mono text-base-content/70">{@hex}</span>
     </div>
     """
   end
@@ -650,9 +650,9 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
   defp spacing_row(assigns) do
     ~H"""
     <div class="flex items-center gap-4">
-      <span class="text-xs font-mono text-base-content/50 w-12">{@name}</span>
+      <span class="text-xs font-mono text-base-content/70 w-12">{@name}</span>
       <div class={["h-4 bg-primary/30 rounded", @width]} />
-      <span class="text-xs text-base-content/60">{@value}</span>
+      <span class="text-xs text-base-content/80">{@value}</span>
     </div>
     """
   end

@@ -66,7 +66,7 @@ defmodule MobileCarWashWeb.Admin.FormationComponents do
     <tr class={[@overdue && "bg-error/5"]}>
       <td class="max-w-xs">
         <div class="font-semibold">{@task.name}</div>
-        <div :if={@task.description} class="text-xs text-base-content/50 line-clamp-2">{@task.description}</div>
+        <div :if={@task.description} class="text-xs text-base-content/70 line-clamp-2">{@task.description}</div>
         <a :if={@task.external_url} href={@task.external_url} target="_blank" class="text-xs link link-primary">
           Gov website →
         </a>

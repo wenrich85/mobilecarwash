@@ -60,7 +60,7 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
       <div class="flex justify-between items-center mb-8">
         <div>
           <h1 class="text-3xl font-bold">Metrics Dashboard</h1>
-          <p class="text-base-content/60">Build → Measure → Learn</p>
+          <p class="text-base-content/80">Build → Measure → Learn</p>
         </div>
         <div class="flex items-center gap-4">
           <select
@@ -88,7 +88,7 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           <span class="badge badge-sm badge-ghost">{length(@online_users)}</span>
         </div>
 
-        <div :if={@online_users == []} class="text-sm text-base-content/40 italic">
+        <div :if={@online_users == []} class="text-sm text-base-content/70 italic">
           No one else is online
         </div>
 
@@ -103,7 +103,7 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
             <!-- Name + page -->
             <div class="min-w-0">
               <span class="text-sm font-medium">{user.name}</span>
-              <span class="text-xs text-base-content/40 ml-1">· {user.page}</span>
+              <span class="text-xs text-base-content/70 ml-1">· {user.page}</span>
             </div>
 
             <!-- Role badge -->
@@ -112,7 +112,7 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
             </span>
 
             <!-- Time online -->
-            <span class="text-xs text-base-content/40 flex-shrink-0 font-mono">
+            <span class="text-xs text-base-content/70 flex-shrink-0 font-mono">
               {format_duration(System.system_time(:second) - user.online_at)}
             </span>
           </div>
@@ -267,7 +267,7 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
       <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
           <h2 class="card-title mb-4">Pivot Signals</h2>
-          <p class="text-sm text-base-content/60 mb-4">
+          <p class="text-sm text-base-content/80 mb-4">
             Red = needs attention now. Yellow = watch closely. Green = on track.
           </p>
           <.pivot_signals signals={@signals} />

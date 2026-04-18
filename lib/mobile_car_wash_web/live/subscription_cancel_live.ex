@@ -11,7 +11,7 @@ defmodule MobileCarWashWeb.SubscriptionCancelLive do
     ~H"""
     <div class="max-w-lg mx-auto py-16 px-4 text-center">
       <h1 class="text-3xl font-bold mb-4">Subscription Not Completed</h1>
-      <p class="text-base-content/60 mb-8">
+      <p class="text-base-content/80 mb-8">
         No worries — you weren't charged. You can subscribe anytime.
       </p>
       <div class="flex gap-4 justify-center">

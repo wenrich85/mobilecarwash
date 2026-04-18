@@ -330,7 +330,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     <div class="max-w-lg mx-auto py-6 px-4">
       <div class="mb-6">
         <h1 class="text-2xl font-bold">My Schedule</h1>
-        <p class="text-base-content/60">Welcome, {@tech_user.name}</p>
+        <p class="text-base-content/80">Welcome, {@tech_user.name}</p>
       </div>
 
       <div :if={!@tech_record && !@is_admin} class="alert alert-warning mb-6">
@@ -363,7 +363,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           phx-update="ignore"
           class="w-full h-64 rounded-lg shadow border border-base-300 z-0"
         />
-        <div class="flex gap-3 mt-2 text-xs text-base-content/50">
+        <div class="flex gap-3 mt-2 text-xs text-base-content/70">
           <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#ADB5BD] inline-block"></span> Pending</span>
           <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#3A7CA5] inline-block"></span> Confirmed</span>
           <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#E6A817] inline-block"></span> In Progress</span>
@@ -374,7 +374,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       <!-- Today -->
       <div class="mb-8">
         <h2 class="text-lg font-bold mb-3">Today</h2>
-        <div :if={@todays_appointments == []} class="text-base-content/50 text-sm">
+        <div :if={@todays_appointments == []} class="text-base-content/70 text-sm">
           No appointments today
         </div>
         <div class="space-y-3">
@@ -394,7 +394,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       <!-- Tomorrow -->
       <div class="mb-8">
         <h2 class="text-lg font-bold mb-3">Tomorrow</h2>
-        <div :if={@tomorrows_appointments == []} class="text-base-content/50 text-sm">
+        <div :if={@tomorrows_appointments == []} class="text-base-content/70 text-sm">
           No appointments tomorrow
         </div>
         <div class="space-y-3">
@@ -446,8 +446,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                       {Zones.short_label(ra.zone)}
                     </span>
                   </div>
-                  <p class="text-sm text-base-content/50">{Calendar.strftime(ra.scheduled_at, "%b %d · %I:%M %p")}</p>
-                  <p class="text-xs text-base-content/40">{ra.address_street}, {ra.address_city}</p>
+                  <p class="text-sm text-base-content/70">{Calendar.strftime(ra.scheduled_at, "%b %d · %I:%M %p")}</p>
+                  <p class="text-xs text-base-content/70">{ra.address_street}, {ra.address_city}</p>
                 </div>
                 <span class="badge badge-ghost badge-sm">Awaiting approval</span>
               </div>
@@ -464,7 +464,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             {Zones.short_label(@tech_record.zone)}
           </span>
         </h2>
-        <p class="text-sm text-base-content/50 mb-3">Unassigned appointments. Tap to request.</p>
+        <p class="text-sm text-base-content/70 mb-3">Unassigned appointments. Tap to request.</p>
         <div class="space-y-3">
           <div :for={za <- @zone_appointments} class="card bg-base-100 shadow-sm border-l-4 border-warning">
             <div class="card-body p-4">
@@ -476,8 +476,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                       {Zones.short_label(za.zone)}
                     </span>
                   </div>
-                  <p class="text-sm text-base-content/60">{Calendar.strftime(za.scheduled_at, "%b %d · %I:%M %p")}</p>
-                  <p class="text-xs text-base-content/40">{za.address_street}, {za.address_city}</p>
+                  <p class="text-sm text-base-content/80">{Calendar.strftime(za.scheduled_at, "%b %d · %I:%M %p")}</p>
+                  <p class="text-xs text-base-content/70">{za.address_street}, {za.address_city}</p>
                 </div>
                 <button
                   class="btn btn-primary btn-sm"
@@ -540,7 +540,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             <div class="flex justify-between items-start">
               <div>
                 <p class="text-3xl font-bold text-success">${format_dollars(@earnings.total_cents)}</p>
-                <p class="text-sm text-base-content/60">
+                <p class="text-sm text-base-content/80">
                   {@earnings.washes_count} wash{if @earnings.washes_count != 1, do: "es"} @ ${format_dollars(@earnings.rate_cents)}/wash
                 </p>
               </div>
@@ -579,7 +579,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             </tbody>
           </table>
         </div>
-        <div :if={@earnings && @earnings.washes == []} class="text-base-content/50 text-sm">
+        <div :if={@earnings && @earnings.washes == []} class="text-base-content/70 text-sm">
           No completed washes for this period
         </div>
       </div>
@@ -675,9 +675,9 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           <div>
             <span class="font-bold">{@service && @service.name}</span>
             <p class="text-sm">{Calendar.strftime(@appointment.scheduled_at, "%b %d · %I:%M %p")}</p>
-            <p class="text-sm text-base-content/60">{@customer_name}</p>
-            <p :if={@vehicle} class="text-xs text-base-content/50">{vehicle_label(@vehicle)}</p>
-            <p :if={@address} class="text-xs text-base-content/40">{@address.street}, {@address.city}</p>
+            <p class="text-sm text-base-content/80">{@customer_name}</p>
+            <p :if={@vehicle} class="text-xs text-base-content/70">{vehicle_label(@vehicle)}</p>
+            <p :if={@address} class="text-xs text-base-content/70">{@address.street}, {@address.city}</p>
           </div>
           <span class={["badge badge-sm", status_class(@appointment.status)]}>
             {format_status(@appointment.status)}
@@ -691,7 +691,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             value={@progress.steps_done}
             max={@progress.steps_total}
           />
-          <span class="text-xs text-base-content/50">{@progress.steps_done}/{@progress.steps_total} steps</span>
+          <span class="text-xs text-base-content/70">{@progress.steps_done}/{@progress.steps_total} steps</span>
         </div>
 
         <!-- Action buttons -->
@@ -725,7 +725,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             Log Supplies
           </button>
 
-          <span :if={@appointment.status == :pending} class="text-xs text-base-content/50">
+          <span :if={@appointment.status == :pending} class="text-xs text-base-content/70">
             Awaiting confirmation
           </span>
         </div>

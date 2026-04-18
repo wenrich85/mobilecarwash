@@ -123,7 +123,7 @@ defmodule MobileCarWashWeb.LandingLive do
             Skip the drive. We bring the full detailing experience to your home, office, or anywhere you park.
           </p>
           <div class="flex gap-4 justify-center">
-            <a href="#services" class="btn btn-lg bg-tertiary-400 hover:bg-tertiary-500 text-white border-none">Book a Wash</a>
+            <a href="#services" class="btn btn-lg bg-tertiary-400 hover:bg-tertiary-500 text-white border-none">See Services</a>
             <a href="#plans" class="btn btn-lg btn-outline border-white/40 text-white hover:bg-white/10 hover:border-white/60">View Plans</a>
           </div>
         </div>
@@ -134,7 +134,7 @@ defmodule MobileCarWashWeb.LandingLive do
     <section id="services" class="py-20 px-4 bg-base-200">
       <div class="max-w-6xl mx-auto">
         <h2 class="text-3xl font-bold text-center mb-3">Our Services</h2>
-        <p class="text-center text-base-content/60 mb-12">Professional results, wherever you park.</p>
+        <p class="text-center text-base-content/80 mb-12">Professional results, wherever you park.</p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <div :for={service <- @services} class="card bg-base-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
@@ -143,10 +143,10 @@ defmodule MobileCarWashWeb.LandingLive do
               <p class="text-base-content/70">{service.description}</p>
 
               <div class="flex items-baseline gap-2 mt-4">
-                <span class="text-sm text-base-content/50">starting at</span>
+                <span class="text-sm text-base-content/70">starting at</span>
                 <span class="text-4xl font-bold">${div(service.base_price_cents, 100)}</span>
               </div>
-              <p class="text-xs text-base-content/40">Price varies by vehicle type</p>
+              <p class="text-xs text-base-content/70">Price varies by vehicle type</p>
 
               <div class="badge badge-info badge-outline mt-2">
                 {service.duration_minutes} minutes
@@ -191,7 +191,7 @@ defmodule MobileCarWashWeb.LandingLive do
     <section id="plans" class="py-20 px-4 bg-base-200">
       <div class="max-w-6xl mx-auto">
         <h2 class="text-3xl font-bold text-center mb-3">Monthly Plans</h2>
-        <p class="text-center text-base-content/60 mb-12">Save with a subscription — cancel anytime.</p>
+        <p class="text-center text-base-content/80 mb-12">Save with a subscription — cancel anytime.</p>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div :for={plan <- @plans} class={[
@@ -204,7 +204,7 @@ defmodule MobileCarWashWeb.LandingLive do
 
               <div class="flex items-baseline gap-1 mt-4">
                 <span class="text-4xl font-bold">${div(plan.price_cents, 100)}</span>
-                <span class="text-base-content/50">/month</span>
+                <span class="text-base-content/70">/month</span>
               </div>
 
               <ul class="mt-6 space-y-3">

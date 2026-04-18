@@ -127,7 +127,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
     <div class="max-w-lg mx-auto py-8 px-4">
       <div :if={@appointment}>
         <h1 class="text-2xl font-bold mb-2">Appointment Status</h1>
-        <p class="text-base-content/60 mb-6">
+        <p class="text-base-content/80 mb-6">
           {@service_type.name} · {Calendar.strftime(@appointment.scheduled_at, "%B %d at %I:%M %p")}
         </p>
 
@@ -151,7 +151,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
                 cond do
                   item.completed -> "bg-success text-success-content"
                   item.started_at -> "bg-warning text-warning-content animate-pulse"
-                  true -> "bg-base-300 text-base-content/40"
+                  true -> "bg-base-300 text-base-content/70"
                 end
               ]}>
                 <span :if={item.completed}>✓</span>
@@ -160,13 +160,13 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
               <div class="flex-1">
                 <span class={[
                   "text-sm",
-                  item.completed && "line-through text-base-content/50",
+                  item.completed && "line-through text-base-content/70",
                   item.started_at && !item.completed && "font-semibold text-primary"
                 ]}>
                   {item.title}
                 </span>
               </div>
-              <span :if={!item.completed && !item.started_at} class="text-xs text-base-content/40">
+              <span :if={!item.completed && !item.started_at} class="text-xs text-base-content/70">
                 ~{item.estimated_minutes || 5}m
               </span>
               <span :if={item.completed && item.actual_seconds} class="text-xs text-success">
@@ -180,7 +180,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
           <!-- Overall Progress Bar -->
           <div class="mt-4">
-            <div class="flex justify-between text-xs text-base-content/50 mb-1">
+            <div class="flex justify-between text-xs text-base-content/70 mb-1">
               <span>{@steps_done}/{@steps_total} steps</span>
               <span :if={@eta_minutes}>~{@eta_minutes} min remaining</span>
             </div>
@@ -199,8 +199,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
           <!-- Column headers -->
           <div class="grid grid-cols-2 gap-2 mb-1 px-1">
-            <span class="text-xs text-base-content/40 text-center">Before</span>
-            <span class="text-xs text-base-content/40 text-center">After</span>
+            <span class="text-xs text-base-content/70 text-center">Before</span>
+            <span class="text-xs text-base-content/70 text-center">After</span>
           </div>
 
           <div class="space-y-2">
@@ -208,7 +208,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
               <% before_p = Enum.find(@before_photos, &(&1.car_part == area.id)) %>
               <% after_p  = Enum.find(@after_photos,  &(&1.car_part == area.id)) %>
               <div :if={before_p || after_p || @live_status == :in_progress}>
-                <p class="text-xs text-base-content/40 mb-1">{area.label}</p>
+                <p class="text-xs text-base-content/70 mb-1">{area.label}</p>
                 <div class="grid grid-cols-2 gap-2">
                   <!-- Before cell -->
                   <div class="aspect-[4/3] rounded-xl overflow-hidden bg-base-200">
@@ -260,7 +260,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
       </div>
 
       <div :if={!@appointment} class="text-center py-12">
-        <p class="text-base-content/50">Appointment not found</p>
+        <p class="text-base-content/70">Appointment not found</p>
         <.link navigate={~p"/"} class="btn btn-primary mt-4">Back to Home</.link>
       </div>
     </div>

@@ -25,7 +25,7 @@ defmodule MobileCarWashWeb.AuthOverrides do
     set :label_class, "text-2xl font-bold text-base-content mb-4"
     set :form_class, "space-y-4"
     set :spacer_class, "py-1"
-    set :slot_class, "text-center text-sm text-base-content/60 mt-4"
+    set :slot_class, "text-center text-sm text-base-content/80 mt-4"
   end
 
   override Components.Password.Input do

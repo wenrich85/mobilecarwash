@@ -157,7 +157,7 @@ defmodule MobileCarWashWeb.SubscriptionLive do
               <h3 class="card-title text-xl">{plan.name}</h3>
               <div class="flex items-baseline gap-1 mt-3">
                 <span class="text-3xl font-bold">${div(plan.price_cents, 100)}</span>
-                <span class="text-base-content/50">/month</span>
+                <span class="text-base-content/70">/month</span>
               </div>
               <ul class="mt-4 space-y-2 text-sm">
                 <li :if={plan.basic_washes_per_month > 0} class="flex items-center gap-2">
@@ -191,7 +191,7 @@ defmodule MobileCarWashWeb.SubscriptionLive do
       <!-- Step 2: Auth (only shown if not logged in) -->
       <div :if={@current_step == :auth}>
         <h2 class="text-xl font-bold mb-4">Sign In to Subscribe</h2>
-        <p class="text-base-content/60 mb-6">
+        <p class="text-base-content/80 mb-6">
           A subscription requires an account. Sign in or create one to continue.
         </p>
 
@@ -200,7 +200,7 @@ defmodule MobileCarWashWeb.SubscriptionLive do
             <.link navigate={~p"/sign-in"} class="btn btn-primary btn-block mb-3">
               Sign In
             </.link>
-            <p class="text-center text-sm text-base-content/50">
+            <p class="text-center text-sm text-base-content/70">
               Don't have an account? Use the sign-in page to register.
             </p>
           </div>
@@ -220,7 +220,7 @@ defmodule MobileCarWashWeb.SubscriptionLive do
             <h3 class="card-title">{@selected_plan.name} Plan</h3>
             <div class="flex items-baseline gap-1 mt-2">
               <span class="text-3xl font-bold">${div(@selected_plan.price_cents, 100)}</span>
-              <span class="text-base-content/50">/month</span>
+              <span class="text-base-content/70">/month</span>
             </div>
 
             <div class="divider"></div>
@@ -239,7 +239,7 @@ defmodule MobileCarWashWeb.SubscriptionLive do
 
             <div class="divider"></div>
 
-            <p class="text-sm text-base-content/60">
+            <p class="text-sm text-base-content/80">
               Cancel anytime. You'll be redirected to Stripe for secure payment setup.
             </p>
 

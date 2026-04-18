@@ -29,9 +29,9 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
         <div class="flex justify-between items-start">
           <div>
             <h4 class="font-bold">{@service_name}</h4>
-            <p class="text-sm text-base-content/60">{Calendar.strftime(@appointment.scheduled_at, "%b %d, %Y · %I:%M %p")}</p>
+            <p class="text-sm text-base-content/80">{Calendar.strftime(@appointment.scheduled_at, "%b %d, %Y · %I:%M %p")}</p>
             <p class="text-sm">{@customer_name}</p>
-            <p :if={@vehicle} class="text-xs text-base-content/50">
+            <p :if={@vehicle} class="text-xs text-base-content/70">
               {vehicle_label(@vehicle)}
             </p>
           </div>
@@ -101,14 +101,14 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
         <div class="flex justify-between items-start mb-2">
           <div>
             <span class="font-bold">{@tech_name}</span>
-            <span class="text-base-content/40 mx-1">·</span>
+            <span class="text-base-content/70 mx-1">·</span>
             <span>{@service_name}</span>
-            <span class="text-base-content/40 mx-1">·</span>
+            <span class="text-base-content/70 mx-1">·</span>
             <span class="text-sm">{Calendar.strftime(@appointment.scheduled_at, "%I:%M %p")}</span>
           </div>
           <span class="badge badge-warning badge-sm">In Progress</span>
         </div>
-        <p class="text-sm text-base-content/60">{@customer_name}</p>
+        <p class="text-sm text-base-content/80">{@customer_name}</p>
 
         <div class="mt-3">
           <div class="flex justify-between text-xs mb-1">
@@ -118,7 +118,7 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
             <span>{@progress.steps_done}/{@progress.steps_total} steps</span>
           </div>
           <progress class="progress progress-primary w-full" value={@pct} max="100" />
-          <p :if={@progress.eta_minutes} class="text-xs text-base-content/50 mt-1">
+          <p :if={@progress.eta_minutes} class="text-xs text-base-content/70 mt-1">
             ETA: ~{@progress.eta_minutes} min remaining
           </p>
         </div>
@@ -137,14 +137,14 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
     <div class="card bg-base-100 shadow mb-4">
       <div class="card-body p-4">
         <h3 class="font-bold text-lg mb-3">{@tech_name}</h3>
-        <div :if={@appointments == []} class="text-sm text-base-content/50">No appointments</div>
+        <div :if={@appointments == []} class="text-sm text-base-content/70">No appointments</div>
         <div class="space-y-2">
           <div :for={appt <- @appointments} class="flex items-center gap-3 text-sm py-1 border-b border-base-200 last:border-0">
-            <span class="font-mono text-base-content/60 w-16">
+            <span class="font-mono text-base-content/80 w-16">
               {Calendar.strftime(appt.scheduled_at, "%I:%M %p")}
             </span>
             <span class="flex-1">{Map.get(@service_map, appt.service_type_id, "Service")}</span>
-            <span class="text-base-content/60">{Map.get(@customer_map, appt.customer_id, "Customer")}</span>
+            <span class="text-base-content/80">{Map.get(@customer_map, appt.customer_id, "Customer")}</span>
             <span class={["badge badge-xs", status_badge(appt.status)]}>
               {format_status(appt.status)}
             </span>
@@ -192,7 +192,7 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
 
       <!-- Appointments List -->
       <div class="space-y-3 flex-1 overflow-y-auto">
-        <div :if={@appointments == []} class="text-sm text-base-content/50 text-center py-8">
+        <div :if={@appointments == []} class="text-sm text-base-content/70 text-center py-8">
           No appointments
         </div>
         <.appointment_card

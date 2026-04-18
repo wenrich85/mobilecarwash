@@ -186,7 +186,7 @@ defmodule MobileCarWashWeb.BookingLive do
           <div class="card bg-base-100 shadow-xl border-2 border-primary">
             <div class="card-body">
               <h3 class="card-title">Continue as Guest</h3>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/80">
                 No account needed. Just provide your contact info and we'll get you booked.
               </p>
 
@@ -219,7 +219,7 @@ defmodule MobileCarWashWeb.BookingLive do
           <div class="card bg-base-100 shadow">
             <div class="card-body">
               <h3 class="card-title text-base">Have an account?</h3>
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-base-content/80">
                 Sign in to use saved vehicles and addresses, or create an account for future bookings.
               </p>
               <div class="flex gap-3 mt-3">
@@ -250,7 +250,7 @@ defmodule MobileCarWashWeb.BookingLive do
           >
             <div class="card-body py-3">
               <span class="font-semibold">{vehicle.year} {vehicle.make} {vehicle.model}</span>
-              <span class="text-sm text-base-content/50">{vehicle.color} · {vehicle.size}</span>
+              <span class="text-sm text-base-content/70">{vehicle.color} · {vehicle.size}</span>
             </div>
           </div>
         </div>
@@ -290,7 +290,7 @@ defmodule MobileCarWashWeb.BookingLive do
                   <div>
                     <input type="radio" name="vehicle[size]" value="car" class="radio radio-primary radio-sm" checked />
                     <span class="ml-2 font-semibold">Car</span>
-                    <p class="text-xs text-base-content/50 ml-6">Sedan, Coupe, Compact</p>
+                    <p class="text-xs text-base-content/70 ml-6">Sedan, Coupe, Compact</p>
                   </div>
                 </label>
                 <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
@@ -333,7 +333,7 @@ defmodule MobileCarWashWeb.BookingLive do
           >
             <div class="card-body py-3">
               <span class="font-semibold">{addr.street}</span>
-              <span class="text-sm text-base-content/50">{addr.city}, {addr.state} {addr.zip}</span>
+              <span class="text-sm text-base-content/70">{addr.city}, {addr.state} {addr.zip}</span>
             </div>
           </div>
         </div>
@@ -388,7 +388,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
       <div :if={@current_step == :photos}>
         <h2 class="text-2xl font-bold mb-6">Problem Area Photos</h2>
-        <p class="text-base-content/60 mb-4">
+        <p class="text-base-content/80 mb-4">
           Have any scratches, stains, or areas that need extra attention?
           Upload photos so the technician knows where to focus. This step is optional.
         </p>

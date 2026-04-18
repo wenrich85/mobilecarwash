@@ -41,7 +41,7 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
                 {step.count}
               </span>
             </div>
-            <span class="text-xs text-base-content/50">
+            <span class="text-xs text-base-content/70">
               {step.rate}%
             </span>
           </div>
@@ -65,7 +65,7 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
         </div>
         <div class="flex-1">
           <div class="font-semibold">{signal.name}</div>
-          <div class="text-sm text-base-content/60">
+          <div class="text-sm text-base-content/80">
             Current: <span class="font-mono">{signal.metric}{signal.unit}</span>
             · Threshold: {signal.threshold}{signal.unit}
           </div>
@@ -102,7 +102,7 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
                 {event.event_name}
               </span>
             </td>
-            <td class="text-xs font-mono text-base-content/50">
+            <td class="text-xs font-mono text-base-content/70">
               {String.slice(event.session_id || "", 0..12)}
             </td>
             <td class="text-xs max-w-xs truncate">
@@ -124,7 +124,7 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
     assigns = assign(assigns, max_cents: max_cents)
 
     ~H"""
-    <div :if={@data == []} class="text-center py-8 text-base-content/50">
+    <div :if={@data == []} class="text-center py-8 text-base-content/70">
       No revenue data for this period
     </div>
     <div :if={@data != []} class="flex items-end gap-1 h-40">
@@ -135,7 +135,7 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
           title={"$#{div(day.total_cents, 100)} (#{day.count} payments)"}
         >
         </div>
-        <span class="text-[10px] text-base-content/50 -rotate-45">
+        <span class="text-[10px] text-base-content/70 -rotate-45">
           {format_chart_date(day.date)}
         </span>
       </div>

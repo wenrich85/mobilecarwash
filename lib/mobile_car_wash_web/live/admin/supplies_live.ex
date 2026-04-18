@@ -251,7 +251,7 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
         <div class="card-body">
           <% supply = Enum.find(@supplies, &(&1.id == @restocking)) %>
           <h3 class="font-semibold mb-1">Restock — {supply && supply.name}</h3>
-          <p class="text-sm text-base-content/50 mb-4">
+          <p class="text-sm text-base-content/70 mb-4">
             Current on hand: {supply && format_qty(supply.quantity_on_hand)} {supply && supply.unit}.
             The total cost will be recorded as a cash flow expense.
           </p>
@@ -288,7 +288,7 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
               s.category == cat and (@show_inactive or s.active)
            end) %>
         <div :if={cat_supplies != []}>
-          <h3 class="font-semibold text-base-content/60 text-sm uppercase tracking-wide mb-2">
+          <h3 class="font-semibold text-base-content/80 text-sm uppercase tracking-wide mb-2">
             {category_label(cat)}
           </h3>
           <div class="card bg-base-100 shadow">
@@ -314,7 +314,7 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
                               class="badge badge-warning badge-xs">Low</span>
                         <span :if={!supply.active} class="badge badge-ghost badge-xs">Inactive</span>
                       </div>
-                      <div :if={supply.notes} class="text-xs text-base-content/40">{supply.notes}</div>
+                      <div :if={supply.notes} class="text-xs text-base-content/70">{supply.notes}</div>
                     </td>
                     <td class={[
                       "font-semibold",
@@ -322,7 +322,7 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
                     ]}>
                       {format_qty(supply.quantity_on_hand)} {supply.unit}
                     </td>
-                    <td class="text-base-content/50 text-sm">
+                    <td class="text-base-content/70 text-sm">
                       {if supply.low_stock_threshold,
                         do: "#{format_qty(supply.low_stock_threshold)} #{supply.unit}",
                         else: "—"}
@@ -332,7 +332,7 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
                         do: "$#{format_dollars(supply.unit_cost_cents)} / #{supply.unit}",
                         else: "—"}
                     </td>
-                    <td class="text-sm text-base-content/50">{supply.supplier || "—"}</td>
+                    <td class="text-sm text-base-content/70">{supply.supplier || "—"}</td>
                     <td>
                       <div class="flex gap-1">
                         <button class="btn btn-success btn-xs"
@@ -357,7 +357,7 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
         </div>
       </div>
 
-      <div :if={@supplies == []} class="text-center py-12 text-base-content/50">
+      <div :if={@supplies == []} class="text-center py-12 text-base-content/70">
         <p class="mb-4">No supplies added yet.</p>
         <button class="btn btn-primary btn-sm" phx-click="new_supply">Add your first supply</button>
       </div>
@@ -374,7 +374,7 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
           <button class="btn btn-ghost btn-sm btn-square" phx-click="close_usage">✕</button>
         </div>
 
-        <div :if={@usage_records == []} class="text-base-content/50 text-sm py-4 text-center">
+        <div :if={@usage_records == []} class="text-base-content/70 text-sm py-4 text-center">
           No usage recorded yet.
         </div>
 
@@ -394,16 +394,16 @@ defmodule MobileCarWashWeb.Admin.SuppliesLive do
               <tr :for={rec <- @usage_records}>
                 <td class="text-sm">{Calendar.strftime(rec.occurred_at, "%b %d, %Y %I:%M %p")}</td>
                 <td class="font-semibold">{format_qty(rec.quantity_used)} {viewed_supply && viewed_supply.unit}</td>
-                <td class="text-sm text-base-content/60">
+                <td class="text-sm text-base-content/80">
                   {if rec.technician_id, do: String.slice(rec.technician_id, 0, 8) <> "…", else: "—"}
                 </td>
-                <td class="text-sm text-base-content/60">
+                <td class="text-sm text-base-content/80">
                   {if rec.van_id, do: String.slice(rec.van_id, 0, 8) <> "…", else: "—"}
                 </td>
-                <td class="text-sm text-base-content/60">
+                <td class="text-sm text-base-content/80">
                   {if rec.appointment_id, do: String.slice(rec.appointment_id, 0, 8) <> "…", else: "—"}
                 </td>
-                <td class="text-sm text-base-content/50">{rec.notes || "—"}</td>
+                <td class="text-sm text-base-content/70">{rec.notes || "—"}</td>
               </tr>
             </tbody>
           </table>

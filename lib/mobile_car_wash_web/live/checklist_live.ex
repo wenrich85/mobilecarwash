@@ -359,7 +359,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
             </span>
           </div>
           <progress class="progress progress-primary w-full" value={@pct} max="100"></progress>
-          <div class="flex justify-between text-sm text-base-content/50 mt-1">
+          <div class="flex justify-between text-sm text-base-content/70 mt-1">
             <span>{@pct}% complete</span>
             <span>ETA: ~{remaining_minutes(@items)} min</span>
           </div>
@@ -381,7 +381,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
           <div class="flex justify-between items-center mb-3">
             <div>
               <h3 class="font-bold">Before Photos</h3>
-              <p class="text-xs text-base-content/50">Required before starting</p>
+              <p class="text-xs text-base-content/70">Required before starting</p>
             </div>
             <span :if={before_photos_complete?(@before_photos)} class="badge badge-success">
               ✓ Complete
@@ -421,7 +421,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
               >
                 <span class="text-5xl font-thin text-warning/70">+</span>
                 <span class="text-sm font-bold text-warning">{area.label}</span>
-                <span class="text-xs text-base-content/40 text-center px-3 leading-tight">{area.instruction}</span>
+                <span class="text-xs text-base-content/70 text-center px-3 leading-tight">{area.instruction}</span>
               </button>
             </div>
           </div>
@@ -431,11 +431,11 @@ defmodule MobileCarWashWeb.ChecklistLive do
         <div :if={@show_photo_upload} class="fixed inset-0 z-50 bg-base-100 flex flex-col">
           <div class="flex items-center justify-between p-4 border-b border-base-300">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/70">
                 {String.capitalize(@show_photo_upload.type)} Photo
               </p>
               <h3 class="text-lg font-bold leading-tight">{area_label(@show_photo_upload.area)}</h3>
-              <p class="text-sm text-base-content/50">{area_instruction(@show_photo_upload.area)}</p>
+              <p class="text-sm text-base-content/70">{area_instruction(@show_photo_upload.area)}</p>
             </div>
             <button phx-click="cancel_upload" class="btn btn-ghost btn-sm btn-circle text-lg">✕</button>
           </div>
@@ -451,7 +451,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
               <!-- Placeholder (shown when no file yet) — non-interactive, file input below handles taps -->
               <div :if={@uploads.photo.entries == []} class="rounded-2xl border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 py-16 pointer-events-none">
                 <span class="text-6xl font-thin text-base-content/20">+</span>
-                <p class="text-sm text-base-content/40">Select photo below</p>
+                <p class="text-sm text-base-content/70">Select photo below</p>
               </div>
 
               <!-- Single file input — always mounted so LiveView's upload hook stays attached -->
@@ -482,7 +482,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 <!-- Step number / check -->
                 <div class="flex flex-col items-center">
                   <div :if={item.completed} class="text-success text-xl">✓</div>
-                  <div :if={!item.completed} class="text-lg font-mono text-base-content/40">{item.step_number}</div>
+                  <div :if={!item.completed} class="text-lg font-mono text-base-content/70">{item.step_number}</div>
                 </div>
 
                 <div class="flex-1">
@@ -492,7 +492,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     </span>
                     <span :if={item.required} class="badge badge-error badge-xs">Req</span>
                   </div>
-                  <p :if={item.description} class="text-xs text-base-content/60 mt-1">{item.description}</p>
+                  <p :if={item.description} class="text-xs text-base-content/80 mt-1">{item.description}</p>
 
                   <!-- Timer Display -->
                   <div :if={item.started_at && !item.completed} class="mt-2">
@@ -500,7 +500,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                       <span class={["font-mono text-lg font-bold", timer_text_color(item, @now)]}>
                         {format_elapsed(item.started_at, @now)}
                       </span>
-                      <span class="text-xs text-base-content/50">
+                      <span class="text-xs text-base-content/70">
                         / {item.estimated_minutes || 5}:00 est
                       </span>
                     </div>
@@ -516,7 +516,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     <span class={if item.actual_seconds <= (item.estimated_minutes || 5) * 60, do: "text-success", else: "text-error"}>
                       Actual: {format_seconds(item.actual_seconds)}
                     </span>
-                    <span class="text-base-content/40"> / Est: {item.estimated_minutes || 5} min</span>
+                    <span class="text-base-content/70"> / Est: {item.estimated_minutes || 5} min</span>
                   </div>
 
                   <!-- Notes Section -->
@@ -596,7 +596,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
           <div class="flex justify-between items-center mb-3">
             <div>
               <h3 class="font-bold">After Photos</h3>
-              <p class="text-xs text-base-content/50">Match each before photo</p>
+              <p class="text-xs text-base-content/70">Match each before photo</p>
             </div>
             <span :if={after_photos_complete?(@after_photos)} class="badge badge-success">
               ✓ Complete
@@ -643,7 +643,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 <img :if={before_photo} src={before_photo.file_path} class="absolute inset-0 w-full h-full object-cover opacity-20" />
                 <span class="relative text-5xl font-thin text-success/70">+</span>
                 <span class="relative text-sm font-bold text-success">{area.label}</span>
-                <span class="relative text-xs text-base-content/40 text-center px-3 leading-tight">{area.instruction}</span>
+                <span class="relative text-xs text-base-content/70 text-center px-3 leading-tight">{area.instruction}</span>
               </button>
             </div>
           </div>
@@ -656,7 +656,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
         <div :if={@checklist.status == :completed} class="mt-6 text-center">
           <div class="text-4xl mb-2">✓</div>
           <h2 class="text-xl font-bold text-success">Checklist Complete!</h2>
-          <p class="text-sm text-base-content/60 mb-4">All steps verified</p>
+          <p class="text-sm text-base-content/80 mb-4">All steps verified</p>
 
           <!-- Time Summary -->
           <div class="card bg-base-100 shadow mx-auto max-w-sm">
@@ -678,7 +678,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
       </div>
 
       <div :if={!@checklist} class="text-center py-12">
-        <p class="text-base-content/50">No active checklist</p>
+        <p class="text-base-content/70">No active checklist</p>
       </div>
     </div>
     """

@@ -256,7 +256,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         <div class="flex justify-between items-center">
           <div>
             <h1 class="text-3xl font-bold">Dispatch Center</h1>
-            <p class="text-base-content/60">Kanban-style appointment management</p>
+            <p class="text-base-content/80">Kanban-style appointment management</p>
           </div>
           <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
         </div>

@@ -20,7 +20,7 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
     <div class="max-w-7xl mx-auto py-8 px-4">
       <div class="mb-8">
         <h1 class="text-4xl font-bold mb-2">Admin Hub</h1>
-        <p class="text-base-content/60">
+        <p class="text-base-content/80">
           Everything you need to run the business. Each card opens a dedicated page.
         </p>
       </div>
@@ -28,7 +28,7 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
       <div :for={section <- @sections} class="mb-10">
         <div class="flex items-baseline gap-3 mb-4">
           <h2 class="text-xl font-bold">{section.title}</h2>
-          <span class="text-sm text-base-content/50">{section.subtitle}</span>
+          <span class="text-sm text-base-content/70">{section.subtitle}</span>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -42,7 +42,7 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
                 <div class="text-3xl leading-none">{card.icon}</div>
                 <div class="flex-1">
                   <h3 class="font-bold text-lg mb-1">{card.title}</h3>
-                  <p class="text-sm text-base-content/60">{card.description}</p>
+                  <p class="text-sm text-base-content/80">{card.description}</p>
                 </div>
               </div>
             </div>

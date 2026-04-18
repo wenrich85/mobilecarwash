@@ -65,7 +65,7 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
                 <span class="badge badge-success">Confirmed</span>
               </div>
             </div>
-            <p class="text-sm text-base-content/50 mt-4">Booking ID: {@appointment.id}</p>
+            <p class="text-sm text-base-content/70 mt-4">Booking ID: {@appointment.id}</p>
           </div>
         </div>
 

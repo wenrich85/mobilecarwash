@@ -99,7 +99,7 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
 
       <!-- No Subscription -->
       <div :if={is_nil(@subscription)} class="text-center py-12">
-        <p class="text-base-content/50 mb-4">You don't have an active subscription</p>
+        <p class="text-base-content/70 mb-4">You don't have an active subscription</p>
         <.link navigate={~p"/subscribe"} class="btn btn-primary">
           View Plans
         </.link>
@@ -121,7 +121,7 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
             </div>
 
             <!-- Period -->
-            <div class="mt-4 text-sm text-base-content/60">
+            <div class="mt-4 text-sm text-base-content/80">
               <span :if={@subscription.current_period_start && @subscription.current_period_end}>
                 Current period: {Calendar.strftime(@subscription.current_period_start, "%b %d")} –
                 {Calendar.strftime(@subscription.current_period_end, "%b %d, %Y")}
@@ -159,7 +159,7 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
               />
             </div>
 
-            <div :if={@plan.deep_clean_discount_percent > 0} class="text-sm text-base-content/60">
+            <div :if={@plan.deep_clean_discount_percent > 0} class="text-sm text-base-content/80">
               {@plan.deep_clean_discount_percent}% off additional deep cleans
             </div>
           </div>

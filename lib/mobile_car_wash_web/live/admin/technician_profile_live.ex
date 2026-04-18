@@ -143,8 +143,8 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
           <div class="flex items-start justify-between flex-wrap gap-4">
             <div>
               <h1 class="text-2xl font-bold">{@technician.name}</h1>
-              <p :if={@technician.phone} class="text-base-content/60 mt-1">{@technician.phone}</p>
-              <p :if={@user_account} class="text-sm text-base-content/50 mt-1">
+              <p :if={@technician.phone} class="text-base-content/80 mt-1">{@technician.phone}</p>
+              <p :if={@user_account} class="text-sm text-base-content/70 mt-1">
                 Account: {@user_account.email}
               </p>
             </div>
@@ -174,7 +174,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
               <div :if={@van} class="flex items-center justify-between">
                 <div>
                   <p class="font-medium">{@van.name}</p>
-                  <p :if={@van.license_plate} class="text-sm text-base-content/50">
+                  <p :if={@van.license_plate} class="text-sm text-base-content/70">
                     {@van.license_plate}
                   </p>
                 </div>
@@ -183,7 +183,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                 </button>
               </div>
               <div :if={!@van} class="flex items-center justify-between">
-                <span class="text-base-content/40 text-sm">No van assigned</span>
+                <span class="text-base-content/70 text-sm">No van assigned</span>
                 <button class="btn btn-primary btn-xs" phx-click="start_edit" phx-value-field="van">
                   Assign
                 </button>
@@ -218,13 +218,13 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                 <div>
                   <p :if={@technician.pay_rate_pct} class="text-2xl font-bold">
                     {format_pct(@technician.pay_rate_pct)}%
-                    <span class="text-sm font-normal text-base-content/50">per wash</span>
+                    <span class="text-sm font-normal text-base-content/70">per wash</span>
                   </p>
                   <p :if={!@technician.pay_rate_pct} class="text-2xl font-bold">
                     ${format_dollars(@technician.pay_rate_cents || 2500)}
-                    <span class="text-sm font-normal text-base-content/50">flat / wash</span>
+                    <span class="text-sm font-normal text-base-content/70">flat / wash</span>
                   </p>
-                  <p :if={@technician.pay_rate_pct} class="text-sm text-base-content/50 mt-1">
+                  <p :if={@technician.pay_rate_pct} class="text-sm text-base-content/70 mt-1">
                     ~${format_dollars(round((@technician.pay_rate_pct |> Decimal.to_float()) * 10000))} on a $100 wash
                   </p>
                 </div>
@@ -245,7 +245,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                   step="0.5"
                   placeholder="30"
                 />
-                <span class="text-base-content/60">% of wash price</span>
+                <span class="text-base-content/80">% of wash price</span>
               </div>
               <p :if={@error} class="text-error text-xs">{@error}</p>
               <div class="flex gap-2">
@@ -298,7 +298,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
 
       <div class="card bg-base-100 shadow">
         <div class="card-body p-0">
-          <div :if={@appointments == []} class="p-6 text-center text-base-content/50 text-sm">
+          <div :if={@appointments == []} class="p-6 text-center text-base-content/70 text-sm">
             No appointments
           </div>
           <div :if={@appointments != []} class="overflow-x-auto">
@@ -328,9 +328,9 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                   <td :if={@active_tab == :past} class="text-sm">
                     <span :if={appt.actual_minutes}>
                       {appt.actual_minutes}m
-                      <span class="text-base-content/40">/ {appt.duration_minutes}m est</span>
+                      <span class="text-base-content/70">/ {appt.duration_minutes}m est</span>
                     </span>
-                    <span :if={!appt.actual_minutes} class="text-base-content/40">
+                    <span :if={!appt.actual_minutes} class="text-base-content/70">
                       {appt.duration_minutes}m est
                     </span>
                   </td>
@@ -349,7 +349,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
       <!-- Supply Usage -->
       <div class="mt-8">
         <h2 class="text-lg font-bold mb-3">Supply Usage (last 50)</h2>
-        <div :if={@supply_usage == []} class="text-base-content/50 text-sm">
+        <div :if={@supply_usage == []} class="text-base-content/70 text-sm">
           No supply usage recorded yet.
         </div>
         <div :if={@supply_usage != []} class="card bg-base-100 shadow">
@@ -377,10 +377,10 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                     <% supply = Map.get(@supply_map, rec.supply_id) %>
                     {format_qty(rec.quantity_used)}{supply && " #{supply.unit}"}
                   </td>
-                  <td class="text-sm text-base-content/50">
+                  <td class="text-sm text-base-content/70">
                     {if rec.van_id, do: String.slice(rec.van_id, 0, 8) <> "…", else: "—"}
                   </td>
-                  <td class="text-sm text-base-content/40">{rec.notes || "—"}</td>
+                  <td class="text-sm text-base-content/70">{rec.notes || "—"}</td>
                 </tr>
               </tbody>
             </table>

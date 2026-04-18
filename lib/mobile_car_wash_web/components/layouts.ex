@@ -47,7 +47,8 @@ defmodule MobileCarWashWeb.Layouts do
 
     ~H"""
     <div class="drawer">
-      <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
+      <label for="mobile-drawer" class="sr-only">Toggle navigation menu</label>
+      <input id="mobile-drawer" type="checkbox" class="drawer-toggle" aria-label="Toggle navigation menu" />
 
       <div class="drawer-content flex flex-col">
         <!-- Skip to content -->
@@ -59,8 +60,8 @@ defmodule MobileCarWashWeb.Layouts do
         <header class="navbar bg-base-100 shadow-sm sticky top-0 z-50">
           <!-- Mobile hamburger -->
           <div class="flex-none lg:hidden">
-            <label for="mobile-drawer" class="btn btn-square btn-ghost">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current">
+            <label for="mobile-drawer" class="btn btn-square btn-ghost" aria-label="Open navigation menu">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </label>
@@ -94,7 +95,7 @@ defmodule MobileCarWashWeb.Layouts do
               <li><.theme_toggle /></li>
 
               <li :if={@current_scope}>
-                <span class="text-sm text-base-content/60">{Map.get(@current_scope, :name, "")}</span>
+                <span class="text-sm text-base-content/80">{Map.get(@current_scope, :name, "")}</span>
               </li>
               <li :if={@current_scope}>
                 <a href="/sign-out" class="btn btn-outline btn-sm">Sign Out</a>
@@ -120,13 +121,13 @@ defmodule MobileCarWashWeb.Layouts do
               <div>
                 <img src="/images/logo_light.svg" alt="Driveway Detail Co" width="192" height="32" class="h-8 w-auto mb-3 dark:hidden" />
                 <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="192" height="32" class="h-8 w-auto mb-3 hidden dark:block" />
-                <p class="text-sm text-base-content/60">
+                <p class="text-sm text-base-content/80">
                   Professional mobile detailing at your door. Veteran-owned in San Antonio, TX.
                 </p>
               </div>
               <div>
                 <h4 class="font-semibold mb-3 text-sm">Services</h4>
-                <ul class="space-y-2 text-sm text-base-content/60">
+                <ul class="space-y-2 text-sm text-base-content/80">
                   <li><a href="/book" class="hover:text-base-content">Book a Wash</a></li>
                   <li><a href="/subscribe" class="hover:text-base-content">Monthly Plans</a></li>
                   <li><a href="/#services" class="hover:text-base-content">Pricing</a></li>
@@ -134,7 +135,7 @@ defmodule MobileCarWashWeb.Layouts do
               </div>
               <div>
                 <h4 class="font-semibold mb-3 text-sm">Account</h4>
-                <ul class="space-y-2 text-sm text-base-content/60">
+                <ul class="space-y-2 text-sm text-base-content/80">
                   <li :if={@current_scope}>
                     <span class="font-semibold text-base-content">{Map.get(@current_scope, :name, "")}</span>
                   </li>
@@ -148,13 +149,13 @@ defmodule MobileCarWashWeb.Layouts do
               </div>
               <div>
                 <h4 class="font-semibold mb-3 text-sm">Company</h4>
-                <ul class="space-y-2 text-sm text-base-content/60">
+                <ul class="space-y-2 text-sm text-base-content/80">
                   <li>San Antonio, TX</li>
                   <li>Mon–Sat 8am–6pm</li>
                 </ul>
               </div>
             </div>
-            <div class="border-t border-base-300 mt-8 pt-6 text-center text-xs text-base-content/40">
+            <div class="border-t border-base-300 mt-8 pt-6 text-center text-xs text-base-content/70">
               <p>&copy; {DateTime.utc_now().year} Driveway Detail Co. All rights reserved. Veteran-owned.</p>
             </div>
           </div>
@@ -239,13 +240,14 @@ defmodule MobileCarWashWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
+    <div role="group" aria-label="Theme" class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
       <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
 
       <button
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
+        aria-label="Use system theme"
       >
         <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -254,6 +256,7 @@ defmodule MobileCarWashWeb.Layouts do
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
+        aria-label="Use light theme"
       >
         <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -262,6 +265,7 @@ defmodule MobileCarWashWeb.Layouts do
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
+        aria-label="Use dark theme"
       >
         <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>

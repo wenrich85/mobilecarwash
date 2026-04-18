@@ -136,7 +136,7 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
       <div class="flex justify-between items-start mb-6">
         <div>
           <h1 class="text-3xl font-bold mb-2">Appointment Blocks</h1>
-          <p class="text-base-content/60">
+          <p class="text-base-content/80">
             Upcoming windows. Blocks close automatically at midnight the day before; the route optimizer assigns each customer an exact arrival time and texts it to them.
           </p>
         </div>
@@ -157,7 +157,7 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
         </form>
       </div>
 
-      <div :if={@blocks == []} class="text-center py-12 text-base-content/50">
+      <div :if={@blocks == []} class="text-center py-12 text-base-content/70">
         No upcoming blocks. Click "Generate Next {@generate_days} Days" to seed the schedule.
       </div>
 
@@ -174,7 +174,7 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
                   <span class={["badge badge-sm", status_class(block.status)]}>
                     {block.status}
                   </span>
-                  <span class="text-xs text-base-content/50">
+                  <span class="text-xs text-base-content/70">
                     Tech: {block.technician && block.technician.name || "—"}
                   </span>
                 </div>
@@ -186,7 +186,7 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
                   </span>
                 </p>
 
-                <p :if={@editing_closes_at != block.id} class="text-sm text-base-content/60 mt-1">
+                <p :if={@editing_closes_at != block.id} class="text-sm text-base-content/80 mt-1">
                   {block.appointment_count} / {block.capacity} booked · closes {Calendar.strftime(block.closes_at, "%a %b %-d %-I:%M %p")}
                   <button
                     :if={block.status == :open}
@@ -204,7 +204,7 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
                   phx-value-id={block.id}
                   class="flex items-center gap-2 mt-1 text-sm"
                 >
-                  <label class="text-base-content/60">Closes at:</label>
+                  <label class="text-base-content/80">Closes at:</label>
                   <input
                     type="datetime-local"
                     name="closes_at"
@@ -249,7 +249,7 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
               :if={MapSet.member?(@expanded, block.id)}
               class="mt-3 pt-3 border-t border-base-200"
             >
-              <div :if={block.appointments == []} class="text-sm text-base-content/50">
+              <div :if={block.appointments == []} class="text-sm text-base-content/70">
                 No appointments in this block yet.
               </div>
 

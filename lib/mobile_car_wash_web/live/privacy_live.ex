@@ -20,7 +20,7 @@ defmodule MobileCarWashWeb.PrivacyLive do
     ~H"""
     <article class="max-w-3xl mx-auto px-4 py-12 prose prose-slate">
       <h1>Privacy Policy</h1>
-      <p class="text-base-content/60">Effective {@effective_date}</p>
+      <p class="text-base-content/80">Effective {@effective_date}</p>
 
       <p>
         Driveway Detail Co ("we", "us") operates the website at drivewaydetailcosa.com and

@@ -711,7 +711,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-tertiary-200" phx-click="">
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">💵 Record Income</h2>
-          <p class="text-sm text-base-content/60 mb-4">Add funds arriving to your expense account</p>
+          <p class="text-sm text-base-content/80 mb-4">Add funds arriving to your expense account</p>
 
           <form phx-submit="deposit" class="space-y-4">
             <div>
@@ -769,7 +769,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-red-200" phx-click="">
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">📤 Record Expense</h2>
-          <p class="text-sm text-base-content/60 mb-4">Deduct funds from your expense account</p>
+          <p class="text-sm text-base-content/80 mb-4">Deduct funds from your expense account</p>
 
           <form phx-submit="withdraw" class="space-y-4">
             <div>
@@ -827,7 +827,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-primary-300" phx-click="">
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">⚙️ Cash Flow Settings</h2>
-          <p class="text-sm text-base-content/60 mb-4">Configure thresholds and salary parameters</p>
+          <p class="text-sm text-base-content/80 mb-4">Configure thresholds and salary parameters</p>
 
           <form phx-submit="update_config" class="space-y-4">
             <fieldset name="config">
@@ -847,7 +847,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
                     required
                   />
                 </div>
-                <p class="text-xs text-base-content/60 mt-2 bg-primary-50 p-2 rounded">
+                <p class="text-xs text-base-content/80 mt-2 bg-primary-50 p-2 rounded">
                   ℹ️ Expense threshold = Opex × 1.25
                 </p>
               </div>
@@ -914,7 +914,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-yellow-300" phx-click="">
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">↩ Rebalance to Expense</h2>
-          <p class="text-sm text-base-content/60 mb-4">Pull funds back during lean months</p>
+          <p class="text-sm text-base-content/80 mb-4">Pull funds back during lean months</p>
 
           <form phx-submit="transfer" class="space-y-4">
             <div class="alert rounded-lg bg-yellow-50 border border-yellow-200 text-sm">
@@ -997,8 +997,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         <span class="badge badge-sm">{@txn.type}</span>
       </td>
       <td class="text-sm font-mono">${format_cents(@txn.amount_cents)}</td>
-      <td class="text-xs text-base-content/60">{@txn.description}</td>
-      <td class="text-xs text-base-content/50">
+      <td class="text-xs text-base-content/80">{@txn.description}</td>
+      <td class="text-xs text-base-content/70">
         {Calendar.strftime(@txn.inserted_at, "%m/%d %H:%M")}
       </td>
     </tr>

@@ -62,7 +62,7 @@ defmodule MobileCarWashWeb.Admin.TechniciansLive do
       <div class="flex justify-between items-start mb-6">
         <div>
           <h1 class="text-3xl font-bold mb-2">Technicians</h1>
-          <p class="text-base-content/60">
+          <p class="text-base-content/80">
             Manage your wash technicians, zones, pay rates, and van assignments.
           </p>
         </div>
@@ -101,7 +101,7 @@ defmodule MobileCarWashWeb.Admin.TechniciansLive do
       </div>
 
       <!-- List -->
-      <div :if={@technicians == []} class="text-center py-12 text-base-content/50">
+      <div :if={@technicians == []} class="text-center py-12 text-base-content/70">
         No technicians yet. Add one above.
       </div>
 
@@ -119,7 +119,7 @@ defmodule MobileCarWashWeb.Admin.TechniciansLive do
                 </span>
                 <span :if={!tech.active} class="badge badge-sm badge-error">Inactive</span>
               </div>
-              <p class="text-sm text-base-content/60 mt-1">
+              <p class="text-sm text-base-content/80 mt-1">
                 {tech.phone || "No phone"} · ${div(tech.pay_rate_cents || 0, 100)}/wash
                 <span :if={tech.van_id}>· van assigned</span>
               </p>

@@ -12,7 +12,7 @@ defmodule MobileCarWashWeb.SubscriptionSuccessLive do
     <div class="max-w-lg mx-auto py-16 px-4 text-center">
       <div class="text-6xl mb-6">&#10003;</div>
       <h1 class="text-3xl font-bold mb-4">Subscription Active!</h1>
-      <p class="text-base-content/60 mb-8">
+      <p class="text-base-content/80 mb-8">
         Your subscription is now active. You can manage it anytime from your account.
         Subscription benefits will be automatically applied when you book your next wash.
       </p>

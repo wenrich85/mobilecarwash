@@ -80,7 +80,7 @@ defmodule MobileCarWashWeb.Admin.EventsLive do
       <div class="flex justify-between items-center mb-8">
         <div>
           <h1 class="text-3xl font-bold">Event Explorer</h1>
-          <p class="text-base-content/60">{@total} total events</p>
+          <p class="text-base-content/80">{@total} total events</p>
         </div>
         <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">
           ← Dashboard
@@ -125,7 +125,7 @@ defmodule MobileCarWashWeb.Admin.EventsLive do
         >
           ← Previous
         </button>
-        <span class="text-sm text-base-content/60">
+        <span class="text-sm text-base-content/80">
           Page {@page + 1}
         </span>
         <button

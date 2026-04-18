@@ -205,7 +205,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
     ~H"""
     <div class="max-w-5xl mx-auto py-8 px-4">
       <h1 class="text-3xl font-bold mb-2">Settings</h1>
-      <p class="text-base-content/60 mb-6">Manage services and membership plans.</p>
+      <p class="text-base-content/80 mb-6">Manage services and membership plans.</p>
 
       <!-- Tabs -->
       <div class="tabs tabs-boxed mb-8">
@@ -255,10 +255,10 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                     <span class="badge badge-sm badge-ghost">{svc.slug}</span>
                     <span :if={!svc.active} class="badge badge-sm badge-error">Inactive</span>
                   </div>
-                  <p class="text-sm text-base-content/60">{svc.description}</p>
+                  <p class="text-sm text-base-content/80">{svc.description}</p>
                   <p class="text-sm mt-1">
                     <span class="font-semibold">${div(svc.base_price_cents, 100)}</span>
-                    <span class="text-base-content/50"> · {svc.duration_minutes} min</span>
+                    <span class="text-base-content/70"> · {svc.duration_minutes} min</span>
                   </p>
                 </div>
                 <div class="flex gap-2">
@@ -346,7 +346,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                       <span class="badge badge-sm badge-ghost">{plan.slug}</span>
                       <span :if={!plan.active} class="badge badge-sm badge-error">Inactive</span>
                     </div>
-                    <p class="text-2xl font-bold mt-1">${div(plan.price_cents, 100)}<span class="text-sm font-normal text-base-content/50">/month</span></p>
+                    <p class="text-2xl font-bold mt-1">${div(plan.price_cents, 100)}<span class="text-sm font-normal text-base-content/70">/month</span></p>
                   </div>
                   <div class="flex gap-2">
                     <button class="btn btn-ghost btn-xs" phx-click="edit_plan" phx-value-id={plan.id}>Edit</button>
@@ -360,7 +360,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                   <span :if={plan.deep_cleans_per_month > 0} class="badge badge-outline">{plan.deep_cleans_per_month} deep cleans</span>
                   <span :if={plan.deep_clean_discount_percent > 0} class="badge badge-outline">{plan.deep_clean_discount_percent}% off deep cleans</span>
                 </div>
-                <p :if={plan.description} class="text-sm text-base-content/60 mt-2">{plan.description}</p>
+                <p :if={plan.description} class="text-sm text-base-content/80 mt-2">{plan.description}</p>
               </div>
 
               <!-- Edit mode -->
@@ -404,7 +404,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
         <div class="card bg-base-100 shadow mb-6">
           <div class="card-body p-4">
             <h3 class="font-bold mb-3">Block a Date</h3>
-            <p class="text-sm text-base-content/60 mb-3">
+            <p class="text-sm text-base-content/80 mb-3">
               Blocked dates won't have available slots. Customers can't book and recurring schedules will skip them.
             </p>
             <form phx-submit="add_blocked_date" class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
@@ -421,7 +421,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
           </div>
         </div>
 
-        <div :if={@blocked_dates == []} class="text-center py-8 text-base-content/50">
+        <div :if={@blocked_dates == []} class="text-center py-8 text-base-content/70">
           No dates blocked
         </div>
 
@@ -439,7 +439,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
               <tr :for={bd <- @blocked_dates}>
                 <td>{Calendar.strftime(bd.date, "%b %-d, %Y")}</td>
                 <td>{Calendar.strftime(bd.date, "%A")}</td>
-                <td class="text-base-content/60">{bd.reason || "—"}</td>
+                <td class="text-base-content/80">{bd.reason || "—"}</td>
                 <td>
                   <button
                     class="btn btn-ghost btn-xs text-error"
@@ -460,7 +460,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
         <div class="card bg-base-100 shadow">
           <div class="card-body p-6">
             <h3 class="font-bold text-lg mb-4">Accounting Integration</h3>
-            <p class="text-sm text-base-content/60 mb-6">
+            <p class="text-sm text-base-content/80 mb-6">
               Select your accounting provider. Payments will automatically sync to the configured system.
               Credentials are managed via environment variables at deployment time.
             </p>
