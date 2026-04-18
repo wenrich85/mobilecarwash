@@ -1,11 +1,20 @@
 defmodule MobileCarWash.Scheduling.RecurringAppointmentScheduler do
   @moduledoc """
   Oban cron worker that runs daily at 6am.
-  Looks 7 days ahead and creates appointments from active recurring schedules.
+  Looks 7 days ahead and creates appointments from active recurring schedules
+  by booking each into an open AppointmentBlock on its preferred day.
   """
   use Oban.Worker, queue: :default, max_attempts: 1
 
-  alias MobileCarWash.Scheduling.{RecurringSchedule, Appointment, ServiceType, Availability}
+  alias MobileCarWash.Scheduling.{
+    Appointment,
+    BlockAvailability,
+    BlockGenerator,
+    RecurringSchedule,
+    ServiceType
+  }
+
+  alias MobileCarWash.Operations.Technician
 
   require Ash.Query
   require Logger
@@ -46,7 +55,6 @@ defmodule MobileCarWash.Scheduling.RecurringAppointmentScheduler do
   end
 
   defp calculate_next_dates(schedule, today, horizon) do
-    # Generate candidate dates within [today+1, horizon]
     tomorrow = Date.add(today, 1)
 
     Date.range(tomorrow, horizon)
@@ -90,36 +98,66 @@ defmodule MobileCarWash.Scheduling.RecurringAppointmentScheduler do
 
   defp create_appointment(schedule, date) do
     {:ok, service_type} = Ash.get(ServiceType, schedule.service_type_id)
-    {:ok, scheduled_at} = DateTime.new(date, schedule.preferred_time)
 
-    # Check availability
-    existing =
-      Appointment
-      |> Ash.Query.filter(
-        scheduled_at >= ^DateTime.add(scheduled_at, -3600) and
-          scheduled_at <= ^DateTime.add(scheduled_at, 3600) and
-          status in [:pending, :confirmed, :in_progress]
-      )
-      |> Ash.read!()
-
-    existing_maps = Enum.map(existing, fn a -> %{scheduled_at: a.scheduled_at, duration_minutes: a.duration_minutes} end)
-
-    if Availability.slot_available?(scheduled_at, service_type.duration_minutes, existing_maps) do
+    with {:ok, block} <- find_or_generate_block(service_type, date, schedule.preferred_time) do
       Appointment
       |> Ash.Changeset.for_create(:book, %{
         customer_id: schedule.customer_id,
         vehicle_id: schedule.vehicle_id,
         address_id: schedule.address_id,
         service_type_id: schedule.service_type_id,
-        scheduled_at: scheduled_at,
+        scheduled_at: block.starts_at,
+        appointment_block_id: block.id,
         price_cents: service_type.base_price_cents,
         duration_minutes: service_type.duration_minutes,
         notes: "Auto-scheduled (recurring)"
       })
       |> Ash.Changeset.force_change_attribute(:recurring_schedule_id, schedule.id)
       |> Ash.create()
-    else
-      {:error, :slot_unavailable}
     end
+  end
+
+  defp find_or_generate_block(service_type, date, preferred_time) do
+    case open_block_closest_to(service_type.id, date, preferred_time) do
+      nil ->
+        with :ok <- ensure_blocks_for(date) do
+          case open_block_closest_to(service_type.id, date, preferred_time) do
+            nil -> {:error, :no_block_available}
+            block -> {:ok, block}
+          end
+        end
+
+      block ->
+        {:ok, block}
+    end
+  end
+
+  defp open_block_closest_to(service_type_id, date, preferred_time) do
+    BlockAvailability.open_blocks_for_service_range(service_type_id, date, date)
+    |> Enum.min_by(
+      fn block ->
+        abs(block.starts_at.hour - preferred_time.hour)
+      end,
+      fn -> nil end
+    )
+  end
+
+  defp ensure_blocks_for(date) do
+    case default_technician() do
+      nil ->
+        {:error, :no_technician}
+
+      tech ->
+        BlockGenerator.generate_for_date(date, technician_id: tech.id)
+    end
+  end
+
+  defp default_technician do
+    Technician
+    |> Ash.Query.filter(active == true)
+    |> Ash.Query.sort(inserted_at: :asc)
+    |> Ash.Query.limit(1)
+    |> Ash.read!()
+    |> List.first()
   end
 end

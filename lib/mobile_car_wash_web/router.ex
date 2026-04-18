@@ -133,23 +133,55 @@ defmodule MobileCarWashWeb.Router do
         {MobileCarWashWeb.AdminAuth, :require_admin},
         {MobileCarWashWeb.TrackPresence, :track}
       ] do
+      live "/", DashboardLive
       live "/metrics", MetricsLive
       live "/events", EventsLive
       live "/formation", FormationLive
       live "/org-chart", OrgChartLive
       live "/procedures", ProceduresLive
       live "/dispatch", DispatchLive
+      live "/technicians", TechniciansLive
       live "/technicians/:id", TechnicianProfileLive
       live "/settings", SettingsLive
       live "/cash-flow", CashFlowLive
       live "/vans", VansLive
       live "/supplies", SuppliesLive
+      live "/blocks", BlocksLive
+      live "/schedule-templates", ScheduleTemplatesLive
     end
   end
 
-  # API v1 — for future native apps
+  # API v1 — mobile apps + programmatic clients
   scope "/api/v1", MobileCarWashWeb.Api.V1 do
     pipe_through :api
+
+    post "/auth/register", AuthController, :register
+    post "/auth/sign_in", AuthController, :sign_in
+    post "/auth/sign_out", AuthController, :sign_out
+
+    # Public catalog
+    get "/services", CatalogController, :services
+    get "/subscription_plans", CatalogController, :subscription_plans
+
+    # Customer resources (auth required — enforced in controllers)
+    get "/vehicles", VehiclesController, :index
+    post "/vehicles", VehiclesController, :create
+    get "/addresses", AddressesController, :index
+    post "/addresses", AddressesController, :create
+
+    # Booking flow
+    get "/blocks", BlocksController, :index
+    post "/bookings", BookingsController, :create
+
+    # Appointments (read-only for the customer)
+    get "/appointments", AppointmentsController, :index
+    get "/appointments/:id", AppointmentsController, :show
+
+    # Subscriptions
+    get "/subscriptions", SubscriptionsController, :index
+    post "/subscriptions/:id/pause", SubscriptionsController, :pause
+    post "/subscriptions/:id/resume", SubscriptionsController, :resume
+    post "/subscriptions/:id/cancel", SubscriptionsController, :cancel
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

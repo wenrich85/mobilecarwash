@@ -69,12 +69,14 @@ defmodule MobileCarWash.Fleet.Address do
 
     create :create do
       accept [:street, :city, :state, :zip, :latitude, :longitude, :is_default]
+      change MobileCarWash.Fleet.Changes.AutoGeocodeFromZip
       change MobileCarWash.Fleet.Changes.SetZoneFromZip
     end
 
     update :update do
       require_atomic? false
       accept [:street, :city, :state, :zip, :latitude, :longitude, :is_default]
+      change MobileCarWash.Fleet.Changes.AutoGeocodeFromZip
       change MobileCarWash.Fleet.Changes.SetZoneFromZip
     end
 

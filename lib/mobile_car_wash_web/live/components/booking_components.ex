@@ -76,6 +76,58 @@ defmodule MobileCarWashWeb.BookingComponents do
   end
 
   attr :date, :any, required: true
+  attr :blocks, :list, required: true
+  attr :selected_block, :any, default: nil
+
+  def block_window_picker(assigns) do
+    ~H"""
+    <div>
+      <div class="form-control mb-6">
+        <label class="label"><span class="label-text font-semibold">Select a date</span></label>
+        <input
+          type="date"
+          class="input input-bordered w-full max-w-xs"
+          value={@date}
+          min={Date.utc_today() |> Date.add(1) |> Date.to_string()}
+          phx-change="select_date"
+          name="date"
+        />
+      </div>
+
+      <div :if={@blocks != []} class="space-y-3">
+        <p class="text-sm text-base-content/70 mb-2">
+          Pick a window. We'll confirm your exact arrival time by midnight the day before.
+        </p>
+        <button
+          :for={block <- @blocks}
+          type="button"
+          class={[
+            "btn btn-block h-auto py-3 justify-between",
+            if(@selected_block && @selected_block.id == block.id,
+              do: "btn-primary",
+              else: "btn-outline"
+            )
+          ]}
+          phx-click="select_block"
+          phx-value-id={block.id}
+        >
+          <span class="font-semibold">
+            {Calendar.strftime(block.starts_at, "%I:%M %p")} – {Calendar.strftime(block.ends_at, "%I:%M %p")}
+          </span>
+          <span class="text-xs opacity-75">
+            {block.capacity - block.appointment_count} of {block.capacity} spots left
+          </span>
+        </button>
+      </div>
+
+      <div :if={@date && @blocks == []} class="alert alert-warning mt-4">
+        <span>No available windows for this date. Please try another day.</span>
+      </div>
+    </div>
+    """
+  end
+
+  attr :date, :any, required: true
   attr :slots, :list, required: true
   attr :selected_slot, :any, default: nil
 

@@ -87,19 +87,8 @@ defmodule MobileCarWashWeb.Layouts do
                 <a href="/tech" class="btn btn-ghost btn-sm">Tech Dashboard</a>
               </li>
 
-              <li :if={@current_scope && Map.get(@current_scope, :role) == :admin} class="dropdown dropdown-end">
-                <div tabindex="0" role="button" class="btn btn-ghost btn-sm">Admin ▾</div>
-                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50">
-                  <li><a href="/admin/dispatch">Dispatch</a></li>
-                  <li><a href="/admin/metrics">Metrics</a></li>
-                  <li><a href="/admin/events">Events</a></li>
-                  <li><a href="/admin/formation">Formation</a></li>
-                  <li><a href="/admin/org-chart">Org Chart</a></li>
-                  <li><a href="/admin/procedures">SOPs</a></li>
-                  <li><a href="/admin/cash-flow">Cash Flow</a></li>
-                  <li><a href="/admin/vans">Vans</a></li>
-                  <li><a href="/admin/settings">Settings</a></li>
-                </ul>
+              <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}>
+                <a href="/admin" class="btn btn-primary btn-sm">Admin Hub</a>
               </li>
 
               <li><.theme_toggle /></li>
@@ -190,14 +179,7 @@ defmodule MobileCarWashWeb.Layouts do
           <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}><a href="/tech">Dashboard</a></li>
 
           <li :if={@current_scope && Map.get(@current_scope, :role) == :admin} class="menu-title mt-4">Admin</li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/dispatch">Dispatch</a></li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/metrics">Metrics</a></li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/events">Events</a></li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/formation">Formation</a></li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/org-chart">Org Chart</a></li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/procedures">SOPs</a></li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/vans">Vans</a></li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin/settings">Settings</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin" class="font-semibold">Admin Hub</a></li>
 
           <li :if={@current_scope} class="mt-4"><a href="/sign-out" class="text-error">Sign Out</a></li>
           <li :if={!@current_scope} class="mt-4"><a href="/sign-in" class="font-semibold">Sign In</a></li>

@@ -44,7 +44,11 @@ config :mobile_car_wash, Oban,
        # Daily at 2am — delete photos older than the retention period
        {"0 2 * * *", MobileCarWash.Operations.PhotoCleanupWorker},
        # Daily at 6am — create appointments from recurring schedules
-       {"0 6 * * *", MobileCarWash.Scheduling.RecurringAppointmentScheduler}
+       {"0 6 * * *", MobileCarWash.Scheduling.RecurringAppointmentScheduler},
+       # Daily at 5am — generate the next 14 days of appointment blocks
+       {"0 5 * * *", MobileCarWash.Scheduling.DailyBlockGeneratorWorker},
+       # Every 5 minutes — close + optimize any :open block whose closes_at has passed
+       {"*/5 * * * *", MobileCarWash.Scheduling.CloseExpiredBlocksWorker}
      ]}
   ]
 

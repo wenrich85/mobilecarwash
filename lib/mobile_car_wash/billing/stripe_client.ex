@@ -98,6 +98,62 @@ defmodule MobileCarWash.Billing.StripeClient do
     Stripe.Webhook.construct_event(payload, signature, secret)
   end
 
+  @doc """
+  Creates a Stripe Product. Params: `%{name:, description: (optional), metadata: (optional)}`.
+  """
+  def create_product(params) do
+    product_module().create(params)
+  end
+
+  @doc """
+  Updates a Stripe Product in place by id.
+  """
+  def update_product(product_id, params) do
+    product_module().update(product_id, params)
+  end
+
+  @doc """
+  Archives a Stripe Product (sets active: false). Stripe doesn't hard-delete
+  products that have been used in checkouts or subscriptions.
+  """
+  def archive_product(product_id) do
+    product_module().update(product_id, %{active: false})
+  end
+
+  @doc """
+  Creates a Stripe Price. For recurring prices, include
+  `recurring: %{interval: "month"}` in params.
+  Prices are immutable on amount — to change a price, archive and recreate.
+  """
+  def create_price(params) do
+    price_module().create(params)
+  end
+
+  @doc """
+  Archives a Stripe Price (sets active: false). Existing subscriptions on
+  the archived price keep working; only new checkouts are blocked from using it.
+  """
+  def archive_price(price_id) do
+    price_module().update(price_id, %{active: false})
+  end
+
+  @doc """
+  Creates a PaymentIntent for the native mobile Payment Sheet flow. The
+  mobile SDK completes the payment client-side using the returned
+  client_secret, and our Stripe webhook confirms the appointment.
+  """
+  def create_payment_intent(amount_cents, customer_email, metadata \\ %{}) do
+    params = %{
+      amount: amount_cents,
+      currency: "usd",
+      automatic_payment_methods: %{enabled: true},
+      receipt_email: customer_email,
+      metadata: metadata
+    }
+
+    payment_intent_module().create(params)
+  end
+
   # Allow mocking Stripe in tests
   defp stripe_module do
     Application.get_env(:mobile_car_wash, :stripe_checkout_module, Stripe.Checkout.Session)
@@ -105,5 +161,17 @@ defmodule MobileCarWash.Billing.StripeClient do
 
   defp billing_portal_module do
     Application.get_env(:mobile_car_wash, :stripe_billing_portal_module, Stripe.BillingPortal.Session)
+  end
+
+  defp product_module do
+    Application.get_env(:mobile_car_wash, :stripe_product_module, Stripe.Product)
+  end
+
+  defp price_module do
+    Application.get_env(:mobile_car_wash, :stripe_price_module, Stripe.Price)
+  end
+
+  defp payment_intent_module do
+    Application.get_env(:mobile_car_wash, :stripe_payment_intent_module, Stripe.PaymentIntent)
   end
 end

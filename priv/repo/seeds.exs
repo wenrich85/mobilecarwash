@@ -731,4 +731,23 @@ appointments_config
   end
 end)
 
+# --- Appointment Blocks ---
+
+alias MobileCarWash.Scheduling.BlockGenerator
+
+IO.puts("\nSeeding appointment blocks for the next 14 days...")
+
+owner_tech =
+  Technician
+  |> Ash.Query.filter(name == "Owner")
+  |> Ash.read!()
+  |> List.first()
+
+if owner_tech do
+  :ok = BlockGenerator.generate_ahead(14, technician_id: owner_tech.id)
+  IO.puts("  ✓ Blocks generated (Mon–Sat, 8am + 1pm per service)")
+else
+  IO.puts("  ⚠ No Owner technician found — skipping block generation")
+end
+
 IO.puts("\n✅ Seeding complete!")

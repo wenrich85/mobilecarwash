@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.BookingLive do
   import MobileCarWashWeb.BookingComponents
   import MobileCarWashWeb.Live.Helpers.EventTracker
 
-  alias MobileCarWash.Scheduling.{ServiceType, Availability, Booking}
+  alias MobileCarWash.Scheduling.{ServiceType, BlockAvailability, Booking}
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Booking.{StateMachine, SessionCache}
   alias MobileCarWash.Billing.{Subscription, SubscriptionUsage}
@@ -40,6 +40,7 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_vehicle: restored_assigns[:selected_vehicle],
       selected_address: restored_assigns[:selected_address],
       selected_slot: restored_assigns[:selected_slot],
+      selected_block: restored_assigns[:selected_block],
       appointment: nil
     }
 
@@ -66,12 +67,13 @@ defmodule MobileCarWashWeb.BookingLive do
         selected_vehicle: base_assigns.selected_vehicle,
         selected_address: base_assigns.selected_address,
         selected_slot: base_assigns.selected_slot,
+        selected_block: base_assigns.selected_block,
         appointment: nil,
         guest_mode: base_assigns.guest_mode,
         guest_error: nil,
         # UI state
         selected_date: Date.utc_today() |> Date.add(1) |> Date.to_string(),
-        available_slots: [],
+        available_blocks: [],
         existing_vehicles: [],
         existing_addresses: [],
         show_new_vehicle_form: false,
@@ -454,13 +456,13 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :schedule}>
-        <h2 class="text-2xl font-bold mb-6">Pick a Date & Time</h2>
-        <.time_slot_picker
+        <h2 class="text-2xl font-bold mb-6">Pick an Arrival Window</h2>
+        <.block_window_picker
           date={@selected_date}
-          slots={@available_slots}
-          selected_slot={@selected_slot}
+          blocks={@available_blocks}
+          selected_block={@selected_block}
         />
-        <div :if={@selected_slot} class="mt-8 text-right">
+        <div :if={@selected_block} class="mt-8 text-right">
           <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
       </div>
@@ -796,30 +798,38 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("select_date", %{"date" => date_str}, socket) do
     case Date.from_iso8601(date_str) do
       {:ok, date} ->
-        duration = socket.assigns.selected_service.duration_minutes
+        service = socket.assigns.selected_service
+        blocks = BlockAvailability.open_blocks_for_service_range(service.id, date, date)
 
-        existing = fetch_existing_appointments(date)
-        slots = Availability.available_slots(date, duration, existing)
-
-        {:noreply, assign(socket, selected_date: date_str, available_slots: slots, selected_slot: nil)}
+        {:noreply,
+         assign(socket,
+           selected_date: date_str,
+           available_blocks: blocks,
+           selected_block: nil,
+           selected_slot: nil
+         )}
 
       _ ->
         {:noreply, socket}
     end
   end
 
-  def handle_event("select_slot", %{"slot" => slot_str}, socket) do
-    case DateTime.from_iso8601(slot_str) do
-      {:ok, datetime, _offset} ->
-        track_event(socket, "booking.slot_selected", %{
-          "scheduled_at" => slot_str,
-          "day_of_week" => Date.day_of_week(DateTime.to_date(datetime))
+  def handle_event("select_block", %{"id" => block_id}, socket) do
+    case Enum.find(socket.assigns.available_blocks, &(&1.id == block_id)) do
+      nil ->
+        {:noreply, socket}
+
+      block ->
+        track_event(socket, "booking.block_selected", %{
+          "block_id" => block.id,
+          "starts_at" => DateTime.to_iso8601(block.starts_at),
+          "day_of_week" => Date.day_of_week(DateTime.to_date(block.starts_at))
         })
 
-        {:noreply, socket |> assign(selected_slot: datetime) |> persist_booking_state()}
-
-      _ ->
-        {:noreply, socket}
+        {:noreply,
+         socket
+         |> assign(selected_block: block, selected_slot: block.starts_at)
+         |> persist_booking_state()}
     end
   end
 
@@ -856,7 +866,7 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_service: service,
       selected_vehicle: vehicle,
       selected_address: address,
-      selected_slot: slot
+      selected_block: block
     } = socket.assigns
 
     booking_params = %{
@@ -864,7 +874,7 @@ defmodule MobileCarWashWeb.BookingLive do
       service_type_id: service.id,
       vehicle_id: vehicle.id,
       address_id: address.id,
-      scheduled_at: slot,
+      appointment_block_id: block.id,
       subscription_id: socket.assigns.active_subscription && socket.assigns.active_subscription.id,
       loyalty_redeem: socket.assigns.redeem_loyalty,
       referral_code: socket.assigns.referral_code
@@ -932,7 +942,7 @@ defmodule MobileCarWashWeb.BookingLive do
       service_id: socket.assigns.selected_service && socket.assigns.selected_service.id,
       vehicle_id: socket.assigns.selected_vehicle && socket.assigns.selected_vehicle.id,
       address_id: socket.assigns.selected_address && socket.assigns.selected_address.id,
-      slot: socket.assigns.selected_slot
+      block_id: socket.assigns.selected_block && socket.assigns.selected_block.id
     })
 
     socket
@@ -954,12 +964,15 @@ defmodule MobileCarWashWeb.BookingLive do
     vehicle = cached[:vehicle_id] && safe_get(Vehicle, cached[:vehicle_id])
     address = cached[:address_id] && safe_get(Address, cached[:address_id])
 
+    block = cached[:block_id] && safe_get_block(cached[:block_id])
+
     assigns = %{
       selected_service: service,
       current_customer: customer,
       selected_vehicle: vehicle,
       selected_address: address,
-      selected_slot: cached[:slot],
+      selected_block: block,
+      selected_slot: block && block.starts_at,
       guest_mode: cached[:guest_mode] || false
     }
 
@@ -968,6 +981,13 @@ defmodule MobileCarWashWeb.BookingLive do
 
   defp safe_get(resource, id) do
     case Ash.get(resource, id) do
+      {:ok, record} -> record
+      _ -> nil
+    end
+  end
+
+  defp safe_get_block(id) do
+    case Ash.get(MobileCarWash.Scheduling.AppointmentBlock, id, load: [:appointment_count]) do
       {:ok, record} -> record
       _ -> nil
     end
@@ -1005,13 +1025,12 @@ defmodule MobileCarWashWeb.BookingLive do
 
   defp load_step_data(socket, :schedule) do
     date = socket.assigns.selected_date
-    duration = socket.assigns.selected_service.duration_minutes
+    service = socket.assigns.selected_service
 
     case Date.from_iso8601(date) do
       {:ok, parsed_date} ->
-        existing = fetch_existing_appointments(parsed_date)
-        slots = Availability.available_slots(parsed_date, duration, existing)
-        assign(socket, available_slots: slots)
+        blocks = BlockAvailability.open_blocks_for_service_range(service.id, parsed_date, parsed_date)
+        assign(socket, available_blocks: blocks)
 
       _ ->
         socket
@@ -1029,20 +1048,6 @@ defmodule MobileCarWashWeb.BookingLive do
     })
 
     socket
-  end
-
-  defp fetch_existing_appointments(date) do
-    {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
-    {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
-
-    MobileCarWash.Scheduling.Appointment
-    |> Ash.Query.filter(
-      scheduled_at >= ^day_start and
-        scheduled_at < ^day_end and
-        status in [:pending, :confirmed, :in_progress]
-    )
-    |> Ash.read!()
-    |> Enum.map(&%{scheduled_at: &1.scheduled_at, duration_minutes: &1.duration_minutes})
   end
 
   defp load_loyalty_card(nil), do: nil

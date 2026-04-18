@@ -13,6 +13,15 @@ defmodule MobileCarWash.Notifications.SMS do
       "#{address.street}, #{address.city}. See you then!"
   end
 
+  @doc "Block scheduled SMS — arrival window confirmed with exact time"
+  def block_scheduled(appointment, service_type, address) do
+    time = format_time(appointment.scheduled_at)
+    date = format_date(appointment.scheduled_at)
+
+    "Driveway Detail Co: Your #{service_type.name} on #{date} is confirmed for ~#{time}. " <>
+      "#{address.street}, #{address.city}. See you then!"
+  end
+
   @doc "24-hour appointment reminder SMS"
   def appointment_reminder(appointment, service_type, address) do
     time = format_time(appointment.scheduled_at)

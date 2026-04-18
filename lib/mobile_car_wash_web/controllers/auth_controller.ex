@@ -5,7 +5,7 @@ defmodule MobileCarWashWeb.AuthController do
   def success(conn, _activity, user, _token) do
     redirect_path =
       case user.role do
-        :admin -> ~p"/admin/dispatch"
+        :admin -> ~p"/admin"
         :technician -> ~p"/tech"
         _ -> ~p"/"
       end

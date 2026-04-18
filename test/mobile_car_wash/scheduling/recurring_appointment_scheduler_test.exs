@@ -44,7 +44,18 @@ defmodule MobileCarWash.Scheduling.RecurringAppointmentSchedulerTest do
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 
-    %{customer: customer, service_type: service_type, vehicle: vehicle, address: address}
+    {:ok, technician} =
+      MobileCarWash.Operations.Technician
+      |> Ash.Changeset.for_create(:create, %{name: "Recurring Tech"})
+      |> Ash.create()
+
+    %{
+      customer: customer,
+      service_type: service_type,
+      vehicle: vehicle,
+      address: address,
+      technician: technician
+    }
   end
 
   defp create_schedule(ctx, attrs \\ %{}) do

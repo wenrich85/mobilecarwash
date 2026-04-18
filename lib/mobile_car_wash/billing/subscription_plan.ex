@@ -55,6 +55,10 @@ defmodule MobileCarWash.Billing.SubscriptionPlan do
       public? true
     end
 
+    attribute :stripe_product_id, :string do
+      public? true
+    end
+
     attribute :description, :string do
       public? true
     end
@@ -73,6 +77,41 @@ defmodule MobileCarWash.Billing.SubscriptionPlan do
   end
 
   actions do
-    defaults [:read, create: :*, update: :*]
+    defaults [:read]
+
+    create :create do
+      primary? true
+      accept [
+        :name,
+        :slug,
+        :price_cents,
+        :basic_washes_per_month,
+        :deep_cleans_per_month,
+        :deep_clean_discount_percent,
+        :description,
+        :active
+      ]
+
+      change {MobileCarWash.Billing.Changes.SyncStripeCatalog,
+              price_attribute: :price_cents, recurring: true}
+    end
+
+    update :update do
+      primary? true
+      require_atomic? false
+      accept [
+        :name,
+        :slug,
+        :price_cents,
+        :basic_washes_per_month,
+        :deep_cleans_per_month,
+        :deep_clean_discount_percent,
+        :description,
+        :active
+      ]
+
+      change {MobileCarWash.Billing.Changes.SyncStripeCatalog,
+              price_attribute: :price_cents, recurring: true}
+    end
   end
 end

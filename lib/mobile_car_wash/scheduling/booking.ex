@@ -14,7 +14,15 @@ defmodule MobileCarWash.Scheduling.Booking do
   """
 
   alias MobileCarWash.Repo
-  alias MobileCarWash.Scheduling.{Appointment, ServiceType, Availability, AppointmentTracker}
+
+  alias MobileCarWash.Scheduling.{
+    Appointment,
+    AppointmentBlock,
+    AppointmentTracker,
+    Availability,
+    ServiceType
+  }
+
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Billing.{Payment, Subscription, SubscriptionUsage, StripeClient}
   alias MobileCarWash.CashFlow.Engine, as: CashFlowEngine
@@ -22,13 +30,14 @@ defmodule MobileCarWash.Scheduling.Booking do
   require Ash.Query
 
   @type booking_params :: %{
+          optional(:scheduled_at) => DateTime.t(),
+          optional(:appointment_block_id) => String.t(),
+          optional(:notes) => String.t() | nil,
+          optional(:subscription_id) => String.t() | nil,
           customer_id: String.t(),
           service_type_id: String.t(),
           vehicle_id: String.t(),
-          address_id: String.t(),
-          scheduled_at: DateTime.t(),
-          notes: String.t() | nil,
-          subscription_id: String.t() | nil
+          address_id: String.t()
         }
 
   @doc """
@@ -45,7 +54,7 @@ defmodule MobileCarWash.Scheduling.Booking do
         with {:ok, service_type} <- fetch_service_type(params.service_type_id),
              {:ok, vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
              {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
-             :ok <- check_availability(params.scheduled_at, service_type.duration_minutes),
+             {:ok, params} <- resolve_schedule(params, service_type),
              {:ok, price_cents, discount_cents} <- calculate_price(service_type, vehicle.size, params[:subscription_id]),
              {price_cents, discount_cents} = apply_loyalty_discount(price_cents, discount_cents, params[:loyalty_redeem]),
              :ok <- maybe_redeem_loyalty(params[:loyalty_redeem], params.customer_id),
@@ -63,11 +72,27 @@ defmodule MobileCarWash.Scheduling.Booking do
     case result do
       {:ok, %{appointment: appointment}} ->
         AppointmentTracker.broadcast_new_appointment(appointment.id)
+        maybe_close_full_block(appointment.appointment_block_id)
+
       _ ->
         :ok
     end
 
     result
+  end
+
+  # If the block this appointment belongs to just hit capacity, close +
+  # optimize it immediately so customers get their confirmed times.
+  defp maybe_close_full_block(nil), do: :ok
+
+  defp maybe_close_full_block(block_id) do
+    case Ash.get(AppointmentBlock, block_id, load: [:appointment_count]) do
+      {:ok, %{status: :open, capacity: cap, appointment_count: count} = block} when count >= cap ->
+        MobileCarWash.Scheduling.BlockOptimizer.close_and_optimize(block.id)
+
+      _ ->
+        :ok
+    end
   end
 
   @doc """
@@ -228,6 +253,51 @@ defmodule MobileCarWash.Scheduling.Booking do
     end
   end
 
+  # Routes to either the block flow (new) or the legacy time-slot flow. In
+  # block mode, the block has already been validated as open with capacity —
+  # we fill in `scheduled_at` from the block as a tentative placeholder that
+  # the route optimizer will overwrite.
+  defp resolve_schedule(params, service_type) do
+    case params[:appointment_block_id] do
+      nil ->
+        with :ok <- check_availability(params.scheduled_at, service_type.duration_minutes) do
+          {:ok, params}
+        end
+
+      block_id ->
+        with {:ok, block} <- fetch_block(block_id),
+             :ok <- validate_block_for_booking(block, service_type) do
+          {:ok, Map.put(params, :scheduled_at, block.starts_at)}
+        end
+    end
+  end
+
+  defp fetch_block(block_id) do
+    case Ash.get(AppointmentBlock, block_id, load: [:appointment_count]) do
+      {:ok, block} -> {:ok, block}
+      {:error, _} -> {:error, :block_not_found}
+    end
+  end
+
+  defp validate_block_for_booking(block, service_type) do
+    cond do
+      block.service_type_id != service_type.id ->
+        {:error, :block_service_mismatch}
+
+      block.status != :open ->
+        {:error, :block_not_open}
+
+      DateTime.compare(block.closes_at, DateTime.utc_now()) != :gt ->
+        {:error, :block_closed}
+
+      block.appointment_count >= block.capacity ->
+        {:error, :block_full}
+
+      true ->
+        :ok
+    end
+  end
+
   defp calculate_price(service_type, vehicle_size, nil) do
     price = MobileCarWash.Billing.Pricing.calculate(service_type.base_price_cents, vehicle_size)
     {:ok, price, 0}
@@ -276,6 +346,7 @@ defmodule MobileCarWash.Scheduling.Booking do
         address_id: params.address_id,
         service_type_id: params.service_type_id,
         scheduled_at: params.scheduled_at,
+        appointment_block_id: params[:appointment_block_id],
         notes: params[:notes],
         price_cents: price_cents,
         duration_minutes: service_type.duration_minutes,
@@ -337,49 +408,89 @@ defmodule MobileCarWash.Scheduling.Booking do
   end
 
   defp create_payment_and_checkout(appointment, service_type, params) do
-    if appointment.price_cents == 0 do
-      # Fully covered by subscription — no payment needed, auto-confirm
-      {:ok, appointment} =
-        appointment
-        |> Ash.Changeset.for_update(:payment_confirm, %{})
-        |> Ash.update()
+    cond do
+      appointment.price_cents == 0 ->
+        # Fully covered by subscription — no payment needed, auto-confirm
+        {:ok, appointment} =
+          appointment
+          |> Ash.Changeset.for_update(:payment_confirm, %{})
+          |> Ash.update()
 
-      enqueue_confirmation_email(appointment)
-      enqueue_sms_confirmation(appointment)
-      enqueue_appointment_reminder(appointment)
-      enqueue_sms_reminder(appointment)
+        enqueue_confirmation_email(appointment)
+        enqueue_sms_confirmation(appointment)
+        enqueue_appointment_reminder(appointment)
+        enqueue_sms_reminder(appointment)
 
-      {:ok, %{appointment: appointment, checkout_url: nil}}
-    else
-      # Create payment record
-      {:ok, payment} =
-        Payment
-        |> Ash.Changeset.for_create(:create, %{
-          amount_cents: appointment.price_cents,
-          status: :pending
-        })
-        |> Ash.Changeset.force_change_attribute(:customer_id, params.customer_id)
-        |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
-        |> Ash.create()
+        {:ok, %{appointment: appointment, checkout_url: nil}}
 
-      # Create Stripe Checkout session
-      customer = Ash.get!(MobileCarWash.Accounts.Customer, params.customer_id, authorize?: false)
+      params[:payment_flow] == :mobile ->
+        create_mobile_payment_intent(appointment, params)
 
-      case StripeClient.create_checkout_session(appointment, service_type, to_string(customer.email)) do
-        {:ok, session} ->
-          # Store the checkout session ID on the payment
-          {:ok, _payment} =
-            payment
-            |> Ash.Changeset.for_update(:update, %{stripe_checkout_session_id: session.id})
-            |> Ash.update()
+      true ->
+        create_web_checkout(appointment, service_type, params)
+    end
+  end
 
-          {:ok, %{appointment: appointment, checkout_url: session.url}}
+  defp create_mobile_payment_intent(appointment, params) do
+    {:ok, payment} =
+      Payment
+      |> Ash.Changeset.for_create(:create, %{
+        amount_cents: appointment.price_cents,
+        status: :pending
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, params.customer_id)
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.create()
 
-        {:error, _stripe_error} ->
-          # Stripe failed — still return the appointment but no checkout URL
-          # The customer can retry payment later
-          {:ok, %{appointment: appointment, checkout_url: nil}}
-      end
+    customer = Ash.get!(MobileCarWash.Accounts.Customer, params.customer_id, authorize?: false)
+
+    metadata = %{appointment_id: appointment.id, payment_id: payment.id}
+
+    case StripeClient.create_payment_intent(
+           appointment.price_cents,
+           to_string(customer.email),
+           metadata
+         ) do
+      {:ok, %{id: intent_id, client_secret: secret}} ->
+        {:ok, _} =
+          payment
+          |> Ash.Changeset.for_update(:update, %{stripe_payment_intent_id: intent_id})
+          |> Ash.update()
+
+        {:ok, %{appointment: appointment, payment_intent_client_secret: secret}}
+
+      {:error, _} ->
+        {:ok, %{appointment: appointment, payment_intent_client_secret: nil}}
+    end
+  end
+
+  defp create_web_checkout(appointment, service_type, params) do
+    {:ok, payment} =
+      Payment
+      |> Ash.Changeset.for_create(:create, %{
+        amount_cents: appointment.price_cents,
+        status: :pending
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, params.customer_id)
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.create()
+
+    customer = Ash.get!(MobileCarWash.Accounts.Customer, params.customer_id, authorize?: false)
+
+    case StripeClient.create_checkout_session(appointment, service_type, to_string(customer.email)) do
+      {:ok, session} ->
+        # Store the checkout session ID on the payment
+        {:ok, _payment} =
+          payment
+          |> Ash.Changeset.for_update(:update, %{stripe_checkout_session_id: session.id})
+          |> Ash.update()
+
+        {:ok, %{appointment: appointment, checkout_url: session.url}}
+
+      {:error, _stripe_error} ->
+        # Stripe failed — still return the appointment but no checkout URL.
+        # The customer can retry payment later.
+        {:ok, %{appointment: appointment, checkout_url: nil}}
     end
   end
 

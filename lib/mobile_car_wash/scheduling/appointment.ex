@@ -55,6 +55,11 @@ defmodule MobileCarWash.Scheduling.Appointment do
       public? true
     end
 
+    attribute :route_position, :integer do
+      public? true
+      description "Order of this appointment within its block's optimized route (1, 2, 3, ...). Set by the route optimizer."
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end
@@ -81,6 +86,12 @@ defmodule MobileCarWash.Scheduling.Appointment do
       allow_nil? true
     end
 
+    # The time-window block this appointment belongs to. Nullable for legacy
+    # direct-time bookings; required going forward via the block booking flow.
+    belongs_to :appointment_block, MobileCarWash.Scheduling.AppointmentBlock do
+      allow_nil? true
+    end
+
     # Links to the recurring schedule that auto-created this appointment
     belongs_to :recurring_schedule, MobileCarWash.Scheduling.RecurringSchedule do
       allow_nil? true
@@ -92,7 +103,15 @@ defmodule MobileCarWash.Scheduling.Appointment do
 
     create :book do
       @doc "Books an appointment — the primary action for the booking flow"
-      accept [:scheduled_at, :notes, :customer_id, :vehicle_id, :address_id, :service_type_id]
+      accept [
+        :scheduled_at,
+        :notes,
+        :customer_id,
+        :vehicle_id,
+        :address_id,
+        :service_type_id,
+        :appointment_block_id
+      ]
 
       argument :price_cents, :integer, allow_nil?: false
       argument :duration_minutes, :integer, allow_nil?: false

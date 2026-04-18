@@ -106,7 +106,6 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
       basic_washes_per_month: to_int(params["basic_washes"]),
       deep_cleans_per_month: to_int(params["deep_cleans"]),
       deep_clean_discount_percent: to_int(params["discount"]),
-      stripe_price_id: blank_to_nil(params["stripe_price_id"]),
       description: params["description"],
       active: true
     }
@@ -133,7 +132,6 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
           basic_washes_per_month: to_int(params["basic_washes"]),
           deep_cleans_per_month: to_int(params["deep_cleans"]),
           deep_clean_discount_percent: to_int(params["discount"]),
-          stripe_price_id: blank_to_nil(params["stripe_price_id"]),
           description: params["description"]
         }
 
@@ -326,10 +324,6 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                 <label class="label label-text text-xs">Deep Clean Discount %</label>
                 <input type="number" name="plan[discount]" class="input input-bordered input-sm" value="0" min="0" max="100" />
               </div>
-              <div class="form-control">
-                <label class="label label-text text-xs">Stripe Price ID</label>
-                <input type="text" name="plan[stripe_price_id]" class="input input-bordered input-sm" placeholder="price_..." />
-              </div>
               <div class="form-control md:col-span-2">
                 <label class="label label-text text-xs">Description</label>
                 <input type="text" name="plan[description]" class="input input-bordered input-sm" placeholder="What's included" />
@@ -365,7 +359,6 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                   <span :if={plan.basic_washes_per_month > 0} class="badge badge-outline">{plan.basic_washes_per_month} basic washes</span>
                   <span :if={plan.deep_cleans_per_month > 0} class="badge badge-outline">{plan.deep_cleans_per_month} deep cleans</span>
                   <span :if={plan.deep_clean_discount_percent > 0} class="badge badge-outline">{plan.deep_clean_discount_percent}% off deep cleans</span>
-                  <span :if={plan.stripe_price_id} class="badge badge-ghost badge-sm font-mono">{plan.stripe_price_id}</span>
                 </div>
                 <p :if={plan.description} class="text-sm text-base-content/60 mt-2">{plan.description}</p>
               </div>
@@ -391,10 +384,6 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                 <div class="form-control">
                   <label class="label label-text text-xs">Deep Clean Discount %</label>
                   <input type="number" name="plan[discount]" class="input input-bordered input-sm" value={plan.deep_clean_discount_percent} min="0" max="100" />
-                </div>
-                <div class="form-control">
-                  <label class="label label-text text-xs">Stripe Price ID</label>
-                  <input type="text" name="plan[stripe_price_id]" class="input input-bordered input-sm" value={plan.stripe_price_id} placeholder="price_..." />
                 </div>
                 <div class="form-control md:col-span-2">
                   <label class="label label-text text-xs">Description</label>
@@ -569,8 +558,4 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
     end
   end
   defp to_int(_), do: 0
-
-  defp blank_to_nil(""), do: nil
-  defp blank_to_nil(nil), do: nil
-  defp blank_to_nil(str), do: str
 end
