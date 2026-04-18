@@ -23,6 +23,11 @@ end
 config :mobile_car_wash, MobileCarWashWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# Google Analytics (all environments — tag only emitted when set)
+if ga_id = System.get_env("GOOGLE_ANALYTICS_ID") do
+  config :mobile_car_wash, :google_analytics_id, ga_id
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -141,11 +146,6 @@ if config_env() == :prod do
       account_sid: System.get_env("TWILIO_ACCOUNT_SID"),
       auth_token: System.get_env("TWILIO_AUTH_TOKEN"),
       from_number: System.get_env("TWILIO_FROM_NUMBER")
-  end
-
-  # Google Analytics (optional — only loads if set)
-  if ga_id = System.get_env("GOOGLE_ANALYTICS_ID") do
-    config :mobile_car_wash, :google_analytics_id, ga_id
   end
 
   # Mailer — Zoho SMTP (swap relay/port/credentials for any SMTP provider)
