@@ -79,6 +79,7 @@ defmodule MobileCarWashWeb.Router do
       live "/subscribe/success", SubscriptionSuccessLive
       live "/subscribe/cancel", SubscriptionCancelLive
       live "/style-guide", Admin.StyleGuideLive
+      live "/privacy", PrivacyLive
     end
 
     # Authentication routes — rate-limited via on_mount hook

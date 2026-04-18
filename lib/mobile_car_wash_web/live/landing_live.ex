@@ -245,6 +245,16 @@ defmodule MobileCarWashWeb.LandingLive do
         </p>
       </div>
     </section>
+
+    <footer class="py-8 px-4 bg-base-200 text-base-content/70 text-sm">
+      <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div>&copy; {Date.utc_today().year} Driveway Detail Co. All rights reserved.</div>
+        <nav class="flex gap-4">
+          <.link href="/privacy" class="hover:underline">Privacy Policy</.link>
+          <a href="mailto:hello@drivewaydetailcosa.com" class="hover:underline">Contact</a>
+        </nav>
+      </div>
+    </footer>
     """
   end
 end
