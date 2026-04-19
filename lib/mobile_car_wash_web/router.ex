@@ -223,6 +223,16 @@ defmodule MobileCarWashWeb.Router do
     # Per-channel opt-in preferences (SMS + push; email uses unsubscribe links)
     get "/notification_preferences", NotificationPreferencesController, :show
     patch "/notification_preferences", NotificationPreferencesController, :update
+
+    # Tech-facing API — role-gated to :technician / :admin inside each
+    # controller via the RequireTechAuth plug.
+    get "/tech/me", TechController, :me
+    patch "/tech/me/status", TechController, :update_status
+    get "/tech/appointments", TechAppointmentsController, :index
+    post "/tech/appointments/:id/depart", TechAppointmentsController, :depart
+    post "/tech/appointments/:id/arrive", TechAppointmentsController, :arrive
+    post "/tech/appointments/:id/start", TechAppointmentsController, :start
+    post "/tech/appointments/:id/complete", TechAppointmentsController, :complete
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
