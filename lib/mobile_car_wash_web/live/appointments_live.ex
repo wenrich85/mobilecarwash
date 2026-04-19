@@ -82,10 +82,19 @@ defmodule MobileCarWashWeb.AppointmentsLive do
     owns? = Enum.any?(socket.assigns.appointments, &(&1.id == appointment_id))
 
     if owns? do
+      photos = load_problem_photos(appointment_id)
+
+      # Subscribe to every existing photo's AI channel so late-arriving
+      # tags reach the modal even if the customer opened it before the
+      # background analyzer finished.
+      if connected?(socket) do
+        Enum.each(photos, &MobileCarWash.AI.PhotoAnalyzer.subscribe(&1.id))
+      end
+
       {:noreply,
        assign(socket,
          uploading_for: appointment_id,
-         uploaded_photos: load_problem_photos(appointment_id),
+         uploaded_photos: photos,
          photo_caption: nil,
          selected_car_part: nil,
          show_all_parts: false
@@ -179,6 +188,12 @@ defmodule MobileCarWashWeb.AppointmentsLive do
           end
         end)
 
+      # Subscribe to the photo's AI channel so the preview updates the
+      # moment the background analyzer finishes.
+      if connected?(socket) and photo.id do
+        MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
+      end
+
       {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
     else
       {:noreply, socket}
@@ -196,7 +211,61 @@ defmodule MobileCarWashWeb.AppointmentsLive do
     |> Enum.map(&PhotoUpload.apply_url/1)
   end
 
+  # Auto-apply guards — only fill fields the customer hasn't already set.
+  defp maybe_auto_apply_ai_tags(socket, %{ai_tags: %{"is_vehicle_photo" => true} = tags}) do
+    socket
+    |> maybe_assign_car_part(tags["body_part"])
+    |> maybe_assign_caption(tags["description"])
+  end
+
+  defp maybe_auto_apply_ai_tags(socket, _), do: socket
+
+  defp maybe_assign_car_part(socket, part_str) when is_binary(part_str) do
+    if is_nil(socket.assigns.selected_car_part) do
+      try do
+        assign(socket, selected_car_part: String.to_existing_atom(part_str))
+      rescue
+        ArgumentError -> socket
+      end
+    else
+      socket
+    end
+  end
+
+  defp maybe_assign_car_part(socket, _), do: socket
+
+  defp maybe_assign_caption(socket, text) when is_binary(text) and text != "" do
+    current = socket.assigns.photo_caption
+
+    if is_nil(current) or current == "" do
+      assign(socket, photo_caption: text)
+    else
+      socket
+    end
+  end
+
+  defp maybe_assign_caption(socket, _), do: socket
+
   @impl true
+  # AI tags arrived for one of the photos in the open modal. Splice the
+  # fresh tags into the existing photo struct so the ✨ badge renders and
+  # optionally auto-apply the chip/caption if the customer hasn't set them.
+  def handle_info({:ai_tags, photo}, socket) do
+    updated_photos =
+      Enum.map(socket.assigns.uploaded_photos, fn p ->
+        if p.id == photo.id do
+          Map.merge(p, %{ai_tags: photo.ai_tags, ai_processed_at: photo.ai_processed_at})
+        else
+          p
+        end
+      end)
+
+    {:noreply,
+     socket
+     |> assign(uploaded_photos: updated_photos)
+     |> maybe_auto_apply_ai_tags(photo)}
+  end
+
   # Step progress — nothing to update in the list view, no-op
   def handle_info({:appointment_update, %{event: :step_update}}, socket) do
     {:noreply, socket}
@@ -365,6 +434,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
                   uploaded_photos={@uploaded_photos}
                   selected_car_part={@selected_car_part}
                   show_all_parts={@show_all_parts}
+                  caption={@photo_caption}
                 />
               </form>
 

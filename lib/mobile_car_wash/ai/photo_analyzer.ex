@@ -15,8 +15,14 @@ defmodule MobileCarWash.AI.PhotoAnalyzer do
 
   alias MobileCarWash.AI.{Prompts, VisionClient}
   alias MobileCarWash.Operations.{Photo, PhotoUpload}
+  alias Phoenix.PubSub
 
   require Logger
+
+  @pubsub MobileCarWash.PubSub
+
+  @doc "Subscribe to AI-tag updates for a single photo."
+  def subscribe(photo_id), do: PubSub.subscribe(@pubsub, "photo:#{photo_id}:ai")
 
   @doc """
   Runs the vision model against `photo_id`. Returns:
@@ -63,7 +69,8 @@ defmodule MobileCarWash.AI.PhotoAnalyzer do
     case photo
          |> Ash.Changeset.for_update(:apply_ai_tags, %{ai_tags: tags})
          |> Ash.update(authorize?: false) do
-      {:ok, _} ->
+      {:ok, updated} ->
+        PubSub.broadcast(@pubsub, "photo:#{updated.id}:ai", {:ai_tags, updated})
         :ok
 
       {:error, reason} ->

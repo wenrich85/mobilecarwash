@@ -56,6 +56,7 @@ defmodule MobileCarWashWeb.PhotoUploader do
   attr :uploaded_photos, :list, default: []
   attr :selected_car_part, :atom, default: nil
   attr :show_all_parts, :boolean, default: false
+  attr :caption, :string, default: nil
 
   def uploader(assigns) do
     ~H"""
@@ -75,9 +76,11 @@ defmodule MobileCarWashWeb.PhotoUploader do
 
       <.car_part_chips selected={@selected_car_part} show_all={@show_all_parts} />
 
+      <!-- Value-bound so ✨ AI auto-fill populates the input directly. -->
       <input
         type="text"
         name="caption"
+        value={@caption}
         class="input input-bordered w-full"
         placeholder="Describe the issue (optional)"
       />
@@ -194,7 +197,11 @@ defmodule MobileCarWashWeb.PhotoUploader do
 
   @doc """
   Grid of previously-uploaded photos. Each card carries a persistent
-  corner delete button (not a tiny `×` in a detached list).
+  corner delete button (not a tiny `×` in a detached list) and an
+  AI-state pill:
+    * "Analyzing…" while the vision model is still running
+    * "✨ Bumper · Scratch" once tags land (or nothing at all if the
+      feature flag is off / photo isn't a vehicle).
   """
   attr :photos, :list, default: []
 
@@ -216,12 +223,51 @@ defmodule MobileCarWashWeb.PhotoUploader do
         >
           🗑
         </button>
+
+        <.ai_pill photo={photo} />
+
         <p :if={photo.caption} class="text-xs text-base-content/80 mt-1 truncate">
           {photo.caption}
         </p>
       </div>
     </div>
     """
+  end
+
+  # AI-analysis pill shown in the bottom-left of each photo preview.
+  # Only renders once tags have arrived AND the photo looks like a vehicle
+  # with a classifiable body part. Feature-off / non-vehicle / low-confidence
+  # cases render nothing — they shouldn't draw the customer's eye.
+  attr :photo, :map, required: true
+
+  defp ai_pill(%{photo: %{ai_tags: %{"is_vehicle_photo" => true} = tags}} = assigns)
+       when is_map(tags) do
+    assigns = assign(assigns, :summary, ai_summary(tags))
+
+    ~H"""
+    <span :if={@summary} class="absolute bottom-2 left-2 badge badge-sm badge-primary gap-1">
+      ✨ {@summary}
+    </span>
+    """
+  end
+
+  defp ai_pill(assigns), do: ~H""
+
+  defp ai_summary(%{"body_part" => part, "issue" => issue})
+       when is_binary(part) and is_binary(issue) do
+    "#{String.capitalize(issue)} · #{humanize_part(part)}"
+  end
+
+  defp ai_summary(%{"body_part" => part}) when is_binary(part) do
+    humanize_part(part)
+  end
+
+  defp ai_summary(_), do: nil
+
+  defp humanize_part(part) do
+    part
+    |> String.replace("_", " ")
+    |> String.capitalize()
   end
 
   @doc """

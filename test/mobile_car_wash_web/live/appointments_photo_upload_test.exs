@@ -120,4 +120,58 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
       refute html =~ "Take Photo"
     end
   end
+
+  describe "AI tag auto-apply" do
+    test "renders the ✨ badge and auto-fills the caption when tags arrive",
+         %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      # Pre-seed a problem-area photo on this appointment so the modal has
+      # something to subscribe to on open.
+      {:ok, photo} =
+        MobileCarWash.Operations.Photo
+        |> Ash.Changeset.for_create(:upload, %{
+          file_path: "uploads/ai-preseed.jpg",
+          photo_type: :problem_area,
+          uploaded_by: :customer,
+          original_filename: "ai.jpg",
+          content_type: "image/jpeg"
+        })
+        |> Ash.Changeset.force_change_attribute(:appointment_id, appt.id)
+        |> Ash.create()
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      # Simulate the analyzer finishing and broadcasting the tags.
+      tags = %{
+        "is_vehicle_photo" => true,
+        "body_part" => "bumper",
+        "issue" => "scratch",
+        "severity" => "light",
+        "confidence" => 0.85,
+        "description" => "Light scratch on lower rear bumper"
+      }
+
+      tagged_photo = %{photo | ai_tags: tags, ai_processed_at: DateTime.utc_now()}
+
+      Phoenix.PubSub.broadcast(
+        MobileCarWash.PubSub,
+        "photo:#{photo.id}:ai",
+        {:ai_tags, tagged_photo}
+      )
+
+      html = render(view)
+
+      # Badge + auto-filled caption value — and the chip that matches
+      # body_part should be rendered in its selected (btn-primary) style.
+      assert html =~ "✨"
+      assert html =~ "Light scratch on lower rear bumper"
+    end
+  end
 end

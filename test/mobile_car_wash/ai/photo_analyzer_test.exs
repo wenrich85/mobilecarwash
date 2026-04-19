@@ -61,6 +61,27 @@ defmodule MobileCarWash.AI.PhotoAnalyzerTest do
       assert reloaded.ai_processed_at
     end
 
+    test "broadcasts {:ai_tags, photo} on the per-photo topic after applying",
+         %{photo: photo} do
+      enable_feature()
+      Phoenix.PubSub.subscribe(MobileCarWash.PubSub, "photo:#{photo.id}:ai")
+
+      VisionClientMock.stub_success(photo.file_path, %{
+        "is_vehicle_photo" => true,
+        "body_part" => "wheels",
+        "issue" => "dirt",
+        "severity" => "light",
+        "confidence" => 0.8,
+        "description" => "Dust on rim"
+      })
+
+      :ok = PhotoAnalyzer.analyze(photo.id)
+
+      assert_receive {:ai_tags, updated}, 500
+      assert updated.id == photo.id
+      assert updated.ai_tags["body_part"] == "wheels"
+    end
+
     test "is idempotent — second call skips the already-processed photo",
          %{photo: photo} do
       enable_feature()

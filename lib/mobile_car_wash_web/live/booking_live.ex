@@ -140,6 +140,61 @@ defmodule MobileCarWashWeb.BookingLive do
 
   def handle_info(:plans_updated, socket), do: {:noreply, socket}
 
+  # AI tags arrived for a photo we uploaded. Update that photo's entry in
+  # uploaded_photos so the preview card can render the ✨ badge, and
+  # optionally auto-apply the tag/caption so the customer doesn't have
+  # to fill the same fields by hand.
+  def handle_info({:ai_tags, photo}, socket) do
+    updated_photos =
+      Enum.map(socket.assigns.uploaded_photos, fn p ->
+        if p.id == photo.id do
+          %{p | ai_tags: photo.ai_tags, ai_processed_at: photo.ai_processed_at}
+        else
+          p
+        end
+      end)
+
+    {:noreply,
+     socket
+     |> assign(uploaded_photos: updated_photos)
+     |> maybe_auto_apply_ai_tags(photo)}
+  end
+
+  # Auto-apply guards — only fill fields the customer hasn't already touched.
+  defp maybe_auto_apply_ai_tags(socket, %{ai_tags: %{"is_vehicle_photo" => true} = tags}) do
+    socket
+    |> maybe_assign_car_part(tags["body_part"])
+    |> maybe_assign_caption(tags["description"])
+  end
+
+  defp maybe_auto_apply_ai_tags(socket, _), do: socket
+
+  defp maybe_assign_car_part(socket, part_str) when is_binary(part_str) do
+    if is_nil(socket.assigns.selected_car_part) do
+      try do
+        assign(socket, selected_car_part: String.to_existing_atom(part_str))
+      rescue
+        ArgumentError -> socket
+      end
+    else
+      socket
+    end
+  end
+
+  defp maybe_assign_car_part(socket, _), do: socket
+
+  defp maybe_assign_caption(socket, text) when is_binary(text) and text != "" do
+    current = socket.assigns.photo_caption
+
+    if is_nil(current) or current == "" do
+      assign(socket, photo_caption: text)
+    else
+      socket
+    end
+  end
+
+  defp maybe_assign_caption(socket, _), do: socket
+
   # --- Handle Params: only process service param if on step 1 ---
 
   @impl true
@@ -419,6 +474,7 @@ defmodule MobileCarWashWeb.BookingLive do
             uploaded_photos={@uploaded_photos}
             selected_car_part={@selected_car_part}
             show_all_parts={@show_all_parts}
+            caption={@photo_caption}
           />
         </form>
 
@@ -791,7 +847,7 @@ defmodule MobileCarWashWeb.BookingLive do
             [uploaded_by: :customer, caption: caption]
             |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
 
-          {:ok, %{file_path: url}} =
+          {:ok, persisted} =
             MobileCarWash.Operations.PhotoUpload.save_file(
               "pending_#{socket.assigns.booking_session_id}",
               path,
@@ -802,12 +858,22 @@ defmodule MobileCarWashWeb.BookingLive do
 
           {:ok,
            %{
-             file_path: MobileCarWash.Operations.PhotoUpload.url_for(%{file_path: url}),
+             id: persisted.id,
+             file_path: MobileCarWash.Operations.PhotoUpload.url_for(persisted),
              caption: caption,
              original_filename: entry.client_name,
-             car_part: car_part
+             car_part: car_part,
+             ai_tags: persisted.ai_tags,
+             ai_processed_at: persisted.ai_processed_at
            }}
         end)
+
+      # Subscribe to the photo's AI channel so we receive the tags the
+      # moment the background analyzer finishes. No-op when not connected
+      # (e.g. initial HTTP render).
+      if connected?(socket) do
+        MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
+      end
 
       {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
     else
