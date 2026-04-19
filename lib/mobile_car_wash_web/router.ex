@@ -12,6 +12,9 @@ defmodule MobileCarWashWeb.Router do
     plug :protect_from_forgery
     plug MobileCarWashWeb.Plugs.CspNonce
     plug :put_security_headers
+    # Per-IP bucket on auth-sensitive POSTs. No-op for everything else,
+    # so the cost for normal page traffic is one string prefix check.
+    plug MobileCarWashWeb.Plugs.AuthRateLimit
     plug :load_from_session
   end
 
@@ -64,6 +67,7 @@ defmodule MobileCarWashWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug MobileCarWashWeb.Plugs.AuthRateLimit
     plug :load_from_bearer
   end
 

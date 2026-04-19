@@ -1,7 +1,8 @@
 defmodule MobileCarWashWeb.AdminAuth do
   @moduledoc """
-  LiveView on_mount hook for admin-only pages.
-  Checks role == :admin OR email in admin whitelist.
+  LiveView on_mount hook for admin-only pages. Role-based only: the
+  signed-in customer's `role` attribute must be `:admin`. No email
+  whitelist fallback (SECURITY_AUDIT_REPORT HIGH #1).
   """
   use MobileCarWashWeb, :verified_routes
 
