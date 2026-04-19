@@ -83,6 +83,12 @@ defmodule MobileCarWashWeb.BookingLive do
         address_form: nil,
         # Photos
         uploaded_photos: [],
+        # Photo uploader state — caption + selected tag persist between
+        # auto-uploads so the customer can pick a tag once, then snap
+        # multiple photos under it.
+        photo_caption: nil,
+        selected_car_part: nil,
+        show_all_parts: false,
         # Subscription
         active_subscription: load_active_subscription(customer),
         # Loyalty punch card
@@ -99,7 +105,9 @@ defmodule MobileCarWashWeb.BookingLive do
       |> allow_upload(:problem_photo,
         accept: ~w(.jpg .jpeg .png .webp),
         max_entries: 5,
-        max_file_size: 10_000_000
+        max_file_size: 10_000_000,
+        auto_upload: true,
+        progress: &handle_photo_progress/3
       )
       |> load_step_data(validated_step)
 
@@ -387,62 +395,19 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :photos}>
-        <h2 class="text-2xl font-bold mb-6">Problem Area Photos</h2>
-        <p class="text-base-content/80 mb-4">
-          Have any scratches, stains, or areas that need extra attention?
-          Upload photos so the technician knows where to focus. This step is optional.
+        <h2 class="text-2xl font-bold mb-2">Problem Area Photos</h2>
+        <p class="text-base-content/80 mb-6">
+          Anything that needs extra attention? Snap a photo so your tech
+          knows where to focus. Optional — tap Skip if you don't have any.
         </p>
 
-        <!-- Already uploaded photos -->
-        <div :if={@uploaded_photos != []} class="flex gap-2 flex-wrap mb-4">
-          <div :for={photo <- @uploaded_photos} class="relative">
-            <img src={photo.file_path} class="w-24 h-24 object-cover rounded-lg shadow" />
-            <p :if={photo.caption} class="text-xs text-center mt-1">{photo.caption}</p>
-          </div>
-        </div>
-
-        <!-- Upload form -->
-        <form phx-submit="save_problem_photos" phx-change="validate_photos" class="space-y-4">
-          <div class="form-control">
-            <.live_file_input upload={@uploads.problem_photo} class="file-input file-input-bordered w-full" />
-          </div>
-
-          <div class="flex gap-2 flex-wrap">
-            <div :for={entry <- @uploads.problem_photo.entries} class="relative">
-              <.live_img_preview entry={entry} class="w-24 h-24 object-cover rounded-lg" />
-              <button type="button" class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2"
-                phx-click="cancel_photo_upload" phx-value-ref={entry.ref}>
-                ×
-              </button>
-            </div>
-          </div>
-
-          <div class="form-control">
-            <input type="text" name="caption" class="input input-bordered input-sm" placeholder="Describe the issue (optional)" />
-          </div>
-
-          <div class="form-control">
-            <label class="label"><span class="label-text text-xs">Car Part (Optional)</span></label>
-            <select name="car_part" class="select select-bordered select-sm">
-              <option value="">None selected</option>
-              <option value="exterior">Exterior (body panels, hood, doors)</option>
-              <option value="windows">Windows (windshield, side windows)</option>
-              <option value="wheels">Wheels (tires, rims, wheel wells)</option>
-              <option value="interior">Interior (dashboard, seats, carpets)</option>
-              <option value="trunk">Trunk (boot area)</option>
-              <option value="engine_bay">Engine Bay</option>
-              <option value="undercarriage">Undercarriage (chassis, underside)</option>
-              <option value="mirrors">Mirrors (side and rear view mirrors)</option>
-              <option value="headlights_taillights">Headlights & Taillights</option>
-              <option value="bumper">Bumper (front and rear)</option>
-              <option value="roof">Roof Panel & Trim</option>
-              <option value="sunroof">Sunroof</option>
-            </select>
-          </div>
-
-          <button :if={@uploads.problem_photo.entries != []} type="submit" class="btn btn-warning btn-sm">
-            Upload Photos
-          </button>
+        <form phx-change="validate_photos" id="photo-upload-form">
+          <MobileCarWashWeb.PhotoUploader.uploader
+            upload={@uploads.problem_photo}
+            uploaded_photos={@uploaded_photos}
+            selected_car_part={@selected_car_part}
+            show_all_parts={@show_all_parts}
+          />
         </form>
 
         <div class="mt-6 flex gap-4 justify-end">
@@ -749,50 +714,79 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, socket |> assign(selected_address: address) |> persist_booking_state()}
   end
 
-  def handle_event("validate_photos", _params, socket), do: {:noreply, socket}
+  # Caption + tag change tracking — the photos-step form uses phx-change to
+  # keep these assigns in sync so handle_photo_progress can apply them to
+  # each photo as it finishes uploading.
+  def handle_event("validate_photos", params, socket) do
+    {:noreply,
+     assign(socket,
+       photo_caption: params["caption"] || socket.assigns.photo_caption
+     )}
+  end
 
   def handle_event("cancel_photo_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :problem_photo, ref)}
   end
 
-  def handle_event("save_problem_photos", params, socket) do
-    # Photos are saved temporarily — they'll be linked to the appointment after booking
-    # For now, store them in socket assigns so they persist through the flow
-    caption = params["caption"]
-    car_part_str = params["car_part"]
-    car_part = if car_part_str && car_part_str != "", do: String.to_atom(car_part_str), else: nil
+  def handle_event("select_car_part", %{"part" => part_str}, socket) do
+    atom = String.to_existing_atom(part_str)
 
-    uploaded =
-      consume_uploaded_entries(socket, :problem_photo, fn %{path: path}, entry ->
-        # Save to storage backend (local or S3)
-        photo_opts = [
-          uploaded_by: :customer,
-          caption: caption
-        ]
+    selected =
+      if socket.assigns.selected_car_part == atom do
+        nil
+      else
+        atom
+      end
 
-        photo_opts = if car_part, do: photo_opts ++ [car_part: car_part], else: photo_opts
+    {:noreply, assign(socket, selected_car_part: selected)}
+  end
 
-        {:ok, %{file_path: url}} =
-          MobileCarWash.Operations.PhotoUpload.save_file(
-            "pending_#{socket.assigns.booking_session_id}",
-            path,
-            entry.client_name,
-            :problem_area,
-            photo_opts
-          )
+  def handle_event("toggle_all_parts", _params, socket) do
+    {:noreply, assign(socket, show_all_parts: !socket.assigns.show_all_parts)}
+  end
 
-        {:ok, %{file_path: url, caption: caption, original_filename: entry.client_name, car_part: car_part}}
-      end)
+  def handle_event("delete_uploaded_photo", %{"url" => url}, socket) do
+    remaining = Enum.reject(socket.assigns.uploaded_photos, &(&1.file_path == url))
+    {:noreply, assign(socket, uploaded_photos: remaining)}
+  end
 
-    # Apply presigned URLs so thumbnails display correctly in S3 mode
-    uploaded = Enum.map(uploaded, fn photo ->
-      Map.put(photo, :file_path, MobileCarWash.Operations.PhotoUpload.url_for(photo))
-    end)
+  # Auto-upload progress callback. Called by the LiveView upload machinery
+  # whenever an entry's upload state advances. We only consume when the
+  # entry is fully uploaded; earlier ticks fall through unchanged so the
+  # per-entry progress bar keeps animating.
+  defp handle_photo_progress(:problem_photo, entry, socket) do
+    if entry.done? do
+      caption = socket.assigns.photo_caption
+      car_part = socket.assigns.selected_car_part
 
-    {:noreply,
-     socket
-     |> assign(uploaded_photos: socket.assigns.uploaded_photos ++ uploaded)
-     |> put_flash(:info, "Photos uploaded")}
+      photo =
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          opts =
+            [uploaded_by: :customer, caption: caption]
+            |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
+
+          {:ok, %{file_path: url}} =
+            MobileCarWash.Operations.PhotoUpload.save_file(
+              "pending_#{socket.assigns.booking_session_id}",
+              path,
+              entry.client_name,
+              :problem_area,
+              opts
+            )
+
+          {:ok,
+           %{
+             file_path: MobileCarWash.Operations.PhotoUpload.url_for(%{file_path: url}),
+             caption: caption,
+             original_filename: entry.client_name,
+             car_part: car_part
+           }}
+        end)
+
+      {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("select_date", %{"date" => date_str}, socket) do
