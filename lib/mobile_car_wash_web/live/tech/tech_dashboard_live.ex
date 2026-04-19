@@ -102,6 +102,9 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       # assignments without having a pre-existing per-appointment subscription.
       if tech_record do
         AppointmentTracker.subscribe_to_tech_assignments(tech_record.id)
+        # Keeps multiple open tabs (or an admin override) in sync when the
+        # duty status changes.
+        MobileCarWash.Operations.TechnicianTracker.subscribe(tech_record.id)
       end
       # Subscribe to currently-assigned appointments for in-place status updates.
       for appt <- todays ++ tomorrows ++ upcoming do
@@ -125,6 +128,17 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   def handle_info({:appointment_update, _data}, socket) do
     {:noreply, reload_appointments(socket)}
+  end
+
+  # Duty-status changed somewhere (this tab, another tab, admin override).
+  def handle_info({:technician_status, %{technician_id: id, status: status}}, socket) do
+    case socket.assigns.tech_record do
+      %{id: ^id} = tech ->
+        {:noreply, assign(socket, tech_record: %{tech | status: status})}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   def handle_info(_msg, socket) do
@@ -248,6 +262,42 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     end
   end
 
+  # Duty-status control.
+  def handle_event("set_status", %{"status" => status_str}, socket) do
+    case socket.assigns.tech_record do
+      nil ->
+        {:noreply, put_flash(socket, :error, "No technician record linked to your account.")}
+
+      tech ->
+        case Ash.Changeset.for_update(tech, :set_status, %{
+               status: String.to_existing_atom(status_str)
+             })
+             |> Ash.update() do
+          {:ok, updated} ->
+            {:noreply, assign(socket, tech_record: updated)}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Could not update status.")}
+        end
+    end
+  end
+
+  # Appointment state-machine transitions.
+  def handle_event("depart", %{"id" => id}, socket), do: transition_appointment(socket, id, :depart)
+  def handle_event("arrive", %{"id" => id}, socket), do: transition_appointment(socket, id, :arrive)
+
+  defp transition_appointment(socket, appointment_id, action) do
+    with {:ok, appt} <- Ash.get(Appointment, appointment_id, authorize?: false),
+         {:ok, _updated} <-
+           appt
+           |> Ash.Changeset.for_update(action, %{})
+           |> Ash.update(authorize?: false) do
+      {:noreply, reload_appointments(socket)}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Could not update appointment.")}
+    end
+  end
+
   def handle_event("open_supply_log", %{"id" => appointment_id}, socket) do
     {:noreply,
      assign(socket,
@@ -331,6 +381,65 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       <div class="mb-6">
         <h1 class="text-2xl font-bold">My Schedule</h1>
         <p class="text-base-content/80">Welcome, {@tech_user.name}</p>
+      </div>
+
+      <!-- Duty-status control — top-of-page so it's always one tap away -->
+      <div :if={@tech_record} class="card bg-base-100 shadow mb-6">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class={[
+                "w-3 h-3 rounded-full",
+                case @tech_record.status do
+                  :available -> "bg-success"
+                  :on_break -> "bg-warning"
+                  :off_duty -> "bg-base-300"
+                end
+              ]} />
+              <span class="font-semibold">
+                {duty_status_label(@tech_record.status)}
+              </span>
+            </div>
+
+            <div class="flex gap-2">
+              <button
+                :if={@tech_record.status == :off_duty}
+                class="btn btn-primary btn-sm"
+                phx-click="set_status"
+                phx-value-status="available"
+              >
+                Start shift
+              </button>
+
+              <button
+                :if={@tech_record.status == :available}
+                class="btn btn-warning btn-sm"
+                phx-click="set_status"
+                phx-value-status="on_break"
+              >
+                Take break
+              </button>
+
+              <button
+                :if={@tech_record.status == :on_break}
+                class="btn btn-success btn-sm"
+                phx-click="set_status"
+                phx-value-status="available"
+              >
+                Back on duty
+              </button>
+
+              <button
+                :if={@tech_record.status in [:available, :on_break]}
+                class="btn btn-ghost btn-sm"
+                phx-click="set_status"
+                phx-value-status="off_duty"
+              >
+                End shift
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div :if={!@tech_record && !@is_admin} class="alert alert-warning mb-6">
@@ -672,12 +781,21 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     <div class="card bg-base-100 shadow-sm">
       <div class="card-body p-4">
         <div class="flex justify-between items-start">
-          <div>
+          <div class="min-w-0">
             <span class="font-bold">{@service && @service.name}</span>
             <p class="text-sm">{Calendar.strftime(@appointment.scheduled_at, "%b %d · %I:%M %p")}</p>
             <p class="text-sm text-base-content/80">{@customer_name}</p>
             <p :if={@vehicle} class="text-xs text-base-content/70">{vehicle_label(@vehicle)}</p>
-            <p :if={@address} class="text-xs text-base-content/70">{@address.street}, {@address.city}</p>
+            <a
+              :if={@address}
+              href={maps_url(@address)}
+              target="_blank"
+              rel="noopener"
+              class="text-xs text-primary underline break-words inline-flex items-center gap-1"
+            >
+              <span>📍</span>
+              <span>{@address.street}, {@address.city}, {@address.state} {@address.zip}</span>
+            </a>
           </div>
           <span class={["badge badge-sm", status_class(@appointment.status)]}>
             {format_status(@appointment.status)}
@@ -694,19 +812,36 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           <span class="text-xs text-base-content/70">{@progress.steps_done}/{@progress.steps_total} steps</span>
         </div>
 
-        <!-- Action buttons -->
+        <!-- State-machine action buttons. One button per state so the tech
+             always sees exactly what's next without reading a menu. -->
         <div class="mt-3 flex gap-2">
-          <!-- Start Wash: for confirmed appointments without a checklist -->
           <button
-            :if={@progress.steps_total == 0 and @appointment.status == :confirmed}
+            :if={@appointment.status == :confirmed and @progress.steps_total == 0}
+            class="btn btn-primary btn-sm btn-block"
+            phx-click="depart"
+            phx-value-id={@appointment.id}
+          >
+            Head out
+          </button>
+
+          <button
+            :if={@appointment.status == :en_route}
+            class="btn btn-info btn-sm btn-block"
+            phx-click="arrive"
+            phx-value-id={@appointment.id}
+          >
+            Arrived
+          </button>
+
+          <button
+            :if={@appointment.status == :on_site and @progress.steps_total == 0}
             class="btn btn-warning btn-sm btn-block"
             phx-click="start_wash"
             phx-value-id={@appointment.id}
           >
-            Start Wash
+            Start wash
           </button>
 
-          <!-- Continue/Start Checklist: when checklist already exists -->
           <.link
             :if={@progress.steps_total > 0 and @progress.checklist_id}
             navigate={~p"/tech/checklist/#{@progress.checklist_id}"}
@@ -715,7 +850,6 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             {if @progress.steps_done > 0, do: "Continue Checklist", else: "Start Checklist"}
           </.link>
 
-          <!-- Log supplies for completed washes -->
           <button
             :if={@appointment.status == :completed}
             class="btn btn-outline btn-sm"
@@ -733,6 +867,23 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     </div>
     """
   end
+
+  defp duty_status_label(:available), do: "Available"
+  defp duty_status_label(:on_break), do: "On break"
+  defp duty_status_label(:off_duty), do: "Off duty"
+  defp duty_status_label(_), do: "Unknown"
+
+  defp maps_url(%{latitude: lat, longitude: lng})
+       when is_number(lat) and is_number(lng) do
+    "https://maps.apple.com/?daddr=#{lat},#{lng}"
+  end
+
+  defp maps_url(%{street: street, city: city, state: state, zip: zip}) do
+    q = URI.encode("#{street}, #{city}, #{state} #{zip}")
+    "https://maps.apple.com/?daddr=#{q}"
+  end
+
+  defp maps_url(_), do: "#"
 
   defp load_appointments(date, technician_id) do
     {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
@@ -903,6 +1054,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp status_class(:pending), do: "badge-ghost"
   defp status_class(:confirmed), do: "badge-info"
+  defp status_class(:en_route), do: "badge-info"
+  defp status_class(:on_site), do: "badge-info"
   defp status_class(:in_progress), do: "badge-warning"
   defp status_class(:completed), do: "badge-success"
   defp status_class(_), do: "badge-ghost"
@@ -920,6 +1073,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp format_status(:pending), do: "Pending"
   defp format_status(:confirmed), do: "Confirmed"
+  defp format_status(:en_route), do: "En route"
+  defp format_status(:on_site), do: "On site"
   defp format_status(:in_progress), do: "Active"
   defp format_status(:completed), do: "Done"
   defp format_status(s), do: to_string(s)
