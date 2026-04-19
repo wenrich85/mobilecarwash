@@ -24,9 +24,10 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       schedule_refresh()
       AppointmentTracker.subscribe_to_new_appointments()
       AppointmentTracker.subscribe_to_tech_requests()
+      MobileCarWash.Operations.TechnicianTracker.subscribe_all()
     end
 
-    technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+    technicians = active_technicians()
 
     tech_users =
       Customer
@@ -109,7 +110,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       set: [zone: zone]
     )
 
-    technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+    technicians = active_technicians()
     {:noreply, assign(socket, technicians: technicians)}
   end
 
@@ -154,7 +155,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       set: [user_account_id: uid]
     )
 
-    technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+    technicians = active_technicians()
     {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Account linked")}
   end
 
@@ -166,7 +167,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           from(t in "technicians", where: t.id == type(^tech_id, :binary_id)),
           set: [pay_rate_cents: rate_dollars * 100]
         )
-        technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+        technicians = active_technicians()
         {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Rate updated")}
 
       _ ->
@@ -177,7 +178,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   def handle_event("add_technician", %{"name" => name, "phone" => phone}, socket) do
     case Technician |> Ash.Changeset.for_create(:create, %{name: name, phone: phone}) |> Ash.create() do
       {:ok, _} ->
-        technicians = Ash.read!(Technician) |> Enum.filter(& &1.active)
+        technicians = active_technicians()
         {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Technician added")}
 
       {:error, _} ->
@@ -217,6 +218,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
   def handle_info({:new_appointment, _id}, socket) do
     {:noreply, load_appointments(socket)}
+  end
+
+  # A technician's duty status changed somewhere. Refresh the roster so
+  # the tech strip reflects the new value.
+  def handle_info({:technician_status, _payload}, socket) do
+    {:noreply, assign(socket, technicians: active_technicians())}
   end
 
   def handle_info({:tech_request, request}, socket) do
@@ -318,6 +325,27 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
           <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
         </form>
+      </div>
+
+      <!-- Techs on shift — live duty-status strip. Updates via
+           TechnicianTracker's firehose topic as techs tap Break /
+           Back on duty / Off from their dashboard. -->
+      <div :if={@technicians != []} class="max-w-7xl mx-auto mb-6">
+        <h2 class="text-lg font-bold mb-3">Techs on shift</h2>
+        <div class="flex flex-wrap gap-2">
+          <div
+            :for={tech <- @technicians}
+            class="card bg-base-100 shadow-sm px-3 py-2 flex-row items-center gap-2 min-w-[12rem]"
+          >
+            <span class={["w-2.5 h-2.5 rounded-full", duty_status_dot(tech.status)]} />
+            <div class="flex flex-col">
+              <span class="font-semibold text-sm">{tech.name}</span>
+              <span class="text-xs text-base-content/70">
+                {duty_status_label(tech.status)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Map -->
@@ -690,6 +718,20 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   defp load_service_map do
     Ash.read!(ServiceType) |> Map.new(&{&1.id, &1.name})
   end
+
+  defp active_technicians do
+    Ash.read!(Technician) |> Enum.filter(& &1.active)
+  end
+
+  defp duty_status_label(:available), do: "Available"
+  defp duty_status_label(:on_break), do: "On break"
+  defp duty_status_label(:off_duty), do: "Off duty"
+  defp duty_status_label(_), do: "Unknown"
+
+  defp duty_status_dot(:available), do: "bg-success"
+  defp duty_status_dot(:on_break), do: "bg-warning"
+  defp duty_status_dot(:off_duty), do: "bg-base-300"
+  defp duty_status_dot(_), do: "bg-base-300"
 
   defp tech_name(nil, _techs), do: "Unassigned"
   defp tech_name(tech_id, techs) do
