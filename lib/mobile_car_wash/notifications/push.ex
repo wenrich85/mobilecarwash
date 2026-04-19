@@ -155,6 +155,19 @@ defmodule MobileCarWash.Notifications.Push do
     )
   end
 
+  @doc "Booking cancelled — fires on appointment :cancel. Zeroes the badge."
+  def booking_cancelled(appointment, service_type) do
+    date = format_date(appointment.scheduled_at)
+
+    build(
+      appointment,
+      title: "Booking cancelled",
+      body: "Your #{service_type.name} on #{date} has been cancelled.",
+      kind: "booking_cancelled",
+      badge: 0
+    )
+  end
+
   # ------------------------------------------------------------------
   # Payload construction
   # ------------------------------------------------------------------

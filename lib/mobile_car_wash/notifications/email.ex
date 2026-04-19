@@ -263,6 +263,58 @@ defmodule MobileCarWash.Notifications.Email do
   end
 
   @doc """
+  Booking cancelled — sent when an appointment is cancelled.
+  """
+  def booking_cancelled(customer, appointment, service_name) do
+    date = Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")
+
+    reason_block =
+      case appointment.cancellation_reason do
+        nil -> ""
+        "" -> ""
+        reason -> "<p><strong>Reason:</strong> #{reason}</p>"
+      end
+
+    reason_text =
+      case appointment.cancellation_reason do
+        nil -> ""
+        "" -> ""
+        reason -> "Reason: #{reason}\n"
+      end
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Booking Cancelled - #{service_name}")
+    |> html_body("""
+    <h2>Your booking has been cancelled</h2>
+
+    <p>Hi #{customer.name},</p>
+
+    <p>Your <strong>#{service_name}</strong> scheduled for #{date} has been cancelled.</p>
+
+    #{reason_block}
+
+    <p>If you'd like to rebook, visit <a href="https://drivewaydetailcosa.com/book">drivewaydetailcosa.com/book</a>.</p>
+
+    <p>Questions? Just reply to this email.</p>
+
+    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
+    """)
+    |> text_body("""
+    Your booking has been cancelled.
+
+    Hi #{customer.name},
+
+    Your #{service_name} scheduled for #{date} has been cancelled.
+    #{reason_text}
+    Rebook anytime: https://drivewaydetailcosa.com/book
+
+    — Driveway Detail Co
+    """)
+  end
+
+  @doc """
   Welcome email when a subscription is created.
   """
   def subscription_created(customer, plan) do

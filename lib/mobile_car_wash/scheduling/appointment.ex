@@ -213,8 +213,28 @@ defmodule MobileCarWash.Scheduling.Appointment do
     # Technician assignment handled via Scheduling.Dispatch module (direct Ecto for FK)
 
     update :cancel do
+      require_atomic? false
       accept [:cancellation_reason]
       change set_attribute(:status, :cancelled)
+
+      change after_action(fn _changeset, record, _context ->
+        # Notify the customer across all three channels — email is always
+        # delivered; SMS and push are gated on the customer's per-channel
+        # opt-in inside the workers themselves.
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.BookingCancelledWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.SMSBookingCancelledWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.PushBookingCancelledWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        {:ok, record}
+      end)
     end
 
     read :todays_appointments do

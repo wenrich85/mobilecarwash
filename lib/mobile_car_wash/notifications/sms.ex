@@ -43,6 +43,14 @@ defmodule MobileCarWash.Notifications.SMS do
       "Thanks for choosing us. We'd love a review at drivewaydetailcosa.com"
   end
 
+  @doc "Booking cancelled SMS"
+  def booking_cancelled(appointment, service_type) do
+    date = format_date(appointment.scheduled_at)
+
+    "Driveway Detail Co: Your #{service_type.name} on #{date} has been cancelled. " <>
+      "Book again anytime at drivewaydetailcosa.com"
+  end
+
   @doc "Referral credit earned SMS"
   def referral_credit(referrer, referee_name) do
     "Driveway Detail Co: You earned $10! #{referee_name} used your referral code. " <>
