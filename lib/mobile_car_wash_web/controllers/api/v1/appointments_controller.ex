@@ -43,6 +43,43 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentsController do
     end
   end
 
+  @cancellable_statuses [:pending, :confirmed]
+
+  # Customer-initiated cancellation. Only allowed while the appointment is
+  # still pending/confirmed — once the technician has started the wash
+  # (:in_progress) or it's already :completed/:cancelled, the request is
+  # rejected and the customer must contact support.
+  def delete(conn, %{"id" => id}) do
+    customer = current_customer(conn)
+
+    case Ash.get(Appointment, id, actor: customer) do
+      {:ok, %{customer_id: cid} = appt} when cid == customer.id ->
+        if appt.status in @cancellable_statuses do
+          case appt
+               |> Ash.Changeset.for_update(:cancel, %{cancellation_reason: "Customer requested"})
+               |> Ash.update(actor: customer) do
+            {:ok, cancelled} ->
+              json(conn, appointment_json(cancelled))
+
+            {:error, _} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{error: "cancellation_failed"})
+          end
+        else
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{
+            error: "not_cancellable",
+            message: "Appointment cannot be cancelled once it has started. Contact support."
+          })
+        end
+
+      _ ->
+        conn |> put_status(:not_found) |> json(%{error: "not_found"})
+    end
+  end
+
   defp appointment_json(a) do
     %{
       id: a.id,

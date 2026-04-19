@@ -205,9 +205,10 @@ defmodule MobileCarWashWeb.Router do
     get "/blocks", BlocksController, :index
     post "/bookings", BookingsController, :create
 
-    # Appointments (read-only for the customer)
+    # Appointments (read for everyone; customer-initiated cancel via DELETE)
     get "/appointments", AppointmentsController, :index
     get "/appointments/:id", AppointmentsController, :show
+    delete "/appointments/:id", AppointmentsController, :delete
 
     # Subscriptions
     get "/subscriptions", SubscriptionsController, :index

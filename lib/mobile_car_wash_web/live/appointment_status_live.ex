@@ -122,6 +122,39 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   end
 
   @impl true
+  def handle_event("cancel_appointment", _params, socket) do
+    appointment = socket.assigns.appointment
+    customer = socket.assigns.current_customer
+
+    cond do
+      appointment.customer_id != customer.id ->
+        {:noreply, put_flash(socket, :error, "Not authorized to cancel this appointment.")}
+
+      appointment.status not in [:pending, :confirmed] ->
+        {:noreply,
+         put_flash(socket, :error, "This appointment can no longer be cancelled.")}
+
+      true ->
+        case appointment
+             |> Ash.Changeset.for_update(:cancel, %{cancellation_reason: "Customer requested"})
+             |> Ash.update(actor: customer) do
+          {:ok, cancelled} ->
+            {:noreply,
+             socket
+             |> assign(
+               appointment: cancelled,
+               live_status: nil,
+               message: status_message(:cancelled)
+             )
+             |> put_flash(:info, "Appointment cancelled. You should receive a confirmation shortly.")}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Could not cancel — please try again.")}
+        end
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <div class="max-w-lg mx-auto py-8 px-4">
@@ -256,6 +289,17 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
               </span>
             </div>
           </div>
+        </div>
+
+        <div :if={@appointment.status in [:pending, :confirmed]} class="mt-4">
+          <button
+            type="button"
+            phx-click="cancel_appointment"
+            data-confirm="Cancel this booking? This cannot be undone."
+            class="btn btn-outline btn-error btn-sm w-full"
+          >
+            Cancel booking
+          </button>
         </div>
       </div>
 

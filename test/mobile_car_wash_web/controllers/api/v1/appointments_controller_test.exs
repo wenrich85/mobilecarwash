@@ -128,4 +128,59 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentsControllerTest do
       assert json_response(conn, 404)
     end
   end
+
+  describe "DELETE /api/v1/appointments/:id" do
+    test "requires authentication", %{conn: conn} do
+      conn = delete(conn, ~p"/api/v1/appointments/11111111-1111-1111-1111-111111111111")
+      assert json_response(conn, 401)
+    end
+
+    test "cancels a pending appointment for the owner", %{conn: conn} do
+      {authed, customer, _} = register_and_sign_in(conn)
+      appt = create_appointment(customer.id, :pending)
+
+      conn = delete(authed, ~p"/api/v1/appointments/#{appt.id}")
+      body = json_response(conn, 200)
+
+      assert body["id"] == appt.id
+      assert body["status"] == "cancelled"
+
+      {:ok, reloaded} = Ash.get(Appointment, appt.id, authorize?: false)
+      assert reloaded.status == :cancelled
+    end
+
+    test "rejects cancellation of an in_progress appointment with 422", %{conn: conn} do
+      {authed, customer, _} = register_and_sign_in(conn)
+      appt = create_appointment(customer.id, :in_progress)
+
+      conn = delete(authed, ~p"/api/v1/appointments/#{appt.id}")
+      body = json_response(conn, 422)
+      assert body["error"]
+    end
+
+    test "rejects cancellation of a completed appointment with 422", %{conn: conn} do
+      {authed, customer, _} = register_and_sign_in(conn)
+      appt = create_appointment(customer.id, :completed)
+
+      conn = delete(authed, ~p"/api/v1/appointments/#{appt.id}")
+      assert json_response(conn, 422)
+    end
+
+    test "returns 404 when cancelling another customer's appointment", %{conn: conn} do
+      {authed, _, _} = register_and_sign_in(conn)
+
+      {:ok, other} =
+        MobileCarWash.Accounts.Customer
+        |> Ash.Changeset.for_create(:create_guest, %{
+          email: "other-cancel-#{:rand.uniform(100_000)}@example.com",
+          name: "X"
+        })
+        |> Ash.create()
+
+      appt = create_appointment(other.id)
+
+      conn = delete(authed, ~p"/api/v1/appointments/#{appt.id}")
+      assert json_response(conn, 404)
+    end
+  end
 end
