@@ -263,6 +263,72 @@ defmodule MobileCarWash.Notifications.Email do
   end
 
   @doc """
+  Tech on the way — sent when the technician departs toward the appointment.
+  """
+  def tech_on_the_way(customer, appointment, service_name, technician_name) do
+    time = Calendar.strftime(appointment.scheduled_at, "%I:%M %p")
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Your #{service_name} tech is on the way")
+    |> html_body("""
+    <h2>Your tech is on the way</h2>
+
+    <p>Hi #{customer.name},</p>
+
+    <p><strong>#{technician_name}</strong> is heading over now for your #{time} #{service_name}.</p>
+
+    <p>We'll send another note when they arrive.</p>
+
+    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
+    """)
+    |> text_body("""
+    Your tech is on the way
+
+    Hi #{customer.name},
+
+    #{technician_name} is heading over now for your #{time} #{service_name}.
+
+    We'll send another note when they arrive.
+
+    — Driveway Detail Co
+    """)
+  end
+
+  @doc """
+  Tech arrived — sent when the technician pulls up on-site, before the wash begins.
+  """
+  def tech_arrived(customer, _appointment, service_name, technician_name) do
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Your tech has arrived")
+    |> html_body("""
+    <h2>Your tech has arrived</h2>
+
+    <p>Hi #{customer.name},</p>
+
+    <p><strong>#{technician_name}</strong> is on-site and about to start your #{service_name}.</p>
+
+    <p>If your vehicle is still locked or blocked in, now's a good time to step out.</p>
+
+    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
+    """)
+    |> text_body("""
+    Your tech has arrived
+
+    Hi #{customer.name},
+
+    #{technician_name} is on-site and about to start your #{service_name}.
+
+    If your vehicle is still locked or blocked in, now's a good time to step out.
+
+    — Driveway Detail Co
+    """)
+  end
+
+  @doc """
   Booking cancelled — sent when an appointment is cancelled.
   """
   def booking_cancelled(customer, appointment, service_name) do

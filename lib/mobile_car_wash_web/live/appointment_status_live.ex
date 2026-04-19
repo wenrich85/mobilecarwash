@@ -130,7 +130,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
       appointment.customer_id != customer.id ->
         {:noreply, put_flash(socket, :error, "Not authorized to cancel this appointment.")}
 
-      appointment.status not in [:pending, :confirmed] ->
+      appointment.status not in [:pending, :confirmed, :en_route] ->
         {:noreply,
          put_flash(socket, :error, "This appointment can no longer be cancelled.")}
 
@@ -291,7 +291,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           </div>
         </div>
 
-        <div :if={@appointment.status in [:pending, :confirmed]} class="mt-4">
+        <div :if={@appointment.status in [:pending, :confirmed, :en_route]} class="mt-4">
           <button
             type="button"
             phx-click="cancel_appointment"
@@ -336,6 +336,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   defp status_message(:pending), do: "Appointment scheduled"
   defp status_message(:confirmed), do: "Appointment confirmed — we'll be there!"
+  defp status_message(:en_route), do: "Your tech is on the way!"
+  defp status_message(:on_site), do: "Your tech has arrived"
   defp status_message(:in_progress), do: "Wash in progress..."
   defp status_message(:completed), do: "Your wash is complete!"
   defp status_message(:cancelled), do: "Appointment cancelled"
@@ -343,6 +345,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   defp status_alert_class(_, :completed), do: "alert-success"
   defp status_alert_class(_, :in_progress), do: "alert-info"
+  defp status_alert_class(:on_site, _), do: "alert-info"
+  defp status_alert_class(:en_route, _), do: "alert-info"
   defp status_alert_class(:confirmed, _), do: "alert-info"
   defp status_alert_class(:completed, _), do: "alert-success"
   defp status_alert_class(:cancelled, _), do: "alert-error"
@@ -350,6 +354,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   defp appointment_badge(:pending), do: "badge-ghost"
   defp appointment_badge(:confirmed), do: "badge-info"
+  defp appointment_badge(:en_route), do: "badge-info"
+  defp appointment_badge(:on_site), do: "badge-info"
   defp appointment_badge(:in_progress), do: "badge-warning"
   defp appointment_badge(:completed), do: "badge-success"
   defp appointment_badge(:cancelled), do: "badge-error"
@@ -357,6 +363,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   defp format_status(:pending), do: "Pending"
   defp format_status(:confirmed), do: "Confirmed"
+  defp format_status(:en_route), do: "En Route"
+  defp format_status(:on_site), do: "On Site"
   defp format_status(:in_progress), do: "In Progress"
   defp format_status(:completed), do: "Completed"
   defp format_status(:cancelled), do: "Cancelled"

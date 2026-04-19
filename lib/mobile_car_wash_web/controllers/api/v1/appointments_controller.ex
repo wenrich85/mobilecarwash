@@ -21,7 +21,7 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentsController do
       Appointment
       |> Ash.Query.filter(
         customer_id == ^customer.id and
-          status in [:pending, :confirmed, :in_progress] and
+          status in [:pending, :confirmed, :en_route, :on_site, :in_progress] and
           scheduled_at > ^now
       )
       |> Ash.Query.sort(scheduled_at: :asc)
@@ -43,12 +43,13 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentsController do
     end
   end
 
-  @cancellable_statuses [:pending, :confirmed]
+  @cancellable_statuses [:pending, :confirmed, :en_route]
 
-  # Customer-initiated cancellation. Only allowed while the appointment is
-  # still pending/confirmed — once the technician has started the wash
-  # (:in_progress) or it's already :completed/:cancelled, the request is
-  # rejected and the customer must contact support.
+  # Customer-initiated cancellation. Allowed up until the tech has physically
+  # arrived at the location — once status is :on_site, :in_progress,
+  # :completed, or :cancelled, the request is rejected and the customer must
+  # contact support. :en_route stays cancellable because the tech can
+  # still turn around without much sunk cost.
   def delete(conn, %{"id" => id}) do
     customer = current_customer(conn)
 

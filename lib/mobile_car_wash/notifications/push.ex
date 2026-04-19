@@ -131,13 +131,26 @@ defmodule MobileCarWash.Notifications.Push do
     )
   end
 
-  @doc "Technician en route — fires on appointment :start."
+  @doc "Technician en route — fires on appointment :depart."
   def tech_on_the_way(appointment, technician) do
     build(
       appointment,
       title: "Tech is on the way",
       body: "#{technician.name} is heading to you now.",
       kind: "tech_on_the_way",
+      extras: %{technician_id: technician.id},
+      deep_link: "drivewaydetail://appointments/#{appointment.id}/tracking",
+      badge: 1
+    )
+  end
+
+  @doc "Technician has arrived on-site — fires on appointment :arrive."
+  def tech_arrived(appointment, technician) do
+    build(
+      appointment,
+      title: "Your tech has arrived",
+      body: "#{technician.name} is on-site and will start your wash shortly.",
+      kind: "tech_arrived",
       extras: %{technician_id: technician.id},
       deep_link: "drivewaydetail://appointments/#{appointment.id}/tracking",
       badge: 1

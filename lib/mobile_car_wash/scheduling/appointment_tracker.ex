@@ -56,6 +56,24 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     }})
   end
 
+  def broadcast_departed(appointment_id) do
+    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
+      appointment_id: appointment_id,
+      status: :en_route,
+      event: :departed,
+      message: "Your tech is on the way!"
+    }})
+  end
+
+  def broadcast_arrived(appointment_id) do
+    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
+      appointment_id: appointment_id,
+      status: :on_site,
+      event: :arrived,
+      message: "Your tech has arrived."
+    }})
+  end
+
   def broadcast_started(appointment_id) do
     PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
       appointment_id: appointment_id,

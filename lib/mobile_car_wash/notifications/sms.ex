@@ -37,6 +37,11 @@ defmodule MobileCarWash.Notifications.SMS do
     "Driveway Detail Co: #{technician.name} is on the way for your #{time} appointment!"
   end
 
+  @doc "Technician has arrived on-site SMS"
+  def tech_arrived(_appointment, technician) do
+    "Driveway Detail Co: #{technician.name} has arrived and will start your wash shortly."
+  end
+
   @doc "Wash completed SMS"
   def wash_completed(_appointment, service_type) do
     "Driveway Detail Co: Your #{service_type.name} is complete! " <>

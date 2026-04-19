@@ -27,7 +27,15 @@ defmodule MobileCarWash.Scheduling.Appointment do
     end
 
     attribute :status, :atom do
-      constraints one_of: [:pending, :confirmed, :in_progress, :completed, :cancelled]
+      constraints one_of: [
+        :pending,
+        :confirmed,
+        :en_route,
+        :on_site,
+        :in_progress,
+        :completed,
+        :cancelled
+      ]
       default :pending
       allow_nil? false
       public? true
@@ -161,13 +169,17 @@ defmodule MobileCarWash.Scheduling.Appointment do
       change set_attribute(:status, :confirmed)
     end
 
-    update :start do
+    # Tech taps "Heading out" from the dashboard. Fires the on-the-way
+    # notifications that used to live on :start — semantically they belong
+    # here (the customer wants to know *when the tech leaves*, not when
+    # they begin the wash).
+    update :depart do
       require_atomic? false
-      change set_attribute(:status, :in_progress)
+      change set_attribute(:status, :en_route)
 
       change after_action(fn _changeset, record, _context ->
-        MobileCarWash.Scheduling.AppointmentTracker.broadcast_started(record.id)
-        # SMS + push: tech is on the way
+        MobileCarWash.Scheduling.AppointmentTracker.broadcast_departed(record.id)
+
         %{appointment_id: record.id}
         |> MobileCarWash.Notifications.SMSTechOnTheWayWorker.new(queue: :notifications)
         |> Oban.insert()
@@ -176,6 +188,45 @@ defmodule MobileCarWash.Scheduling.Appointment do
         |> MobileCarWash.Notifications.PushTechOnTheWayWorker.new(queue: :notifications)
         |> Oban.insert()
 
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.TechOnTheWayWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        {:ok, record}
+      end)
+    end
+
+    # Tech taps "Arrived" — they're on-site but haven't started the wash.
+    # New notification channel: "Your tech has arrived."
+    update :arrive do
+      require_atomic? false
+      change set_attribute(:status, :on_site)
+
+      change after_action(fn _changeset, record, _context ->
+        MobileCarWash.Scheduling.AppointmentTracker.broadcast_arrived(record.id)
+
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.SMSTechArrivedWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.PushTechArrivedWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        %{appointment_id: record.id}
+        |> MobileCarWash.Notifications.TechArrivedWorker.new(queue: :notifications)
+        |> Oban.insert()
+
+        {:ok, record}
+      end)
+    end
+
+    update :start do
+      require_atomic? false
+      change set_attribute(:status, :in_progress)
+
+      change after_action(fn _changeset, record, _context ->
+        MobileCarWash.Scheduling.AppointmentTracker.broadcast_started(record.id)
         {:ok, record}
       end)
     end
