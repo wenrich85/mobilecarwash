@@ -16,6 +16,10 @@ defmodule MobileCarWashWeb.Router do
     # so the cost for normal page traffic is one string prefix check.
     plug MobileCarWashWeb.Plugs.AuthRateLimit
     plug :load_from_session
+    # Soft token rotation — extends signed-in sessions when the token
+    # is within the refresh threshold. No-op when no user is assigned,
+    # so public routes pay effectively zero cost.
+    plug MobileCarWashWeb.Plugs.SlideTokenExpiration
   end
 
   # Nonce + 'strict-dynamic' replaces host allowlists in script-src so
@@ -69,6 +73,7 @@ defmodule MobileCarWashWeb.Router do
     plug :accepts, ["json"]
     plug MobileCarWashWeb.Plugs.AuthRateLimit
     plug :load_from_bearer
+    plug MobileCarWashWeb.Plugs.SlideTokenExpiration
   end
 
   pipeline :rate_limited_auth do
