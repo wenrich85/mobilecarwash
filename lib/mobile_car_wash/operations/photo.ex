@@ -76,6 +76,22 @@ defmodule MobileCarWash.Operations.Photo do
       description "Specific part of the car being documented (optional)"
     end
 
+    # Structured vision-model labels produced by MobileCarWash.AI.PhotoAnalyzer.
+    # Shape: {is_vehicle_photo, body_part, issue, severity, confidence, description}
+    # Stored as a single JSONB column so we can iterate on the shape without
+    # schema migrations. ai_processed_at is nil until the analyzer has run
+    # (so we can tell "not yet analyzed" apart from "analyzed, no vehicle found").
+    attribute :ai_tags, :map do
+      allow_nil? true
+      public? true
+      description "AI-generated tags: body_part, issue, severity, confidence, description"
+    end
+
+    attribute :ai_processed_at, :utc_datetime_usec do
+      allow_nil? true
+      public? true
+    end
+
     create_timestamp :inserted_at
   end
 
@@ -94,6 +110,11 @@ defmodule MobileCarWash.Operations.Photo do
 
     create :upload do
       accept [:file_path, :original_filename, :content_type, :photo_type, :caption, :uploaded_by, :car_part]
+    end
+
+    update :apply_ai_tags do
+      accept [:ai_tags]
+      change set_attribute(:ai_processed_at, &DateTime.utc_now/0)
     end
 
     read :for_appointment do

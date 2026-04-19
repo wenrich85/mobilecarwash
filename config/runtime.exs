@@ -163,6 +163,12 @@ if config_env() == :prod do
       env: String.to_atom(System.get_env("APNS_ENV") || "prod")
   end
 
+  # AI photo auto-tagging (optional — disabled if ANTHROPIC_API_KEY not set).
+  if anthropic_key = System.get_env("ANTHROPIC_API_KEY") do
+    config :mobile_car_wash, :anthropic_api_key, anthropic_key
+    config :mobile_car_wash, :ai_photo_analysis, enabled: true, max_per_appointment: 10
+  end
+
   # Mailer — Zoho SMTP (swap relay/port/credentials for any SMTP provider)
   config :mobile_car_wash, MobileCarWash.Mailer,
     adapter: Swoosh.Adapters.SMTP,

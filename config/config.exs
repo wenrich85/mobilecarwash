@@ -138,6 +138,16 @@ config :mobile_car_wash, :apns,
 # Swap this out in config/test.exs to route all push sends to the ETS mock.
 config :mobile_car_wash, :apns_client, MobileCarWash.Notifications.ApnsClient
 
+# AI photo auto-tagging. Disabled by default; flipped on in runtime.exs
+# when ANTHROPIC_API_KEY is present. max_per_appointment is a safety cap
+# against runaway cost if a customer spams the upload button.
+config :mobile_car_wash, :ai_photo_analysis,
+  enabled: false,
+  max_per_appointment: 10
+
+config :mobile_car_wash, :vision_client, MobileCarWash.AI.VisionClient
+config :mobile_car_wash, :anthropic_api_key, nil
+
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 

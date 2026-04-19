@@ -38,6 +38,10 @@ config :mobile_car_wash, :twilio_client, MobileCarWash.Notifications.TwilioClien
 # Use mock APNs client in tests
 config :mobile_car_wash, :apns_client, MobileCarWash.Notifications.ApnsClientMock
 
+# Use the ETS-backed mock vision client in tests so no photo bytes ever
+# leave the VM.
+config :mobile_car_wash, :vision_client, MobileCarWash.AI.VisionClientMock
+
 # Use mock Stripe Product/Price modules in tests so ServiceType/SubscriptionPlan
 # CRUD doesn't hit the live Stripe API.
 config :mobile_car_wash, :stripe_product_module, MobileCarWash.Billing.StripeProductMock
