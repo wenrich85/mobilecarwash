@@ -30,7 +30,7 @@ defmodule MobileCarWash.Accounting.QuickBooksTest do
 
   describe "create_contact/1 — unconfigured" do
     test "returns :quickbooks_not_configured when credentials are missing" do
-      result = QuickBooks.create_contact(%{name: "Test", email: "test@example.com", phone: "555"})
+      result = QuickBooks.create_contact(%{name: "Test", email: "test@example.com", phone: "+15125551234"})
       assert {:error, :quickbooks_not_configured} = result
     end
   end

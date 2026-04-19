@@ -183,6 +183,64 @@ defmodule MobileCarWash.Accounts.Customer do
           :ok
       end
     end, on: [:create]
+
+    # SECURITY_AUDIT_REPORT MEDIUM #3: reject obviously-invalid email
+    # strings at the resource level. Not a full RFC check — just enough to
+    # block garbage like "haha" or "@example.com" before it reaches the
+    # mailer and fails noisily there. Uses get_attribute so both create
+    # and update paths are covered.
+    validate fn changeset, _context ->
+      case Ash.Changeset.get_attribute(changeset, :email) do
+        nil -> :ok
+        %Ash.CiString{} = ci -> validate_email_format(to_string(ci))
+        email when is_binary(email) -> validate_email_format(email)
+        _ -> :ok
+      end
+    end
+
+    # SECURITY_AUDIT_REPORT MEDIUM #4: same story for phone — Twilio
+    # would reject a malformed number at send time, but by then we've
+    # persisted it and enqueued a failing worker. Pre-reject here.
+    # Permissive: accepts E.164 (+15125551234), US with dashes
+    # (512-555-1234), US with parens ((512) 555-1234). Rejects letters
+    # and numbers shorter than 10 digits.
+    validate fn changeset, _context ->
+      case Ash.Changeset.get_attribute(changeset, :phone) do
+        nil -> :ok
+        "" -> :ok
+        phone when is_binary(phone) -> validate_phone_format(phone)
+        _ -> :ok
+      end
+    end
+  end
+
+  # --- Private validation helpers ---
+
+  defp validate_email_format(email) do
+    # Local-part@domain.tld-ish. Rejects whitespace and requires a dot
+    # somewhere after the @. Not a full RFC 5321 check by design.
+    if String.match?(email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/) do
+      :ok
+    else
+      {:error, field: :email, message: "must be a valid email address"}
+    end
+  end
+
+  defp validate_phone_format(phone) do
+    digits = phone |> String.graphemes() |> Enum.filter(&(&1 =~ ~r/[0-9]/)) |> length()
+
+    cond do
+      # Letters anywhere? Reject — Twilio-compatible formats are digits
+      # with optional +, spaces, dashes, dots, parens.
+      String.match?(phone, ~r/[A-Za-z]/) ->
+        {:error, field: :phone, message: "must be a valid phone number"}
+
+      digits < 10 ->
+        {:error, field: :phone, message: "must contain at least 10 digits"}
+
+      true ->
+        :ok
+    end
   end
 
   actions do

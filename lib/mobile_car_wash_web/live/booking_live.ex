@@ -46,9 +46,6 @@ defmodule MobileCarWashWeb.BookingLive do
 
     validated_step = StateMachine.resolve_step(restored_step, base_assigns)
 
-    require Logger
-    Logger.warning("MOUNT: restored_step=#{restored_step}, validated=#{validated_step}, customer=#{customer && customer.id}, service=#{base_assigns.selected_service && "yes"}, vehicle=#{base_assigns.selected_vehicle && "yes"}")
-
     socket =
       socket
       |> assign_session_id()
@@ -199,9 +196,6 @@ defmodule MobileCarWashWeb.BookingLive do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    require Logger
-    Logger.warning("HANDLE_PARAMS: current_step=#{socket.assigns.current_step}, params=#{inspect(params)}")
-
     socket =
       case {params, socket.assigns.current_step} do
         {%{"service" => slug}, :select_service} ->
@@ -604,13 +598,8 @@ defmodule MobileCarWashWeb.BookingLive do
     context = build_context(socket.assigns)
     current = socket.assigns.current_step
 
-    require Logger
-    Logger.warning("NEXT_STEP: current=#{current}, context=#{inspect(Map.take(context, [:selected_service, :current_customer, :selected_vehicle, :selected_address, :selected_slot]), pretty: false)}")
-
     case StateMachine.transition(:forward, current, context) do
       {:ok, next_step} ->
-        Logger.warning("NEXT_STEP: #{current} → #{next_step} ✓")
-
         socket =
           socket
           |> track_step_completion()
@@ -621,7 +610,6 @@ defmodule MobileCarWashWeb.BookingLive do
         {:noreply, socket}
 
       {:error, reason} ->
-        Logger.warning("NEXT_STEP: #{current} BLOCKED: #{reason}")
         {:noreply, put_flash(socket, :error, "Cannot continue: #{reason}")}
     end
   end
@@ -708,8 +696,6 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("save_vehicle", %{"vehicle" => vehicle_params}, socket) do
-    require Logger
-    Logger.warning("SAVE_VEHICLE: current_step=#{socket.assigns.current_step}, customer=#{socket.assigns.current_customer && socket.assigns.current_customer.id}")
     customer = socket.assigns.current_customer
 
     allowed_vehicle_keys = ~w(make model year color size)

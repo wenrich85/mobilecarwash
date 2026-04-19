@@ -171,7 +171,7 @@ defmodule MobileCarWash.Operations.PhotoUploadTest do
 
     customer =
       MobileCarWash.Accounts.Customer
-      |> Ash.Changeset.for_create(:create_guest, %{email: email, name: "Photo Test", phone: "555"})
+      |> Ash.Changeset.for_create(:create_guest, %{email: email, name: "Photo Test", phone: "+15125551234"})
       |> Ash.create!()
 
     vehicle =

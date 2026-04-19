@@ -18,7 +18,7 @@ defmodule MobileCarWash.Accounting.SyncWorkerTest do
     |> Ash.Changeset.for_create(:create_guest, %{
       email: "sync-#{:rand.uniform(100_000)}@test.com",
       name: "Sync Test",
-      phone: "555-0001"
+      phone: "512-555-0001"
     })
     |> Ash.create!()
   end

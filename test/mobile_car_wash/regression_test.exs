@@ -13,7 +13,7 @@ defmodule MobileCarWash.RegressionTest do
     email = email || "reg-#{:rand.uniform(100_000)}@test.com"
 
     MobileCarWash.Accounts.Customer
-    |> Ash.Changeset.for_create(:create_guest, %{email: email, name: "Reg Test", phone: "555"})
+    |> Ash.Changeset.for_create(:create_guest, %{email: email, name: "Reg Test", phone: "+15125551234"})
     |> Ash.create!()
   end
 
@@ -323,7 +323,7 @@ defmodule MobileCarWash.RegressionTest do
         Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.ZohoBooks)
 
         guest = create_guest()
-        customer_struct = %{name: guest.name, email: guest.email, phone: "555"}
+        customer_struct = %{name: guest.name, email: guest.email, phone: "+15125551234"}
 
         payment_struct = %{
           id: Ash.UUID.generate(),
@@ -351,7 +351,7 @@ defmodule MobileCarWash.RegressionTest do
         Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.QuickBooks)
 
         guest = create_guest()
-        customer_struct = %{name: guest.name, email: guest.email, phone: "555"}
+        customer_struct = %{name: guest.name, email: guest.email, phone: "+15125551234"}
 
         payment_struct = %{
           id: Ash.UUID.generate(),
@@ -379,7 +379,7 @@ defmodule MobileCarWash.RegressionTest do
   describe "BUG: Provider switch mid-flight safety" do
     test "sync_payment handles provider switch from Zoho to QuickBooks" do
       guest = create_guest()
-      customer_struct = %{name: guest.name, email: guest.email, phone: "555"}
+      customer_struct = %{name: guest.name, email: guest.email, phone: "+15125551234"}
 
       payment_struct = %{
         id: Ash.UUID.generate(),

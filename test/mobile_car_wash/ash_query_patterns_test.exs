@@ -20,7 +20,7 @@ defmodule MobileCarWash.AshQueryPatternsTest do
     |> Ash.Changeset.for_create(:create_guest, %{
       email: "query-test-#{:rand.uniform(100_000)}@test.com",
       name: "Query Test",
-      phone: "555"
+      phone: "+15125551234"
     })
     |> Ash.create!()
   end
