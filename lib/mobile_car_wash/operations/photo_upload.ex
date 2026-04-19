@@ -2,15 +2,22 @@ defmodule MobileCarWash.Operations.PhotoUpload do
   @moduledoc """
   Handles photo file storage for appointments.
   Supports two backends:
-  - :local — saves to priv/static/uploads/ (development)
-  - :s3 — uploads to AWS S3 bucket (production)
+  - :local — saves to priv/uploads/ (development). Intentionally outside
+    priv/static/ so Plug.Static can't serve photos without authentication.
+    All reads go through MobileCarWashWeb.PhotoController which enforces
+    owner / assigned-tech / admin authorization.
+  - :s3 — uploads to AWS S3 bucket (production). Objects are private;
+    presigned GET URLs are generated at display time.
 
   S3 bucket is configurable per client via app config for multi-tenant support.
   """
 
   alias MobileCarWash.Operations.Photo
 
-  @local_upload_dir "priv/static/uploads"
+  # Outside priv/static/ so Plug.Static does NOT serve these paths.
+  # Reads go through PhotoController, which checks ownership before
+  # serving bytes or redirecting to a presigned S3 URL.
+  @local_upload_dir "priv/uploads"
 
   @doc """
   Saves an uploaded file and creates a Photo record.
@@ -139,10 +146,12 @@ defmodule MobileCarWash.Operations.PhotoUpload do
 
   @doc """
   Returns a display URL for a photo.
-  - Local: returns `file_path` as-is — already a `/uploads/...` path served by Plug.Static.
-  - S3: generates a presigned GET URL valid for 4 hours. The stored `file_path` is the
-    S3 object key (e.g. `appointments/<id>/before_<uuid>.jpg`). Legacy records that stored
-    the full `https://...` URL are handled transparently.
+  - Local: returns `file_path` as-is — a `/photos/appointments/<id>/<file>`
+    path routed through `MobileCarWashWeb.PhotoController`, which checks
+    ownership before serving bytes.
+  - S3: generates a presigned GET URL valid for 4 hours. The stored `file_path`
+    is the S3 object key (e.g. `appointments/<id>/before_<uuid>.jpg`). Legacy
+    records that stored the full `https://...` URL are handled transparently.
 
   Call this when loading photos into LiveView assigns, not in render loops.
   """
@@ -174,8 +183,11 @@ defmodule MobileCarWash.Operations.PhotoUpload do
         end
 
       _ ->
-        # path is like /uploads/appointments/<id>/filename
-        local = Path.join("priv/static", path)
+        # path is like /photos/appointments/<id>/<url-encoded-filename>
+        # (served by PhotoController) OR a legacy /uploads/... URL from
+        # before CRITICAL #3 was fixed. Resolve either to the on-disk
+        # location under priv/uploads/.
+        local = local_path_for(path)
 
         case File.rm(local) do
           :ok -> :ok
@@ -184,6 +196,22 @@ defmodule MobileCarWash.Operations.PhotoUpload do
         end
     end
   end
+
+  # Translates a stored photo URL back into its on-disk path for deletion.
+  # Handles both the current and legacy formats transparently.
+  defp local_path_for("/photos/appointments/" <> rest) do
+    [appt, filename] = String.split(rest, "/", parts: 2)
+    Path.join([@local_upload_dir, "appointments", appt, URI.decode(filename)])
+  end
+
+  defp local_path_for("/uploads/" <> rest) do
+    # Legacy: files written under priv/static/uploads before CRITICAL #3
+    # moved them to priv/uploads/. Kept so a running system with legacy
+    # rows can still clean up its old on-disk files.
+    Path.join("priv/static/uploads", rest)
+  end
+
+  defp local_path_for(path), do: path
 
   defp presign_url(path) do
     bucket = s3_bucket()
@@ -219,7 +247,9 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     dest = Path.join(dir, filename)
     File.cp!(source_path, dest)
 
-    url_path = "/uploads/appointments/#{appointment_id}/#{filename}"
+    # Route reads through PhotoController — this URL hits
+    # /photos/appointments/:id/:filename which authorizes + serves.
+    url_path = "/photos/appointments/#{appointment_id}/#{URI.encode(filename)}"
     {:ok, url_path}
   rescue
     e -> {:error, Exception.message(e)}

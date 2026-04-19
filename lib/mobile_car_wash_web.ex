@@ -17,7 +17,12 @@ defmodule MobileCarWashWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images uploads favicon.ico robots.txt sitemap.xml)
+  # NOTE: `uploads` is intentionally NOT in this list. Customer photos are
+  # stored under priv/uploads/ (outside priv/static/) and served through
+  # MobileCarWashWeb.PhotoController with per-appointment authorization.
+  # Adding `uploads` here would bypass that check — see
+  # .claude/SECURITY_AUDIT_REPORT.md CRITICAL #3 for history.
+  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt sitemap.xml)
 
   def router do
     quote do

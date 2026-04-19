@@ -96,14 +96,16 @@ defmodule MobileCarWashWeb.PhotoController do
   end
 
   defp serve_local_photo(conn, appointment_id, filename) do
-    # Sanitize filename to prevent path traversal
-    safe_filename = Path.basename(filename)
+    # URL-decoded + basename-ed to prevent path traversal
+    safe_filename = filename |> URI.decode() |> Path.basename()
     path = Path.join([@local_upload_dir, "appointments", appointment_id, safe_filename])
 
     if File.exists?(path) do
       content_type = MIME.from_path(safe_filename)
-      send_file(conn, 200, path)
+
+      conn
       |> put_resp_content_type(content_type)
+      |> send_file(200, path)
     else
       conn |> put_status(404) |> text("Photo not found")
     end
