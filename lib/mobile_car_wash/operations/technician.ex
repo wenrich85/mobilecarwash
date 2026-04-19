@@ -54,6 +54,16 @@ defmodule MobileCarWash.Operations.Technician do
       description "Assigned service zone. Nil = floater (covers any zone)."
     end
 
+    # Tech-level duty status, orthogonal to any per-appointment state.
+    # Admin dispatch reads this to show "on break" / "available" / "off
+    # duty" alongside whatever appointment each tech is currently tied to.
+    attribute :status, :atom do
+      constraints one_of: [:off_duty, :available, :on_break]
+      default :off_duty
+      allow_nil? false
+      public? true
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end
@@ -71,5 +81,15 @@ defmodule MobileCarWash.Operations.Technician do
 
   actions do
     defaults [:read, create: :*, update: :*]
+
+    update :set_status do
+      require_atomic? false
+      accept [:status]
+
+      change after_action(fn _changeset, record, _context ->
+        MobileCarWash.Operations.TechnicianTracker.broadcast_status(record)
+        {:ok, record}
+      end)
+    end
   end
 end
