@@ -86,22 +86,40 @@ defmodule MobileCarWash.Operations.PhotoUpload do
         changeset_attrs =
           if car_part, do: Map.put(changeset_attrs, :car_part, car_part), else: changeset_attrs
 
-        Photo
-        |> Ash.Changeset.for_create(:upload, changeset_attrs)
-        |> Ash.Changeset.force_change_attribute(:appointment_id, appointment_id)
-        |> then(fn cs ->
-          if checklist_item_id do
-            Ash.Changeset.force_change_attribute(cs, :checklist_item_id, checklist_item_id)
-          else
-            cs
-          end
-        end)
-        |> Ash.create()
+        case Photo
+             |> Ash.Changeset.for_create(:upload, changeset_attrs)
+             |> Ash.Changeset.force_change_attribute(:appointment_id, appointment_id)
+             |> then(fn cs ->
+               if checklist_item_id do
+                 Ash.Changeset.force_change_attribute(cs, :checklist_item_id, checklist_item_id)
+               else
+                 cs
+               end
+             end)
+             |> Ash.create() do
+          {:ok, photo} = ok ->
+            maybe_enqueue_ai_analysis(photo)
+            ok
+
+          other ->
+            other
+        end
 
       {:error, reason} ->
         {:error, reason}
     end
   end
+
+  # Only :problem_area photos uploaded by the customer trigger the
+  # vision-model analyzer. Tech-uploaded :before / :after / :step_completion
+  # photos are handled by a separate before/after QA worker (not yet built).
+  defp maybe_enqueue_ai_analysis(%{photo_type: :problem_area, uploaded_by: :customer, id: id}) do
+    %{photo_id: id}
+    |> MobileCarWash.AI.PhotoAnalyzerWorker.new(queue: :notifications)
+    |> Oban.insert()
+  end
+
+  defp maybe_enqueue_ai_analysis(_photo), do: :ok
 
   @doc "Returns the configured storage backend."
   def storage_backend do
