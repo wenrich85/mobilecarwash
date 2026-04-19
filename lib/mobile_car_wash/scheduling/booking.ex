@@ -268,7 +268,8 @@ defmodule MobileCarWash.Scheduling.Booking do
 
       block_id ->
         with {:ok, block} <- fetch_block(block_id),
-             :ok <- validate_block_for_booking(block, service_type) do
+             :ok <- validate_block_for_booking(block, service_type),
+             :ok <- validate_block_proximity(block, params.address_id) do
           {:ok, Map.put(params, :scheduled_at, block.starts_at)}
         end
     end
@@ -298,6 +299,60 @@ defmodule MobileCarWash.Scheduling.Booking do
       true ->
         :ok
     end
+  end
+
+  # Enforces that a block's appointments stay geographically clustered: a
+  # new booking must be within the admin-configured drive-time threshold
+  # of at least one existing appointment. Empty blocks always accept —
+  # the first booking seeds the cluster.
+  defp validate_block_proximity(block, address_id) do
+    existing_coords = existing_block_coords(block.id)
+
+    cond do
+      existing_coords == [] ->
+        :ok
+
+      true ->
+        with {:ok, {lat, lng}} <- candidate_coords(address_id),
+             max_minutes <- MobileCarWash.Scheduling.SchedulingSettings.get().max_intra_block_drive_minutes,
+             true <- any_within?(existing_coords, {lat, lng}, max_minutes) do
+          :ok
+        else
+          false -> {:error, :block_too_far}
+          {:error, _} = err -> err
+        end
+    end
+  end
+
+  defp existing_block_coords(block_id) do
+    import Ash.Expr
+
+    Appointment
+    |> Ash.Query.filter(expr(appointment_block_id == ^block_id and status != :cancelled))
+    |> Ash.Query.load(:address)
+    |> Ash.read!(authorize?: false)
+    |> Enum.map(& &1.address)
+    |> Enum.filter(&(&1.latitude && &1.longitude))
+    |> Enum.map(&{&1.latitude, &1.longitude})
+  end
+
+  defp candidate_coords(address_id) do
+    case Ash.get(Address, address_id, authorize?: false) do
+      {:ok, %{latitude: lat, longitude: lng}} when is_number(lat) and is_number(lng) ->
+        {:ok, {lat, lng}}
+
+      {:ok, _} ->
+        {:error, :address_missing_coordinates}
+
+      {:error, _} ->
+        {:error, :address_not_found}
+    end
+  end
+
+  defp any_within?(existing_coords, candidate, max_minutes) do
+    Enum.any?(existing_coords, fn coords ->
+      MobileCarWash.Routing.Haversine.travel_minutes(coords, candidate) <= max_minutes
+    end)
   end
 
   defp calculate_price(service_type, vehicle_size, nil) do

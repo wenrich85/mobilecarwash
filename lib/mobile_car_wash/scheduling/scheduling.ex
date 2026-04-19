@@ -11,5 +11,6 @@ defmodule MobileCarWash.Scheduling do
     resource MobileCarWash.Scheduling.BlockTemplate
     resource MobileCarWash.Scheduling.RecurringSchedule
     resource MobileCarWash.Scheduling.BlockedDate
+    resource MobileCarWash.Scheduling.SchedulingSettings
   end
 end

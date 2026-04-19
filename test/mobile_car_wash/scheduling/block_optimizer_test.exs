@@ -115,6 +115,15 @@ defmodule MobileCarWash.Scheduling.BlockOptimizerTest do
 
   describe "close_and_optimize/1" do
     setup do
+      # These tests exercise nearest-neighbor ordering across appointments
+      # spread ~22 miles apart, which violates the default intra-block
+      # proximity cap. Loosen it so the optimizer tests run independently
+      # of that gate (proximity is covered in booking_block_proximity_test).
+      {:ok, _} =
+        MobileCarWash.Scheduling.SchedulingSettings.update(
+          %{max_intra_block_drive_minutes: 300}
+        )
+
       service = create_service()
       tech = create_technician()
       block = create_block(service, tech)

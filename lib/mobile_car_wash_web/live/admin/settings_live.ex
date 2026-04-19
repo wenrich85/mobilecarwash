@@ -20,13 +20,29 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
        plans: load_plans(),
        editing_service: nil,
        editing_plan: nil,
-       blocked_dates: load_blocked_dates()
+       blocked_dates: load_blocked_dates(),
+       scheduling_settings: MobileCarWash.Scheduling.SchedulingSettings.get()
      )}
   end
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, tab: String.to_existing_atom(tab), editing_service: nil, editing_plan: nil)}
+  end
+
+  def handle_event("update_scheduling_settings", params, socket) do
+    attrs = %{max_intra_block_drive_minutes: to_int(params["max_intra_block_drive_minutes"])}
+
+    case MobileCarWash.Scheduling.SchedulingSettings.update(attrs) do
+      {:ok, settings} ->
+        {:noreply,
+         socket
+         |> assign(scheduling_settings: settings)
+         |> put_flash(:info, "Scheduling settings updated.")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Value must be a positive integer.")}
+    end
   end
 
   # === Services ===
@@ -212,6 +228,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
         <button class={["tab", @tab == :services && "tab-active"]} phx-click="switch_tab" phx-value-tab="services">Services</button>
         <button class={["tab", @tab == :plans && "tab-active"]} phx-click="switch_tab" phx-value-tab="plans">Membership Plans</button>
         <button class={["tab", @tab == :blocked_dates && "tab-active"]} phx-click="switch_tab" phx-value-tab="blocked_dates">Blocked Dates</button>
+        <button class={["tab", @tab == :scheduling && "tab-active"]} phx-click="switch_tab" phx-value-tab="scheduling">Scheduling</button>
         <button class={["tab", @tab == :accounting && "tab-active"]} phx-click="switch_tab" phx-value-tab="accounting">Accounting</button>
       </div>
 
@@ -452,6 +469,42 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Scheduling Tab -->
+      <div :if={@tab == :scheduling}>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body p-6">
+            <h3 class="font-bold text-lg mb-4">Block Clustering</h3>
+            <p class="text-sm text-base-content/80 mb-6">
+              When a customer books into an existing block, their address must be within this
+              many drive-minutes of at least one appointment already in that block. Keeps
+              technicians from zig-zagging across the city. The first appointment in a block
+              always accepts — it seeds the cluster.
+            </p>
+
+            <form phx-submit="update_scheduling_settings" class="space-y-4 max-w-md">
+              <label class="form-control">
+                <span class="label-text font-semibold">
+                  Max drive-minutes between appointments in a block
+                </span>
+                <input
+                  type="number"
+                  name="max_intra_block_drive_minutes"
+                  min="1"
+                  max="240"
+                  value={@scheduling_settings.max_intra_block_drive_minutes}
+                  class="input input-bordered w-full"
+                />
+                <span class="label-text-alt mt-1 text-base-content/70">
+                  Current: {@scheduling_settings.max_intra_block_drive_minutes} min
+                </span>
+              </label>
+
+              <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+          </div>
         </div>
       </div>
 
