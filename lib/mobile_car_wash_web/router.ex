@@ -131,6 +131,10 @@ defmodule MobileCarWashWeb.Router do
     # is its own authz; no plug auth required.
     get "/auth/verify-email", AuthController, :verify_email
 
+    # Resend the verification email — used by the soft-gate banner shown
+    # to signed-in but unverified customers.
+    post "/auth/resend-verification", AuthController, :resend_verification
+
     auth_routes(AuthController, MobileCarWash.Accounts.Customer, auth_routes_prefix: "/auth")
   end
 

@@ -120,4 +120,71 @@ defmodule MobileCarWashWeb.AuthController do
     |> put_flash(:error, "Missing verification token.")
     |> redirect(to: ~p"/")
   end
+
+  @doc """
+  Re-sends the email verification link. Triggered by the soft-gate
+  banner shown in the authenticated layout. Silently no-ops for
+  already-verified / signed-out visitors so we don't leak account
+  state through distinct flash messages.
+  """
+  def resend_verification(conn, _params) do
+    case current_customer(conn) do
+      %{email_verified_at: nil, id: customer_id} ->
+        %{"customer_id" => customer_id}
+        |> MobileCarWash.Notifications.VerificationEmailWorker.new()
+        |> Oban.insert!()
+
+        resend_reply(conn)
+
+      _ ->
+        resend_reply(conn)
+    end
+  end
+
+  defp resend_reply(conn) do
+    conn
+    |> put_flash(:info, "Verification email sent. Check your inbox.")
+    |> redirect(to: redirect_back(conn))
+  end
+
+  defp current_customer(conn) do
+    cond do
+      user = conn.assigns[:current_user] -> user
+      user = conn.assigns[:current_customer] -> user
+      true -> customer_from_session(conn)
+    end
+  end
+
+  defp customer_from_session(conn) do
+    case get_session(conn, "customer_token") do
+      token when is_binary(token) ->
+        with {:ok, %{"sub" => subject}, _} <-
+               AshAuthentication.Jwt.verify(token, :mobile_car_wash),
+             {:ok, customer} <-
+               AshAuthentication.subject_to_user(subject, MobileCarWash.Accounts.Customer) do
+          customer
+        else
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp redirect_back(conn) do
+    case get_req_header(conn, "referer") do
+      [referer | _] ->
+        uri = URI.parse(referer)
+
+        if uri.host in [nil, conn.host] do
+          uri.path || "/"
+        else
+          "/"
+        end
+
+      _ ->
+        "/"
+    end
+  end
 end

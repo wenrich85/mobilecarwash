@@ -43,7 +43,17 @@ defmodule MobileCarWashWeb.Layouts do
         _ -> nil
       end
 
-    assigns = assign(assigns, :current_scope, scope)
+    # The soft-gate verification banner needs to know whether the
+    # signed-in customer has clicked their link yet. Pull it off the
+    # raw record — the scope map omits it so admin/tech sessions don't
+    # get a banner that doesn't apply to them.
+    unverified? =
+      case customer do
+        %{role: :customer, email_verified_at: nil} -> true
+        _ -> false
+      end
+
+    assigns = assign(assigns, current_scope: scope, show_verify_banner: unverified?)
 
     ~H"""
     <div class="drawer">
@@ -106,6 +116,24 @@ defmodule MobileCarWashWeb.Layouts do
             </ul>
           </nav>
         </header>
+
+        <!-- Verify-email banner — customer-only, dismissable once they
+             click the link in their signup email. Soft gate, not hard. -->
+        <div :if={@show_verify_banner} class="bg-warning/10 border-b border-warning/30">
+          <div class="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-3 flex-wrap">
+            <p class="text-sm text-warning-content/90">
+              <span class="font-semibold">Verify your email.</span>
+              We sent a confirmation link when you signed up — please tap it so
+              we can send you booking updates.
+            </p>
+            <form action="/auth/resend-verification" method="post" class="inline">
+              <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+              <button type="submit" class="btn btn-warning btn-sm">
+                Resend email
+              </button>
+            </form>
+          </div>
+        </div>
 
         <!-- Page content -->
         <main id="main-content" class="flex-1">
