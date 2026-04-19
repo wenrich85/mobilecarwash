@@ -128,9 +128,9 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
         subtitle: "What you sell and what you use",
         cards: [
           %{
-            icon: "🧾",
-            title: "Services & Plans",
-            description: "Edit service menu, prices, subscription tiers, and blocked dates.",
+            icon: "⚙️",
+            title: "Settings",
+            description: "Services, plans, blocked dates, block clustering radius, and accounting provider.",
             path: "/admin/settings"
           },
           %{
