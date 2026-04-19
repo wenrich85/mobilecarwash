@@ -267,6 +267,62 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
       {:ok, _view, html} = live(conn, ~p"/tech")
       assert html =~ "Start wash"
     end
+
+    test "shows a prominent 'Continue checklist' button when :in_progress",
+         %{conn: conn, tech: tech, customer: customer} do
+      alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Procedure}
+
+      appt = create_appointment(customer.id, tech.id, :in_progress)
+
+      {:ok, procedure} =
+        Procedure
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Basic Wash SOP",
+          slug: "basic-#{System.unique_integer([:positive])}"
+        })
+        |> Ash.Changeset.force_change_attribute(:service_type_id, appt.service_type_id)
+        |> Ash.create()
+
+      {:ok, checklist} =
+        AppointmentChecklist
+        |> Ash.Changeset.for_create(:create, %{status: :in_progress})
+        |> Ash.Changeset.force_change_attribute(:appointment_id, appt.id)
+        |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+        |> Ash.create()
+
+      alias MobileCarWash.Operations.ProcedureStep
+
+      for n <- 1..3 do
+        {:ok, step} =
+          ProcedureStep
+          |> Ash.Changeset.for_create(:create, %{
+            step_number: n,
+            title: "Step #{n}",
+            estimated_minutes: 5
+          })
+          |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+          |> Ash.create()
+
+        ChecklistItem
+        |> Ash.Changeset.for_create(:create, %{
+          step_number: n,
+          title: "Step #{n}",
+          estimated_minutes: 5,
+          # First step already done so progress.steps_done > 0 — that's
+          # what triggers the "Continue checklist" branch of the button.
+          completed: n == 1
+        })
+        |> Ash.Changeset.force_change_attribute(:checklist_id, checklist.id)
+        |> Ash.Changeset.force_change_attribute(:procedure_step_id, step.id)
+        |> Ash.create!()
+      end
+
+      {:ok, _view, html} = live(conn, ~p"/tech")
+      assert html =~ "Continue checklist"
+      # Must use the primary-action styling so it reads as the main button,
+      # not a secondary link.
+      assert html =~ "btn-primary"
+    end
   end
 
   describe "address tap-to-navigate" do

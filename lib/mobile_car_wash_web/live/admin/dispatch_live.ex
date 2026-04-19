@@ -39,6 +39,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
       |> assign(
         page_title: "Dispatch Center",
         technicians: technicians,
+        current_appointment_by_tech: current_appointments_by_tech(),
         tech_users: tech_users,
         # Filters — default: no date filter, pending status, all techs
         filter_date: nil,
@@ -211,9 +212,14 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     {:noreply, assign(socket, active: active)}
   end
 
-  # Status changes — targeted reload of just the affected appointment
+  # Status changes — targeted reload of just the affected appointment +
+  # refresh the tech strip summary since en_route/on_site/in_progress flips
+  # change which appointment each tech is "currently on".
   def handle_info({:appointment_update, %{appointment_id: id}}, socket) do
-    {:noreply, reload_one_appointment(socket, id)}
+    {:noreply,
+     socket
+     |> reload_one_appointment(id)
+     |> assign(current_appointment_by_tech: current_appointments_by_tech())}
   end
 
   def handle_info({:new_appointment, _id}, socket) do
@@ -223,7 +229,11 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   # A technician's duty status changed somewhere. Refresh the roster so
   # the tech strip reflects the new value.
   def handle_info({:technician_status, _payload}, socket) do
-    {:noreply, assign(socket, technicians: active_technicians())}
+    {:noreply,
+     assign(socket,
+       technicians: active_technicians(),
+       current_appointment_by_tech: current_appointments_by_tech()
+     )}
   end
 
   def handle_info({:tech_request, request}, socket) do
@@ -335,12 +345,16 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         <div class="flex flex-wrap gap-2">
           <div
             :for={tech <- @technicians}
-            class="card bg-base-100 shadow-sm px-3 py-2 flex-row items-center gap-2 min-w-[12rem]"
+            class="card bg-base-100 shadow-sm px-3 py-2 flex-row items-center gap-2 min-w-[14rem]"
           >
             <span class={["w-2.5 h-2.5 rounded-full", duty_status_dot(tech.status)]} />
             <div class="flex flex-col">
               <span class="font-semibold text-sm">{tech.name}</span>
-              <span class="text-xs text-base-content/70">
+              <% activity = current_activity_text(Map.get(@current_appointment_by_tech, tech.id)) %>
+              <span :if={activity} class="text-xs text-primary font-medium">
+                {activity}
+              </span>
+              <span :if={!activity} class="text-xs text-base-content/70">
                 {duty_status_label(tech.status)}
               </span>
             </div>
@@ -721,6 +735,72 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
   defp active_technicians do
     Ash.read!(Technician) |> Enum.filter(& &1.active)
+  end
+
+  # Pulls each tech's currently-active appointment so the dispatch strip
+  # can show "Miguel — En route to Smith 10 AM" instead of just a duty
+  # status. Active = en_route, on_site, or in_progress (the three states
+  # that mean the tech is mid-shift on a specific job).
+  defp current_appointments_by_tech do
+    tech_ids = Ash.read!(Technician) |> Enum.map(& &1.id)
+
+    appts =
+      Appointment
+      |> Ash.Query.filter(
+        technician_id in ^tech_ids and
+          status in [:en_route, :on_site, :in_progress]
+      )
+      |> Ash.read!()
+
+    customer_ids = Enum.map(appts, & &1.customer_id) |> Enum.uniq()
+
+    customer_map =
+      if customer_ids == [] do
+        %{}
+      else
+        MobileCarWash.Accounts.Customer
+        |> Ash.Query.filter(id in ^customer_ids)
+        |> Ash.read!(authorize?: false)
+        |> Map.new(&{&1.id, &1})
+      end
+
+    appts
+    |> Enum.reduce(%{}, fn appt, acc ->
+      summary = %{
+        appointment_id: appt.id,
+        status: appt.status,
+        scheduled_at: appt.scheduled_at,
+        customer_name:
+          case Map.get(customer_map, appt.customer_id) do
+            nil -> "Customer"
+            %{name: name} -> name
+          end
+      }
+
+      # Prefer an earlier-stage appointment (en_route) over later (in_progress)
+      # when a tech somehow has two — the first is "what's happening next."
+      Map.update(acc, appt.technician_id, summary, fn existing ->
+        if state_order(summary.status) < state_order(existing.status), do: summary, else: existing
+      end)
+    end)
+  end
+
+  defp state_order(:en_route), do: 0
+  defp state_order(:on_site), do: 1
+  defp state_order(:in_progress), do: 2
+  defp state_order(_), do: 99
+
+  defp current_activity_text(nil), do: nil
+
+  defp current_activity_text(%{status: status, customer_name: name, scheduled_at: at}) do
+    time = Calendar.strftime(at, "%-I:%M %p")
+
+    case status do
+      :en_route -> "En route to #{name} · #{time}"
+      :on_site -> "On site with #{name}"
+      :in_progress -> "Washing #{name}'s car"
+      _ -> nil
+    end
   end
 
   defp duty_status_label(:available), do: "Available"

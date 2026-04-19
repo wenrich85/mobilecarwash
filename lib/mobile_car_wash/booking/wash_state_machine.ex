@@ -7,8 +7,17 @@ defmodule MobileCarWash.Booking.WashStateMachine do
 
   # === Appointment-level transitions ===
 
-  @doc "Can this appointment be started? Must be confirmed with a technician assigned."
-  def can_start_wash?(%{status: :confirmed, technician_id: tid}) when not is_nil(tid), do: true
+  @doc """
+  Can this appointment be started? Technician must be assigned and the
+  appointment must be in one of the pre-wash states. Slice A added
+  :en_route and :on_site between :confirmed and :in_progress, and all
+  three are valid launch-points — a tech can tap "Start wash" from any
+  of them if they skipped the intermediate Depart / Arrive buttons.
+  """
+  def can_start_wash?(%{status: status, technician_id: tid})
+      when status in [:confirmed, :en_route, :on_site] and not is_nil(tid),
+      do: true
+
   def can_start_wash?(_), do: false
 
   @doc "Can this appointment be marked complete? Appointment must be in_progress and checklist completed."
