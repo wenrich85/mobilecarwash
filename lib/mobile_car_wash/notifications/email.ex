@@ -8,6 +8,45 @@ defmodule MobileCarWash.Notifications.Email do
   @from {"Mobile Car Wash", "noreply@mobilecarwash.com"}
 
   @doc """
+  Email verification link — sent after signup. 24-hour lifetime; link
+  carries a one-shot JWT with the customer's subject + email baked in.
+  """
+  def verify_email(customer, verification_link) do
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Verify your email for Driveway Detail Co")
+    |> html_body("""
+    <h2>Welcome, #{customer.name}!</h2>
+    <p>Thanks for signing up with Driveway Detail Co. Please verify your
+    email address so we can send you booking confirmations, reminders,
+    and receipts.</p>
+    <p>
+      <a href="#{verification_link}"
+         style="display:inline-block;background:#3A7CA5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
+        Verify my email
+      </a>
+    </p>
+    <p style="color:#666;font-size:12px;">The link expires in 24 hours.
+    If you didn't create this account, you can safely ignore this email.</p>
+    <p style="color:#666;font-size:12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
+    """)
+    |> text_body("""
+    Welcome, #{customer.name}!
+
+    Thanks for signing up with Driveway Detail Co. Please verify your email
+    so we can send you booking confirmations, reminders, and receipts.
+
+    #{verification_link}
+
+    The link expires in 24 hours. If you didn't create this account, you
+    can safely ignore this email.
+
+    — Driveway Detail Co · San Antonio, TX · Veteran-owned
+    """)
+  end
+
+  @doc """
   Booking confirmation email — sent after successful payment.
   """
   def booking_confirmation(appointment, service_type, customer, address) do

@@ -126,6 +126,11 @@ defmodule MobileCarWashWeb.Router do
       ]
     )
     sign_out_route AuthController
+
+    # One-shot email verification link. The token in the query string
+    # is its own authz; no plug auth required.
+    get "/auth/verify-email", AuthController, :verify_email
+
     auth_routes(AuthController, MobileCarWash.Accounts.Customer, auth_routes_prefix: "/auth")
   end
 

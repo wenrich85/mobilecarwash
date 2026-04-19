@@ -36,6 +36,11 @@ defmodule MobileCarWash.Notifications.CancellationWorkersTest do
       })
       |> Ash.create()
 
+    # The :register_with_password after_action enqueues a verification
+    # email. Drain it so assert_received below lands on the cancellation
+    # email this test actually cares about.
+    flush_mailbox()
+
     {:ok, service_type} =
       MobileCarWash.Scheduling.ServiceType
       |> Ash.Changeset.for_create(:create, %{
@@ -156,6 +161,17 @@ defmodule MobileCarWash.Notifications.CancellationWorkersTest do
       assert [{_, address}] = email.to
       assert address == to_string(customer.email)
       assert email.subject =~ "cancelled" or email.subject =~ "Cancelled"
+    end
+  end
+
+  # The :register_with_password after_action enqueues a verification email
+  # before the test's own action runs. Without draining, assert_received
+  # lands on the verification email first.
+  defp flush_mailbox do
+    receive do
+      {:email, _} -> flush_mailbox()
+    after
+      0 -> :ok
     end
   end
 end

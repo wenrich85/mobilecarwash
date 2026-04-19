@@ -75,4 +75,49 @@ defmodule MobileCarWashWeb.AuthController do
     |> put_flash(:info, "Signed out successfully.")
     |> redirect(to: ~p"/")
   end
+
+  @doc """
+  One-shot email verification link handler. Reads the token from the
+  query string, looks up the customer by subject, and runs the
+  `:verify_email` action. Outcomes surface as a flash + redirect —
+  soft-gate semantics, no blocking page.
+  """
+  def verify_email(conn, %{"token" => token}) when is_binary(token) do
+    case AshAuthentication.Jwt.peek(token) do
+      {:ok, %{"sub" => subject}} ->
+        case AshAuthentication.subject_to_user(subject, MobileCarWash.Accounts.Customer) do
+          {:ok, customer} ->
+            customer
+            |> Ash.Changeset.for_update(:verify_email, %{token: token})
+            |> Ash.update(authorize?: false)
+            |> case do
+              {:ok, _verified} ->
+                conn
+                |> put_flash(:info, "Email verified. Thanks!")
+                |> redirect(to: ~p"/")
+
+              {:error, _changeset} ->
+                conn
+                |> put_flash(:error, "This verification link is invalid or expired.")
+                |> redirect(to: ~p"/")
+            end
+
+          _ ->
+            conn
+            |> put_flash(:error, "This verification link is invalid or expired.")
+            |> redirect(to: ~p"/")
+        end
+
+      _ ->
+        conn
+        |> put_flash(:error, "This verification link is invalid or expired.")
+        |> redirect(to: ~p"/")
+    end
+  end
+
+  def verify_email(conn, _params) do
+    conn
+    |> put_flash(:error, "Missing verification token.")
+    |> redirect(to: ~p"/")
+  end
 end

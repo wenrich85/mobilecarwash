@@ -105,6 +105,11 @@ defmodule MobileCarWash.Scheduling.AppointmentStateTransitionsTest do
       |> Ash.Changeset.for_update(:payment_confirm, %{})
       |> Ash.update(authorize?: false)
 
+    # Drain the verification email enqueued by the register after_action
+    # so assert_received below lands on the transition email the test
+    # is actually asserting on.
+    flush_mailbox()
+
     %{appointment: appointment, customer: customer}
   end
 

@@ -142,6 +142,14 @@ defmodule MobileCarWash.Accounts.Customer do
       sensitive? true
     end
 
+    # Nil until the user clicks the link in their signup email. Soft
+    # gate — unverified accounts are nudged via banner but not blocked
+    # from booking, paying, etc. (SECURITY_AUDIT_REPORT MEDIUM #6.)
+    attribute :email_verified_at, :utc_datetime_usec do
+      allow_nil? true
+      public? true
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end
@@ -261,6 +269,34 @@ defmodule MobileCarWash.Accounts.Customer do
       argument :referral_code, :string, allow_nil?: false
       filter expr(referral_code == ^arg(:referral_code))
     end
+
+    # One-shot email verification. Takes the token the customer clicked
+    # in the signup email, validates it against the current record's
+    # email + subject, and stamps email_verified_at.
+    #
+    # Idempotent — running again on a verified account re-stamps the
+    # timestamp; no harm done. Rejects:
+    #   * expired tokens (24h lifetime)
+    #   * tokens issued for a different subject
+    #   * tokens minted against a previous email address (so users who
+    #     change their email before clicking an outstanding link need
+    #     a fresh one)
+    update :verify_email do
+      require_atomic? false
+      argument :token, :string, allow_nil?: false
+
+      validate fn changeset, _context ->
+        customer = changeset.data
+        token = Ash.Changeset.get_argument(changeset, :token)
+
+        case MobileCarWash.Accounts.EmailVerification.verify_token(customer, token) do
+          :ok -> :ok
+          {:error, reason} -> {:error, field: :token, message: "verification failed: #{reason}"}
+        end
+      end
+
+      change set_attribute(:email_verified_at, &DateTime.utc_now/0)
+    end
   end
 
   changes do
@@ -270,6 +306,23 @@ defmodule MobileCarWash.Accounts.Customer do
       else
         changeset
       end
+    end, on: [:create]
+
+    # Enqueue the verification email after a successful password signup.
+    # Scoped to action.name == :register_with_password so :create_guest
+    # and admin-driven creates don't trigger it. Fires on any path that
+    # leads through the AshAuthentication password strategy — web
+    # /auth/ routes and the API /api/v1/auth/register controller both.
+    change fn changeset, _context ->
+      Ash.Changeset.after_action(changeset, fn cs, customer ->
+        if cs.action && cs.action.name == :register_with_password do
+          %{customer_id: customer.id}
+          |> MobileCarWash.Notifications.VerificationEmailWorker.new(queue: :notifications)
+          |> Oban.insert()
+        end
+
+        {:ok, customer}
+      end)
     end, on: [:create]
   end
 
