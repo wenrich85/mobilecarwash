@@ -791,10 +791,6 @@ defmodule MobileCarWashWeb.BookingLive do
      |> cancel_upload(:problem_photo_library, ref)}
   end
 
-  defp upload_name_for("camera"), do: :problem_photo_camera
-  defp upload_name_for("library"), do: :problem_photo_library
-  defp upload_name_for(_), do: :problem_photo_library
-
   def handle_event("select_car_part", %{"part" => part_str}, socket) do
     atom = String.to_existing_atom(part_str)
 
@@ -815,56 +811,6 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("delete_uploaded_photo", %{"url" => url}, socket) do
     remaining = Enum.reject(socket.assigns.uploaded_photos, &(&1.file_path == url))
     {:noreply, assign(socket, uploaded_photos: remaining)}
-  end
-
-  # Auto-upload progress callback. Called by the LiveView upload machinery
-  # whenever an entry's upload state advances. Handles both the camera
-  # config and the library config — the storage path is the same either
-  # way, only the capture hint on the <input> differs.
-  defp handle_photo_progress(name, entry, socket)
-       when name in [:problem_photo_camera, :problem_photo_library] do
-    if entry.done? do
-      caption = socket.assigns.photo_caption
-      car_part = socket.assigns.selected_car_part
-
-      photo =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
-          opts =
-            [uploaded_by: :customer, caption: caption]
-            |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
-
-          {:ok, persisted} =
-            MobileCarWash.Operations.PhotoUpload.save_file(
-              "pending_#{socket.assigns.booking_session_id}",
-              path,
-              entry.client_name,
-              :problem_area,
-              opts
-            )
-
-          {:ok,
-           %{
-             id: persisted.id,
-             file_path: MobileCarWash.Operations.PhotoUpload.url_for(persisted),
-             caption: caption,
-             original_filename: entry.client_name,
-             car_part: car_part,
-             ai_tags: persisted.ai_tags,
-             ai_processed_at: persisted.ai_processed_at
-           }}
-        end)
-
-      # Subscribe to the photo's AI channel so we receive the tags the
-      # moment the background analyzer finishes. No-op when not connected
-      # (e.g. initial HTTP render).
-      if connected?(socket) do
-        MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
-      end
-
-      {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
-    else
-      {:noreply, socket}
-    end
   end
 
   def handle_event("select_date", %{"date" => date_str}, socket) do
@@ -993,6 +939,60 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   # === PRIVATE HELPERS ===
+
+  defp upload_name_for("camera"), do: :problem_photo_camera
+  defp upload_name_for("library"), do: :problem_photo_library
+  defp upload_name_for(_), do: :problem_photo_library
+
+  # Auto-upload progress callback. Called by the LiveView upload machinery
+  # whenever an entry's upload state advances. Handles both the camera
+  # config and the library config — the storage path is the same either
+  # way, only the capture hint on the <input> differs.
+  defp handle_photo_progress(name, entry, socket)
+       when name in [:problem_photo_camera, :problem_photo_library] do
+    if entry.done? do
+      caption = socket.assigns.photo_caption
+      car_part = socket.assigns.selected_car_part
+
+      photo =
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          opts =
+            [uploaded_by: :customer, caption: caption]
+            |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
+
+          {:ok, persisted} =
+            MobileCarWash.Operations.PhotoUpload.save_file(
+              "pending_#{socket.assigns.booking_session_id}",
+              path,
+              entry.client_name,
+              :problem_area,
+              opts
+            )
+
+          {:ok,
+           %{
+             id: persisted.id,
+             file_path: MobileCarWash.Operations.PhotoUpload.url_for(persisted),
+             caption: caption,
+             original_filename: entry.client_name,
+             car_part: car_part,
+             ai_tags: persisted.ai_tags,
+             ai_processed_at: persisted.ai_processed_at
+           }}
+        end)
+
+      # Subscribe to the photo's AI channel so we receive the tags the
+      # moment the background analyzer finishes. No-op when not connected
+      # (e.g. initial HTTP render).
+      if connected?(socket) do
+        MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
+      end
+
+      {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
+    else
+      {:noreply, socket}
+    end
+  end
 
   defp build_context(assigns) do
     %{

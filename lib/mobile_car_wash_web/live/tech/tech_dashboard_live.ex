@@ -286,18 +286,6 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   def handle_event("depart", %{"id" => id}, socket), do: transition_appointment(socket, id, :depart)
   def handle_event("arrive", %{"id" => id}, socket), do: transition_appointment(socket, id, :arrive)
 
-  defp transition_appointment(socket, appointment_id, action) do
-    with {:ok, appt} <- Ash.get(Appointment, appointment_id, authorize?: false),
-         {:ok, _updated} <-
-           appt
-           |> Ash.Changeset.for_update(action, %{})
-           |> Ash.update(authorize?: false) do
-      {:noreply, reload_appointments(socket)}
-    else
-      _ -> {:noreply, put_flash(socket, :error, "Could not update appointment.")}
-    end
-  end
-
   def handle_event("open_supply_log", %{"id" => appointment_id}, socket) do
     {:noreply,
      assign(socket,
@@ -752,6 +740,18 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       <div class="modal-backdrop" phx-click="close_supply_log"></div>
     </div>
     """
+  end
+
+  defp transition_appointment(socket, appointment_id, action) do
+    with {:ok, appt} <- Ash.get(Appointment, appointment_id, authorize?: false),
+         {:ok, _updated} <-
+           appt
+           |> Ash.Changeset.for_update(action, %{})
+           |> Ash.update(authorize?: false) do
+      {:noreply, reload_appointments(socket)}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Could not update appointment.")}
+    end
   end
 
   defp load_earnings(socket, tab, ref) do
