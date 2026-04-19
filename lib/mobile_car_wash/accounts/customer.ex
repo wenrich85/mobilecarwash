@@ -31,7 +31,7 @@ defmodule MobileCarWash.Accounts.Customer do
         identity_field :email
         hashed_password_field :hashed_password
 
-        register_action_accept [:name, :phone, :sms_opt_in]
+        register_action_accept [:name, :phone, :sms_opt_in, :push_opt_in]
       end
     end
   end
@@ -114,6 +114,15 @@ defmodule MobileCarWash.Accounts.Customer do
 
     attribute :sms_opt_in, :boolean do
       default false
+      allow_nil? false
+      public? true
+    end
+
+    # Server-side gate for APNs push. Defaults to true because iOS's
+    # UNUserNotificationCenter permission already gates delivery client-side;
+    # this lets a user revoke in-app without opening iOS Settings.
+    attribute :push_opt_in, :boolean do
+      default true
       allow_nil? false
       public? true
     end

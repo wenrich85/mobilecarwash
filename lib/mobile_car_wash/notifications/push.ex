@@ -14,6 +14,7 @@ defmodule MobileCarWash.Notifications.Push do
   require Ash.Query
   require Logger
 
+  alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Notifications.{ApnsClient, DeviceToken}
 
   @permanent_failures ~w(unregistered bad_device_token device_token_not_for_topic payload_too_large)a
@@ -31,14 +32,28 @@ defmodule MobileCarWash.Notifications.Push do
   """
   @spec send_to_customer(String.t(), map()) :: :ok
   def send_to_customer(customer_id, payload) do
-    case active_tokens(customer_id) do
-      [] ->
-        Logger.info("Push skipped: customer has no active device tokens")
+    cond do
+      not opted_in?(customer_id) ->
+        Logger.info("Push skipped: customer has push_opt_in=false")
         :ok
 
-      tokens ->
-        Enum.each(tokens, &deliver(&1, payload))
-        :ok
+      true ->
+        case active_tokens(customer_id) do
+          [] ->
+            Logger.info("Push skipped: customer has no active device tokens")
+            :ok
+
+          tokens ->
+            Enum.each(tokens, &deliver(&1, payload))
+            :ok
+        end
+    end
+  end
+
+  defp opted_in?(customer_id) do
+    case Ash.get(Customer, customer_id, authorize?: false) do
+      {:ok, %{push_opt_in: push_opt_in}} -> push_opt_in
+      _ -> false
     end
   end
 
@@ -84,7 +99,8 @@ defmodule MobileCarWash.Notifications.Push do
       appointment,
       title: "Booking confirmed",
       body: "Your #{service_type.name} is booked for #{date} at #{time}.",
-      kind: "booking_confirmed"
+      kind: "booking_confirmed",
+      badge: 1
     )
   end
 
@@ -97,7 +113,8 @@ defmodule MobileCarWash.Notifications.Push do
       appointment,
       title: "Arrival time confirmed",
       body: "Your #{service_type.name} on #{date} is set for ~#{time}.",
-      kind: "block_scheduled"
+      kind: "block_scheduled",
+      badge: 1
     )
   end
 
@@ -109,7 +126,8 @@ defmodule MobileCarWash.Notifications.Push do
       appointment,
       title: "Appointment tomorrow",
       body: "Your #{service_type.name} is tomorrow at #{time}.",
-      kind: "appointment_reminder"
+      kind: "appointment_reminder",
+      badge: 1
     )
   end
 
@@ -121,7 +139,8 @@ defmodule MobileCarWash.Notifications.Push do
       body: "#{technician.name} is heading to you now.",
       kind: "tech_on_the_way",
       extras: %{technician_id: technician.id},
-      deep_link: "drivewaydetail://appointments/#{appointment.id}/tracking"
+      deep_link: "drivewaydetail://appointments/#{appointment.id}/tracking",
+      badge: 1
     )
   end
 

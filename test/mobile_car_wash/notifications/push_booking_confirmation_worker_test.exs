@@ -116,6 +116,18 @@ defmodule MobileCarWash.Notifications.PushBookingConfirmationWorkerTest do
     assert ApnsClientMock.pushes() == []
   end
 
+  test "skips send when customer.push_opt_in is false",
+       %{appointment: appointment, customer: customer} do
+    {:ok, _token} = register_token(customer, "ios-opt-out")
+
+    customer
+    |> Ash.Changeset.for_update(:update, %{push_opt_in: false})
+    |> Ash.update!(authorize?: false)
+
+    :ok = perform_job(PushBookingConfirmationWorker, %{"appointment_id" => appointment.id})
+    assert ApnsClientMock.pushes() == []
+  end
+
   test "marks a token inactive when APNs reports :unregistered",
        %{appointment: appointment, customer: customer} do
     {:ok, token} = register_token(customer, "ios-dead")

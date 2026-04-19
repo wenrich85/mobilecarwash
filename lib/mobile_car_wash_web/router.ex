@@ -218,6 +218,10 @@ defmodule MobileCarWashWeb.Router do
     # Push notification device tokens (iOS + Android)
     post "/device_tokens", DeviceTokensController, :create
     delete "/device_tokens/:id", DeviceTokensController, :delete
+
+    # Per-channel opt-in preferences (SMS + push; email uses unsubscribe links)
+    get "/notification_preferences", NotificationPreferencesController, :show
+    patch "/notification_preferences", NotificationPreferencesController, :update
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
