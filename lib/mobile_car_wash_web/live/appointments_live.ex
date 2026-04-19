@@ -5,7 +5,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   use MobileCarWashWeb, :live_view
 
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType}
-  alias MobileCarWash.Operations.PhotoUpload
+  alias MobileCarWash.Operations.{Photo, PhotoUpload}
 
   require Ash.Query
 
@@ -50,9 +50,28 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         appointments: appointments,
         service_types: service_types,
         loyalty_card: loyalty_card,
-        uploading_for: nil
+        uploading_for: nil,
+        # Photo uploader state — scoped to whichever appointment's modal
+        # is currently open. Reset on every show_upload.
+        photo_caption: nil,
+        selected_car_part: nil,
+        show_all_parts: false,
+        uploaded_photos: []
       )
-      |> allow_upload(:problem_photo, accept: ~w(.jpg .jpeg .png .webp), max_entries: 3, max_file_size: 10_000_000)
+      |> allow_upload(:problem_photo_camera,
+        accept: ~w(.jpg .jpeg .png .webp),
+        max_entries: 5,
+        max_file_size: 10_000_000,
+        auto_upload: true,
+        progress: &handle_photo_progress/3
+      )
+      |> allow_upload(:problem_photo_library,
+        accept: ~w(.jpg .jpeg .png .webp),
+        max_entries: 5,
+        max_file_size: 10_000_000,
+        auto_upload: true,
+        progress: &handle_photo_progress/3
+      )
 
     {:ok, socket}
   end
@@ -63,34 +82,118 @@ defmodule MobileCarWashWeb.AppointmentsLive do
     owns? = Enum.any?(socket.assigns.appointments, &(&1.id == appointment_id))
 
     if owns? do
-      {:noreply, assign(socket, uploading_for: appointment_id)}
+      {:noreply,
+       assign(socket,
+         uploading_for: appointment_id,
+         uploaded_photos: load_problem_photos(appointment_id),
+         photo_caption: nil,
+         selected_car_part: nil,
+         show_all_parts: false
+       )}
     else
       {:noreply, put_flash(socket, :error, "Appointment not found")}
     end
   end
 
-  def handle_event("cancel_upload", _params, socket) do
-    {:noreply, assign(socket, uploading_for: nil)}
+  def handle_event("close_upload_modal", _params, socket) do
+    {:noreply, assign(socket, uploading_for: nil, uploaded_photos: [])}
   end
 
-  def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
+  def handle_event("validate_photos", params, socket) do
+    {:noreply,
+     assign(socket, photo_caption: params["caption"] || socket.assigns.photo_caption)}
+  end
 
-  def handle_event("save_problem_photos", %{"caption" => caption}, socket) do
-    appointment_id = socket.assigns.uploading_for
+  def handle_event("cancel_photo_upload", %{"ref" => ref, "source" => source}, socket) do
+    {:noreply, cancel_upload(socket, upload_name_for(source), ref)}
+  end
 
-    consume_uploaded_entries(socket, :problem_photo, fn %{path: path}, entry ->
-      opts = [uploaded_by: :customer, caption: caption]
-
-      case PhotoUpload.save_file(appointment_id, path, entry.client_name, :problem_area, opts) do
-        {:ok, photo} -> {:ok, photo}
-        {:error, reason} -> {:postpone, reason}
-      end
-    end)
-
+  def handle_event("cancel_photo_upload", %{"ref" => ref}, socket) do
     {:noreply,
      socket
-     |> assign(uploading_for: nil)
-     |> put_flash(:info, "Photos uploaded! The technician will see these.")}
+     |> cancel_upload(:problem_photo_camera, ref)
+     |> cancel_upload(:problem_photo_library, ref)}
+  end
+
+  def handle_event("select_car_part", %{"part" => part_str}, socket) do
+    atom = String.to_existing_atom(part_str)
+
+    selected =
+      if socket.assigns.selected_car_part == atom, do: nil, else: atom
+
+    {:noreply, assign(socket, selected_car_part: selected)}
+  end
+
+  def handle_event("toggle_all_parts", _params, socket) do
+    {:noreply, assign(socket, show_all_parts: !socket.assigns.show_all_parts)}
+  end
+
+  # Customer-initiated delete from the preview grid. Hard-deletes the
+  # Photo record and its underlying file since it's already persisted.
+  def handle_event("delete_uploaded_photo", %{"url" => url}, socket) do
+    case Enum.find(socket.assigns.uploaded_photos, &(&1.file_path == url)) do
+      nil ->
+        {:noreply, socket}
+
+      photo ->
+        # Best-effort cleanup: drop the file first, then the record. If
+        # the DB side fails we leave the file orphaned — still safer than
+        # the inverse (dangling DB row pointing at a deleted file).
+        _ = PhotoUpload.delete_file(photo)
+        _ = photo |> Ash.destroy(authorize?: false)
+
+        remaining = Enum.reject(socket.assigns.uploaded_photos, &(&1.file_path == url))
+        {:noreply, assign(socket, uploaded_photos: remaining)}
+    end
+  end
+
+  defp upload_name_for("camera"), do: :problem_photo_camera
+  defp upload_name_for("library"), do: :problem_photo_library
+  defp upload_name_for(_), do: :problem_photo_library
+
+  defp handle_photo_progress(name, entry, socket)
+       when name in [:problem_photo_camera, :problem_photo_library] do
+    if entry.done? do
+      appointment_id = socket.assigns.uploading_for
+      caption = socket.assigns.photo_caption
+      car_part = socket.assigns.selected_car_part
+
+      photo =
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          opts =
+            [uploaded_by: :customer, caption: caption]
+            |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
+
+          case PhotoUpload.save_file(
+                 appointment_id,
+                 path,
+                 entry.client_name,
+                 :problem_area,
+                 opts
+               ) do
+            {:ok, photo} ->
+              {:ok, PhotoUpload.apply_url(photo)}
+
+            other ->
+              other
+          end
+        end)
+
+      {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Loads already-uploaded problem-area photos for this appointment so
+  # they're visible the moment the modal opens (e.g. the customer comes
+  # back after a reload).
+  defp load_problem_photos(appointment_id) do
+    Photo
+    |> Ash.Query.filter(appointment_id == ^appointment_id and photo_type == :problem_area)
+    |> Ash.Query.sort(inserted_at: :asc)
+    |> Ash.read!()
+    |> Enum.map(&PhotoUpload.apply_url/1)
   end
 
   @impl true
@@ -235,28 +338,41 @@ defmodule MobileCarWashWeb.AppointmentsLive do
               </button>
             </div>
 
-            <!-- Photo Upload Form -->
-            <div :if={@uploading_for == appt.id} class="mt-4 bg-base-200 rounded-lg p-4">
-              <h4 class="font-semibold text-sm mb-2">Upload Problem Area Photos</h4>
-              <p class="text-xs text-base-content/80 mb-3">
-                Show us areas that need extra attention. The technician will see these before starting.
-              </p>
-              <form phx-submit="save_problem_photos" phx-change="validate_upload">
-                <.live_file_input upload={@uploads.problem_photo} class="file-input file-input-bordered w-full file-input-sm mb-2" />
-
-                <div class="flex gap-2 overflow-x-auto mb-2">
-                  <div :for={entry <- @uploads.problem_photo.entries} class="flex-shrink-0">
-                    <.live_img_preview entry={entry} class="w-20 h-20 object-cover rounded" />
-                  </div>
+            <!-- Photo Upload Form — mobile-first uploader with dual
+                 CTAs (camera and library) and auto-upload. -->
+            <div :if={@uploading_for == appt.id} class="mt-4 bg-base-200 rounded-2xl p-4 space-y-4">
+              <div class="flex justify-between items-start">
+                <div>
+                  <h4 class="font-bold">Problem Area Photos</h4>
+                  <p class="text-xs text-base-content/80">
+                    Show the tech what to focus on.
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm btn-circle"
+                  phx-click="close_upload_modal"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
 
-                <input type="text" name="caption" placeholder="Describe the issue (optional)" class="input input-bordered input-sm w-full mb-2" />
-
-                <div class="flex gap-2">
-                  <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-                  <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_upload">Cancel</button>
-                </div>
+              <form phx-change="validate_photos" id={"photo-upload-form-#{appt.id}"}>
+                <MobileCarWashWeb.PhotoUploader.uploader
+                  camera_upload={@uploads.problem_photo_camera}
+                  library_upload={@uploads.problem_photo_library}
+                  uploaded_photos={@uploaded_photos}
+                  selected_car_part={@selected_car_part}
+                  show_all_parts={@show_all_parts}
+                />
               </form>
+
+              <div class="flex justify-end">
+                <button type="button" class="btn btn-primary btn-sm" phx-click="close_upload_modal">
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>
