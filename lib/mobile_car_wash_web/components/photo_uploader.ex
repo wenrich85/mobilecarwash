@@ -40,15 +40,19 @@ defmodule MobileCarWashWeb.PhotoUploader do
   ]
 
   @doc """
-  Full uploader — drop zone + in-progress previews + chip row + caption.
+  Full uploader — action buttons + in-progress previews + chip row + caption.
 
   Expected assigns:
-    * `:upload` — `%Phoenix.LiveView.UploadConfig{}` (required)
-    * `:uploaded_photos` — list of already-saved photo maps
-    * `:selected_car_part` — atom or nil
-    * `:show_all_parts` — boolean, whether the full chip list is expanded
+    * `:camera_upload` — `%UploadConfig{}` bound to a `capture="environment"`
+      input so mobile tapping opens the rear camera directly.
+    * `:library_upload` — `%UploadConfig{}` bound to a regular file input;
+      also serves as the drag-and-drop target on desktop.
+    * `:uploaded_photos` — list of already-saved photo maps.
+    * `:selected_car_part` — atom or nil.
+    * `:show_all_parts` — boolean, whether the full chip list is expanded.
   """
-  attr :upload, :any, required: true
+  attr :camera_upload, :any, required: true
+  attr :library_upload, :any, required: true
   attr :uploaded_photos, :list, default: []
   attr :selected_car_part, :atom, default: nil
   attr :show_all_parts, :boolean, default: false
@@ -56,25 +60,15 @@ defmodule MobileCarWashWeb.PhotoUploader do
   def uploader(assigns) do
     ~H"""
     <div class="space-y-5">
-      <.drop_zone upload={@upload} />
+      <.action_buttons camera_upload={@camera_upload} library_upload={@library_upload} />
 
-      <!-- In-flight entries with per-entry progress + cancel -->
-      <div :if={@upload.entries != []} class="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <div :for={entry <- @upload.entries} class="relative">
-          <.live_img_preview entry={entry} class="w-full aspect-square object-cover rounded-2xl shadow-sm" />
-          <div class="absolute inset-x-2 bottom-2">
-            <progress class="progress progress-primary w-full h-1.5" value={entry.progress} max="100" />
-          </div>
-          <button
-            type="button"
-            class="absolute top-2 right-2 btn btn-circle btn-xs bg-base-100 border border-base-300 text-base-content"
-            phx-click="cancel_photo_upload"
-            phx-value-ref={entry.ref}
-            aria-label="Cancel upload"
-          >
-            ✕
-          </button>
-        </div>
+      <!-- In-flight entries across both inputs, shown in a single grid -->
+      <div
+        :if={@camera_upload.entries != [] or @library_upload.entries != []}
+        class="grid grid-cols-2 md:grid-cols-3 gap-3"
+      >
+        <.entry_preview :for={entry <- @camera_upload.entries} entry={entry} source="camera" />
+        <.entry_preview :for={entry <- @library_upload.entries} entry={entry} source="library" />
       </div>
 
       <.preview_grid photos={@uploaded_photos} />
@@ -92,8 +86,53 @@ defmodule MobileCarWashWeb.PhotoUploader do
   end
 
   @doc """
-  Big tap-target drop zone wrapping a `.live_file_input`. On mobile
-  this opens the native picker with Camera / Photos / Files options.
+  Two stacked CTAs on mobile, side-by-side on desktop. The primary button
+  fires the camera input (`capture="environment"` → opens the rear camera
+  directly, no picker in between). The secondary button fires a plain
+  file input which opens the library/file picker and also serves as the
+  drag-and-drop target on desktop.
+  """
+  attr :camera_upload, :any, required: true
+  attr :library_upload, :any, required: true
+
+  def action_buttons(assigns) do
+    ~H"""
+    <div class="flex flex-col sm:flex-row gap-3">
+      <!-- Take Photo (camera direct on mobile) -->
+      <label
+        for={@camera_upload.ref}
+        class="btn btn-primary btn-lg flex-1 rounded-2xl gap-2 h-20"
+      >
+        <span class="text-2xl" aria-hidden="true">📷</span>
+        <span class="flex flex-col items-start leading-tight">
+          <span class="font-bold">Take Photo</span>
+          <span class="text-xs font-normal opacity-80">Opens your camera</span>
+        </span>
+        <.live_file_input upload={@camera_upload} capture="environment" class="sr-only" />
+      </label>
+
+      <!-- Upload from library (also the desktop drag target) -->
+      <label
+        for={@library_upload.ref}
+        phx-drop-target={@library_upload.ref}
+        class="btn btn-outline btn-lg flex-1 rounded-2xl gap-2 h-20 border-dashed hover:border-solid"
+      >
+        <span class="text-2xl" aria-hidden="true">🖼️</span>
+        <span class="flex flex-col items-start leading-tight">
+          <span class="font-bold">Upload</span>
+          <span class="text-xs font-normal opacity-80 hidden sm:inline">or drag from desktop</span>
+          <span class="text-xs font-normal opacity-80 sm:hidden">Pick from library</span>
+        </span>
+        <.live_file_input upload={@library_upload} class="sr-only" />
+      </label>
+    </div>
+    """
+  end
+
+  @doc """
+  Big tap-target drop zone wrapping a `.live_file_input`. Kept for the
+  one-config appointments-list modal; the full booking-flow uploader
+  uses `action_buttons/1` instead.
   """
   attr :upload, :any, required: true
 
@@ -109,6 +148,32 @@ defmodule MobileCarWashWeb.PhotoUploader do
       <span class="text-sm text-base-content/80">or drag files here</span>
       <.live_file_input upload={@upload} class="sr-only" />
     </label>
+    """
+  end
+
+  # In-flight preview with progress bar + cancel button. Source tag lets
+  # the parent know which upload config to cancel against.
+  attr :entry, :any, required: true
+  attr :source, :string, required: true
+
+  defp entry_preview(assigns) do
+    ~H"""
+    <div class="relative">
+      <.live_img_preview entry={@entry} class="w-full aspect-square object-cover rounded-2xl shadow-sm" />
+      <div class="absolute inset-x-2 bottom-2">
+        <progress class="progress progress-primary w-full h-1.5" value={@entry.progress} max="100" />
+      </div>
+      <button
+        type="button"
+        class="absolute top-2 right-2 btn btn-circle btn-xs bg-base-100 border border-base-300 text-base-content"
+        phx-click="cancel_photo_upload"
+        phx-value-ref={@entry.ref}
+        phx-value-source={@source}
+        aria-label="Cancel upload"
+      >
+        ✕
+      </button>
+    </div>
     """
   end
 

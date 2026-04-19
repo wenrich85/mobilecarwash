@@ -102,7 +102,18 @@ defmodule MobileCarWashWeb.BookingLive do
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
       )
-      |> allow_upload(:problem_photo,
+      # Two upload configs so mobile users can tap a "Take Photo" button
+      # that opens their camera directly (capture="environment") AND a
+      # separate "Upload" button that opens their photo library. The web
+      # drag-and-drop target uses :problem_photo_library.
+      |> allow_upload(:problem_photo_camera,
+        accept: ~w(.jpg .jpeg .png .webp),
+        max_entries: 5,
+        max_file_size: 10_000_000,
+        auto_upload: true,
+        progress: &handle_photo_progress/3
+      )
+      |> allow_upload(:problem_photo_library,
         accept: ~w(.jpg .jpeg .png .webp),
         max_entries: 5,
         max_file_size: 10_000_000,
@@ -403,7 +414,8 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <form phx-change="validate_photos" id="photo-upload-form">
           <MobileCarWashWeb.PhotoUploader.uploader
-            upload={@uploads.problem_photo}
+            camera_upload={@uploads.problem_photo_camera}
+            library_upload={@uploads.problem_photo_library}
             uploaded_photos={@uploaded_photos}
             selected_car_part={@selected_car_part}
             show_all_parts={@show_all_parts}
@@ -724,9 +736,22 @@ defmodule MobileCarWashWeb.BookingLive do
      )}
   end
 
-  def handle_event("cancel_photo_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :problem_photo, ref)}
+  def handle_event("cancel_photo_upload", %{"ref" => ref, "source" => source}, socket) do
+    upload_name = upload_name_for(source)
+    {:noreply, cancel_upload(socket, upload_name, ref)}
   end
+
+  def handle_event("cancel_photo_upload", %{"ref" => ref}, socket) do
+    # Fallback — cancel from either config.
+    {:noreply,
+     socket
+     |> cancel_upload(:problem_photo_camera, ref)
+     |> cancel_upload(:problem_photo_library, ref)}
+  end
+
+  defp upload_name_for("camera"), do: :problem_photo_camera
+  defp upload_name_for("library"), do: :problem_photo_library
+  defp upload_name_for(_), do: :problem_photo_library
 
   def handle_event("select_car_part", %{"part" => part_str}, socket) do
     atom = String.to_existing_atom(part_str)
@@ -751,10 +776,11 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   # Auto-upload progress callback. Called by the LiveView upload machinery
-  # whenever an entry's upload state advances. We only consume when the
-  # entry is fully uploaded; earlier ticks fall through unchanged so the
-  # per-entry progress bar keeps animating.
-  defp handle_photo_progress(:problem_photo, entry, socket) do
+  # whenever an entry's upload state advances. Handles both the camera
+  # config and the library config — the storage path is the same either
+  # way, only the capture hint on the <input> differs.
+  defp handle_photo_progress(name, entry, socket)
+       when name in [:problem_photo_camera, :problem_photo_library] do
     if entry.done? do
       caption = socket.assigns.photo_caption
       car_part = socket.assigns.selected_car_part
