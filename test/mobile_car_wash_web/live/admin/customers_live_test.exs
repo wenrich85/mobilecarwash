@@ -703,4 +703,158 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       assert reloaded.referral_credit_cents == 0
     end
   end
+
+  describe "detail — tags" do
+    alias MobileCarWash.Accounts.CustomerNote
+    alias MobileCarWash.Marketing.{CustomerTag, Tag}
+
+    setup do
+      :ok = Marketing.seed_tags!()
+
+      {:ok, [vip]} =
+        Tag
+        |> Ash.Query.for_read(:by_slug, %{slug: "vip"})
+        |> Ash.read(authorize?: false)
+
+      {:ok, [dns]} =
+        Tag
+        |> Ash.Query.for_read(:by_slug, %{slug: "do_not_service"})
+        |> Ash.read(authorize?: false)
+
+      %{vip: vip, dns: dns}
+    end
+
+    test "renders customer's tags as chips", %{conn: conn, vip: vip} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, _} =
+        CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: target.id,
+          tag_id: vip.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      assert html =~ "VIP"
+    end
+
+    test "admin tags customer with a seeded tag", %{conn: conn, vip: vip} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#apply-tag", %{"tag_id" => vip.id})
+      |> render_submit()
+
+      {:ok, tags} =
+        CustomerTag
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert [ct] = tags
+      assert ct.tag_id == vip.id
+      assert ct.author_id == admin.id
+    end
+
+    test "admin removes a tag", %{conn: conn, vip: vip} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, ct} =
+        CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: target.id,
+          tag_id: vip.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv |> element("#untag-#{ct.id}") |> render_click()
+
+      {:ok, tags} =
+        CustomerTag
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert tags == []
+    end
+
+    test "tagging creates an audit note", %{conn: conn, vip: vip} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#apply-tag", %{"tag_id" => vip.id})
+      |> render_submit()
+
+      {:ok, notes} =
+        CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert Enum.any?(notes, fn n -> n.body =~ "VIP" and n.body =~ "Tagged" end)
+    end
+
+    test "untagging creates an audit note", %{conn: conn, vip: vip} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, ct} =
+        CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: target.id,
+          tag_id: vip.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv |> element("#untag-#{ct.id}") |> render_click()
+
+      {:ok, notes} =
+        CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert Enum.any?(notes, fn n -> n.body =~ "VIP" and n.body =~ "Untagged" end)
+    end
+
+    test "already-applied tag is not in the add-tag dropdown",
+         %{conn: conn, vip: vip} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, _} =
+        CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: target.id,
+          tag_id: vip.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      # Parse out the <select name="tag_id"> options and ensure VIP's id
+      # is not among them.
+      refute html =~ ~s(value="#{vip.id}")
+    end
+  end
 end

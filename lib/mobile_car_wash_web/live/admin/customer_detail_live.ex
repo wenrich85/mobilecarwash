@@ -15,7 +15,16 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
   alias MobileCarWash.Accounts.{Customer, CustomerNote}
   alias MobileCarWash.Billing.{Subscription, SubscriptionPlan}
   alias MobileCarWash.Fleet.{Address, Vehicle}
-  alias MobileCarWash.Marketing.{AcquisitionChannel, Persona, PersonaMembership, Personas}
+
+  alias MobileCarWash.Marketing.{
+    AcquisitionChannel,
+    CustomerTag,
+    Persona,
+    PersonaMembership,
+    Personas,
+    Tag
+  }
+
   alias MobileCarWash.Notifications.VerificationEmailWorker
   alias MobileCarWash.Repo
   alias MobileCarWash.Scheduling.Appointment
@@ -160,6 +169,50 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
      |> load_detail(customer)}
   end
 
+  def handle_event("apply_tag", %{"tag_id" => ""}, socket),
+    do: {:noreply, put_flash(socket, :error, "Pick a tag")}
+
+  def handle_event("apply_tag", %{"tag_id" => tag_id}, socket) do
+    customer = socket.assigns.customer
+    admin = socket.assigns.current_customer
+
+    with {:ok, tag} <- Ash.get(Tag, tag_id, authorize?: false),
+         {:ok, _ct} <-
+           CustomerTag
+           |> Ash.Changeset.for_create(:tag, %{
+             customer_id: customer.id,
+             tag_id: tag.id,
+             author_id: admin.id
+           })
+           |> Ash.create(authorize?: false) do
+      audit_note!(customer.id, admin.id, "Tagged customer: #{tag.name}.")
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Tag added")
+       |> load_detail(customer)}
+    else
+      {:error, _} ->
+        # Most common case: unique-pair violation (already tagged).
+        {:noreply, put_flash(socket, :error, "Already tagged with that tag")}
+    end
+  end
+
+  def handle_event("untag", %{"id" => id}, socket) do
+    customer = socket.assigns.customer
+    admin = socket.assigns.current_customer
+
+    with {:ok, ct} <- Ash.get(CustomerTag, id, authorize?: false),
+         {:ok, tag} <- Ash.get(Tag, ct.tag_id, authorize?: false),
+         :ok <- Ash.destroy(ct, authorize?: false) do
+      audit_note!(customer.id, admin.id, "Untagged customer: #{tag.name}.")
+      {:noreply, load_detail(socket, customer)}
+    else
+      _ ->
+        {:noreply, load_detail(socket, customer)}
+    end
+  end
+
   def handle_event("apply_credit", %{"credit" => params}, socket) do
     case parse_credit_dollars(params["amount_dollars"]) do
       {:ok, cents} ->
@@ -202,6 +255,15 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
     :erlang.float_to_binary(cents / 100, decimals: 2)
   end
 
+  # Tag color atom → DaisyUI badge class.
+  defp badge_class_for(nil), do: "badge-neutral"
+  defp badge_class_for(%{color: :primary}), do: "badge-primary"
+  defp badge_class_for(%{color: :success}), do: "badge-success"
+  defp badge_class_for(%{color: :warning}), do: "badge-warning"
+  defp badge_class_for(%{color: :error}), do: "badge-error"
+  defp badge_class_for(%{color: :info}), do: "badge-info"
+  defp badge_class_for(_), do: "badge-neutral"
+
   defp audit_note!(customer_id, admin_id, body) do
     CustomerNote
     |> Ash.Changeset.for_create(:add, %{
@@ -239,6 +301,7 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
     vehicles = load_vehicles(customer.id)
     addresses = load_addresses(customer.id)
     {notes, authors_by_id} = load_notes(customer.id)
+    {customer_tags, tag_by_id, available_tags} = load_tags(customer.id)
 
     channel = Enum.find(channels, &(&1.id == customer.acquired_channel_id))
 
@@ -258,8 +321,29 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
       vehicles: vehicles,
       addresses: addresses,
       notes: notes,
-      authors_by_id: authors_by_id
+      authors_by_id: authors_by_id,
+      customer_tags: customer_tags,
+      tag_by_id: tag_by_id,
+      available_tags: available_tags
     )
+  end
+
+  defp load_tags(customer_id) do
+    customer_tags =
+      CustomerTag
+      |> Ash.Query.for_read(:for_customer, %{customer_id: customer_id})
+      |> Ash.read!(authorize?: false)
+
+    all_active_tags =
+      Tag
+      |> Ash.Query.for_read(:active)
+      |> Ash.read!(authorize?: false)
+
+    tag_by_id = Map.new(all_active_tags, &{&1.id, &1})
+    taken = MapSet.new(customer_tags, & &1.tag_id)
+    available = Enum.reject(all_active_tags, &MapSet.member?(taken, &1.id))
+
+    {customer_tags, tag_by_id, available}
   end
 
   defp load_notes(customer_id) do
@@ -398,13 +482,44 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
         <div>
           <h1 class="text-3xl font-bold">{@customer.name}</h1>
           <p class="text-base-content/80">{@customer.email} · {@customer.phone}</p>
-          <div class="flex gap-2 mt-2">
+          <div class="flex gap-2 mt-2 flex-wrap">
             <span class="badge badge-ghost">{@customer.role}</span>
             <span :if={@customer.email_verified_at} class="badge badge-success">Verified</span>
             <span :if={is_nil(@customer.email_verified_at)} class="badge badge-warning">
               Unverified
             </span>
+
+            <span
+              :for={ct <- @customer_tags}
+              :if={Map.has_key?(@tag_by_id, ct.tag_id)}
+              class={"badge gap-1 " <> badge_class_for(Map.get(@tag_by_id, ct.tag_id))}
+            >
+              {Map.get(@tag_by_id, ct.tag_id).name}
+              <button
+                id={"untag-#{ct.id}"}
+                phx-click="untag"
+                phx-value-id={ct.id}
+                type="button"
+                class="hover:opacity-80"
+                aria-label="Remove tag"
+              >
+                ×
+              </button>
+            </span>
           </div>
+
+          <form
+            :if={@available_tags != []}
+            id="apply-tag"
+            phx-submit="apply_tag"
+            class="join mt-3"
+          >
+            <select name="tag_id" class="select select-bordered select-sm join-item">
+              <option value="">+ Add tag…</option>
+              <option :for={t <- @available_tags} value={t.id}>{t.name}</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary join-item">Apply</button>
+          </form>
         </div>
 
         <div class="text-right">

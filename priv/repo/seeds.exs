@@ -1106,4 +1106,8 @@ else
   IO.puts("  ⚠ No Owner technician found — skipping block generation")
 end
 
+IO.puts("Seeding customer tags...")
+:ok = MobileCarWash.Marketing.seed_tags!()
+IO.puts("  ✓ Canonical tags seeded (VIP, At Risk, Do Not Service, etc.)")
+
 IO.puts("\n✅ Seeding complete!")

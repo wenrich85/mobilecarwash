@@ -12,18 +12,22 @@ defmodule MobileCarWash.Marketing do
 
   alias MobileCarWash.Marketing.{
     AcquisitionChannel,
+    CustomerTag,
     MarketingSpend,
     Persona,
     PersonaMembership,
-    Post
+    Post,
+    Tag
   }
 
   resources do
     resource(AcquisitionChannel)
+    resource(CustomerTag)
     resource(MarketingSpend)
     resource(Persona)
     resource(PersonaMembership)
     resource(Post)
+    resource(Tag)
   end
 
   @canonical_channels [
@@ -82,6 +86,83 @@ defmodule MobileCarWash.Marketing do
   @doc "Canonical channel slug → used by plugs / changes to derive acquired_channel_id."
   @spec canonical_slugs() :: [String.t()]
   def canonical_slugs, do: Enum.map(@canonical_channels, & &1.slug)
+
+  @canonical_tags [
+    %{
+      slug: "vip",
+      name: "VIP",
+      description: "Top lifetime value — white-glove service.",
+      color: :success,
+      icon: "hero-star",
+      protected: true
+    },
+    %{
+      slug: "at_risk",
+      name: "At Risk",
+      description: "Hasn't booked recently or flagged for retention follow-up.",
+      color: :warning,
+      icon: "hero-exclamation-triangle",
+      protected: true
+    },
+    %{
+      slug: "do_not_service",
+      name: "Do Not Service",
+      description: "Do not accept new bookings. Non-payment, abuse, or other operational block.",
+      color: :error,
+      icon: "hero-no-symbol",
+      affects_booking: true,
+      protected: true
+    },
+    %{
+      slug: "complaint_pending",
+      name: "Open Complaint",
+      description: "Active complaint in resolution.",
+      color: :warning,
+      icon: "hero-chat-bubble-bottom-center-text",
+      protected: true
+    },
+    %{
+      slug: "referrer",
+      name: "Referrer",
+      description: "Brought in ≥1 paying friend.",
+      color: :info,
+      icon: "hero-gift"
+    },
+    %{
+      slug: "veteran",
+      name: "Veteran",
+      description: "Fellow service member — noted for rapport.",
+      color: :primary,
+      icon: "hero-flag"
+    }
+  ]
+
+  @doc """
+  Idempotently inserts the canonical tags. Safe to re-run — uses the
+  `:unique_slug` identity so existing rows keep admin edits
+  (description, color, active).
+  """
+  @spec seed_tags!() :: :ok
+  def seed_tags! do
+    Enum.each(@canonical_tags, fn attrs ->
+      attrs = Map.put_new(attrs, :affects_booking, false)
+
+      case Ash.read_one(
+             Ash.Query.for_read(MobileCarWash.Marketing.Tag, :by_slug, %{slug: attrs.slug}),
+             authorize?: false
+           ) do
+        {:ok, nil} ->
+          MobileCarWash.Marketing.Tag
+          |> Ash.Changeset.for_create(:create, attrs)
+          |> Ash.create!(authorize?: false)
+
+        {:ok, _existing} ->
+          :ok
+      end
+    end)
+
+    :ok
+  end
 
   @doc """
   Sum of all MarketingSpend rows whose spent_on falls within [from, to].
