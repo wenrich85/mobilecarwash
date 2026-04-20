@@ -11,7 +11,7 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
   use MobileCarWashWeb, :live_view
 
   alias MobileCarWash.Marketing
-  alias MobileCarWash.Marketing.{AcquisitionChannel, CAC, MarketingSpend}
+  alias MobileCarWash.Marketing.{AcquisitionChannel, CAC, MarketingSpend, Referrals}
 
   @periods [last_7: "Last 7 Days", last_30: "Last 30 Days", last_90: "Last 90 Days", mtd: "Month to Date"]
 
@@ -74,9 +74,10 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
     {from, to} = period_range(socket.assigns.period)
     rows = CAC.per_channel(from, to)
     summary = CAC.summary(from, to)
+    leaderboard = Referrals.leaderboard(10)
 
     socket
-    |> assign(rows: rows, summary: summary, from: from, to: to)
+    |> assign(rows: rows, summary: summary, from: from, to: to, leaderboard: leaderboard)
   end
 
   defp period_range(period) do
@@ -192,6 +193,39 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Referral leaderboard -->
+      <div class="card bg-base-100 border border-base-300 mb-8">
+        <div class="card-body">
+          <h2 class="card-title">Top referrers</h2>
+          <p class="text-sm text-base-content/70">
+            Customers who've brought in the most paying friends. Credit balance shown is unredeemed.
+          </p>
+
+          <div :if={@leaderboard == []} class="text-center py-6 text-base-content/60">
+            No successful referrals yet.
+          </div>
+
+          <table :if={@leaderboard != []} class="table">
+            <thead>
+              <tr>
+                <th class="w-8">#</th>
+                <th>Customer</th>
+                <th class="text-right">Successful referrals</th>
+                <th class="text-right">Credit balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{row, rank} <- Enum.with_index(@leaderboard, 1)} class="hover">
+                <td class="font-bold text-base-content/70">{rank}</td>
+                <td class="font-medium">{row.name}</td>
+                <td class="text-right">{row.referral_count}</td>
+                <td class="text-right">{fmt_cents(row.credit_cents)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Log spend form -->

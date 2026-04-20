@@ -43,6 +43,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         end
       end
 
+    share_link = if customer, do: MobileCarWash.Marketing.Referrals.share_link_for(customer), else: nil
+
     socket =
       socket
       |> assign(
@@ -50,6 +52,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         appointments: appointments,
         service_types: service_types,
         loyalty_card: loyalty_card,
+        share_link: share_link,
         uploading_for: nil,
         # Photo uploader state — scoped to whichever appointment's modal
         # is currently open. Reset on every show_upload.
@@ -366,6 +369,44 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         </div>
       </div>
 
+      <!-- Share & earn -->
+      <div :if={@share_link && @current_customer} class="card bg-gradient-to-br from-primary/10 to-secondary/10 shadow mb-6">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h3 class="font-semibold">🎁 Share &amp; earn</h3>
+              <p class="text-sm text-base-content/80">
+                Send a friend your referral link — they save on their first wash and you earn
+                <span class="font-semibold">${MobileCarWash.Marketing.Referrals.default_reward_dollars()} in credit</span>
+                when they book.
+              </p>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-base-content/70">Referral credit balance</div>
+              <div class="text-2xl font-bold text-primary">
+                ${dollars(@current_customer.referral_credit_cents)}
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 join w-full">
+            <input
+              id="share-link"
+              type="text"
+              readonly
+              value={@share_link}
+              class="input input-bordered join-item flex-1 text-xs"
+            />
+            <button
+              class="btn btn-primary join-item"
+              phx-click={Phoenix.LiveView.JS.dispatch("phx:copy", to: "#share-link")}
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div :if={@appointments == []} class="text-center py-12">
         <p class="text-base-content/70 mb-4">No appointments yet</p>
         <.link navigate={~p"/book"} class="btn btn-primary">Book a Wash</.link>
@@ -450,6 +491,12 @@ defmodule MobileCarWashWeb.AppointmentsLive do
     </div>
     """
   end
+
+  defp dollars(nil), do: "0.00"
+  defp dollars(0), do: "0.00"
+
+  defp dollars(cents) when is_integer(cents),
+    do: :erlang.float_to_binary(cents / 100, decimals: 2)
 
   defp status_class(:pending), do: "badge-ghost"
   defp status_class(:confirmed), do: "badge-info"

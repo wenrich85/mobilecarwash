@@ -62,9 +62,23 @@ defmodule MobileCarWash.Billing.Payment do
     defaults [:read, create: :*, update: :*]
 
     update :complete do
+      require_atomic? false
       accept [:stripe_payment_intent_id]
       change set_attribute(:status, :succeeded)
       change set_attribute(:paid_at, &DateTime.utc_now/0)
+
+      # Fire the one-time referral reward after the Payment row has
+      # committed. Silent no-op when the customer has no referrer or
+      # the reward already fired (idempotent).
+      change fn changeset, _context ->
+        Ash.Changeset.after_action(changeset, fn _cs, payment ->
+          if payment.customer_id do
+            _ = MobileCarWash.Marketing.Referrals.issue_reward(payment.customer_id)
+          end
+
+          {:ok, payment}
+        end)
+      end
     end
 
     update :fail do

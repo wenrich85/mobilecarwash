@@ -43,6 +43,7 @@ defmodule MobileCarWash.Accounts.Customer do
           :utm_campaign,
           :utm_content,
           :referrer,
+          :acquired_at,
           :acquired_channel_id
         ]
       end
@@ -147,6 +148,14 @@ defmodule MobileCarWash.Accounts.Customer do
     attribute :referral_credit_cents, :integer do
       default 0
       allow_nil? false
+      public? true
+    end
+
+    # Stamped the first (and only) time a referrer is credited for
+    # bringing this customer in. Guards against double-rewarding the
+    # same referral across repeated :succeeded payment hooks.
+    attribute :referral_reward_issued_at, :utc_datetime_usec do
+      allow_nil? true
       public? true
     end
 
