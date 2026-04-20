@@ -188,6 +188,12 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
             path: "/admin/customers"
           },
           %{
+            icon: "💓",
+            title: "Operations",
+            description: "Oban queue depths, recent job failures, runtime health at a glance.",
+            path: "/admin/ops"
+          },
+          %{
             icon: "🎨",
             title: "Style Guide",
             description: "Component library reference — colors, typography, cards, buttons.",

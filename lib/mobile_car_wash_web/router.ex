@@ -108,6 +108,19 @@ defmodule MobileCarWashWeb.Router do
   # Sitemap — public, static-ish XML, no session / auth needed.
   get "/sitemap.xml", MobileCarWashWeb.SitemapController, :show
 
+  # Liveness + readiness probes. Intentionally bypass :browser and :api
+  # so they don't churn sessions or count against rate limits.
+  pipeline :probe do
+    plug :accepts, ["json"]
+  end
+
+  scope "/", MobileCarWashWeb do
+    pipe_through :probe
+
+    get "/health", HealthController, :live
+    get "/ready", HealthController, :ready
+  end
+
   # Public routes — landing page, booking, auth
   scope "/", MobileCarWashWeb do
     pipe_through :browser
@@ -207,6 +220,7 @@ defmodule MobileCarWashWeb.Router do
       live "/campaigns", CampaignsLive
       live "/customers", CustomersLive
       live "/customers/:id", CustomerDetailLive
+      live "/ops", OpsLive
       live "/events", EventsLive
       live "/formation", FormationLive
       live "/org-chart", OrgChartLive
