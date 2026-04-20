@@ -6,9 +6,14 @@ defmodule MobileCarWash.Analytics.MetricsTest do
 
   setup do
     # Create some test events
-    for event_name <- ["page.viewed", "page.viewed", "page.viewed",
-                       "booking.started", "booking.started",
-                       "booking.completed"] do
+    for event_name <- [
+          "page.viewed",
+          "page.viewed",
+          "page.viewed",
+          "booking.started",
+          "booking.started",
+          "booking.completed"
+        ] do
       Event
       |> Ash.Changeset.for_create(:track, %{
         session_id: "sess_test_#{:rand.uniform(10000)}",

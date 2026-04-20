@@ -20,7 +20,9 @@ defmodule MobileCarWashWeb.Api.V1.BlocksControllerTest do
       Technician |> Ash.Changeset.for_create(:create, %{name: "T"}) |> Ash.create()
 
     starts_at =
-      DateTime.utc_now() |> DateTime.add(hour_offset_days * 86_400, :second) |> DateTime.truncate(:second)
+      DateTime.utc_now()
+      |> DateTime.add(hour_offset_days * 86_400, :second)
+      |> DateTime.truncate(:second)
 
     AppointmentBlock
     |> Ash.Changeset.for_create(:create, %{

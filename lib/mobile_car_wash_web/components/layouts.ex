@@ -105,41 +105,80 @@ defmodule MobileCarWashWeb.Layouts do
     ~H"""
     <div class="drawer">
       <label for="mobile-drawer" class="sr-only">Toggle navigation menu</label>
-      <input id="mobile-drawer" type="checkbox" class="drawer-toggle" aria-label="Toggle navigation menu" />
+      <input
+        id="mobile-drawer"
+        type="checkbox"
+        class="drawer-toggle"
+        aria-label="Toggle navigation menu"
+      />
 
       <div class="drawer-content flex flex-col">
         <!-- Skip to content -->
-        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:btn focus:btn-primary focus:btn-sm">
+        <a
+          href="#main-content"
+          class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:btn focus:btn-primary focus:btn-sm"
+        >
           Skip to content
         </a>
-
-        <!-- Navbar -->
+        
+    <!-- Navbar -->
         <header class="navbar bg-base-100 shadow-sm sticky top-0 z-50">
           <!-- Mobile hamburger -->
           <div class="flex-none lg:hidden">
-            <label for="mobile-drawer" class="btn btn-square btn-ghost" aria-label="Open navigation menu">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            <label
+              for="mobile-drawer"
+              class="btn btn-square btn-ghost"
+              aria-label="Open navigation menu"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                class="inline-block w-6 h-6 stroke-current"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </label>
           </div>
-
-          <!-- Brand -->
+          
+    <!-- Brand -->
           <div class="flex-1">
             <a href="/" class="btn btn-ghost h-auto py-1 px-2">
-              <img src="/images/logo_light.svg" alt="Driveway Detail Co" width="216" height="36" class="h-9 w-auto dark:hidden" />
-              <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="216" height="36" class="h-9 w-auto hidden dark:block" />
+              <img
+                src="/images/logo_light.svg"
+                alt="Driveway Detail Co"
+                width="216"
+                height="36"
+                class="h-9 w-auto dark:hidden"
+              />
+              <img
+                src="/images/logo_dark.svg"
+                alt="Driveway Detail Co"
+                width="216"
+                height="36"
+                class="h-9 w-auto hidden dark:block"
+              />
             </a>
           </div>
-
-          <!-- Desktop nav -->
+          
+    <!-- Desktop nav -->
           <nav aria-label="Main navigation" class="flex-none hidden lg:block">
             <ul class="menu menu-horizontal items-center gap-1">
               <li><a href="/" class="btn btn-ghost btn-sm">Home</a></li>
               <li><a href="/book" class="btn btn-ghost btn-sm">Book a Wash</a></li>
 
-              <li :if={@current_scope}><a href="/appointments" class="btn btn-ghost btn-sm">My Appointments</a></li>
-              <li :if={@current_scope}><a href="/account/subscription" class="btn btn-ghost btn-sm">My Plan</a></li>
+              <li :if={@current_scope}>
+                <a href="/appointments" class="btn btn-ghost btn-sm">My Appointments</a>
+              </li>
+              <li :if={@current_scope}>
+                <a href="/account/subscription" class="btn btn-ghost btn-sm">My Plan</a>
+              </li>
 
               <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}>
                 <a href="/tech" class="btn btn-ghost btn-sm">Tech Dashboard</a>
@@ -163,8 +202,8 @@ defmodule MobileCarWashWeb.Layouts do
             </ul>
           </nav>
         </header>
-
-        <!-- Verify-email banner — customer-only, dismissable once they
+        
+    <!-- Verify-email banner — customer-only, dismissable once they
              click the link in their signup email. Soft gate, not hard. -->
         <div :if={@show_verify_banner} class="bg-warning/10 border-b border-warning/30">
           <div class="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-3 flex-wrap">
@@ -181,21 +220,33 @@ defmodule MobileCarWashWeb.Layouts do
             </form>
           </div>
         </div>
-
-        <!-- Page content -->
+        
+    <!-- Page content -->
         <main id="main-content" class="flex-1">
           {render_slot(@inner_block) || @inner_content}
         </main>
 
         <.flash_group flash={@flash} />
-
-        <!-- Footer -->
+        
+    <!-- Footer -->
         <footer class="bg-base-200 border-t border-base-300">
           <div class="max-w-7xl mx-auto px-4 py-12">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
-                <img src="/images/logo_light.svg" alt="Driveway Detail Co" width="192" height="32" class="h-8 w-auto mb-3 dark:hidden" />
-                <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="192" height="32" class="h-8 w-auto mb-3 hidden dark:block" />
+                <img
+                  src="/images/logo_light.svg"
+                  alt="Driveway Detail Co"
+                  width="192"
+                  height="32"
+                  class="h-8 w-auto mb-3 dark:hidden"
+                />
+                <img
+                  src="/images/logo_dark.svg"
+                  alt="Driveway Detail Co"
+                  width="192"
+                  height="32"
+                  class="h-8 w-auto mb-3 hidden dark:block"
+                />
                 <p class="text-sm text-base-content/80">
                   Professional mobile detailing at your door. Veteran-owned in San Antonio, TX.
                 </p>
@@ -212,14 +263,22 @@ defmodule MobileCarWashWeb.Layouts do
                 <h4 class="font-semibold mb-3 text-sm">Account</h4>
                 <ul class="space-y-2 text-sm text-base-content/80">
                   <li :if={@current_scope}>
-                    <span class="font-semibold text-base-content">{Map.get(@current_scope, :name, "")}</span>
+                    <span class="font-semibold text-base-content">
+                      {Map.get(@current_scope, :name, "")}
+                    </span>
                   </li>
                   <li :if={!@current_scope}>
                     <a href="/sign-in" class="hover:text-base-content">Sign In</a>
                   </li>
-                  <li :if={@current_scope}><a href="/sign-out" class="hover:text-base-content">Sign Out</a></li>
-                  <li :if={@current_scope}><a href="/appointments" class="hover:text-base-content">My Appointments</a></li>
-                  <li :if={@current_scope}><a href="/account/subscription" class="hover:text-base-content">My Plan</a></li>
+                  <li :if={@current_scope}>
+                    <a href="/sign-out" class="hover:text-base-content">Sign Out</a>
+                  </li>
+                  <li :if={@current_scope}>
+                    <a href="/appointments" class="hover:text-base-content">My Appointments</a>
+                  </li>
+                  <li :if={@current_scope}>
+                    <a href="/account/subscription" class="hover:text-base-content">My Plan</a>
+                  </li>
                 </ul>
               </div>
               <div>
@@ -231,19 +290,33 @@ defmodule MobileCarWashWeb.Layouts do
               </div>
             </div>
             <div class="border-t border-base-300 mt-8 pt-6 text-center text-xs text-base-content/70">
-              <p>&copy; {DateTime.utc_now().year} Driveway Detail Co. All rights reserved. Veteran-owned.</p>
+              <p>
+                &copy; {DateTime.utc_now().year} Driveway Detail Co. All rights reserved. Veteran-owned.
+              </p>
             </div>
           </div>
         </footer>
       </div>
-
-      <!-- Mobile drawer sidebar -->
+      
+    <!-- Mobile drawer sidebar -->
       <div class="drawer-side z-50">
         <label for="mobile-drawer" class="drawer-overlay"></label>
         <ul class="menu p-4 w-72 min-h-full bg-base-200">
           <li class="mb-4 px-2">
-            <img src="/images/logo_light.svg" alt="Driveway Detail Co" width="240" height="40" class="h-10 w-auto dark:hidden" />
-            <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="240" height="40" class="h-10 w-auto hidden dark:block" />
+            <img
+              src="/images/logo_light.svg"
+              alt="Driveway Detail Co"
+              width="240"
+              height="40"
+              class="h-10 w-auto dark:hidden"
+            />
+            <img
+              src="/images/logo_dark.svg"
+              alt="Driveway Detail Co"
+              width="240"
+              height="40"
+              class="h-10 w-auto hidden dark:block"
+            />
           </li>
           <li><a href="/">Home</a></li>
           <li><a href="/book">Book a Wash</a></li>
@@ -251,14 +324,29 @@ defmodule MobileCarWashWeb.Layouts do
           <li :if={@current_scope}><a href="/appointments">My Appointments</a></li>
           <li :if={@current_scope}><a href="/account/subscription">My Plan</a></li>
 
-          <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]} class="menu-title mt-4">Technician</li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}><a href="/tech">Dashboard</a></li>
+          <li
+            :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}
+            class="menu-title mt-4"
+          >
+            Technician
+          </li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) in [:technician, :admin]}>
+            <a href="/tech">Dashboard</a>
+          </li>
 
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin} class="menu-title mt-4">Admin</li>
-          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}><a href="/admin" class="font-semibold">Admin Hub</a></li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin} class="menu-title mt-4">
+            Admin
+          </li>
+          <li :if={@current_scope && Map.get(@current_scope, :role) == :admin}>
+            <a href="/admin" class="font-semibold">Admin Hub</a>
+          </li>
 
-          <li :if={@current_scope} class="mt-4"><a href="/sign-out" class="text-error">Sign Out</a></li>
-          <li :if={!@current_scope} class="mt-4"><a href="/sign-in" class="font-semibold">Sign In</a></li>
+          <li :if={@current_scope} class="mt-4">
+            <a href="/sign-out" class="text-error">Sign Out</a>
+          </li>
+          <li :if={!@current_scope} class="mt-4">
+            <a href="/sign-in" class="font-semibold">Sign In</a>
+          </li>
         </ul>
       </div>
     </div>
@@ -315,7 +403,11 @@ defmodule MobileCarWashWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div role="group" aria-label="Theme" class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
+    <div
+      role="group"
+      aria-label="Theme"
+      class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full"
+    >
       <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
 
       <button

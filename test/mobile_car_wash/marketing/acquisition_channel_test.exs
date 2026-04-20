@@ -138,7 +138,8 @@ defmodule MobileCarWash.Marketing.AcquisitionChannelTest do
         |> Enum.map(& &1.slug)
         |> MapSet.new()
 
-      for expected <- ~w(google_organic meta_paid google_paid referral word_of_mouth nextdoor door_hangers pre_launch unknown) do
+      for expected <-
+            ~w(google_organic meta_paid google_paid referral word_of_mouth nextdoor door_hangers pre_launch unknown) do
         assert expected in slugs, "missing canonical channel: #{expected}"
       end
 

@@ -11,63 +11,63 @@ defmodule MobileCarWash.Marketing.AcquisitionChannel do
     authorizers: [Ash.Policy.Authorizer]
 
   postgres do
-    table "acquisition_channels"
-    repo MobileCarWash.Repo
+    table("acquisition_channels")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :slug, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :display_name, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :category, :atom do
-      allow_nil? false
-      public? true
-      constraints one_of: [:paid, :organic, :referral, :offline, :unknown]
+      allow_nil?(false)
+      public?(true)
+      constraints(one_of: [:paid, :organic, :referral, :offline, :unknown])
     end
 
     attribute :active, :boolean do
-      allow_nil? false
-      default true
-      public? true
+      allow_nil?(false)
+      default(true)
+      public?(true)
     end
 
     attribute :sort_order, :integer do
-      default 100
-      public? true
+      default(100)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   identities do
-    identity :unique_slug, [:slug]
+    identity(:unique_slug, [:slug])
   end
 
   actions do
-    defaults [:read, :destroy, update: :*]
+    defaults([:read, :destroy, update: :*])
 
     create :create do
-      accept [:slug, :display_name, :category, :active, :sort_order]
+      accept([:slug, :display_name, :category, :active, :sort_order])
     end
 
     read :active do
-      filter expr(active == true)
-      prepare build(sort: [sort_order: :asc, display_name: :asc])
+      filter(expr(active == true))
+      prepare(build(sort: [sort_order: :asc, display_name: :asc]))
     end
 
     read :by_slug do
-      argument :slug, :string, allow_nil?: false
-      filter expr(slug == ^arg(:slug))
+      argument(:slug, :string, allow_nil?: false)
+      filter(expr(slug == ^arg(:slug)))
     end
   end
 
@@ -75,12 +75,12 @@ defmodule MobileCarWash.Marketing.AcquisitionChannel do
     # Reads are unrestricted — the plug that captures attribution
     # needs to look channels up without an actor.
     policy action_type(:read) do
-      authorize_if always()
+      authorize_if(always())
     end
 
     # Mutations are admin-only.
     policy action_type([:create, :update, :destroy]) do
-      authorize_if expr(^actor(:role) == :admin)
+      authorize_if(expr(^actor(:role) == :admin))
     end
   end
 end

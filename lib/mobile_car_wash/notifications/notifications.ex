@@ -7,6 +7,6 @@ defmodule MobileCarWash.Notifications do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Notifications.DeviceToken
+    resource(MobileCarWash.Notifications.DeviceToken)
   end
 end

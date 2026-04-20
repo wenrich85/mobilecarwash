@@ -47,10 +47,12 @@ defmodule MobileCarWash.Notifications.EmailTest do
   describe "wash_completed/3" do
     test "returns a valid email with correct structure" do
       customer = %{name: "Jane Doe", email: "jane@example.com"}
+
       appointment = %{
         id: "apt_123",
         scheduled_at: DateTime.new!(~D[2026-04-15], ~T[10:00:00])
       }
+
       service_name = "Deep Clean"
 
       email = Email.wash_completed(customer, appointment, service_name)
@@ -66,10 +68,12 @@ defmodule MobileCarWash.Notifications.EmailTest do
 
     test "includes appointment view link" do
       customer = %{name: "Test", email: "test@example.com"}
+
       appointment = %{
         id: "apt_456",
         scheduled_at: DateTime.new!(~D[2026-04-15], ~T[10:00:00])
       }
+
       service_name = "Test"
 
       email = Email.wash_completed(customer, appointment, service_name)
@@ -80,10 +84,12 @@ defmodule MobileCarWash.Notifications.EmailTest do
 
     test "includes branding footer" do
       customer = %{name: "Test", email: "test@example.com"}
+
       appointment = %{
         id: "apt_123",
         scheduled_at: DateTime.new!(~D[2026-04-15], ~T[10:00:00])
       }
+
       service_name = "Test"
 
       email = Email.wash_completed(customer, appointment, service_name)
@@ -95,6 +101,7 @@ defmodule MobileCarWash.Notifications.EmailTest do
   describe "subscription_created/2" do
     test "returns a valid email with correct structure" do
       customer = %{name: "Bob Smith", email: "bob@example.com"}
+
       plan = %{
         name: "Pro Plan",
         price_cents: 12_500,
@@ -117,6 +124,7 @@ defmodule MobileCarWash.Notifications.EmailTest do
 
     test "includes plan benefits" do
       customer = %{name: "Test", email: "test@example.com"}
+
       plan = %{
         name: "Test Plan",
         price_cents: 9_999,
@@ -134,6 +142,7 @@ defmodule MobileCarWash.Notifications.EmailTest do
 
     test "includes booking link" do
       customer = %{name: "Test", email: "test@example.com"}
+
       plan = %{
         name: "Test",
         price_cents: 5_000,
@@ -149,6 +158,7 @@ defmodule MobileCarWash.Notifications.EmailTest do
 
     test "includes branding footer" do
       customer = %{name: "Test", email: "test@example.com"}
+
       plan = %{
         name: "Test",
         price_cents: 5_000,

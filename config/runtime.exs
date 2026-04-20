@@ -116,7 +116,8 @@ if config_env() == :prod do
     api_key: System.get_env("STRIPE_SECRET_KEY") || raise("STRIPE_SECRET_KEY is required")
 
   config :mobile_car_wash,
-    stripe_webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET") || raise("STRIPE_WEBHOOK_SECRET is required"),
+    stripe_webhook_secret:
+      System.get_env("STRIPE_WEBHOOK_SECRET") || raise("STRIPE_WEBHOOK_SECRET is required"),
     base_url: "https://#{host}"
 
   # Token signing secret
@@ -131,7 +132,11 @@ if config_env() == :prod do
 
   # S3 photo storage (production)
   config :mobile_car_wash, :photo_storage, :s3
-  config :mobile_car_wash, :s3_bucket, System.get_env("S3_BUCKET") || raise("S3_BUCKET is required")
+
+  config :mobile_car_wash,
+         :s3_bucket,
+         System.get_env("S3_BUCKET") || raise("S3_BUCKET is required")
+
   config :mobile_car_wash, :s3_region, System.get_env("AWS_REGION") || "us-east-1"
 
   config :ex_aws,
@@ -188,8 +193,9 @@ if config_env() == :prod do
     auth: :always
 
   # From email address
-  config :mobile_car_wash, :from_email,
-    System.get_env("FROM_EMAIL") || "hello@drivewaydetailcosa.com"
+  config :mobile_car_wash,
+         :from_email,
+         System.get_env("FROM_EMAIL") || "hello@drivewaydetailcosa.com"
 
   # Accounting provider — configurable: "zoho" (default), "quickbooks", or "none"
   accounting_provider =

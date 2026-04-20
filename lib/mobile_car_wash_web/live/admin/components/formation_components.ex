@@ -29,7 +29,9 @@ defmodule MobileCarWashWeb.Admin.FormationComponents do
   attr :overdue, :integer, required: true
 
   def progress_summary(assigns) do
-    pct = if assigns.total > 0, do: Float.round(assigns.completed / assigns.total * 100, 0), else: 0
+    pct =
+      if assigns.total > 0, do: Float.round(assigns.completed / assigns.total * 100, 0), else: 0
+
     assigns = assign(assigns, pct: pct)
 
     ~H"""
@@ -49,7 +51,9 @@ defmodule MobileCarWashWeb.Admin.FormationComponents do
       </div>
       <div class="stat bg-base-100 shadow rounded-box p-4">
         <div class="stat-title text-sm">Overdue</div>
-        <div class={"stat-value text-lg #{if @overdue > 0, do: "text-error", else: "text-success"}"}>{@overdue}</div>
+        <div class={"stat-value text-lg #{if @overdue > 0, do: "text-error", else: "text-success"}"}>
+          {@overdue}
+        </div>
       </div>
     </div>
     """
@@ -59,15 +63,25 @@ defmodule MobileCarWashWeb.Admin.FormationComponents do
   attr :editing, :boolean, default: false
 
   def task_row(assigns) do
-    overdue? = assigns.task.due_date && Date.compare(assigns.task.due_date, Date.utc_today()) == :lt && assigns.task.status != :completed
+    overdue? =
+      assigns.task.due_date && Date.compare(assigns.task.due_date, Date.utc_today()) == :lt &&
+        assigns.task.status != :completed
+
     assigns = assign(assigns, overdue: overdue?)
 
     ~H"""
     <tr class={[@overdue && "bg-error/5"]}>
       <td class="max-w-xs">
         <div class="font-semibold">{@task.name}</div>
-        <div :if={@task.description} class="text-xs text-base-content/70 line-clamp-2">{@task.description}</div>
-        <a :if={@task.external_url} href={@task.external_url} target="_blank" class="text-xs link link-primary">
+        <div :if={@task.description} class="text-xs text-base-content/70 line-clamp-2">
+          {@task.description}
+        </div>
+        <a
+          :if={@task.external_url}
+          href={@task.external_url}
+          target="_blank"
+          class="text-xs link link-primary"
+        >
           Gov website →
         </a>
       </td>

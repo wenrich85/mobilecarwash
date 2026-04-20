@@ -17,8 +17,14 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
       original = Application.get_env(:mobile_car_wash, :accounting_provider)
 
       try do
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.QuickBooks)
-        assert Application.get_env(:mobile_car_wash, :accounting_provider) == MobileCarWash.Accounting.QuickBooks
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.QuickBooks
+        )
+
+        assert Application.get_env(:mobile_car_wash, :accounting_provider) ==
+                 MobileCarWash.Accounting.QuickBooks
       after
         if original do
           Application.put_env(:mobile_car_wash, :accounting_provider, original)
@@ -32,8 +38,14 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
       original = Application.get_env(:mobile_car_wash, :accounting_provider)
 
       try do
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.ZohoBooks)
-        assert Application.get_env(:mobile_car_wash, :accounting_provider) == MobileCarWash.Accounting.ZohoBooks
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.ZohoBooks
+        )
+
+        assert Application.get_env(:mobile_car_wash, :accounting_provider) ==
+                 MobileCarWash.Accounting.ZohoBooks
       after
         if original do
           Application.put_env(:mobile_car_wash, :accounting_provider, original)
@@ -95,8 +107,12 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
 
         updated =
           Enum.reduce(
-            [{:organization_id, "organization_id"}, {:client_id, "client_id"},
-             {:client_secret, "client_secret"}, {:refresh_token, "refresh_token"}],
+            [
+              {:organization_id, "organization_id"},
+              {:client_id, "client_id"},
+              {:client_secret, "client_secret"},
+              {:refresh_token, "refresh_token"}
+            ],
             current,
             fn {key, param_key}, acc ->
               case params[param_key] do
@@ -127,10 +143,10 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
       original = Application.get_env(:mobile_car_wash, :zoho_books)
 
       try do
-        Application.put_env(:mobile_car_wash, :zoho_books, [
+        Application.put_env(:mobile_car_wash, :zoho_books,
           organization_id: "existing-org",
           client_id: "existing-cid"
-        ])
+        )
 
         # Submitting blank fields should not overwrite
         current = Application.get_env(:mobile_car_wash, :zoho_books, [])
@@ -181,8 +197,12 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
 
         updated =
           Enum.reduce(
-            [{:company_id, "company_id"}, {:client_id, "client_id"},
-             {:client_secret, "client_secret"}, {:refresh_token, "refresh_token"}],
+            [
+              {:company_id, "company_id"},
+              {:client_id, "client_id"},
+              {:client_secret, "client_secret"},
+              {:refresh_token, "refresh_token"}
+            ],
             current,
             fn {key, param_key}, acc ->
               case params[param_key] do
@@ -213,10 +233,10 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
       original = Application.get_env(:mobile_car_wash, :quickbooks)
 
       try do
-        Application.put_env(:mobile_car_wash, :quickbooks, [
+        Application.put_env(:mobile_car_wash, :quickbooks,
           company_id: "existing-comp",
           client_id: "existing-qb-cid"
-        ])
+        )
 
         current = Application.get_env(:mobile_car_wash, :quickbooks, [])
 
@@ -262,9 +282,11 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
     end
 
     defp mask(nil), do: ""
+
     defp mask(val) when is_binary(val) and byte_size(val) > 4 do
       String.slice(val, 0, 4) <> String.duplicate("*", 8)
     end
+
     defp mask(_), do: "****"
   end
 end

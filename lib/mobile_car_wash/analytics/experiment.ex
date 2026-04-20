@@ -9,68 +9,68 @@ defmodule MobileCarWash.Analytics.Experiment do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "experiments"
-    repo MobileCarWash.Repo
+    table("experiments")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :name, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :hypothesis, :string do
-      public? true
-      description "What we believe will happen and why"
+      public?(true)
+      description("What we believe will happen and why")
     end
 
     attribute :status, :atom do
-      constraints one_of: [:draft, :running, :concluded]
-      default :draft
-      allow_nil? false
-      public? true
+      constraints(one_of: [:draft, :running, :concluded])
+      default(:draft)
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :variants, :map do
-      default %{"control" => %{}, "treatment" => %{}}
-      public? true
+      default(%{"control" => %{}, "treatment" => %{}})
+      public?(true)
     end
 
     attribute :started_at, :utc_datetime do
-      public? true
+      public?(true)
     end
 
     attribute :concluded_at, :utc_datetime do
-      public? true
+      public?(true)
     end
 
     attribute :results, :map do
-      public? true
-      description "Conversion rates, p-value, winner"
+      public?(true)
+      description("Conversion rates, p-value, winner")
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   identities do
-    identity :unique_name, [:name]
+    identity(:unique_name, [:name])
   end
 
   actions do
-    defaults [:read, create: :*, update: :*]
+    defaults([:read, create: :*, update: :*])
 
     update :start_experiment do
-      change set_attribute(:status, :running)
-      change set_attribute(:started_at, &DateTime.utc_now/0)
+      change(set_attribute(:status, :running))
+      change(set_attribute(:started_at, &DateTime.utc_now/0))
     end
 
     update :conclude do
-      accept [:results]
-      change set_attribute(:status, :concluded)
-      change set_attribute(:concluded_at, &DateTime.utc_now/0)
+      accept([:results])
+      change(set_attribute(:status, :concluded))
+      change(set_attribute(:concluded_at, &DateTime.utc_now/0))
     end
   end
 end

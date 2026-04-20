@@ -49,7 +49,8 @@ defmodule MobileCarWashWeb.Admin.PersonasLiveMatchPreviewTest do
         password: "Password123!",
         password_confirmation: "Password123!",
         name: "Cust",
-        phone: "+15125556#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
+        phone:
+          "+15125556#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
         acquired_channel_id: channel_id
       })
       |> Ash.create()

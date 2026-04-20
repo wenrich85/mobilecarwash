@@ -22,7 +22,8 @@ defmodule MobileCarWash.Billing.PaymentReferralRewardTest do
         password: "Password123!",
         password_confirmation: "Password123!",
         name: "Pay Ref",
-        phone: "+15125556#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
+        phone:
+          "+15125556#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
       })
       |> Ash.create()
 
@@ -60,7 +61,9 @@ defmodule MobileCarWash.Billing.PaymentReferralRewardTest do
 
     {:ok, _} =
       payment
-      |> Ash.Changeset.for_update(:complete, %{stripe_payment_intent_id: "pi_#{System.unique_integer([:positive])}"})
+      |> Ash.Changeset.for_update(:complete, %{
+        stripe_payment_intent_id: "pi_#{System.unique_integer([:positive])}"
+      })
       |> Ash.update(authorize?: false)
 
     assert reload!(referrer).referral_credit_cents == 1_000
@@ -84,7 +87,9 @@ defmodule MobileCarWash.Billing.PaymentReferralRewardTest do
 
     for _ <- 1..2 do
       create_pending_payment!(referee)
-      |> Ash.Changeset.for_update(:complete, %{stripe_payment_intent_id: "pi_#{System.unique_integer([:positive])}"})
+      |> Ash.Changeset.for_update(:complete, %{
+        stripe_payment_intent_id: "pi_#{System.unique_integer([:positive])}"
+      })
       |> Ash.update!(authorize?: false)
     end
 
@@ -97,7 +102,9 @@ defmodule MobileCarWash.Billing.PaymentReferralRewardTest do
 
     {:ok, _} =
       payment
-      |> Ash.Changeset.for_update(:complete, %{stripe_payment_intent_id: "pi_#{System.unique_integer([:positive])}"})
+      |> Ash.Changeset.for_update(:complete, %{
+        stripe_payment_intent_id: "pi_#{System.unique_integer([:positive])}"
+      })
       |> Ash.update(authorize?: false)
 
     assert reload!(non_referred).referral_reward_issued_at == nil

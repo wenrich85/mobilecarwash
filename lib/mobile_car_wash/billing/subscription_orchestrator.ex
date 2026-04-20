@@ -18,11 +18,12 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
   def create_from_checkout(stripe_session) do
     stripe_subscription_id = Map.get(stripe_session, :subscription)
     stripe_customer_id = Map.get(stripe_session, :customer)
-    plan_id = get_in(stripe_session, [:metadata, "plan_id"]) || Map.get(stripe_session.metadata, :plan_id)
+
+    plan_id =
+      get_in(stripe_session, [:metadata, "plan_id"]) || Map.get(stripe_session.metadata, :plan_id)
 
     with {:ok, plan} <- Ash.get(SubscriptionPlan, plan_id),
          {:ok, customer} <- find_and_link_customer(stripe_customer_id, stripe_session) do
-
       today = Date.utc_today()
       period_end = Date.add(today, 30)
 
@@ -92,7 +93,10 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
   @doc "Called from webhook: invoice.payment_succeeded (for subscription renewals)"
   def handle_invoice_paid(stripe_invoice) do
     sub_id = Map.get(stripe_invoice, :subscription)
-    if is_nil(sub_id), do: {:error, :no_subscription}, else: do_handle_invoice_paid(sub_id, stripe_invoice)
+
+    if is_nil(sub_id),
+      do: {:error, :no_subscription},
+      else: do_handle_invoice_paid(sub_id, stripe_invoice)
   end
 
   defp do_handle_invoice_paid(stripe_sub_id, stripe_invoice) do
@@ -135,7 +139,8 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
         amount_cents: amount_cents,
         status: :succeeded,
         paid_at: DateTime.utc_now(),
-        stripe_payment_intent_id: if(is_binary(stripe_payment_intent_id), do: stripe_payment_intent_id)
+        stripe_payment_intent_id:
+          if(is_binary(stripe_payment_intent_id), do: stripe_payment_intent_id)
       })
       |> Ash.Changeset.force_change_attribute(:customer_id, subscription.customer_id)
       |> Ash.Changeset.force_change_attribute(:subscription_id, subscription.id)
@@ -185,7 +190,9 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
   end
 
   defp find_and_link_customer(stripe_customer_id, stripe_session) do
-    email = Map.get(stripe_session, :customer_email) || Map.get(stripe_session, :customer_details, %{}) |> Map.get(:email)
+    email =
+      Map.get(stripe_session, :customer_email) ||
+        Map.get(stripe_session, :customer_details, %{}) |> Map.get(:email)
 
     customer =
       if email do

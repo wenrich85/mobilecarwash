@@ -131,8 +131,8 @@ defmodule MobileCarWashWeb.Admin.OpsLive do
           Refresh
         </button>
       </div>
-
-      <!-- Runtime -->
+      
+    <!-- Runtime -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="stat bg-base-200 rounded-lg">
           <div class="stat-title">Uptime</div>
@@ -151,17 +151,18 @@ defmodule MobileCarWashWeb.Admin.OpsLive do
           <div class="stat-value">{@runtime.schedulers}</div>
         </div>
       </div>
-
-      <!-- Queue depths -->
+      
+    <!-- Queue depths -->
       <div class="card bg-base-100 border border-base-300 mb-8">
         <div class="card-body">
           <h2 class="card-title">Oban queue depths</h2>
           <p class="text-sm text-base-content/60 mb-2">
-            <code>available</code> = waiting to run ·
-            <code>executing</code> = running now ·
-            <code>retryable</code> = failed, will retry ·
-            <code>scheduled</code> = will run later ·
-            <code>discarded</code> = permanently failed
+            <code>available</code>
+            = waiting to run · <code>executing</code>
+            = running now · <code>retryable</code>
+            = failed, will retry · <code>scheduled</code>
+            = will run later · <code>discarded</code>
+            = permanently failed
           </p>
           <div class="overflow-x-auto">
             <table class="table">
@@ -193,8 +194,8 @@ defmodule MobileCarWashWeb.Admin.OpsLive do
           </div>
         </div>
       </div>
-
-      <!-- Recent failures -->
+      
+    <!-- Recent failures -->
       <div class="card bg-base-100 border border-base-300">
         <div class="card-body">
           <h2 class="card-title">Recent job failures</h2>
@@ -216,7 +217,9 @@ defmodule MobileCarWashWeb.Admin.OpsLive do
             <tbody>
               <tr :for={j <- @recent_failures} class="hover">
                 <td class="text-sm text-base-content/70">
-                  {if j.attempted_at, do: Calendar.strftime(j.attempted_at, "%b %d %H:%M:%S"), else: "—"}
+                  {if j.attempted_at,
+                    do: Calendar.strftime(j.attempted_at, "%b %d %H:%M:%S"),
+                    else: "—"}
                 </td>
                 <td class="truncate"><code>{j.worker}</code></td>
                 <td>{j.queue}</td>
@@ -233,7 +236,9 @@ defmodule MobileCarWashWeb.Admin.OpsLive do
       </div>
 
       <p class="text-xs text-base-content/50 mt-4">
-        Refreshed {Calendar.strftime(@refreshed_at, "%H:%M:%S UTC")} · node <code>{@runtime.node}</code> · OTP <code>{@runtime.otp_release}</code>
+        Refreshed {Calendar.strftime(@refreshed_at, "%H:%M:%S UTC")} · node
+        <code>{@runtime.node}</code>
+        · OTP <code>{@runtime.otp_release}</code>
       </p>
     </div>
     """

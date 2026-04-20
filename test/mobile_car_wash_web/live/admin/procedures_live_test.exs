@@ -218,7 +218,12 @@ defmodule MobileCarWashWeb.Admin.ProceduresLiveTest do
 
       # Renumber remaining steps
       proc_id = proc.id
-      remaining_steps = ProcedureStep |> Ash.Query.filter(procedure_id == ^proc_id) |> Ash.Query.sort(step_number: :asc) |> Ash.read!()
+
+      remaining_steps =
+        ProcedureStep
+        |> Ash.Query.filter(procedure_id == ^proc_id)
+        |> Ash.Query.sort(step_number: :asc)
+        |> Ash.read!()
 
       remaining_steps
       |> Enum.with_index(1)

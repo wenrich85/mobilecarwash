@@ -8,32 +8,32 @@ defmodule MobileCarWash.Operations.Van do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "vans"
-    repo MobileCarWash.Repo
+    table("vans")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :name, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :license_plate, :string do
-      public? true
+      public?(true)
     end
 
     attribute :active, :boolean do
-      default true
-      public? true
+      default(true)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   actions do
-    defaults [:read, create: :*, update: :*]
+    defaults([:read, create: :*, update: :*])
   end
 end

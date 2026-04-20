@@ -121,7 +121,10 @@ defmodule MobileCarWash.Accounting.ZohoBooks do
           "refresh_token" => refresh_token
         })
 
-      case Req.post(url, body: body, headers: [{"content-type", "application/x-www-form-urlencoded"}]) do
+      case Req.post(url,
+             body: body,
+             headers: [{"content-type", "application/x-www-form-urlencoded"}]
+           ) do
         {:ok, %{status: 200, body: %{"access_token" => token}}} ->
           expires_at = DateTime.add(DateTime.utc_now(), 3000, :second)
           :persistent_term.put({__MODULE__, :access_token}, {token, expires_at})

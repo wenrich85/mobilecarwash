@@ -110,6 +110,7 @@ defmodule MobileCarWashWeb.Admin.MarketingLiveTest do
       |> render_submit()
 
       rows = MarketingSpend |> Ash.read!(authorize?: false)
+
       assert Enum.any?(rows, fn r ->
                r.channel_id == meta.id and
                  r.amount_cents == 5_000 and

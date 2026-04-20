@@ -23,7 +23,11 @@ config :mobile_car_wash, MobileCarWashWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: System.get_env("SECRET_KEY_BASE", "dev-only-key-not-for-production-use-at-all-must-be-64-chars-minimum"),
+  secret_key_base:
+    System.get_env(
+      "SECRET_KEY_BASE",
+      "dev-only-key-not-for-production-use-at-all-must-be-64-chars-minimum"
+    ),
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:mobile_car_wash, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:mobile_car_wash, ~w(--watch)]}
@@ -93,12 +97,15 @@ config :phoenix_live_view,
 config :swoosh, :api_client, false
 
 # Token signing secret for authentication
-config :mobile_car_wash, :token_signing_secret,
-  System.get_env("TOKEN_SIGNING_SECRET") || "dev-only-secret-change-in-production-at-least-64-chars"
+config :mobile_car_wash,
+       :token_signing_secret,
+       System.get_env("TOKEN_SIGNING_SECRET") ||
+         "dev-only-secret-change-in-production-at-least-64-chars"
 
 # Stripe webhook signing secret
-config :mobile_car_wash, :stripe_webhook_secret,
-  System.get_env("STRIPE_WEBHOOK_SECRET") || "whsec_test"
+config :mobile_car_wash,
+       :stripe_webhook_secret,
+       System.get_env("STRIPE_WEBHOOK_SECRET") || "whsec_test"
 
 # Base URL for Stripe success/cancel redirects
 config :mobile_car_wash, :base_url, "http://localhost:4000"

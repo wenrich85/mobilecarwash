@@ -9,65 +9,65 @@ defmodule MobileCarWash.Loyalty.LoyaltyCard do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "loyalty_cards"
-    repo MobileCarWash.Repo
+    table("loyalty_cards")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :punch_count, :integer do
-      default 0
-      allow_nil? false
-      public? true
-      description "Total lifetime punches earned (one per completed wash)."
+      default(0)
+      allow_nil?(false)
+      public?(true)
+      description("Total lifetime punches earned (one per completed wash).")
     end
 
     attribute :redeemed_count, :integer do
-      default 0
-      allow_nil? false
-      public? true
-      description "Total free washes redeemed against this card."
+      default(0)
+      allow_nil?(false)
+      public?(true)
+      description("Total free washes redeemed against this card.")
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
     belongs_to :customer, MobileCarWash.Accounts.Customer do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
   end
 
   identities do
-    identity :unique_customer, [:customer_id]
+    identity(:unique_customer, [:customer_id])
   end
 
   actions do
-    defaults [:read]
+    defaults([:read])
 
     create :create do
-      accept [:customer_id]
+      accept([:customer_id])
     end
 
     update :add_punch do
-      require_atomic? false
+      require_atomic?(false)
 
-      change fn changeset, _ ->
+      change(fn changeset, _ ->
         current = Ash.Changeset.get_data(changeset, :punch_count) || 0
         Ash.Changeset.change_attribute(changeset, :punch_count, current + 1)
-      end
+      end)
     end
 
     update :redeem do
-      require_atomic? false
+      require_atomic?(false)
 
-      change fn changeset, _ ->
+      change(fn changeset, _ ->
         current = Ash.Changeset.get_data(changeset, :redeemed_count) || 0
         Ash.Changeset.change_attribute(changeset, :redeemed_count, current + 1)
-      end
+      end)
     end
   end
 end

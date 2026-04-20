@@ -29,51 +29,67 @@ defmodule MobileCarWash.Operations.Photo do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "photos"
-    repo MobileCarWash.Repo
+    table("photos")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :file_path, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :original_filename, :string do
-      public? true
+      public?(true)
     end
 
     attribute :content_type, :string do
-      public? true
+      public?(true)
     end
 
     attribute :photo_type, :atom do
-      constraints one_of: [:before, :after, :problem_area, :step_completion]
-      allow_nil? false
-      public? true
+      constraints(one_of: [:before, :after, :problem_area, :step_completion])
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :caption, :string do
-      public? true
+      public?(true)
     end
 
     attribute :uploaded_by, :atom do
-      constraints one_of: [:customer, :technician]
-      default :technician
-      public? true
+      constraints(one_of: [:customer, :technician])
+      default(:technician)
+      public?(true)
     end
 
     attribute :car_part, :atom do
-      constraints one_of: [
-        :front, :rear, :driver_side, :passenger_side,
-        :exterior, :windows, :wheels, :interior, :trunk, :engine_bay,
-        :undercarriage, :mirrors, :headlights_taillights, :bumper, :roof, :sunroof
-      ]
-      allow_nil? true
-      public? true
-      description "Specific part of the car being documented (optional)"
+      constraints(
+        one_of: [
+          :front,
+          :rear,
+          :driver_side,
+          :passenger_side,
+          :exterior,
+          :windows,
+          :wheels,
+          :interior,
+          :trunk,
+          :engine_bay,
+          :undercarriage,
+          :mirrors,
+          :headlights_taillights,
+          :bumper,
+          :roof,
+          :sunroof
+        ]
+      )
+
+      allow_nil?(true)
+      public?(true)
+      description("Specific part of the car being documented (optional)")
     end
 
     # Structured vision-model labels produced by MobileCarWash.AI.PhotoAnalyzer.
@@ -82,54 +98,62 @@ defmodule MobileCarWash.Operations.Photo do
     # schema migrations. ai_processed_at is nil until the analyzer has run
     # (so we can tell "not yet analyzed" apart from "analyzed, no vehicle found").
     attribute :ai_tags, :map do
-      allow_nil? true
-      public? true
-      description "AI-generated tags: body_part, issue, severity, confidence, description"
+      allow_nil?(true)
+      public?(true)
+      description("AI-generated tags: body_part, issue, severity, confidence, description")
     end
 
     attribute :ai_processed_at, :utc_datetime_usec do
-      allow_nil? true
-      public? true
+      allow_nil?(true)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
+    create_timestamp(:inserted_at)
   end
 
   relationships do
     belongs_to :appointment, MobileCarWash.Scheduling.Appointment do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     belongs_to :checklist_item, MobileCarWash.Operations.ChecklistItem do
-      allow_nil? true
+      allow_nil?(true)
     end
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults([:read, :destroy])
 
     create :upload do
-      accept [:file_path, :original_filename, :content_type, :photo_type, :caption, :uploaded_by, :car_part]
+      accept([
+        :file_path,
+        :original_filename,
+        :content_type,
+        :photo_type,
+        :caption,
+        :uploaded_by,
+        :car_part
+      ])
     end
 
     update :apply_ai_tags do
-      accept [:ai_tags]
-      change set_attribute(:ai_processed_at, &DateTime.utc_now/0)
+      accept([:ai_tags])
+      change(set_attribute(:ai_processed_at, &DateTime.utc_now/0))
     end
 
     read :for_appointment do
-      argument :appointment_id, :uuid, allow_nil?: false
-      filter expr(appointment_id == ^arg(:appointment_id))
+      argument(:appointment_id, :uuid, allow_nil?: false)
+      filter(expr(appointment_id == ^arg(:appointment_id)))
     end
 
     read :problem_areas do
-      argument :appointment_id, :uuid, allow_nil?: false
-      filter expr(appointment_id == ^arg(:appointment_id) and photo_type == :problem_area)
+      argument(:appointment_id, :uuid, allow_nil?: false)
+      filter(expr(appointment_id == ^arg(:appointment_id) and photo_type == :problem_area))
     end
 
     read :before_after do
-      argument :appointment_id, :uuid, allow_nil?: false
-      filter expr(appointment_id == ^arg(:appointment_id) and photo_type in [:before, :after])
+      argument(:appointment_id, :uuid, allow_nil?: false)
+      filter(expr(appointment_id == ^arg(:appointment_id) and photo_type in [:before, :after]))
     end
   end
 end

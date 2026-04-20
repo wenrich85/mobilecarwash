@@ -52,9 +52,14 @@ defmodule MobileCarWashWeb.Api.V1.DeviceTokensController do
       # Ash returns Forbidden when the policy filters the row out — from the
       # caller's point of view that's indistinguishable from "not found" and
       # leaks no ownership info.
-      {:error, %Ash.Error.Forbidden{}} -> {:error, :not_found}
-      {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} -> {:error, :not_found}
-      other -> other
+      {:error, %Ash.Error.Forbidden{}} ->
+        {:error, :not_found}
+
+      {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{} | _]}} ->
+        {:error, :not_found}
+
+      other ->
+        other
     end
   end
 

@@ -34,7 +34,9 @@ defmodule MobileCarWashWeb.Admin.TechniciansLive do
     case Technician |> Ash.Changeset.for_create(:create, attrs) |> Ash.create() do
       {:ok, _} ->
         {:noreply,
-         socket |> assign(technicians: load_technicians()) |> put_flash(:info, "Technician added.")}
+         socket
+         |> assign(technicians: load_technicians())
+         |> put_flash(:info, "Technician added.")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not add technician.")}
@@ -67,8 +69,8 @@ defmodule MobileCarWashWeb.Admin.TechniciansLive do
           </p>
         </div>
       </div>
-
-      <!-- Add technician -->
+      
+    <!-- Add technician -->
       <div class="card bg-base-100 shadow mb-6">
         <div class="card-body p-4">
           <h3 class="font-bold mb-3">Add Technician</h3>
@@ -79,7 +81,12 @@ defmodule MobileCarWashWeb.Admin.TechniciansLive do
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">Phone</label>
-              <input type="text" name="tech[phone]" class="input input-bordered input-sm" placeholder="512-555-0000" />
+              <input
+                type="text"
+                name="tech[phone]"
+                class="input input-bordered input-sm"
+                placeholder="512-555-0000"
+              />
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">Zone</label>
@@ -93,14 +100,20 @@ defmodule MobileCarWashWeb.Admin.TechniciansLive do
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">Pay Rate (cents/wash)</label>
-              <input type="number" name="tech[pay_rate_cents]" class="input input-bordered input-sm" value="2500" min="0" />
+              <input
+                type="number"
+                name="tech[pay_rate_cents]"
+                class="input input-bordered input-sm"
+                value="2500"
+                min="0"
+              />
             </div>
             <button type="submit" class="btn btn-primary btn-sm">Add</button>
           </form>
         </div>
       </div>
-
-      <!-- List -->
+      
+    <!-- List -->
       <div :if={@technicians == []} class="text-center py-12 text-base-content/70">
         No technicians yet. Add one above.
       </div>

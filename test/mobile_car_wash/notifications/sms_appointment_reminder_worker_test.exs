@@ -38,7 +38,12 @@ defmodule MobileCarWash.Notifications.SMSAppointmentReminderWorkerTest do
 
     {:ok, address} =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "456 Oak Dr", city: "Converse", state: "TX", zip: "78109"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "456 Oak Dr",
+        city: "Converse",
+        state: "TX",
+        zip: "78109"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 

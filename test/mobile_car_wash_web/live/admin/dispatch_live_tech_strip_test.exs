@@ -49,7 +49,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLiveTechStripTest do
       Technician
       |> Ash.Changeset.for_create(:create, %{
         name: name,
-        phone: "+15125550#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
+        phone:
+          "+15125550#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
         active: true
       })
       |> Ash.create()
@@ -108,7 +109,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLiveTechStripTest do
         vehicle_id: vehicle.id,
         address_id: address.id,
         service_type_id: service.id,
-        scheduled_at: DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second),
+        scheduled_at:
+          DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second),
         price_cents: 5_000,
         duration_minutes: 45
       })

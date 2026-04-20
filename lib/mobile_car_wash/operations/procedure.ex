@@ -13,58 +13,58 @@ defmodule MobileCarWash.Operations.Procedure do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "procedures"
-    repo MobileCarWash.Repo
+    table("procedures")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :name, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :slug, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :description, :string do
-      public? true
+      public?(true)
     end
 
     attribute :category, :atom do
-      constraints one_of: [:wash, :admin, :customer_service, :safety]
-      default :wash
-      public? true
+      constraints(one_of: [:wash, :admin, :customer_service, :safety])
+      default(:wash)
+      public?(true)
     end
 
     attribute :active, :boolean do
-      default true
-      public? true
+      default(true)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
     # Optional link to a service type — "this procedure is for Basic Wash"
     belongs_to :service_type, MobileCarWash.Scheduling.ServiceType do
-      allow_nil? true
+      allow_nil?(true)
     end
 
     has_many :steps, MobileCarWash.Operations.ProcedureStep do
-      sort step_number: :asc
+      sort(step_number: :asc)
     end
   end
 
   identities do
-    identity :unique_slug, [:slug]
+    identity(:unique_slug, [:slug])
   end
 
   actions do
-    defaults [:read, :destroy, create: :*, update: :*]
+    defaults([:read, :destroy, create: :*, update: :*])
   end
 end

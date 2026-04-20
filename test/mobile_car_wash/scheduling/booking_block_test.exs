@@ -119,7 +119,8 @@ defmodule MobileCarWash.Scheduling.BookingBlockTest do
       tech = create_technician()
       block = create_block(service, tech)
 
-      {:ok, _} = Booking.create_booking(booking_params(customer, service, vehicle, address, block))
+      {:ok, _} =
+        Booking.create_booking(booking_params(customer, service, vehicle, address, block))
 
       reloaded = Ash.load!(block, :appointment_count)
       assert reloaded.appointment_count == 1

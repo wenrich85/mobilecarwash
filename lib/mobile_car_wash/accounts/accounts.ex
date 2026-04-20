@@ -5,7 +5,7 @@ defmodule MobileCarWash.Accounts do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Accounts.Customer
-    resource MobileCarWash.Accounts.Token
+    resource(MobileCarWash.Accounts.Customer)
+    resource(MobileCarWash.Accounts.Token)
   end
 end

@@ -52,18 +52,21 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
         <div class="text-6xl mb-4 text-success">✓</div>
         <h1 class="text-3xl font-bold mb-4">Payment Successful!</h1>
         <p class="text-lg text-base-content/70 mb-8">
-          Your {@service_type.name} is confirmed for
-          {Calendar.strftime(@appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}.
+          Your {@service_type.name} is confirmed for {Calendar.strftime(
+            @appointment.scheduled_at,
+            "%B %d, %Y at %I:%M %p"
+          )}.
         </p>
 
         <div class="card bg-base-100 shadow-xl mx-auto max-w-md">
           <div class="card-body">
             <div class="space-y-3 text-left">
               <div><span class="font-semibold">Service:</span> {@service_type.name}</div>
-              <div><span class="font-semibold">Amount Paid:</span> ${div(@payment.amount_cents, 100)}</div>
-              <div><span class="font-semibold">Status:</span>
-                <span class="badge badge-success">Confirmed</span>
+              <div>
+                <span class="font-semibold">Amount Paid:</span> ${div(@payment.amount_cents, 100)}
               </div>
+              <div><span class="font-semibold">Status:</span>
+                <span class="badge badge-success">Confirmed</span></div>
             </div>
             <p class="text-sm text-base-content/70 mt-4">Booking ID: {@appointment.id}</p>
           </div>

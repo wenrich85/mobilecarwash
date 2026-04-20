@@ -36,7 +36,9 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
   def complete_wash(appointment_id) do
     with {:ok, appointment} <- Ash.get(Appointment, appointment_id),
          {:ok, checklist} <- find_checklist(appointment_id),
-         true <- WashStateMachine.can_complete_wash?(appointment, checklist.status) || {:error, :cannot_complete} do
+         true <-
+           WashStateMachine.can_complete_wash?(appointment, checklist.status) ||
+             {:error, :cannot_complete} do
       # Mark appointment complete (broadcasts via after_action)
       appointment
       |> Ash.Changeset.for_update(:complete, %{})
@@ -56,7 +58,9 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
       |> Ash.read!()
 
     case procedures do
-      [procedure | _] -> {:ok, procedure}
+      [procedure | _] ->
+        {:ok, procedure}
+
       [] ->
         # Fallback: find any active wash procedure
         fallback =

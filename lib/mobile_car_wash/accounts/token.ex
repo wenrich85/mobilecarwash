@@ -9,11 +9,11 @@ defmodule MobileCarWash.Accounts.Token do
     extensions: [AshAuthentication.TokenResource]
 
   postgres do
-    table "tokens"
-    repo MobileCarWash.Repo
+    table("tokens")
+    repo(MobileCarWash.Repo)
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults([:read, :destroy])
   end
 end

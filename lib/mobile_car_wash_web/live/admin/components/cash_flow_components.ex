@@ -34,8 +34,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <stop offset="0%" style="stop-color:#27AE60;stop-opacity:0.9" />
             <stop offset="100%" style="stop-color:#229954;stop-opacity:0.5" />
           </linearGradient>
-
-          <!-- Glow filters -->
+          
+    <!-- Glow filters -->
           <filter id="bucketGlow">
             <feGaussianBlur stdDeviation="3" result="coloredBlur" />
             <feMerge>
@@ -43,8 +43,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-
-          <!-- Coin animation keyframes -->
+          
+    <!-- Coin animation keyframes -->
           <style>
             @keyframes flowCoin {
               0% {
@@ -93,8 +93,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             }
           </style>
         </defs>
-
-        <!-- Buckets with 3D effect -->
+        
+    <!-- Buckets with 3D effect -->
         <.bucket
           label="Expense Account"
           color="blue"
@@ -150,8 +150,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           cy={600}
           gradient_id="blueGrad"
         />
-
-        <!-- Flow arrows with animated coins -->
+        
+    <!-- Flow arrows with animated coins -->
         <.flow_arrow
           x1={500}
           y1={170}
@@ -191,8 +191,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           active={:savings_to_investment in @animating_flows && @animations_enabled}
           animation_speed="2s"
         />
-
-        <!-- Reverse Flow Arrows (Pulling back to Expense) -->
+        
+    <!-- Reverse Flow Arrows (Pulling back to Expense) -->
         <.flow_arrow_reverse
           x1={500}
           y1={330}
@@ -271,8 +271,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke={@color_stroke}
         stroke-width="2"
       />
-
-      <!-- Bucket body (3D trapezoid effect) -->
+      
+    <!-- Bucket body (3D trapezoid effect) -->
       <path
         d={
           "M #{@cx - 40} #{@cy} L #{@cx - 38} #{@cy + 70} Q #{@cx} #{@cy + 78} #{@cx + 38} #{@cy + 70} L #{@cx + 40} #{@cy}"
@@ -281,8 +281,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke={@color_stroke}
         stroke-width="2.5"
       />
-
-      <!-- Bucket sides (depth) -->
+      
+    <!-- Bucket sides (depth) -->
       <line
         x1={@cx - 40}
         y1={@cy}
@@ -301,16 +301,16 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-width="1.5"
         opacity="0.6"
       />
-
-      <!-- Stacked Cash Bills Fill -->
+      
+    <!-- Stacked Cash Bills Fill -->
       <.cash_stack
         cx={@cx}
         cy={@cy}
         fill_height={@fill_height}
         color_stroke={@color_stroke}
       />
-
-      <!-- Bucket handle -->
+      
+    <!-- Bucket handle -->
       <path
         d={
           "M #{@cx - 30} #{@cy - 5} Q #{@cx} #{@cy - 35} #{@cx + 30} #{@cy - 5}"
@@ -320,8 +320,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-width="3"
         stroke-linecap="round"
       />
-
-      <!-- Percentage on top of money in bucket -->
+      
+    <!-- Percentage on top of money in bucket -->
       <text
         x={@cx}
         y={@cy + 25}
@@ -335,8 +335,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       >
         {trunc(@fill_pct * 100)}%
       </text>
-
-      <!-- Label positioning - left or right of bucket -->
+      
+    <!-- Label positioning - left or right of bucket -->
       <%= if @label_position == "left" do %>
         <text
           x={@cx - 75}
@@ -360,8 +360,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           {@label}
         </text>
       <% end %>
-
-      <!-- Details positioning -->
+      
+    <!-- Details positioning -->
       <%= if @details_position == "left_middle" do %>
         <!-- Details on left middle side (Business Savings) - closer and lower -->
         <!-- Fill percentage -->
@@ -375,8 +375,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         >
           {trunc(@fill_pct * 100)}%
         </text>
-
-        <!-- Balance amount with background -->
+        
+    <!-- Balance amount with background -->
         <rect
           x={@cx - 130}
           y={@cy + 25}
@@ -398,8 +398,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         >
           ${format_cents(@balance_cents)}
         </text>
-
-        <!-- Threshold indicator -->
+        
+    <!-- Threshold indicator -->
         <text
           :if={@threshold_cents}
           x={@cx - 50}
@@ -425,8 +425,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           >
             {trunc(@fill_pct * 100)}%
           </text>
-
-          <!-- Balance amount with background -->
+          
+    <!-- Balance amount with background -->
           <rect
             x={@cx + 80}
             y={@cy - 10}
@@ -448,8 +448,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           >
             ${format_cents(@balance_cents)}
           </text>
-
-          <!-- Threshold indicator -->
+          
+    <!-- Threshold indicator -->
           <text
             :if={@threshold_cents}
             x={@cx + 85}
@@ -505,35 +505,35 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
     ~H"""
     <%= for i <- 0..max(@num_bills - 1, 0) do %>
       <% bill_y = @cy + 70 - (i + 1) * 3.5 %>
-
-      <!-- All bills in classic green (US currency) -->
+      
+    <!-- All bills in classic green (US currency) -->
       <% bill_color = "#1B5E20" %>
       <% bill_text = "$" %>
-
-      <!-- Slight offset and rotation for realistic stacking -->
+      
+    <!-- Slight offset and rotation for realistic stacking -->
       <% x_offset = rem(i, 2) * 2.5 - 1.25 %>
       <% rotation = rem(i, 3) * 1.2 - 1.2 %>
 
       <g transform={"translate(#{@cx + x_offset}, #{bill_y}) rotate(#{rotation})"}>
         <!-- Main bill base -->
-        <rect x="-36" y="0" width="72" height="3.2" fill={bill_color} rx="0.4" opacity="0.95"/>
-
-        <!-- Bill darker shade on edges (depth) -->
-        <rect x="-36" y="2.8" width="72" height="0.4" fill="#000000" opacity="0.25" rx="0.4"/>
-        <rect x="-36" y="0" width="2" height="3.2" fill="#000000" opacity="0.15" rx="0.4"/>
-
-        <!-- Bill top highlight (shine) -->
-        <rect x="-36" y="0.1" width="72" height="0.6" fill="#FFFFFF" opacity="0.35" rx="0.4"/>
-
-        <!-- Subtle texture pattern -->
-        <circle cx="-28" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
-        <circle cx="-18" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
-        <circle cx="-8" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
-        <circle cx="2" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
-        <circle cx="12" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
-        <circle cx="22" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1"/>
-
-        <!-- Bill denomination value (small text on corner) -->
+        <rect x="-36" y="0" width="72" height="3.2" fill={bill_color} rx="0.4" opacity="0.95" />
+        
+    <!-- Bill darker shade on edges (depth) -->
+        <rect x="-36" y="2.8" width="72" height="0.4" fill="#000000" opacity="0.25" rx="0.4" />
+        <rect x="-36" y="0" width="2" height="3.2" fill="#000000" opacity="0.15" rx="0.4" />
+        
+    <!-- Bill top highlight (shine) -->
+        <rect x="-36" y="0.1" width="72" height="0.6" fill="#FFFFFF" opacity="0.35" rx="0.4" />
+        
+    <!-- Subtle texture pattern -->
+        <circle cx="-28" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1" />
+        <circle cx="-18" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1" />
+        <circle cx="-8" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1" />
+        <circle cx="2" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1" />
+        <circle cx="12" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1" />
+        <circle cx="22" cy="1.6" r="0.5" fill="#FFFFFF" opacity="0.1" />
+        
+    <!-- Bill denomination value (small text on corner) -->
         <text x="-30" y="2.2" font-size="1.8" font-weight="bold" fill="#FFFFFF" opacity="0.8">
           {bill_text}
         </text>
@@ -569,8 +569,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         stroke-dasharray="12 6"
         class={["transition-all duration-300", @active && "flow-path-active"]}
       />
-
-      <!-- Arrowhead at end -->
+      
+    <!-- Arrowhead at end -->
       <polygon
         points={
           "#{@x2},#{@y2} #{@x2 - 8},#{@y2 - 12} #{@x2 + 8},#{@y2 - 12}"
@@ -579,8 +579,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         class={["transition-opacity", @active && "arrow-active"]}
         opacity={if @active, do: "1", else: "0.4"}
       />
-
-      <!-- Animated coin (💰) along the path -->
+      
+    <!-- Animated coin (💰) along the path -->
       <g :if={@active}>
         <text
           x={@x1}
@@ -593,8 +593,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           💰
         </text>
       </g>
-
-      <!-- Flow label with background -->
+      
+    <!-- Flow label with background -->
       <% label_x = div(@x1 + @x2, 2) + 20 %>
       <% label_y = div(@y1 + @y2, 2) - 40 %>
       <rect
@@ -644,8 +644,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         class={["transition-all duration-300", @active && "flow-path-active"]}
         opacity={if @active, do: "1", else: "0.5"}
       />
-
-      <!-- Arrowhead at end (pointing back) -->
+      
+    <!-- Arrowhead at end (pointing back) -->
       <polygon
         points={
           "#{@x2},#{@y2} #{@x2 + 8},#{@y2 + 12} #{@x2 - 8},#{@y2 + 12}"
@@ -654,8 +654,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         class={["transition-opacity", @active && "arrow-active"]}
         opacity={if @active, do: "1", else: "0.4"}
       />
-
-      <!-- Animated coin along the path -->
+      
+    <!-- Animated coin along the path -->
       <g :if={@active}>
         <text
           x={@x1}
@@ -668,8 +668,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           💵
         </text>
       </g>
-
-      <!-- Flow label with background -->
+      
+    <!-- Flow label with background -->
       <% label_x = div(@x1 + @x2, 2) - 20 %>
       <% label_y = div(@y1 + @y2, 2) + 40 %>
       <rect
@@ -708,7 +708,10 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-200"
       phx-click="close_modal"
     >
-      <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-tertiary-200" phx-click="">
+      <div
+        class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-tertiary-200"
+        phx-click=""
+      >
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">💵 Record Income</h2>
           <p class="text-sm text-base-content/80 mb-4">Add funds arriving to your expense account</p>
@@ -719,7 +722,9 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
                 <span class="label-text font-semibold text-primary-700">Amount</span>
               </label>
               <div class="join w-full">
-                <span class="join-item bg-tertiary-100 px-4 flex items-center font-bold text-tertiary-700">$</span>
+                <span class="join-item bg-tertiary-100 px-4 flex items-center font-bold text-tertiary-700">
+                  $
+                </span>
                 <input
                   type="number"
                   name="amount"
@@ -749,8 +754,20 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             </div>
 
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
-              <button type="button" class="btn btn-ghost btn-sm hover:bg-secondary-200" phx-click="close_modal">Cancel</button>
-              <button type="submit" class="btn btn-sm text-white" style="background-color: #27AE60; border-color: #27AE60;">Record Income</button>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                phx-click="close_modal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-sm text-white"
+                style="background-color: #27AE60; border-color: #27AE60;"
+              >
+                Record Income
+              </button>
             </div>
           </form>
         </div>
@@ -766,7 +783,10 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-200"
       phx-click="close_modal"
     >
-      <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-red-200" phx-click="">
+      <div
+        class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-red-200"
+        phx-click=""
+      >
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">📤 Record Expense</h2>
           <p class="text-sm text-base-content/80 mb-4">Deduct funds from your expense account</p>
@@ -777,7 +797,9 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
                 <span class="label-text font-semibold text-primary-700">Amount</span>
               </label>
               <div class="join w-full">
-                <span class="join-item bg-red-100 px-4 flex items-center font-bold text-red-700">$</span>
+                <span class="join-item bg-red-100 px-4 flex items-center font-bold text-red-700">
+                  $
+                </span>
                 <input
                   type="number"
                   name="amount"
@@ -807,8 +829,20 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             </div>
 
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
-              <button type="button" class="btn btn-ghost btn-sm hover:bg-secondary-200" phx-click="close_modal">Cancel</button>
-              <button type="submit" class="btn btn-sm text-white" style="background-color: #E74C3C; border-color: #E74C3C;">Record Expense</button>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                phx-click="close_modal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-sm text-white"
+                style="background-color: #E74C3C; border-color: #E74C3C;"
+              >
+                Record Expense
+              </button>
             </div>
           </form>
         </div>
@@ -824,7 +858,10 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-200"
       phx-click="close_modal"
     >
-      <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-primary-300" phx-click="">
+      <div
+        class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-primary-300"
+        phx-click=""
+      >
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">⚙️ Cash Flow Settings</h2>
           <p class="text-sm text-base-content/80 mb-4">Configure thresholds and salary parameters</p>
@@ -833,10 +870,14 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <fieldset name="config">
               <div>
                 <label class="label">
-                  <span class="label-text font-semibold text-primary-700">Monthly Operating Expense</span>
+                  <span class="label-text font-semibold text-primary-700">
+                    Monthly Operating Expense
+                  </span>
                 </label>
                 <div class="join w-full">
-                  <span class="join-item bg-primary-100 px-4 flex items-center font-bold text-primary-700">$</span>
+                  <span class="join-item bg-primary-100 px-4 flex items-center font-bold text-primary-700">
+                    $
+                  </span>
                   <input
                     type="number"
                     name="config[monthly_opex_cents]"
@@ -857,7 +898,9 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
                   <span class="label-text font-semibold text-primary-700">Owner Salary</span>
                 </label>
                 <div class="join w-full">
-                  <span class="join-item bg-primary-100 px-4 flex items-center font-bold text-primary-700">$</span>
+                  <span class="join-item bg-primary-100 px-4 flex items-center font-bold text-primary-700">
+                    $
+                  </span>
                   <input
                     type="number"
                     name="config[salary_cents]"
@@ -875,7 +918,9 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
                   <span class="label-text font-semibold text-primary-700">Investment Target</span>
                 </label>
                 <div class="join w-full">
-                  <span class="join-item bg-primary-100 px-4 flex items-center font-bold text-primary-700">$</span>
+                  <span class="join-item bg-primary-100 px-4 flex items-center font-bold text-primary-700">
+                    $
+                  </span>
                   <input
                     type="number"
                     name="config[investment_target_cents]"
@@ -894,8 +939,20 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             </div>
 
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
-              <button type="button" class="btn btn-ghost btn-sm hover:bg-secondary-200" phx-click="close_modal">Cancel</button>
-              <button type="submit" class="btn btn-sm text-white" style="background-color: #1E2A38; border-color: #1E2A38;">Update Settings</button>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                phx-click="close_modal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-sm text-white"
+                style="background-color: #1E2A38; border-color: #1E2A38;"
+              >
+                Update Settings
+              </button>
             </div>
           </form>
         </div>
@@ -911,14 +968,19 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
       class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-200"
       phx-click="close_modal"
     >
-      <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-yellow-300" phx-click="">
+      <div
+        class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl max-w-sm w-full mx-4 border border-yellow-300"
+        phx-click=""
+      >
         <div class="card-body">
           <h2 class="card-title text-2xl mb-2 text-primary-700">↩ Rebalance to Expense</h2>
           <p class="text-sm text-base-content/80 mb-4">Pull funds back during lean months</p>
 
           <form phx-submit="transfer" class="space-y-4">
             <div class="alert rounded-lg bg-yellow-50 border border-yellow-200 text-sm">
-              <span class="text-yellow-900">📊 Pulls 50% from Business Savings + 50% from Tax Account to replenish Expense Account</span>
+              <span class="text-yellow-900">
+                📊 Pulls 50% from Business Savings + 50% from Tax Account to replenish Expense Account
+              </span>
             </div>
 
             <div>
@@ -926,7 +988,9 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
                 <span class="label-text font-semibold text-primary-700">Amount to Transfer</span>
               </label>
               <div class="join w-full">
-                <span class="join-item bg-yellow-100 px-4 flex items-center font-bold text-yellow-700">$</span>
+                <span class="join-item bg-yellow-100 px-4 flex items-center font-bold text-yellow-700">
+                  $
+                </span>
                 <input
                   type="number"
                   name="amount"
@@ -965,8 +1029,20 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             </div>
 
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
-              <button type="button" class="btn btn-ghost btn-sm hover:bg-secondary-200" phx-click="close_modal">Cancel</button>
-              <button type="submit" class="btn btn-sm text-white" style="background-color: #E8A03C; border-color: #E8A03C;">Rebalance</button>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                phx-click="close_modal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-sm text-white"
+                style="background-color: #E8A03C; border-color: #E8A03C;"
+              >
+                Rebalance
+              </button>
             </div>
           </form>
         </div>

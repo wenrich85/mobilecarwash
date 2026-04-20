@@ -17,38 +17,42 @@ defmodule MobileCarWash.Scheduling.SchedulingSettings do
     authorizers: [Ash.Policy.Authorizer]
 
   postgres do
-    table "scheduling_settings"
-    repo MobileCarWash.Repo
+    table("scheduling_settings")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :max_intra_block_drive_minutes, :integer do
-      default 20
-      allow_nil? false
-      public? true
-      description "When joining a block that already has appointments, the customer's address must be within this many drive-minutes of at least one existing appointment."
+      default(20)
+      allow_nil?(false)
+      public?(true)
+
+      description(
+        "When joining a block that already has appointments, the customer's address must be within this many drive-minutes of at least one existing appointment."
+      )
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   validations do
-    validate compare(:max_intra_block_drive_minutes, greater_than: 0),
+    validate(compare(:max_intra_block_drive_minutes, greater_than: 0),
       message: "must be positive"
+    )
   end
 
   actions do
-    defaults [:read]
+    defaults([:read])
 
     create :initialize do
-      accept [:max_intra_block_drive_minutes]
+      accept([:max_intra_block_drive_minutes])
     end
 
     update :update do
-      accept [:max_intra_block_drive_minutes]
+      accept([:max_intra_block_drive_minutes])
     end
   end
 
@@ -57,12 +61,12 @@ defmodule MobileCarWash.Scheduling.SchedulingSettings do
     # Writes are admin-only (enforced by the admin-auth pipeline on the UI
     # route + the one caller in SettingsLive).
     policy action_type(:read) do
-      authorize_if always()
+      authorize_if(always())
     end
 
     policy action_type([:create, :update]) do
-      authorize_if expr(^actor(:role) == :admin)
-      authorize_if always()
+      authorize_if(expr(^actor(:role) == :admin))
+      authorize_if(always())
     end
   end
 

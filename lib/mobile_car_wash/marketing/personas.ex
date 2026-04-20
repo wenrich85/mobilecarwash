@@ -55,7 +55,8 @@ defmodule MobileCarWash.Marketing.Personas do
   Used for the "here's who matches" preview panel.
   """
   @spec sample_matching(map() | nil, pos_integer()) :: [map()]
-  def sample_matching(criteria, limit) when is_map(criteria) and is_integer(limit) and limit > 0 do
+  def sample_matching(criteria, limit)
+      when is_map(criteria) and is_integer(limit) and limit > 0 do
     criteria
     |> criteria_matchers()
     |> sample_matching_customers(limit)

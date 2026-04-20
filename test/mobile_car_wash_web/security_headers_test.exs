@@ -44,7 +44,9 @@ defmodule MobileCarWashWeb.SecurityHeadersTest do
              "expected at least one <script nonce=\"...\"> with the same nonce as CSP"
     end
 
-    test "CSP no longer relies on googletagmanager.com host allowlist in script-src", %{conn: conn} do
+    test "CSP no longer relies on googletagmanager.com host allowlist in script-src", %{
+      conn: conn
+    } do
       conn = get(conn, "/")
       csp = get_resp_header(conn, "content-security-policy") |> List.first()
 

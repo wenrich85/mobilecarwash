@@ -57,7 +57,9 @@ defmodule MobileCarWash.Scheduling.BlockAvailabilityTest do
       open_block = create_block(service, tech, future_dt(3, 8))
       _scheduled_block = create_block(service, tech, future_dt(3, 13), status: :scheduled)
 
-      past_close = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+      past_close =
+        DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+
       _past_close_block = create_block(service, tech, future_dt(3, 17), closes_at: past_close)
 
       result = BlockAvailability.open_blocks_for_service(service.id, future_dt(3, 0))

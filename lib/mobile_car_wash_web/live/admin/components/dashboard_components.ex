@@ -56,7 +56,10 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
   def pivot_signals(assigns) do
     ~H"""
     <div class="space-y-3">
-      <div :for={signal <- @signals} class="flex items-center gap-4 p-3 bg-base-100 rounded-lg shadow-sm">
+      <div
+        :for={signal <- @signals}
+        class="flex items-center gap-4 p-3 bg-base-100 rounded-lg shadow-sm"
+      >
         <div class={[
           "badge badge-lg",
           status_badge_class(signal.status)
@@ -119,7 +122,9 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
   attr :period, :atom, required: true
 
   def revenue_chart(assigns) do
-    max_cents = Enum.max_by(assigns.data, & &1.total_cents, fn -> %{total_cents: 100} end).total_cents
+    max_cents =
+      Enum.max_by(assigns.data, & &1.total_cents, fn -> %{total_cents: 100} end).total_cents
+
     max_cents = max(max_cents, 100)
     assigns = assign(assigns, max_cents: max_cents)
 

@@ -43,7 +43,8 @@ defmodule MobileCarWash.CashFlow.Engine do
 
   Returns: {:ok, map()} | {:error, term()}
   """
-  def record_deposit(amount_cents, description) when is_integer(amount_cents) and amount_cents > 0 do
+  def record_deposit(amount_cents, description)
+      when is_integer(amount_cents) and amount_cents > 0 do
     Repo.transaction(fn ->
       # Deposit to Expense Account
       expense_acct = Ash.get!(Account, by_type(:expense))
@@ -88,7 +89,8 @@ defmodule MobileCarWash.CashFlow.Engine do
 
   Returns: {:ok, map()} | {:error, :insufficient_funds} | {:error, term()}
   """
-  def record_expense(amount_cents, description) when is_integer(amount_cents) and amount_cents > 0 do
+  def record_expense(amount_cents, description)
+      when is_integer(amount_cents) and amount_cents > 0 do
     Repo.transaction(fn ->
       expense_acct = Ash.get!(Account, by_type(:expense))
 
@@ -182,7 +184,8 @@ defmodule MobileCarWash.CashFlow.Engine do
   Returns: {:ok, map()} | {:error, term()}
   """
   def manual_transfer(from_type, to_type, amount_cents, description)
-      when is_atom(from_type) and is_atom(to_type) and is_integer(amount_cents) and amount_cents > 0 do
+      when is_atom(from_type) and is_atom(to_type) and is_integer(amount_cents) and
+             amount_cents > 0 do
     Repo.transaction(fn ->
       from_acct = Ash.get!(Account, by_type(from_type))
       to_acct = Ash.get!(Account, by_type(to_type))

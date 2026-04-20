@@ -47,6 +47,7 @@ defmodule MobileCarWash.Notifications.TwilioClient do
   end
 
   defp fetch_config(nil, _key), do: {:error, :sms_not_configured}
+
   defp fetch_config(config, key) do
     case Keyword.get(config, key) do
       nil -> {:error, :sms_not_configured}

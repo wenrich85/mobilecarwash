@@ -184,7 +184,7 @@ defmodule MobileCarWash.CashFlow.Projections do
 
     Enum.reduce(subs, 0, fn sub, acc ->
       plan = Map.get(plans, sub.plan_id)
-      acc + (plan && plan.price_cents || 0)
+      acc + ((plan && plan.price_cents) || 0)
     end)
   end
 

@@ -45,7 +45,9 @@ defmodule MobileCarWash.Scheduling.RecurringAppointmentScheduler do
               Logger.info("Recurring appointment created for schedule #{schedule.id} on #{date}")
 
             {:error, reason} ->
-              Logger.warning("Skipped recurring appointment for schedule #{schedule.id} on #{date}: #{inspect(reason)}")
+              Logger.warning(
+                "Skipped recurring appointment for schedule #{schedule.id} on #{date}: #{inspect(reason)}"
+              )
           end
         end
       end)

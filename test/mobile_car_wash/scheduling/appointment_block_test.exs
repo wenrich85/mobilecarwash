@@ -133,7 +133,8 @@ defmodule MobileCarWash.Scheduling.AppointmentBlockTest do
       tech = create_technician()
 
       # Create a block that was supposed to close yesterday.
-      past_close = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+      past_close =
+        DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
 
       {:ok, block} =
         AppointmentBlock

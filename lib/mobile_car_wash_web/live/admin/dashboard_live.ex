@@ -64,19 +64,22 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
           %{
             icon: "🚐",
             title: "Dispatch",
-            description: "Today's wash queue. Assign techs, monitor progress, handle live updates.",
+            description:
+              "Today's wash queue. Assign techs, monitor progress, handle live updates.",
             path: "/admin/dispatch"
           },
           %{
             icon: "📆",
             title: "Appointment Blocks",
-            description: "Upcoming booking windows. Optimize routes, adjust closing times, cancel if needed.",
+            description:
+              "Upcoming booking windows. Optimize routes, adjust closing times, cancel if needed.",
             path: "/admin/blocks"
           },
           %{
             icon: "🗓️",
             title: "Schedule Templates",
-            description: "Weekly recurring slots that drive block generation. Add or deactivate windows.",
+            description:
+              "Weekly recurring slots that drive block generation. Add or deactivate windows.",
             path: "/admin/schedule-templates"
           }
         ]
@@ -112,13 +115,15 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
           %{
             icon: "💰",
             title: "Cash Flow",
-            description: "Five-bucket money system with animated transfers. Track deposits and expenses.",
+            description:
+              "Five-bucket money system with animated transfers. Track deposits and expenses.",
             path: "/admin/cash-flow"
           },
           %{
             icon: "📊",
             title: "Metrics",
-            description: "Revenue, customer funnel (AARRR), retention. Auto-refreshing dashboard.",
+            description:
+              "Revenue, customer funnel (AARRR), retention. Auto-refreshing dashboard.",
             path: "/admin/metrics"
           }
         ]
@@ -130,7 +135,8 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
           %{
             icon: "⚙️",
             title: "Settings",
-            description: "Services, plans, blocked dates, block clustering radius, and accounting provider.",
+            description:
+              "Services, plans, blocked dates, block clustering radius, and accounting provider.",
             path: "/admin/settings"
           },
           %{
@@ -154,7 +160,8 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
           %{
             icon: "🏛️",
             title: "Business Formation",
-            description: "Texas, federal, and veteran compliance checklist. Filings and renewals.",
+            description:
+              "Texas, federal, and veteran compliance checklist. Filings and renewals.",
             path: "/admin/formation"
           },
           %{
@@ -166,25 +173,29 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
           %{
             icon: "📣",
             title: "Marketing",
-            description: "CAC + revenue per channel. Log ad spend and see what's actually working.",
+            description:
+              "CAC + revenue per channel. Log ad spend and see what's actually working.",
             path: "/admin/marketing"
           },
           %{
             icon: "🎭",
             title: "Personas",
-            description: "Named customer archetypes for targeted campaigns. Auto-tagged from behavior.",
+            description:
+              "Named customer archetypes for targeted campaigns. Auto-tagged from behavior.",
             path: "/admin/personas"
           },
           %{
             icon: "📢",
             title: "Campaigns",
-            description: "Draft + publish social posts. Log adapter ships now; Meta/X slot in later.",
+            description:
+              "Draft + publish social posts. Log adapter ships now; Meta/X slot in later.",
             path: "/admin/campaigns"
           },
           %{
             icon: "👤",
             title: "Customers",
-            description: "Every customer + attribution + lifetime revenue. Reassign channels, tag personas.",
+            description:
+              "Every customer + attribution + lifetime revenue. Reassign channels, tag personas.",
             path: "/admin/customers"
           },
           %{

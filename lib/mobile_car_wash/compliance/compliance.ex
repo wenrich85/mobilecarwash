@@ -6,7 +6,7 @@ defmodule MobileCarWash.Compliance do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Compliance.TaskCategory
-    resource MobileCarWash.Compliance.FormationTask
+    resource(MobileCarWash.Compliance.TaskCategory)
+    resource(MobileCarWash.Compliance.FormationTask)
   end
 end

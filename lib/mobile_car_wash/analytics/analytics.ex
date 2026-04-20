@@ -10,10 +10,10 @@ defmodule MobileCarWash.Analytics do
   alias MobileCarWash.Analytics.{CookieConsent, Event, UserAgent}
 
   resources do
-    resource MobileCarWash.Analytics.Event
-    resource MobileCarWash.Analytics.Experiment
-    resource MobileCarWash.Analytics.ExperimentAssignment
-    resource CookieConsent
+    resource(MobileCarWash.Analytics.Event)
+    resource(MobileCarWash.Analytics.Experiment)
+    resource(MobileCarWash.Analytics.ExperimentAssignment)
+    resource(CookieConsent)
   end
 
   @doc """

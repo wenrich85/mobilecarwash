@@ -5,41 +5,41 @@ defmodule MobileCarWash.Scheduling.RecurringSchedule do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "recurring_schedules"
-    repo MobileCarWash.Repo
+    table("recurring_schedules")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :frequency, :atom do
-      constraints one_of: [:weekly, :biweekly, :monthly]
-      allow_nil? false
-      public? true
+      constraints(one_of: [:weekly, :biweekly, :monthly])
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :preferred_day, :integer do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :preferred_time, :time do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :active, :boolean do
-      default true
-      allow_nil? false
-      public? true
+      default(true)
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :last_scheduled_date, :date do
-      public? true
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
@@ -51,31 +51,31 @@ defmodule MobileCarWash.Scheduling.RecurringSchedule do
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults([:read, :destroy])
 
     create :create do
-      accept [:frequency, :preferred_day, :preferred_time]
+      accept([:frequency, :preferred_day, :preferred_time])
     end
 
     update :deactivate do
-      change set_attribute(:active, false)
+      change(set_attribute(:active, false))
     end
 
     update :activate do
-      change set_attribute(:active, true)
+      change(set_attribute(:active, true))
     end
 
     update :mark_scheduled do
-      accept [:last_scheduled_date]
+      accept([:last_scheduled_date])
     end
 
     read :active_schedules do
-      filter expr(active == true)
+      filter(expr(active == true))
     end
 
     read :for_customer do
-      argument :customer_id, :uuid, allow_nil?: false
-      filter expr(customer_id == ^arg(:customer_id))
+      argument(:customer_id, :uuid, allow_nil?: false)
+      filter(expr(customer_id == ^arg(:customer_id)))
     end
   end
 end

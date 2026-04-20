@@ -6,9 +6,9 @@ defmodule MobileCarWash.CashFlow do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.CashFlow.Account
-    resource MobileCarWash.CashFlow.Transaction
-    resource MobileCarWash.CashFlow.Config
+    resource(MobileCarWash.CashFlow.Account)
+    resource(MobileCarWash.CashFlow.Transaction)
+    resource(MobileCarWash.CashFlow.Config)
   end
 
   @doc """

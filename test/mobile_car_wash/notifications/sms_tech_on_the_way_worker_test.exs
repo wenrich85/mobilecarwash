@@ -22,7 +22,11 @@ defmodule MobileCarWash.Notifications.SMSTechOnTheWayWorkerTest do
 
     {:ok, technician} =
       MobileCarWash.Operations.Technician
-      |> Ash.Changeset.for_create(:create, %{name: "Marcus Rivera", phone: "512-555-0101", active: true})
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Marcus Rivera",
+        phone: "512-555-0101",
+        active: true
+      })
       |> Ash.create()
 
     {:ok, service_type} =
@@ -43,7 +47,12 @@ defmodule MobileCarWash.Notifications.SMSTechOnTheWayWorkerTest do
 
     {:ok, address} =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "789 Elm St", city: "Live Oak", state: "TX", zip: "78233"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "789 Elm St",
+        city: "Live Oak",
+        state: "TX",
+        zip: "78233"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 

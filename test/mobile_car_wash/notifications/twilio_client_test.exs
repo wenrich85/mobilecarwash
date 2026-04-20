@@ -21,7 +21,9 @@ defmodule MobileCarWash.Notifications.TwilioClientTest do
       assert {:error, :sms_not_configured} = TwilioClient.send_sms("+15125551234", "Test")
 
       if original, do: Application.put_env(:mobile_car_wash, :twilio, original)
-      if original_client, do: Application.put_env(:mobile_car_wash, :twilio_client, original_client)
+
+      if original_client,
+        do: Application.put_env(:mobile_car_wash, :twilio_client, original_client)
     end
   end
 end

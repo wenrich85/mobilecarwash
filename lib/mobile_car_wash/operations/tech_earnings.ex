@@ -156,12 +156,15 @@ defmodule MobileCarWash.Operations.TechEarnings do
   def shift_period(:day, ref, :next), do: Date.add(ref, 1)
   def shift_period(:week, ref, :prev), do: Date.add(ref, -7)
   def shift_period(:week, ref, :next), do: Date.add(ref, 7)
+
   def shift_period(:month, ref, :prev) do
     ref |> Date.beginning_of_month() |> Date.add(-1) |> Date.beginning_of_month()
   end
+
   def shift_period(:month, ref, :next) do
     ref |> Date.end_of_month() |> Date.add(1)
   end
+
   def shift_period(:year, ref, :prev), do: Date.new!(ref.year - 1, 1, 1)
   def shift_period(:year, ref, :next), do: Date.new!(ref.year + 1, 1, 1)
 
@@ -171,6 +174,7 @@ defmodule MobileCarWash.Operations.TechEarnings do
   """
   def wash_earnings(wash, technician) do
     pct = Map.get(technician, :pay_rate_pct)
+
     if pct do
       round(Decimal.to_float(Decimal.mult(Decimal.new(wash.price_cents), pct)))
     else
@@ -182,6 +186,7 @@ defmodule MobileCarWash.Operations.TechEarnings do
 
   defp compute_total_earnings(washes, technician) do
     pct = Map.get(technician, :pay_rate_pct)
+
     if pct do
       Enum.reduce(washes, 0, fn w, acc ->
         acc + round(Decimal.to_float(Decimal.mult(Decimal.new(w.price_cents), pct)))
@@ -193,14 +198,23 @@ defmodule MobileCarWash.Operations.TechEarnings do
 
   defp load_service_map(appointments) do
     ids = appointments |> Enum.map(& &1.service_type_id) |> Enum.uniq()
-    if ids == [], do: %{}, else:
-      ServiceType |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
+
+    if ids == [],
+      do: %{},
+      else:
+        ServiceType |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1.name})
   end
 
   defp load_customer_map(appointments) do
     ids = appointments |> Enum.map(& &1.customer_id) |> Enum.uniq()
-    if ids == [], do: %{}, else:
-      Customer |> Ash.Query.filter(id in ^ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
+
+    if ids == [],
+      do: %{},
+      else:
+        Customer
+        |> Ash.Query.filter(id in ^ids)
+        |> Ash.read!(authorize?: false)
+        |> Map.new(&{&1.id, &1.name})
   end
 
   defp load_checklist_times(appointments) do
@@ -229,7 +243,7 @@ defmodule MobileCarWash.Operations.TechEarnings do
         items
         |> Enum.group_by(& &1.checklist_id)
         |> Map.new(fn {cl_id, items} ->
-          total_seconds = items |> Enum.map(& &1.actual_seconds || 0) |> Enum.sum()
+          total_seconds = items |> Enum.map(&(&1.actual_seconds || 0)) |> Enum.sum()
           {cl_id, div(total_seconds, 60)}
         end)
 

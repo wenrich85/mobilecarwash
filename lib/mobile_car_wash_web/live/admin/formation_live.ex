@@ -160,8 +160,8 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
       </div>
 
       <.progress_summary total={@total} completed={@completed} overdue={@overdue} />
-
-      <!-- Filters -->
+      
+    <!-- Filters -->
       <div class="flex gap-4 mb-6">
         <select class="select select-bordered select-sm" phx-change="filter_category" name="category">
           <option value="">All Categories</option>
@@ -182,8 +182,8 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
           <option value="blocked" selected={@filter_status == :blocked}>Blocked</option>
         </select>
       </div>
-
-      <!-- Add Task / Add Category -->
+      
+    <!-- Add Task / Add Category -->
       <div class="mb-6">
         <button class="btn btn-primary btn-sm mb-4" phx-click="toggle_add_form">
           {if @show_add_form, do: "Cancel", else: "+ Add Task"}
@@ -196,7 +196,13 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div class="form-control">
                   <label class="label label-text text-xs">Task Name</label>
-                  <input type="text" name="task[name]" class="input input-bordered input-sm" required placeholder="Task name" />
+                  <input
+                    type="text"
+                    name="task[name]"
+                    class="input input-bordered input-sm"
+                    required
+                    placeholder="Task name"
+                  />
                 </div>
                 <div class="form-control">
                   <label class="label label-text text-xs">Category</label>
@@ -221,45 +227,72 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
                 </div>
                 <div class="form-control">
                   <label class="label label-text text-xs">External URL</label>
-                  <input type="url" name="task[external_url]" class="input input-bordered input-sm" placeholder="https://..." />
+                  <input
+                    type="url"
+                    name="task[external_url]"
+                    class="input input-bordered input-sm"
+                    placeholder="https://..."
+                  />
                 </div>
               </div>
               <div class="form-control">
                 <label class="label label-text text-xs">Description</label>
-                <textarea name="task[description]" class="textarea textarea-bordered textarea-sm" placeholder="Task details..."></textarea>
+                <textarea
+                  name="task[description]"
+                  class="textarea textarea-bordered textarea-sm"
+                  placeholder="Task details..."
+                ></textarea>
               </div>
               <button type="submit" class="btn btn-primary btn-sm">Create Task</button>
             </form>
-
-            <!-- Add Category Form -->
+            
+    <!-- Add Category Form -->
             <div class="divider mt-6">Or Add Category</div>
             <form phx-submit="add_category" class="space-y-3">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div class="form-control">
                   <label class="label label-text text-xs">Category Name</label>
-                  <input type="text" name="category[name]" class="input input-bordered input-sm" required placeholder="e.g., Texas State" />
+                  <input
+                    type="text"
+                    name="category[name]"
+                    class="input input-bordered input-sm"
+                    required
+                    placeholder="e.g., Texas State"
+                  />
                 </div>
                 <div class="form-control">
                   <label class="label label-text text-xs">Sort Order</label>
-                  <input type="number" name="category[sort_order]" class="input input-bordered input-sm" value="0" />
+                  <input
+                    type="number"
+                    name="category[sort_order]"
+                    class="input input-bordered input-sm"
+                    value="0"
+                  />
                 </div>
               </div>
               <div class="form-control">
                 <label class="label label-text text-xs">Description</label>
-                <input type="text" name="category[description]" class="input input-bordered input-sm" placeholder="Category description" />
+                <input
+                  type="text"
+                  name="category[description]"
+                  class="input input-bordered input-sm"
+                  placeholder="Category description"
+                />
               </div>
               <button type="submit" class="btn btn-primary btn-sm">Add Category</button>
             </form>
           </div>
         </div>
       </div>
-
-      <!-- Tasks by Category -->
+      
+    <!-- Tasks by Category -->
       <div :for={group <- @grouped_tasks} class="card bg-base-100 shadow-xl mb-6">
         <div class="card-body p-0">
           <div class="px-6 py-4 bg-base-200 rounded-t-2xl">
             <h2 class="font-bold text-lg">{group.category.name}</h2>
-            <p :if={group.category.description} class="text-sm text-base-content/80">{group.category.description}</p>
+            <p :if={group.category.description} class="text-sm text-base-content/80">
+              {group.category.description}
+            </p>
           </div>
 
           <div :if={group.tasks == []} class="px-6 py-4 text-base-content/70 text-sm">
@@ -307,9 +340,11 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
     today = Date.utc_today()
     total = length(tasks)
     completed = Enum.count(tasks, &(&1.status == :completed))
-    overdue = Enum.count(tasks, fn t ->
-      t.due_date && Date.compare(t.due_date, today) == :lt && t.status != :completed
-    end)
+
+    overdue =
+      Enum.count(tasks, fn t ->
+        t.due_date && Date.compare(t.due_date, today) == :lt && t.status != :completed
+      end)
 
     # Group tasks by category
     grouped =
@@ -333,22 +368,26 @@ defmodule MobileCarWashWeb.Admin.FormationLive do
 
   defp parse_date(nil), do: nil
   defp parse_date(""), do: nil
+
   defp parse_date(str) when is_binary(str) do
     case Date.from_iso8601(str) do
       {:ok, date} -> date
       :error -> nil
     end
   end
+
   defp parse_date(d), do: d
 
   defp parse_int(nil), do: nil
   defp parse_int(""), do: nil
+
   defp parse_int(str) when is_binary(str) do
     case Integer.parse(str) do
       {n, _} -> n
       :error -> nil
     end
   end
+
   defp parse_int(n) when is_integer(n), do: n
 
   defp blank_to_nil(""), do: nil

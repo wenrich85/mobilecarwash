@@ -51,8 +51,10 @@ defmodule MobileCarWashWeb.BookingLive do
       |> assign_session_id()
       |> assign(
         page_title: "Book a Wash",
-        meta_description: "Book a mobile car wash or detail online. Choose your service, pick a time, and we come to you. Same-day availability. Veteran-owned.",
-        meta_keywords: "book mobile car wash, schedule car detail, online car wash booking, same day car wash, mobile detailing appointment",
+        meta_description:
+          "Book a mobile car wash or detail online. Choose your service, pick a time, and we come to you. Same-day availability. Veteran-owned.",
+        meta_keywords:
+          "book mobile car wash, schedule car detail, online car wash booking, same day car wash, mobile detailing appointment",
         canonical_path: "/book",
         services: services,
         booking_session_id: booking_session_id,
@@ -265,15 +267,32 @@ defmodule MobileCarWashWeb.BookingLive do
               <form phx-submit="guest_checkout" class="mt-4 space-y-3">
                 <div class="form-control">
                   <label class="label"><span class="label-text">Name *</span></label>
-                  <input type="text" name="guest[name]" class="input input-bordered" required placeholder="Your full name" />
+                  <input
+                    type="text"
+                    name="guest[name]"
+                    class="input input-bordered"
+                    required
+                    placeholder="Your full name"
+                  />
                 </div>
                 <div class="form-control">
                   <label class="label"><span class="label-text">Email *</span></label>
-                  <input type="email" name="guest[email]" class="input input-bordered" required placeholder="your@email.com" />
+                  <input
+                    type="email"
+                    name="guest[email]"
+                    class="input input-bordered"
+                    required
+                    placeholder="your@email.com"
+                  />
                 </div>
                 <div class="form-control">
                   <label class="label"><span class="label-text">Phone</span></label>
-                  <input type="tel" name="guest[phone]" class="input input-bordered" placeholder="512-555-0100" />
+                  <input
+                    type="tel"
+                    name="guest[phone]"
+                    class="input input-bordered"
+                    placeholder="512-555-0100"
+                  />
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">
                   Continue as Guest
@@ -335,42 +354,82 @@ defmodule MobileCarWashWeb.BookingLive do
           <div class="grid grid-cols-2 gap-4">
             <div class="form-control">
               <label class="label"><span class="label-text">Make</span></label>
-              <input type="text" name="vehicle[make]" class="input input-bordered" required placeholder="Toyota" />
+              <input
+                type="text"
+                name="vehicle[make]"
+                class="input input-bordered"
+                required
+                placeholder="Toyota"
+              />
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">Model</span></label>
-              <input type="text" name="vehicle[model]" class="input input-bordered" required placeholder="Camry" />
+              <input
+                type="text"
+                name="vehicle[model]"
+                class="input input-bordered"
+                required
+                placeholder="Camry"
+              />
             </div>
           </div>
           <div class="grid grid-cols-3 gap-4">
             <div class="form-control">
               <label class="label"><span class="label-text">Year</span></label>
-              <input type="number" name="vehicle[year]" class="input input-bordered" min="1990" max="2027" placeholder="2024" />
+              <input
+                type="number"
+                name="vehicle[year]"
+                class="input input-bordered"
+                min="1990"
+                max="2027"
+                placeholder="2024"
+              />
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">Color</span></label>
-              <input type="text" name="vehicle[color]" class="input input-bordered" placeholder="Silver" />
+              <input
+                type="text"
+                name="vehicle[color]"
+                class="input input-bordered"
+                placeholder="Silver"
+              />
             </div>
             <div class="form-control col-span-3">
               <label class="label"><span class="label-text">Vehicle Type *</span></label>
               <div class="grid grid-cols-3 gap-2">
                 <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
                   <div>
-                    <input type="radio" name="vehicle[size]" value="car" class="radio radio-primary radio-sm" checked />
+                    <input
+                      type="radio"
+                      name="vehicle[size]"
+                      value="car"
+                      class="radio radio-primary radio-sm"
+                      checked
+                    />
                     <span class="ml-2 font-semibold">Car</span>
                     <p class="text-xs text-base-content/70 ml-6">Sedan, Coupe, Compact</p>
                   </div>
                 </label>
                 <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
                   <div>
-                    <input type="radio" name="vehicle[size]" value="suv_van" class="radio radio-primary radio-sm" />
+                    <input
+                      type="radio"
+                      name="vehicle[size]"
+                      value="suv_van"
+                      class="radio radio-primary radio-sm"
+                    />
                     <span class="ml-2 font-semibold">SUV / Van</span>
                     <p class="text-xs text-warning ml-6">+20% price</p>
                   </div>
                 </label>
                 <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
                   <div>
-                    <input type="radio" name="vehicle[size]" value="pickup" class="radio radio-primary radio-sm" />
+                    <input
+                      type="radio"
+                      name="vehicle[size]"
+                      value="pickup"
+                      class="radio radio-primary radio-sm"
+                    />
                     <span class="ml-2 font-semibold">Pickup</span>
                     <p class="text-xs text-warning ml-6">+50% price</p>
                   </div>
@@ -417,26 +476,50 @@ defmodule MobileCarWashWeb.BookingLive do
         <form :if={@show_new_address_form} phx-submit="save_address" class="space-y-4 mb-6">
           <div class="form-control">
             <label class="label"><span class="label-text">Street Address</span></label>
-            <input type="text" name="address[street]" class="input input-bordered" required placeholder="123 Main St" />
+            <input
+              type="text"
+              name="address[street]"
+              class="input input-bordered"
+              required
+              placeholder="123 Main St"
+            />
           </div>
           <div class="grid grid-cols-3 gap-4">
             <div class="form-control">
               <label class="label"><span class="label-text">City</span></label>
-              <input type="text" name="address[city]" class="input input-bordered" required placeholder="Austin" />
+              <input
+                type="text"
+                name="address[city]"
+                class="input input-bordered"
+                required
+                placeholder="Austin"
+              />
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">State</span></label>
-              <input type="text" name="address[state]" class="input input-bordered" required value="TX" />
+              <input
+                type="text"
+                name="address[state]"
+                class="input input-bordered"
+                required
+                value="TX"
+              />
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">ZIP</span></label>
-              <input type="text" name="address[zip]" class="input input-bordered" required placeholder="78701" />
+              <input
+                type="text"
+                name="address[zip]"
+                class="input input-bordered"
+                required
+                placeholder="78701"
+              />
             </div>
           </div>
           <button type="submit" class="btn btn-primary">Save Address</button>
         </form>
-
-        <!-- Zone indicator -->
+        
+    <!-- Zone indicator -->
         <div :if={@selected_address && @selected_address.zone} class="alert alert-info mt-4">
           <span>
             Service Zone:
@@ -445,8 +528,13 @@ defmodule MobileCarWashWeb.BookingLive do
             </span>
           </span>
         </div>
-        <div :if={@selected_address && is_nil(@selected_address.zone)} class="alert alert-warning mt-4">
-          <span>This address may be outside our current service area. We'll confirm availability.</span>
+        <div
+          :if={@selected_address && is_nil(@selected_address.zone)}
+          class="alert alert-warning mt-4"
+        >
+          <span>
+            This address may be outside our current service area. We'll confirm availability.
+          </span>
         </div>
 
         <div :if={@selected_address} class="mt-4 text-right">
@@ -510,26 +598,37 @@ defmodule MobileCarWashWeb.BookingLive do
             </p>
           </div>
         </div>
-
-        <!-- Loyalty punch card redemption -->
+        
+    <!-- Loyalty punch card redemption -->
         <% loyalty_free = MobileCarWash.Loyalty.available_free_washes(@loyalty_card) %>
-        <div :if={loyalty_free > 0 && !@active_subscription} class={["alert mb-4", @redeem_loyalty && "alert-success" || "alert-info"]}>
+        <div
+          :if={loyalty_free > 0 && !@active_subscription}
+          class={["alert mb-4", (@redeem_loyalty && "alert-success") || "alert-info"]}
+        >
           <div class="flex items-center justify-between w-full flex-wrap gap-2">
             <div>
               <p class="font-semibold">
-                {if @redeem_loyalty, do: "🎁 Free wash applied!", else: "🎁 You have #{loyalty_free} free wash#{if loyalty_free != 1, do: "es"} available!"}
+                {if @redeem_loyalty,
+                  do: "🎁 Free wash applied!",
+                  else:
+                    "🎁 You have #{loyalty_free} free wash#{if loyalty_free != 1, do: "es"} available!"}
               </p>
               <p class="text-sm opacity-75">
-                {if @redeem_loyalty, do: "This booking is on us.", else: "Earned from your loyalty punch card."}
+                {if @redeem_loyalty,
+                  do: "This booking is on us.",
+                  else: "Earned from your loyalty punch card."}
               </p>
             </div>
-            <button class={["btn btn-sm", @redeem_loyalty && "btn-outline" || "btn-primary"]} phx-click="toggle_loyalty">
+            <button
+              class={["btn btn-sm", (@redeem_loyalty && "btn-outline") || "btn-primary"]}
+              phx-click="toggle_loyalty"
+            >
               {if @redeem_loyalty, do: "Remove", else: "Apply Free Wash"}
             </button>
           </div>
         </div>
-
-        <!-- Referral code -->
+        
+    <!-- Referral code -->
         <div :if={!@redeem_loyalty && !@active_subscription} class="alert mb-4">
           <div :if={!@referral_code} class="w-full">
             <form phx-submit="apply_referral" class="flex items-center gap-2">
@@ -553,13 +652,19 @@ defmodule MobileCarWashWeb.BookingLive do
           </div>
         </div>
 
-        <% base_price = MobileCarWash.Billing.Pricing.calculate(@selected_service.base_price_cents, @selected_vehicle.size) %>
+        <% base_price =
+          MobileCarWash.Billing.Pricing.calculate(
+            @selected_service.base_price_cents,
+            @selected_vehicle.size
+          ) %>
         <.booking_summary
-          appointment={%{
-            scheduled_at: @selected_slot,
-            price_cents: base_price - @referral_discount,
-            discount_cents: if(@redeem_loyalty, do: base_price, else: @referral_discount)
-          }}
+          appointment={
+            %{
+              scheduled_at: @selected_slot,
+              price_cents: base_price - @referral_discount,
+              discount_cents: if(@redeem_loyalty, do: base_price, else: @referral_discount)
+            }
+          }
           service={@selected_service}
           vehicle={@selected_vehicle}
           address={@selected_address}
@@ -575,8 +680,8 @@ defmodule MobileCarWashWeb.BookingLive do
       <div :if={@current_step == :confirmed && @appointment}>
         <.confirmation_card appointment={@appointment} service={@selected_service} />
       </div>
-
-      <!-- Back button (except on first and last steps) -->
+      
+    <!-- Back button (except on first and last steps) -->
       <div :if={@current_step not in [:select_service, :confirmed]} class="mt-4">
         <button class="btn btn-ghost btn-sm" phx-click="prev_step">
           ← Back
@@ -635,7 +740,11 @@ defmodule MobileCarWashWeb.BookingLive do
     alias MobileCarWash.Accounts.Customer
 
     require Ash.Query
-    existing = Customer |> Ash.Query.filter(email == ^guest_params["email"]) |> Ash.read!(authorize?: false)
+
+    existing =
+      Customer
+      |> Ash.Query.filter(email == ^guest_params["email"])
+      |> Ash.read!(authorize?: false)
 
     result =
       case existing do
@@ -672,7 +781,10 @@ defmodule MobileCarWashWeb.BookingLive do
           {:ok, next_step} ->
             socket =
               socket
-              |> assign(current_step: next_step, step_started_at: System.monotonic_time(:millisecond))
+              |> assign(
+                current_step: next_step,
+                step_started_at: System.monotonic_time(:millisecond)
+              )
               |> load_step_data(next_step)
               |> persist_booking_state()
 
@@ -699,18 +811,24 @@ defmodule MobileCarWashWeb.BookingLive do
     customer = socket.assigns.current_customer
 
     allowed_vehicle_keys = ~w(make model year color size)
+
     attrs =
       vehicle_params
       |> Map.take(allowed_vehicle_keys)
       |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
-      |> Map.update(:year, nil, fn v -> if is_binary(v) and v != "", do: String.to_integer(v), else: nil end)
+      |> Map.update(:year, nil, fn v ->
+        if is_binary(v) and v != "", do: String.to_integer(v), else: nil
+      end)
 
     case Vehicle
          |> Ash.Changeset.for_create(:create, attrs)
          |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
          |> Ash.create() do
       {:ok, vehicle} ->
-        track_event(socket, "booking.vehicle_added", %{"vehicle_id" => vehicle.id, "is_new" => true})
+        track_event(socket, "booking.vehicle_added", %{
+          "vehicle_id" => vehicle.id,
+          "is_new" => true
+        })
 
         {:noreply,
          socket
@@ -736,6 +854,7 @@ defmodule MobileCarWashWeb.BookingLive do
     customer = socket.assigns.current_customer
 
     allowed_address_keys = ~w(street city state zip)
+
     attrs =
       address_params
       |> Map.take(allowed_address_keys)
@@ -746,7 +865,10 @@ defmodule MobileCarWashWeb.BookingLive do
          |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
          |> Ash.create() do
       {:ok, address} ->
-        track_event(socket, "booking.address_added", %{"address_id" => address.id, "is_new" => true})
+        track_event(socket, "booking.address_added", %{
+          "address_id" => address.id,
+          "is_new" => true
+        })
 
         {:noreply,
          socket
@@ -859,15 +981,33 @@ defmodule MobileCarWashWeb.BookingLive do
     customer = socket.assigns.current_customer
 
     if customer do
-      case MobileCarWash.Scheduling.Booking.validate_referral_code(String.trim(String.upcase(code)), customer.id) do
+      case MobileCarWash.Scheduling.Booking.validate_referral_code(
+             String.trim(String.upcase(code)),
+             customer.id
+           ) do
         {:ok, _referrer} ->
-          {:noreply, assign(socket, referral_code: String.trim(String.upcase(code)), referral_discount: 1000, referral_error: nil)}
+          {:noreply,
+           assign(socket,
+             referral_code: String.trim(String.upcase(code)),
+             referral_discount: 1000,
+             referral_error: nil
+           )}
 
         {:error, :self_referral} ->
-          {:noreply, assign(socket, referral_code: nil, referral_discount: 0, referral_error: "You can't use your own referral code")}
+          {:noreply,
+           assign(socket,
+             referral_code: nil,
+             referral_discount: 0,
+             referral_error: "You can't use your own referral code"
+           )}
 
         {:error, :not_found} ->
-          {:noreply, assign(socket, referral_code: nil, referral_discount: 0, referral_error: "Invalid referral code")}
+          {:noreply,
+           assign(socket,
+             referral_code: nil,
+             referral_discount: 0,
+             referral_error: "Invalid referral code"
+           )}
       end
     else
       {:noreply, assign(socket, referral_error: "Sign in to use a referral code")}
@@ -893,13 +1033,15 @@ defmodule MobileCarWashWeb.BookingLive do
       vehicle_id: vehicle.id,
       address_id: address.id,
       appointment_block_id: block.id,
-      subscription_id: socket.assigns.active_subscription && socket.assigns.active_subscription.id,
+      subscription_id:
+        socket.assigns.active_subscription && socket.assigns.active_subscription.id,
       loyalty_redeem: socket.assigns.redeem_loyalty,
       referral_code: socket.assigns.referral_code
     }
 
     case Booking.create_booking(booking_params) do
-      {:ok, %{appointment: appointment, checkout_url: checkout_url}} when not is_nil(checkout_url) ->
+      {:ok, %{appointment: appointment, checkout_url: checkout_url}}
+      when not is_nil(checkout_url) ->
         elapsed = System.monotonic_time(:millisecond) - socket.assigns.flow_started_at
 
         track_event(socket, "booking.payment_started", %{
@@ -934,7 +1076,8 @@ defmodule MobileCarWashWeb.BookingLive do
          |> put_flash(:info, "Booking confirmed!")}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Booking failed: #{inspect(reason)}. Please try again.")}
+        {:noreply,
+         put_flash(socket, :error, "Booking failed: #{inspect(reason)}. Please try again.")}
     end
   end
 
@@ -1032,7 +1175,10 @@ defmodule MobileCarWashWeb.BookingLive do
   defp restore_from_cache(cached) do
     # Load actual records from DB by ID
     service = cached[:service_id] && safe_get(ServiceType, cached[:service_id])
-    customer = cached[:customer_id] && safe_get(MobileCarWash.Accounts.Customer, cached[:customer_id])
+
+    customer =
+      cached[:customer_id] && safe_get(MobileCarWash.Accounts.Customer, cached[:customer_id])
+
     vehicle = cached[:vehicle_id] && safe_get(Vehicle, cached[:vehicle_id])
     address = cached[:address_id] && safe_get(Address, cached[:address_id])
 
@@ -1101,7 +1247,9 @@ defmodule MobileCarWashWeb.BookingLive do
 
     case Date.from_iso8601(date) do
       {:ok, parsed_date} ->
-        blocks = BlockAvailability.open_blocks_for_service_range(service.id, parsed_date, parsed_date)
+        blocks =
+          BlockAvailability.open_blocks_for_service_range(service.id, parsed_date, parsed_date)
+
         assign(socket, available_blocks: blocks)
 
       _ ->
@@ -1123,6 +1271,7 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   defp load_loyalty_card(nil), do: nil
+
   defp load_loyalty_card(customer) do
     case MobileCarWash.Loyalty.get_or_create_card(customer.id) do
       {:ok, card} -> card
@@ -1144,7 +1293,9 @@ defmodule MobileCarWashWeb.BookingLive do
 
         usage =
           SubscriptionUsage
-          |> Ash.Query.filter(subscription_id == ^sub.id and period_start <= ^today and period_end >= ^today)
+          |> Ash.Query.filter(
+            subscription_id == ^sub.id and period_start <= ^today and period_end >= ^today
+          )
           |> Ash.read!()
           |> List.first() || %{basic_washes_used: 0, deep_cleans_used: 0}
 

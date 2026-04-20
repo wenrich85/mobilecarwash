@@ -38,7 +38,12 @@ defmodule MobileCarWash.Notifications.SMSBookingConfirmationWorkerTest do
 
     {:ok, address} =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "123 Test St", city: "San Antonio", state: "TX", zip: "78259"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "123 Test St",
+        city: "San Antonio",
+        state: "TX",
+        zip: "78259"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 
@@ -68,7 +73,10 @@ defmodule MobileCarWash.Notifications.SMSBookingConfirmationWorkerTest do
     assert body =~ "Basic Wash"
   end
 
-  test "skips SMS when customer has sms_opt_in: false", %{appointment: appointment, customer: customer} do
+  test "skips SMS when customer has sms_opt_in: false", %{
+    appointment: appointment,
+    customer: customer
+  } do
     customer
     |> Ash.Changeset.for_update(:update, %{sms_opt_in: false})
     |> Ash.update!(authorize?: false)

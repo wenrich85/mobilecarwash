@@ -77,8 +77,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           </.link>
         </div>
       </div>
-
-      <!-- Who's Online -->
+      
+    <!-- Who's Online -->
       <div class="mb-8">
         <div class="flex items-center gap-2 mb-3">
           <span class="w-2 h-2 rounded-full bg-success inline-block animate-pulse"></span>
@@ -98,38 +98,42 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
             class="flex items-center gap-2 bg-base-100 shadow-sm rounded-full px-3 py-1.5 border border-base-200"
           >
             <!-- Role dot -->
-            <span class={["w-2 h-2 rounded-full flex-shrink-0", presence_dot_class(user.role)]}></span>
-
-            <!-- Name + page -->
+            <span class={["w-2 h-2 rounded-full flex-shrink-0", presence_dot_class(user.role)]}>
+            </span>
+            
+    <!-- Name + page -->
             <div class="min-w-0">
               <span class="text-sm font-medium">{user.name}</span>
               <span class="text-xs text-base-content/70 ml-1">· {user.page}</span>
             </div>
-
-            <!-- Role badge -->
+            
+    <!-- Role badge -->
             <span class={["badge badge-xs flex-shrink-0", presence_role_badge(user.role)]}>
               {format_role(user.role)}
             </span>
-
-            <!-- Time online -->
+            
+    <!-- Time online -->
             <span class="text-xs text-base-content/70 flex-shrink-0 font-mono">
               {format_duration(System.system_time(:second) - user.online_at)}
             </span>
           </div>
         </div>
       </div>
-
-      <!-- KPI Cards -->
+      
+    <!-- KPI Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="stat bg-base-100 shadow rounded-box">
           <div class="stat-title">Revenue</div>
           <div class="stat-value text-success">${format_cents(@kpis.revenue.total_cents)}</div>
           <div class="stat-desc">{@kpis.revenue.count} payments</div>
-          <div :if={@period_comparison} class={[
-            "flex items-center gap-1 text-sm font-semibold mt-2",
-            @period_comparison.delta_pct >= 0 && "text-success",
-            @period_comparison.delta_pct < 0 && "text-error"
-          ]}>
+          <div
+            :if={@period_comparison}
+            class={[
+              "flex items-center gap-1 text-sm font-semibold mt-2",
+              @period_comparison.delta_pct >= 0 && "text-success",
+              @period_comparison.delta_pct < 0 && "text-error"
+            ]}
+          >
             <span>{if @period_comparison.delta_pct >= 0, do: "▲", else: "▼"}</span>
             <span>{@period_comparison.delta_pct}%</span>
           </div>
@@ -153,8 +157,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           color="warning"
         />
       </div>
-
-      <!-- Main Content Grid -->
+      
+    <!-- Main Content Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <!-- AARRR Funnel -->
         <div class="card bg-base-100 shadow-xl">
@@ -163,8 +167,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
             <.funnel_chart steps={@funnel.steps} />
           </div>
         </div>
-
-        <!-- Revenue Chart -->
+        
+    <!-- Revenue Chart -->
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title">Daily Revenue</h2>
@@ -172,8 +176,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           </div>
         </div>
       </div>
-
-      <!-- Booking Stats -->
+      
+    <!-- Booking Stats -->
       <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
           <h2 class="card-title mb-4">Booking Flow</h2>
@@ -206,8 +210,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           </div>
         </div>
       </div>
-
-      <!-- Technician Performance -->
+      
+    <!-- Technician Performance -->
       <div :if={@technician_performance != []} class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
           <h2 class="card-title mb-4">Technician Performance</h2>
@@ -233,8 +237,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
                     <span class={[
                       tech.avg_estimated_minutes && tech.avg_estimated_minutes > 0 &&
                         "text-sm",
-                      tech.avg_estimated_minutes && tech.avg_estimated_minutes > 0 &&
-                        (tech.avg_actual_minutes > tech.avg_estimated_minutes && "text-error") ||
+                      (tech.avg_estimated_minutes && tech.avg_estimated_minutes > 0 &&
+                         (tech.avg_actual_minutes > tech.avg_estimated_minutes && "text-error")) ||
                         (tech.avg_actual_minutes <= tech.avg_estimated_minutes && "text-success")
                     ]}>
                       {if tech.avg_estimated_minutes && tech.avg_estimated_minutes > 0 do
@@ -262,8 +266,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           </div>
         </div>
       </div>
-
-      <!-- Pivot Signals -->
+      
+    <!-- Pivot Signals -->
       <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
           <h2 class="card-title mb-4">Pivot Signals</h2>
@@ -273,8 +277,8 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
           <.pivot_signals signals={@signals} />
         </div>
       </div>
-
-      <!-- Recent Events -->
+      
+    <!-- Recent Events -->
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex justify-between items-center mb-4">

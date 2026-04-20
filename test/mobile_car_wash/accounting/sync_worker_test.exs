@@ -90,7 +90,10 @@ defmodule MobileCarWash.Accounting.SyncWorkerTest do
       assert result == :ok
     end
 
-    test "worker resolves service name from appointment → service type", %{payment: payment, service: service} do
+    test "worker resolves service name from appointment → service type", %{
+      payment: payment,
+      service: service
+    } do
       # Verify the payment has an appointment_id (which triggers service name lookup)
       {:ok, loaded_payment} = Ash.get(MobileCarWash.Billing.Payment, payment.id)
       assert loaded_payment.appointment_id != nil
@@ -128,7 +131,11 @@ defmodule MobileCarWash.Accounting.SyncWorkerTest do
       original = Application.get_env(:mobile_car_wash, :accounting_provider)
 
       try do
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.ZohoBooks)
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.ZohoBooks
+        )
 
         guest = create_guest()
         service = create_service()
@@ -156,7 +163,11 @@ defmodule MobileCarWash.Accounting.SyncWorkerTest do
       original = Application.get_env(:mobile_car_wash, :accounting_provider)
 
       try do
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.QuickBooks)
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.QuickBooks
+        )
 
         guest = create_guest()
         service = create_service()

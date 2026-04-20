@@ -131,7 +131,10 @@ defmodule MobileCarWash.AI.PhotoAnalyzerTest do
   end
 
   defp enable_feature do
-    Application.put_env(:mobile_car_wash, :ai_photo_analysis, enabled: true, max_per_appointment: 10)
+    Application.put_env(:mobile_car_wash, :ai_photo_analysis,
+      enabled: true,
+      max_per_appointment: 10
+    )
   end
 
   defp disable_feature do

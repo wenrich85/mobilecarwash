@@ -23,54 +23,54 @@ defmodule MobileCarWash.Marketing.Persona do
     authorizers: [Ash.Policy.Authorizer]
 
   postgres do
-    table "personas"
-    repo MobileCarWash.Repo
+    table("personas")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :slug, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :name, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :description, :string do
-      allow_nil? true
-      default ""
-      public? true
+      allow_nil?(true)
+      default("")
+      public?(true)
     end
 
     attribute :criteria, :map do
-      default %{}
-      public? true
+      default(%{})
+      public?(true)
     end
 
-    attribute :image_url, :string, public?: true
-    attribute :image_prompt, :string, public?: true
+    attribute(:image_url, :string, public?: true)
+    attribute(:image_prompt, :string, public?: true)
 
     attribute :active, :boolean do
-      allow_nil? false
-      default true
-      public? true
+      allow_nil?(false)
+      default(true)
+      public?(true)
     end
 
     attribute :sort_order, :integer do
-      default 100
-      public? true
+      default(100)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   identities do
-    identity :unique_slug, [:slug]
+    identity(:unique_slug, [:slug])
   end
 
   relationships do
@@ -78,30 +78,39 @@ defmodule MobileCarWash.Marketing.Persona do
   end
 
   actions do
-    defaults [:read, :destroy, update: :*]
+    defaults([:read, :destroy, update: :*])
 
     create :create do
-      accept [:slug, :name, :description, :criteria, :image_url, :image_prompt, :active, :sort_order]
+      accept([
+        :slug,
+        :name,
+        :description,
+        :criteria,
+        :image_url,
+        :image_prompt,
+        :active,
+        :sort_order
+      ])
     end
 
     read :active do
-      filter expr(active == true)
-      prepare build(sort: [sort_order: :asc, name: :asc])
+      filter(expr(active == true))
+      prepare(build(sort: [sort_order: :asc, name: :asc]))
     end
 
     read :by_slug do
-      argument :slug, :string, allow_nil?: false
-      filter expr(slug == ^arg(:slug))
+      argument(:slug, :string, allow_nil?: false)
+      filter(expr(slug == ^arg(:slug)))
     end
   end
 
   policies do
     policy action_type(:read) do
-      authorize_if always()
+      authorize_if(always())
     end
 
     policy action_type([:create, :update, :destroy]) do
-      authorize_if expr(^actor(:role) == :admin)
+      authorize_if(expr(^actor(:role) == :admin))
     end
   end
 end

@@ -59,7 +59,9 @@ defmodule MobileCarWash.Accounting.QuickBooks do
     body = %{
       "CustomerRef" => %{"value" => contact_id},
       "Line" => line_items,
-      "CustomerMemo" => %{"value" => params[:notes] || "Driveway Detail Co — Thank you for your business!"},
+      "CustomerMemo" => %{
+        "value" => params[:notes] || "Driveway Detail Co — Thank you for your business!"
+      },
       "DocNumber" => params[:payment_id]
     }
 

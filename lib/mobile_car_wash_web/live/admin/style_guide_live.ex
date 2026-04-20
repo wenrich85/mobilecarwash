@@ -15,8 +15,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
     <div class="max-w-7xl mx-auto py-8 px-4">
       <h1 class="text-4xl font-bold mb-2">Style Guide</h1>
       <p class="text-base-content/80 mb-8">Brand colors, component library, and sizing guidelines.</p>
-
-      <!-- TABLE OF CONTENTS -->
+      
+    <!-- TABLE OF CONTENTS -->
       <div class="flex flex-wrap gap-2 mb-12">
         <a href="#colors" class="btn btn-sm btn-outline">Colors</a>
         <a href="#typography" class="btn btn-sm btn-outline">Typography</a>
@@ -28,17 +28,19 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <a href="#shadows" class="btn btn-sm btn-outline">Shadows</a>
         <a href="#spacing" class="btn btn-sm btn-outline">Spacing</a>
       </div>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- COLOR PALETTE -->
       <!-- ============================================================ -->
       <section id="colors" class="mb-16">
         <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Color Palette</h2>
-
-        <!-- Primary — Navy -->
+        
+    <!-- Primary — Navy -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Primary — Navy</h3>
-          <p class="text-sm text-base-content/80 mb-3">Base: #1E2A38 (700). Used for headers, primary actions, and brand identity.</p>
+          <p class="text-sm text-base-content/80 mb-3">
+            Base: #1E2A38 (700). Used for headers, primary actions, and brand identity.
+          </p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#F0F2F5" label="50" dark={false} />
             <.swatch hex="#D4DAE2" label="100" dark={false} />
@@ -52,11 +54,13 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
             <.swatch hex="#0C1219" label="900" dark={true} />
           </div>
         </div>
-
-        <!-- Secondary — White/Neutral -->
+        
+    <!-- Secondary — White/Neutral -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Secondary — White / Neutral</h3>
-          <p class="text-sm text-base-content/80 mb-3">Base: #FFFFFF (50). Used for backgrounds, cards, and clean space.</p>
+          <p class="text-sm text-base-content/80 mb-3">
+            Base: #FFFFFF (50). Used for backgrounds, cards, and clean space.
+          </p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#FFFFFF" label="50" dark={false} border={true} />
             <.swatch hex="#F8F9FA" label="100" dark={false} />
@@ -70,11 +74,13 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
             <.swatch hex="#212529" label="900" dark={true} />
           </div>
         </div>
-
-        <!-- Tertiary — Steel Blue -->
+        
+    <!-- Tertiary — Steel Blue -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Tertiary — Steel Blue</h3>
-          <p class="text-sm text-base-content/80 mb-3">Base: #3A7CA5 (400). Used for links, interactive elements, and accent touches.</p>
+          <p class="text-sm text-base-content/80 mb-3">
+            Base: #3A7CA5 (400). Used for links, interactive elements, and accent touches.
+          </p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#EBF4F9" label="50" dark={false} />
             <.swatch hex="#C8E1EF" label="100" dark={false} />
@@ -88,11 +94,13 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
             <.swatch hex="#0D1A21" label="900" dark={true} />
           </div>
         </div>
-
-        <!-- DaisyUI Semantic Colors -->
+        
+    <!-- DaisyUI Semantic Colors -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Semantic Colors (DaisyUI)</h3>
-          <p class="text-sm text-base-content/80 mb-3">Mapped from brand palette. Adapt to light/dark theme automatically.</p>
+          <p class="text-sm text-base-content/80 mb-3">
+            Mapped from brand palette. Adapt to light/dark theme automatically.
+          </p>
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
             <div class="flex flex-col items-center gap-1">
               <div class="w-full h-16 rounded-lg bg-primary"></div>
@@ -128,16 +136,12 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
             </div>
           </div>
         </div>
-
-      <!-- Color Usage Reference -->
+        
+    <!-- Color Usage Reference -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-3">Tailwind Class Reference</h3>
           <p class="text-sm text-base-content/80 mb-4">
-            Every shade is a real Tailwind utility. Use them with any property prefix:
-            <code class="bg-base-200 px-1 rounded">bg-</code>,
-            <code class="bg-base-200 px-1 rounded">text-</code>,
-            <code class="bg-base-200 px-1 rounded">border-</code>,
-            <code class="bg-base-200 px-1 rounded">ring-</code>, etc.
+            Every shade is a real Tailwind utility. Use them with any property prefix: <code class="bg-base-200 px-1 rounded">bg-</code>, <code class="bg-base-200 px-1 rounded">text-</code>, <code class="bg-base-200 px-1 rounded">border-</code>, <code class="bg-base-200 px-1 rounded">ring-</code>, etc.
           </p>
 
           <div class="overflow-x-auto">
@@ -153,50 +157,55 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
               <tbody>
                 <tr>
                   <td class="font-semibold">Primary (Navy)</td>
-                  <td class="font-mono text-xs">bg-primary-{50-900}</td>
+                  <td class="font-mono text-xs">bg-primary-{50 - 900}</td>
                   <td class="font-mono text-xs">bg-primary-700, text-primary-200</td>
-                  <td><div class="flex gap-1">
-                    <div class="w-5 h-5 rounded bg-primary-100"></div>
-                    <div class="w-5 h-5 rounded bg-primary-300"></div>
-                    <div class="w-5 h-5 rounded bg-primary-500"></div>
-                    <div class="w-5 h-5 rounded bg-primary-700"></div>
-                    <div class="w-5 h-5 rounded bg-primary-900"></div>
-                  </div></td>
+                  <td>
+                    <div class="flex gap-1">
+                      <div class="w-5 h-5 rounded bg-primary-100"></div>
+                      <div class="w-5 h-5 rounded bg-primary-300"></div>
+                      <div class="w-5 h-5 rounded bg-primary-500"></div>
+                      <div class="w-5 h-5 rounded bg-primary-700"></div>
+                      <div class="w-5 h-5 rounded bg-primary-900"></div>
+                    </div>
+                  </td>
                 </tr>
                 <tr>
                   <td class="font-semibold">Secondary (Neutral)</td>
-                  <td class="font-mono text-xs">bg-secondary-{50-900}</td>
+                  <td class="font-mono text-xs">bg-secondary-{50 - 900}</td>
                   <td class="font-mono text-xs">bg-secondary-100, border-secondary-300</td>
-                  <td><div class="flex gap-1">
-                    <div class="w-5 h-5 rounded bg-secondary-100 border border-secondary-300"></div>
-                    <div class="w-5 h-5 rounded bg-secondary-300"></div>
-                    <div class="w-5 h-5 rounded bg-secondary-500"></div>
-                    <div class="w-5 h-5 rounded bg-secondary-700"></div>
-                    <div class="w-5 h-5 rounded bg-secondary-900"></div>
-                  </div></td>
+                  <td>
+                    <div class="flex gap-1">
+                      <div class="w-5 h-5 rounded bg-secondary-100 border border-secondary-300"></div>
+                      <div class="w-5 h-5 rounded bg-secondary-300"></div>
+                      <div class="w-5 h-5 rounded bg-secondary-500"></div>
+                      <div class="w-5 h-5 rounded bg-secondary-700"></div>
+                      <div class="w-5 h-5 rounded bg-secondary-900"></div>
+                    </div>
+                  </td>
                 </tr>
                 <tr>
                   <td class="font-semibold">Tertiary (Steel Blue)</td>
-                  <td class="font-mono text-xs">bg-tertiary-{50-900}</td>
+                  <td class="font-mono text-xs">bg-tertiary-{50 - 900}</td>
                   <td class="font-mono text-xs">bg-tertiary-400, text-tertiary-600</td>
-                  <td><div class="flex gap-1">
-                    <div class="w-5 h-5 rounded bg-tertiary-100"></div>
-                    <div class="w-5 h-5 rounded bg-tertiary-300"></div>
-                    <div class="w-5 h-5 rounded bg-tertiary-400"></div>
-                    <div class="w-5 h-5 rounded bg-tertiary-600"></div>
-                    <div class="w-5 h-5 rounded bg-tertiary-900"></div>
-                  </div></td>
+                  <td>
+                    <div class="flex gap-1">
+                      <div class="w-5 h-5 rounded bg-tertiary-100"></div>
+                      <div class="w-5 h-5 rounded bg-tertiary-300"></div>
+                      <div class="w-5 h-5 rounded bg-tertiary-400"></div>
+                      <div class="w-5 h-5 rounded bg-tertiary-600"></div>
+                      <div class="w-5 h-5 rounded bg-tertiary-900"></div>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-
-        <!-- Common Patterns -->
+        
+    <!-- Common Patterns -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-3">Common Patterns</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
             <div class="rounded-lg border border-secondary-300 overflow-hidden">
               <div class="bg-primary-700 text-primary-100 p-4">
                 <h4 class="font-bold">Dark header on Navy</h4>
@@ -232,30 +241,56 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
                 CTA — bg-tertiary-400
               </button>
             </div>
-
           </div>
         </div>
-
-        <!-- Quick Reference -->
+        
+    <!-- Quick Reference -->
         <div class="bg-base-200 rounded-lg p-4 text-sm mb-8">
           <h4 class="font-semibold mb-2">When to use each palette:</h4>
           <table class="table table-sm">
             <tbody>
-              <tr><td class="font-semibold w-32">Primary 50-200</td><td>Light backgrounds, hover tints, disabled states</td></tr>
-              <tr><td class="font-semibold">Primary 300-500</td><td>Secondary text, borders, icons</td></tr>
-              <tr><td class="font-semibold">Primary 600-900</td><td>Headings, body text, dark sections, navbar</td></tr>
-              <tr><td class="font-semibold">Secondary 50-200</td><td>Page backgrounds, card surfaces, clean space</td></tr>
-              <tr><td class="font-semibold">Secondary 300-500</td><td>Borders, dividers, input outlines, muted text</td></tr>
-              <tr><td class="font-semibold">Secondary 600-900</td><td>Dark mode text, footer backgrounds</td></tr>
-              <tr><td class="font-semibold">Tertiary 50-200</td><td>Info tints, highlight backgrounds, selected states</td></tr>
-              <tr><td class="font-semibold">Tertiary 300-500</td><td>CTA buttons, links, active indicators, badges</td></tr>
-              <tr><td class="font-semibold">Tertiary 600-900</td><td>Hover states for CTAs, dark accent sections</td></tr>
+              <tr>
+                <td class="font-semibold w-32">Primary 50-200</td>
+                <td>Light backgrounds, hover tints, disabled states</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Primary 300-500</td>
+                <td>Secondary text, borders, icons</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Primary 600-900</td>
+                <td>Headings, body text, dark sections, navbar</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Secondary 50-200</td>
+                <td>Page backgrounds, card surfaces, clean space</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Secondary 300-500</td>
+                <td>Borders, dividers, input outlines, muted text</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Secondary 600-900</td>
+                <td>Dark mode text, footer backgrounds</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Tertiary 50-200</td>
+                <td>Info tints, highlight backgrounds, selected states</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Tertiary 300-500</td>
+                <td>CTA buttons, links, active indicators, badges</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Tertiary 600-900</td>
+                <td>Hover states for CTAs, dark accent sections</td>
+              </tr>
             </tbody>
           </table>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- TYPOGRAPHY -->
       <!-- ============================================================ -->
       <section id="typography" class="mb-16">
@@ -330,8 +365,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           </div>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- BUTTONS -->
       <!-- ============================================================ -->
       <section id="buttons" class="mb-16">
@@ -374,8 +409,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <p>Full width: <code>btn btn-block</code> — mobile forms</p>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- CARDS -->
       <!-- ============================================================ -->
       <section id="cards" class="mb-16">
@@ -406,25 +441,33 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <div class="card bg-base-100 shadow border-l-4 border-primary">
             <div class="card-body p-4">
               <h3 class="card-title text-base">Left Border — Primary</h3>
-              <p class="text-sm text-base-content/80">border-l-4 border-primary — dispatch cards, status indicators</p>
+              <p class="text-sm text-base-content/80">
+                border-l-4 border-primary — dispatch cards, status indicators
+              </p>
             </div>
           </div>
           <div class="card bg-base-100 shadow border-l-4 border-success">
             <div class="card-body p-4">
               <h3 class="card-title text-base">Left Border — Success</h3>
-              <p class="text-sm text-base-content/80">border-l-4 border-success — active/complete items</p>
+              <p class="text-sm text-base-content/80">
+                border-l-4 border-success — active/complete items
+              </p>
             </div>
           </div>
         </div>
 
         <div class="bg-base-200 rounded-lg p-4 text-sm font-mono mt-6">
           <p>Standard card: <code>card bg-base-100 shadow</code></p>
-          <p>Card body padding: <code>card-body</code> (default) or <code>card-body p-4</code> (compact)</p>
+          <p>
+            Card body padding: <code>card-body</code>
+            (default) or <code>card-body p-4</code>
+            (compact)
+          </p>
           <p>Status card: <code>card shadow border-l-4 border-[color]</code></p>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- BADGES -->
       <!-- ============================================================ -->
       <section id="badges" class="mb-16">
@@ -459,8 +502,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <span class="badge badge-error">Cancelled</span>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- ALERTS -->
       <!-- ============================================================ -->
       <section id="alerts" class="mb-16">
@@ -484,8 +527,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           </div>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- FORMS -->
       <!-- ============================================================ -->
       <section id="forms" class="mb-16">
@@ -505,7 +548,9 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
             <div class="form-control mb-3">
               <label class="label"><span class="label-text">With error</span></label>
               <input type="text" class="input input-bordered input-error" value="Bad value" />
-              <label class="label"><span class="label-text-alt text-error">This field is required</span></label>
+              <label class="label">
+                <span class="label-text-alt text-error">This field is required</span>
+              </label>
             </div>
           </div>
 
@@ -537,8 +582,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <p>Wrap with <code>form-control</code> + <code>label</code> for spacing</p>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- SHADOWS -->
       <!-- ============================================================ -->
       <section id="shadows" class="mb-16">
@@ -564,12 +609,15 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         </div>
 
         <div class="bg-base-200 rounded-lg p-4 text-sm font-mono mt-6">
-          <p>Tailwind: <code>shadow-sm</code>, <code>shadow</code>, <code>shadow-lg</code>, <code>shadow-xl</code></p>
+          <p>
+            Tailwind: <code>shadow-sm</code>, <code>shadow</code>, <code>shadow-lg</code>,
+            <code>shadow-xl</code>
+          </p>
           <p>Brand shadows use Navy (#1E2A38) at 6-12% opacity for warmth</p>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- SPACING -->
       <!-- ============================================================ -->
       <section id="spacing" class="mb-16">
@@ -588,11 +636,36 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
 
         <h3 class="font-semibold mb-3">Border Radius</h3>
         <div class="flex flex-wrap gap-4 mb-8">
-          <div class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs" style="border-radius: var(--radius-sm)">sm</div>
-          <div class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs" style="border-radius: var(--radius-md)">md</div>
-          <div class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs" style="border-radius: var(--radius-lg)">lg</div>
-          <div class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs" style="border-radius: var(--radius-xl)">xl</div>
-          <div class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs" style="border-radius: var(--radius-full)">full</div>
+          <div
+            class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs"
+            style="border-radius: var(--radius-sm)"
+          >
+            sm
+          </div>
+          <div
+            class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs"
+            style="border-radius: var(--radius-md)"
+          >
+            md
+          </div>
+          <div
+            class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs"
+            style="border-radius: var(--radius-lg)"
+          >
+            lg
+          </div>
+          <div
+            class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs"
+            style="border-radius: var(--radius-xl)"
+          >
+            xl
+          </div>
+          <div
+            class="w-16 h-16 bg-primary/20 border border-primary/40 flex items-center justify-center text-xs"
+            style="border-radius: var(--radius-full)"
+          >
+            full
+          </div>
         </div>
 
         <h3 class="font-semibold mb-3">Layout Guidelines</h3>
@@ -607,13 +680,48 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
               </tr>
             </thead>
             <tbody>
-              <tr><td>Page content</td><td>max-w-7xl (80rem)</td><td>px-4</td><td>-</td></tr>
-              <tr><td>Narrow pages (forms, status)</td><td>max-w-lg (32rem)</td><td>px-4</td><td>-</td></tr>
-              <tr><td>Card grid</td><td>-</td><td>-</td><td>gap-4 or gap-6</td></tr>
-              <tr><td>Card body</td><td>-</td><td>p-4 (compact) or card-body</td><td>-</td></tr>
-              <tr><td>Form fields</td><td>-</td><td>-</td><td>mb-3 between fields</td></tr>
-              <tr><td>Section spacing</td><td>-</td><td>py-8 or mb-8</td><td>-</td></tr>
-              <tr><td>Button groups</td><td>-</td><td>-</td><td>gap-2 or gap-3</td></tr>
+              <tr>
+                <td>Page content</td>
+                <td>max-w-7xl (80rem)</td>
+                <td>px-4</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>Narrow pages (forms, status)</td>
+                <td>max-w-lg (32rem)</td>
+                <td>px-4</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>Card grid</td>
+                <td>-</td>
+                <td>-</td>
+                <td>gap-4 or gap-6</td>
+              </tr>
+              <tr>
+                <td>Card body</td>
+                <td>-</td>
+                <td>p-4 (compact) or card-body</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>Form fields</td>
+                <td>-</td>
+                <td>-</td>
+                <td>mb-3 between fields</td>
+              </tr>
+              <tr>
+                <td>Section spacing</td>
+                <td>-</td>
+                <td>py-8 or mb-8</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>Button groups</td>
+                <td>-</td>
+                <td>-</td>
+                <td>gap-2 or gap-3</td>
+              </tr>
             </tbody>
           </table>
         </div>

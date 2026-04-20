@@ -55,11 +55,15 @@ defmodule MobileCarWash.Scheduling.Booking do
              {:ok, vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
              {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
              {:ok, params} <- resolve_schedule(params, service_type),
-             {:ok, price_cents, discount_cents} <- calculate_price(service_type, vehicle.size, params[:subscription_id]),
-             {price_cents, discount_cents} = apply_loyalty_discount(price_cents, discount_cents, params[:loyalty_redeem]),
+             {:ok, price_cents, discount_cents} <-
+               calculate_price(service_type, vehicle.size, params[:subscription_id]),
+             {price_cents, discount_cents} =
+               apply_loyalty_discount(price_cents, discount_cents, params[:loyalty_redeem]),
              :ok <- maybe_redeem_loyalty(params[:loyalty_redeem], params.customer_id),
-             {price_cents, discount_cents} = maybe_apply_referral(price_cents, discount_cents, params[:referral_code]),
-             {:ok, appointment} <- create_appointment(params, service_type, price_cents, discount_cents),
+             {price_cents, discount_cents} =
+               maybe_apply_referral(price_cents, discount_cents, params[:referral_code]),
+             {:ok, appointment} <-
+               create_appointment(params, service_type, price_cents, discount_cents),
              :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
              {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
           result
@@ -87,7 +91,8 @@ defmodule MobileCarWash.Scheduling.Booking do
 
   defp maybe_close_full_block(block_id) do
     case Ash.get(AppointmentBlock, block_id, load: [:appointment_count]) do
-      {:ok, %{status: :open, capacity: cap, appointment_count: count} = block} when count >= cap ->
+      {:ok, %{status: :open, capacity: cap, appointment_count: count} = block}
+      when count >= cap ->
         MobileCarWash.Scheduling.BlockOptimizer.close_and_optimize(block.id)
 
       _ ->
@@ -183,6 +188,7 @@ defmodule MobileCarWash.Scheduling.Booking do
     # Loyalty free wash — full discount, net becomes 0
     {0, price_cents + discount_cents}
   end
+
   defp apply_loyalty_discount(price_cents, discount_cents, _), do: {price_cents, discount_cents}
 
   defp maybe_redeem_loyalty(true, customer_id) do
@@ -192,6 +198,7 @@ defmodule MobileCarWash.Scheduling.Booking do
       {:error, reason} -> {:error, reason}
     end
   end
+
   defp maybe_redeem_loyalty(_, _), do: :ok
 
   defp fetch_service_type(service_type_id) do
@@ -314,7 +321,8 @@ defmodule MobileCarWash.Scheduling.Booking do
 
       true ->
         with {:ok, {lat, lng}} <- candidate_coords(address_id),
-             max_minutes <- MobileCarWash.Scheduling.SchedulingSettings.get().max_intra_block_drive_minutes,
+             max_minutes <-
+               MobileCarWash.Scheduling.SchedulingSettings.get().max_intra_block_drive_minutes,
              true <- any_within?(existing_coords, {lat, lng}, max_minutes) do
           :ok
         else
@@ -361,7 +369,8 @@ defmodule MobileCarWash.Scheduling.Booking do
   end
 
   defp calculate_price(service_type, vehicle_size, subscription_id) do
-    sized_price = MobileCarWash.Billing.Pricing.calculate(service_type.base_price_cents, vehicle_size)
+    sized_price =
+      MobileCarWash.Billing.Pricing.calculate(service_type.base_price_cents, vehicle_size)
 
     case Ash.get(Subscription, subscription_id, load: [:plan]) do
       {:ok, %{status: :active, plan: plan}} ->
@@ -392,7 +401,9 @@ defmodule MobileCarWash.Scheduling.Booking do
 
   defp maybe_apply_referral(price_cents, discount_cents, nil), do: {price_cents, discount_cents}
   defp maybe_apply_referral(price_cents, discount_cents, ""), do: {price_cents, discount_cents}
-  defp maybe_apply_referral(price_cents, discount_cents, _code), do: apply_referral_discount(price_cents, discount_cents)
+
+  defp maybe_apply_referral(price_cents, discount_cents, _code),
+    do: apply_referral_discount(price_cents, discount_cents)
 
   defp create_appointment(params, service_type, price_cents, discount_cents) do
     changeset =
@@ -412,7 +423,11 @@ defmodule MobileCarWash.Scheduling.Booking do
 
     changeset =
       if params[:referral_code] do
-        Ash.Changeset.force_change_attribute(changeset, :referral_code_used, params[:referral_code])
+        Ash.Changeset.force_change_attribute(
+          changeset,
+          :referral_code_used,
+          params[:referral_code]
+        )
       else
         changeset
       end
@@ -536,7 +551,11 @@ defmodule MobileCarWash.Scheduling.Booking do
 
     customer = Ash.get!(MobileCarWash.Accounts.Customer, params.customer_id, authorize?: false)
 
-    case StripeClient.create_checkout_session(appointment, service_type, to_string(customer.email)) do
+    case StripeClient.create_checkout_session(
+           appointment,
+           service_type,
+           to_string(customer.email)
+         ) do
       {:ok, session} ->
         # Store the checkout session ID on the payment
         {:ok, _payment} =

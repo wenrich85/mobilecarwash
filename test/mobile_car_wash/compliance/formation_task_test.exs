@@ -63,12 +63,13 @@ defmodule MobileCarWash.Compliance.FormationTaskTest do
     end
 
     test "creates next recurring task when recurring is true", %{category: category} do
-      task = create_task(category, %{
-        name: "Annual Report",
-        recurring: true,
-        recurrence_months: 12,
-        due_date: ~D[2026-05-15]
-      })
+      task =
+        create_task(category, %{
+          name: "Annual Report",
+          recurring: true,
+          recurrence_months: 12,
+          due_date: ~D[2026-05-15]
+        })
 
       {:ok, _completed} =
         task

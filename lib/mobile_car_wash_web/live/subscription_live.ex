@@ -24,8 +24,10 @@ defmodule MobileCarWashWeb.SubscriptionLive do
     {:ok,
      assign(socket,
        page_title: "Monthly Detailing Plans",
-       meta_description: "Save with a monthly car wash subscription. Plans from $90/mo include basic washes and deep clean discounts. Cancel anytime. Veteran-owned.",
-       meta_keywords: "car wash subscription, monthly car wash plan, car wash membership, auto detailing subscription, unlimited car wash, car wash savings plan",
+       meta_description:
+         "Save with a monthly car wash subscription. Plans from $90/mo include basic washes and deep clean discounts. Cancel anytime. Veteran-owned.",
+       meta_keywords:
+         "car wash subscription, monthly car wash plan, car wash membership, auto detailing subscription, unlimited car wash, car wash savings plan",
        canonical_path: "/subscribe",
        plans: plans,
        current_step: :select_plan,
@@ -120,8 +122,8 @@ defmodule MobileCarWashWeb.SubscriptionLive do
     ~H"""
     <div class="max-w-4xl mx-auto py-8 px-4">
       <h1 class="text-3xl font-bold mb-2">Subscribe</h1>
-
-      <!-- Step Indicator -->
+      
+    <!-- Step Indicator -->
       <div class="flex gap-2 mb-8">
         <div
           :for={{step, label} <- [{:select_plan, "Plan"}, {:auth, "Account"}, {:review, "Review"}]}
@@ -137,8 +139,8 @@ defmodule MobileCarWashWeb.SubscriptionLive do
           {label}
         </div>
       </div>
-
-      <!-- Step 1: Select Plan -->
+      
+    <!-- Step 1: Select Plan -->
       <div :if={@current_step == :select_plan}>
         <h2 class="text-xl font-bold mb-6">Choose Your Plan</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -147,7 +149,8 @@ defmodule MobileCarWashWeb.SubscriptionLive do
             class={[
               "card bg-base-100 shadow-md cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1",
               @selected_plan && @selected_plan.id == plan.id && "ring-2 ring-primary border-primary",
-              plan.slug == "standard" && !(@selected_plan && @selected_plan.id == plan.id) && "border-2 border-primary md:scale-105 shadow-lg"
+              plan.slug == "standard" && !(@selected_plan && @selected_plan.id == plan.id) &&
+                "border-2 border-primary md:scale-105 shadow-lg"
             ]}
             phx-click="select_plan"
             phx-value-slug={plan.slug}
@@ -187,8 +190,8 @@ defmodule MobileCarWashWeb.SubscriptionLive do
           </button>
         </div>
       </div>
-
-      <!-- Step 2: Auth (only shown if not logged in) -->
+      
+    <!-- Step 2: Auth (only shown if not logged in) -->
       <div :if={@current_step == :auth}>
         <h2 class="text-xl font-bold mb-4">Sign In to Subscribe</h2>
         <p class="text-base-content/80 mb-6">
@@ -210,8 +213,8 @@ defmodule MobileCarWashWeb.SubscriptionLive do
           <button class="btn btn-ghost btn-sm" phx-click="prev_step">Back</button>
         </div>
       </div>
-
-      <!-- Step 3: Review -->
+      
+    <!-- Step 3: Review -->
       <div :if={@current_step == :review && @selected_plan}>
         <h2 class="text-xl font-bold mb-6">Review Your Subscription</h2>
 

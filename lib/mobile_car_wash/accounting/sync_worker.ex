@@ -34,7 +34,9 @@ defmodule MobileCarWash.Accounting.SyncWorker do
               {:ok, svc} -> svc.name
               _ -> "Detailing Service"
             end
-          _ -> "Detailing Service"
+
+          _ ->
+            "Detailing Service"
         end
 
       payment.subscription_id ->

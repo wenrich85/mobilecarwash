@@ -13,12 +13,12 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   require Ash.Query
 
   @key_areas [
-    %{id: :front,           label: "Front"},
-    %{id: :rear,            label: "Rear"},
-    %{id: :driver_side,     label: "Driver Side"},
-    %{id: :passenger_side,  label: "Passenger Side"},
-    %{id: :interior,        label: "Interior"},
-    %{id: :wheels,          label: "Wheels"}
+    %{id: :front, label: "Front"},
+    %{id: :rear, label: "Rear"},
+    %{id: :driver_side, label: "Driver Side"},
+    %{id: :passenger_side, label: "Passenger Side"},
+    %{id: :interior, label: "Interior"},
+    %{id: :wheels, label: "Wheels"}
   ]
 
   @impl true
@@ -131,8 +131,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         {:noreply, put_flash(socket, :error, "Not authorized to cancel this appointment.")}
 
       appointment.status not in [:pending, :confirmed, :en_route] ->
-        {:noreply,
-         put_flash(socket, :error, "This appointment can no longer be cancelled.")}
+        {:noreply, put_flash(socket, :error, "This appointment can no longer be cancelled.")}
 
       true ->
         case appointment
@@ -146,7 +145,10 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
                live_status: nil,
                message: status_message(:cancelled)
              )
-             |> put_flash(:info, "Appointment cancelled. You should receive a confirmation shortly.")}
+             |> put_flash(
+               :info,
+               "Appointment cancelled. You should receive a confirmation shortly."
+             )}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, "Could not cancel — please try again.")}
@@ -163,8 +165,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         <p class="text-base-content/80 mb-6">
           {@service_type.name} · {Calendar.strftime(@appointment.scheduled_at, "%B %d at %I:%M %p")}
         </p>
-
-        <!-- Status Banner -->
+        
+    <!-- Status Banner -->
         <div class={["alert mb-6", status_alert_class(@appointment.status, @live_status)]}>
           <div>
             <div class="text-lg font-bold">{@message}</div>
@@ -173,8 +175,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             </div>
           </div>
         </div>
-
-        <!-- Step-by-Step Progress (visible during wash) -->
+        
+    <!-- Step-by-Step Progress (visible during wash) -->
         <div :if={@items != []} class="mb-6">
           <h3 class="font-semibold mb-3">Progress</h3>
           <div class="space-y-2">
@@ -205,13 +207,16 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
               <span :if={item.completed && item.actual_seconds} class="text-xs text-success">
                 {format_seconds(item.actual_seconds)}
               </span>
-              <span :if={item.started_at && !item.completed} class="text-xs text-warning animate-pulse">
+              <span
+                :if={item.started_at && !item.completed}
+                class="text-xs text-warning animate-pulse"
+              >
                 In progress...
               </span>
             </div>
           </div>
-
-          <!-- Overall Progress Bar -->
+          
+    <!-- Overall Progress Bar -->
           <div class="mt-4">
             <div class="flex justify-between text-xs text-base-content/70 mb-1">
               <span>{@steps_done}/{@steps_total} steps</span>
@@ -220,17 +225,23 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             <progress class="progress progress-primary w-full" value={@steps_done} max={@steps_total} />
           </div>
         </div>
-
-        <!-- Before/After Photos (live) -->
-        <div :if={@live_status == :in_progress or @before_photos != [] or @after_photos != []} class="mb-6">
+        
+    <!-- Before/After Photos (live) -->
+        <div
+          :if={@live_status == :in_progress or @before_photos != [] or @after_photos != []}
+          class="mb-6"
+        >
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold">Photos</h3>
-            <span :if={@live_status == :in_progress} class="flex items-center gap-1 text-xs text-error font-medium">
+            <span
+              :if={@live_status == :in_progress}
+              class="flex items-center gap-1 text-xs text-error font-medium"
+            >
               <span class="w-2 h-2 rounded-full bg-error inline-block animate-pulse"></span> Live
             </span>
           </div>
-
-          <!-- Column headers -->
+          
+    <!-- Column headers -->
           <div class="grid grid-cols-2 gap-2 mb-1 px-1">
             <span class="text-xs text-base-content/70 text-center">Before</span>
             <span class="text-xs text-base-content/70 text-center">After</span>
@@ -239,7 +250,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           <div class="space-y-2">
             <div :for={area <- @key_areas}>
               <% before_p = Enum.find(@before_photos, &(&1.car_part == area.id)) %>
-              <% after_p  = Enum.find(@after_photos,  &(&1.car_part == area.id)) %>
+              <% after_p = Enum.find(@after_photos, &(&1.car_part == area.id)) %>
               <div :if={before_p || after_p || @live_status == :in_progress}>
                 <p class="text-xs text-base-content/70 mb-1">{area.label}</p>
                 <div class="grid grid-cols-2 gap-2">
@@ -253,10 +264,16 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
                   <!-- After cell -->
                   <div class="aspect-[4/3] rounded-xl overflow-hidden bg-base-200">
                     <img :if={after_p} src={after_p.file_path} class="w-full h-full object-cover" />
-                    <div :if={!after_p && before_p} class="w-full h-full flex items-center justify-center">
+                    <div
+                      :if={!after_p && before_p}
+                      class="w-full h-full flex items-center justify-center"
+                    >
                       <span class="text-base-content/20 text-2xl animate-pulse">⋯</span>
                     </div>
-                    <div :if={!after_p && !before_p} class="w-full h-full flex items-center justify-center">
+                    <div
+                      :if={!after_p && !before_p}
+                      class="w-full h-full flex items-center justify-center"
+                    >
                       <span class="text-base-content/20 text-2xl">○</span>
                     </div>
                   </div>
@@ -265,8 +282,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             </div>
           </div>
         </div>
-
-        <!-- Customer Problem Photos -->
+        
+    <!-- Customer Problem Photos -->
         <div :if={@problem_photos != []} class="mb-6">
           <h3 class="font-semibold mb-2">Your Problem Areas</h3>
           <div class="flex gap-2 overflow-x-auto">
@@ -276,14 +293,17 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             </div>
           </div>
         </div>
-
-        <!-- Appointment Details -->
+        
+    <!-- Appointment Details -->
         <div class="card bg-base-100 shadow">
           <div class="card-body p-4 space-y-2 text-sm">
             <div><span class="font-semibold">Service:</span> {@service_type.name}</div>
             <div><span class="font-semibold">Location:</span> {@address.street}, {@address.city}</div>
-            <div><span class="font-semibold">Duration:</span> ~{@service_type.duration_minutes} min</div>
-            <div><span class="font-semibold">Status:</span>
+            <div>
+              <span class="font-semibold">Duration:</span> ~{@service_type.duration_minutes} min
+            </div>
+            <div>
+              <span class="font-semibold">Status:</span>
               <span class={["badge badge-sm", appointment_badge(@appointment.status)]}>
                 {format_status(@appointment.status)}
               </span>
@@ -398,11 +418,15 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
         total = length(items)
         done = Enum.count(items, & &1.completed)
-        eta = items |> Enum.reject(& &1.completed) |> Enum.reduce(0, fn i, acc -> acc + (i.estimated_minutes || 5) end)
+
+        eta =
+          items
+          |> Enum.reject(& &1.completed)
+          |> Enum.reduce(0, fn i, acc -> acc + (i.estimated_minutes || 5) end)
 
         active = Enum.find(items, &(&1.started_at && !&1.completed))
         next_pending = Enum.find(items, &(!&1.completed))
-        current = (active || next_pending)
+        current = active || next_pending
         current_name = if current, do: current.title, else: nil
 
         {items, done, total, eta, current_name}

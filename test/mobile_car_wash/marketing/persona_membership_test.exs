@@ -26,7 +26,8 @@ defmodule MobileCarWash.Marketing.PersonaMembershipTest do
         password: "Password123!",
         password_confirmation: "Password123!",
         name: "PM Test",
-        phone: "+15125559#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
+        phone:
+          "+15125559#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
       })
       |> Ash.create()
 

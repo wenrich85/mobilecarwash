@@ -70,7 +70,8 @@ defmodule MobileCarWash.Marketing.Referrals do
     do: {:ok, :already_rewarded}
 
   defp handle(%Customer{referred_by_id: referrer_id} = referee) do
-    reward_cents = Application.get_env(:mobile_car_wash, :referral_reward_cents, @default_reward_cents)
+    reward_cents =
+      Application.get_env(:mobile_car_wash, :referral_reward_cents, @default_reward_cents)
 
     with {:ok, referrer} <- Ash.get(Customer, referrer_id, authorize?: false),
          {:ok, _referrer} <- credit_referrer(referrer, reward_cents),

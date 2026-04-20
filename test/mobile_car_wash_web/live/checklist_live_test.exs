@@ -34,7 +34,8 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       # - ChecklistLive handle_info: reloads on incoming broadcasts
       # - AppointmentStatusLive: subscribes and processes updates
 
-      assert true  # Placeholder for full integration test
+      # Placeholder for full integration test
+      assert true
     end
   end
 end

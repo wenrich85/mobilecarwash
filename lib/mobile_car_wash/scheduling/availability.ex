@@ -58,7 +58,15 @@ defmodule MobileCarWash.Scheduling.Availability do
         []
 
       true ->
-        generate_slots(date, duration_minutes, existing_appointments, timezone, open_time, close_time, buffer)
+        generate_slots(
+          date,
+          duration_minutes,
+          existing_appointments,
+          timezone,
+          open_time,
+          close_time,
+          buffer
+        )
     end
   end
 
@@ -88,7 +96,15 @@ defmodule MobileCarWash.Scheduling.Availability do
 
   # --- Private ---
 
-  defp generate_slots(date, duration_minutes, existing_appointments, _timezone, open_time, close_time, buffer) do
+  defp generate_slots(
+         date,
+         duration_minutes,
+         existing_appointments,
+         _timezone,
+         open_time,
+         close_time,
+         buffer
+       ) do
     slot_step = duration_minutes + buffer
     now = DateTime.utc_now()
     is_today = Date.compare(date, DateTime.to_date(now)) == :eq

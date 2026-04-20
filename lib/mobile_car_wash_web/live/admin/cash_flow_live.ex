@@ -40,6 +40,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       if view_atom == :projections and is_nil(socket.assigns.proj_actuals) do
         actuals = Projections.project()
         inputs = inputs_from_actuals(actuals)
+
         assign(socket,
           proj_actuals: actuals,
           proj_inputs: inputs,
@@ -57,9 +58,10 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
   def handle_event("adjust_projection", params, socket) do
     prev = socket.assigns.proj_inputs
 
-    inputs = %{prev |
-      months: parse_months_input(params["months"], prev.months),
-      growth_rate: parse_growth_rate_input(params["growth_rate"], prev.growth_rate)
+    inputs = %{
+      prev
+      | months: parse_months_input(params["months"], prev.months),
+        growth_rate: parse_growth_rate_input(params["growth_rate"], prev.growth_rate)
     }
 
     {:noreply, assign(socket, proj_inputs: inputs, projections: Projections.compute(inputs))}
@@ -127,7 +129,11 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       end
 
     {:noreply,
-     assign(socket, editing_field: nil, proj_inputs: inputs, projections: Projections.compute(inputs))}
+     assign(socket,
+       editing_field: nil,
+       proj_inputs: inputs,
+       projections: Projections.compute(inputs)
+     )}
   end
 
   def handle_event("reset_projection", _params, socket) do
@@ -174,7 +180,10 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                   |> reload_data()
                   |> assign(active_modal: nil, form_error: nil)
                   |> assign(animating_flows: [:savings_to_expense, :tax_to_expense])
-                  |> put_flash(:info, "Transferred $#{amount} to Expense (50% each from Savings & Tax)")
+                  |> put_flash(
+                    :info,
+                    "Transferred $#{amount} to Expense (50% each from Savings & Tax)"
+                  )
 
                 Process.send_after(self(), :clear_animations, 2500)
                 {:noreply, socket}
@@ -187,7 +196,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
             end
 
           {:error, :insufficient_funds} ->
-            {:noreply, assign(socket, form_error: "Insufficient funds in Business Savings Account")}
+            {:noreply,
+             assign(socket, form_error: "Insufficient funds in Business Savings Account")}
 
           {:error, reason} ->
             {:noreply, assign(socket, form_error: format_error(reason))}
@@ -301,6 +311,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       if socket.assigns.active_view == :projections and not is_nil(socket.assigns.proj_actuals) do
         actuals = Projections.project()
         inputs = inputs_from_actuals(actuals)
+
         assign(socket,
           proj_actuals: actuals,
           proj_inputs: inputs,
@@ -334,7 +345,10 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
     ]}>
       <div class="stat-title text-xs flex items-center justify-between">
         <span>{@label}</span>
-        <span :if={@value_cents != @actual_cents} class="text-warning text-xs font-semibold normal-case">
+        <span
+          :if={@value_cents != @actual_cents}
+          class="text-warning text-xs font-semibold normal-case"
+        >
           {if @editable, do: "edited", else: "modified"}
         </span>
       </div>
@@ -347,7 +361,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           class={[
             @editable && "cursor-text hover:opacity-60",
             "transition-opacity",
-            @value_cents != @actual_cents && "text-warning" || "text-#{@color}"
+            (@value_cents != @actual_cents && "text-warning") || "text-#{@color}"
           ]}
           title={if @editable, do: "Click to edit"}
         >
@@ -392,8 +406,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
     ~H"""
     <tr class="border-b border-base-200 last:border-0">
       <td class="py-3 font-semibold text-sm">{@plan.name}</td>
-
-      <!-- Subscriber count -->
+      
+    <!-- Subscriber count -->
       <td class="py-3 text-right">
         <span
           :if={@editing_field != "plan_count_#{@plan.id}"}
@@ -401,7 +415,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           phx-value-field={"plan_count_#{@plan.id}"}
           class={[
             "cursor-text font-mono text-sm transition-opacity hover:opacity-60",
-            @plan.subscriber_count != @actual.subscriber_count && "text-warning" || ""
+            (@plan.subscriber_count != @actual.subscriber_count && "text-warning") || ""
           ]}
           title="Click to edit"
         >
@@ -429,8 +443,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">×</td>
-
-      <!-- Price per month -->
+      
+    <!-- Price per month -->
       <td class="py-3">
         <span
           :if={@editing_field != "plan_price_#{@plan.id}"}
@@ -438,7 +452,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           phx-value-field={"plan_price_#{@plan.id}"}
           class={[
             "cursor-text font-mono text-sm transition-opacity hover:opacity-60",
-            @plan.price_cents != @actual.price_cents && "text-warning" || ""
+            (@plan.price_cents != @actual.price_cents && "text-warning") || ""
           ]}
           title="Click to edit"
         >
@@ -467,20 +481,23 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">=</td>
-
-      <!-- Monthly MRR contribution -->
+      
+    <!-- Monthly MRR contribution -->
       <td class="py-3 text-right font-mono text-sm font-semibold">
         <span class={[
           @plan.subscriber_count != @actual.subscriber_count ||
-            @plan.price_cents != @actual.price_cents && "text-warning"
+            (@plan.price_cents != @actual.price_cents && "text-warning")
         ]}>
           ${format_cents(@plan.subscriber_count * @plan.price_cents)}
         </span>
       </td>
-
-      <!-- actual note -->
+      
+    <!-- actual note -->
       <td class="py-3 pl-4 text-xs text-base-content/30 whitespace-nowrap">
-        <span :if={@plan.subscriber_count != @actual.subscriber_count || @plan.price_cents != @actual.price_cents}>
+        <span :if={
+          @plan.subscriber_count != @actual.subscriber_count ||
+            @plan.price_cents != @actual.price_cents
+        }>
           actual: {@actual.subscriber_count} × ${cents_to_dollars_str(@actual.price_cents)}
         </span>
       </td>
@@ -496,8 +513,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
     ~H"""
     <tr class="border-b border-base-200 last:border-0">
       <td class="py-3 font-semibold text-sm">{@service.name}</td>
-
-      <!-- Count/month -->
+      
+    <!-- Count/month -->
       <td class="py-3 text-right">
         <span
           :if={@editing_field != "service_count_#{@service.id}"}
@@ -505,7 +522,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           phx-value-field={"service_count_#{@service.id}"}
           class={[
             "cursor-text font-mono text-sm transition-opacity hover:opacity-60",
-            @service.avg_monthly_count != @actual.avg_monthly_count && "text-warning" || ""
+            (@service.avg_monthly_count != @actual.avg_monthly_count && "text-warning") || ""
           ]}
           title="Click to edit"
         >
@@ -533,8 +550,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">×</td>
-
-      <!-- Price per wash -->
+      
+    <!-- Price per wash -->
       <td class="py-3">
         <span
           :if={@editing_field != "service_price_#{@service.id}"}
@@ -542,7 +559,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           phx-value-field={"service_price_#{@service.id}"}
           class={[
             "cursor-text font-mono text-sm transition-opacity hover:opacity-60",
-            @service.price_cents != @actual.price_cents && "text-warning" || ""
+            (@service.price_cents != @actual.price_cents && "text-warning") || ""
           ]}
           title="Click to edit"
         >
@@ -570,21 +587,26 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">=</td>
-
-      <!-- Monthly revenue contribution -->
+      
+    <!-- Monthly revenue contribution -->
       <td class="py-3 text-right font-mono text-sm font-semibold">
         <span class={[
           @service.avg_monthly_count != @actual.avg_monthly_count ||
-            @service.price_cents != @actual.price_cents && "text-warning"
+            (@service.price_cents != @actual.price_cents && "text-warning")
         ]}>
           ${format_cents(round(@service.avg_monthly_count * @service.price_cents))}
         </span>
       </td>
-
-      <!-- "actual" note if modified -->
+      
+    <!-- "actual" note if modified -->
       <td class="py-3 pl-4 text-xs text-base-content/30 whitespace-nowrap">
-        <span :if={@service.avg_monthly_count != @actual.avg_monthly_count || @service.price_cents != @actual.price_cents}>
-          actual: {format_count(@actual.avg_monthly_count)} × ${cents_to_dollars_str(@actual.price_cents)}
+        <span :if={
+          @service.avg_monthly_count != @actual.avg_monthly_count ||
+            @service.price_cents != @actual.price_cents
+        }>
+          actual: {format_count(@actual.avg_monthly_count)} × ${cents_to_dollars_str(
+            @actual.price_cents
+          )}
         </span>
       </td>
     </tr>
@@ -602,8 +624,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           Donald Miller's 5-bucket system: Expense → Tax, Business Savings, Investment, Personal Salary
         </p>
       </div>
-
-      <!-- View Tab Bar -->
+      
+    <!-- View Tab Bar -->
       <div class="tabs tabs-boxed mb-6">
         <button
           class={["tab tab-lg font-semibold", @active_view == :dashboard && "tab-active"]}
@@ -620,192 +642,200 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           Projections
         </button>
       </div>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- DASHBOARD VIEW -->
       <!-- ============================================================ -->
       <div :if={@active_view == :dashboard}>
-
-      <!-- SVG Diagram with Toggle -->
-      <div class="card bg-gradient-to-br from-secondary-50 to-tertiary-50 shadow-2xl mb-6 border border-tertiary-200 rounded-2xl">
-        <div class="card-body">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="card-title text-2xl text-primary-700">5-Bucket Cash Flow System</h2>
-            <label class="label cursor-pointer gap-3">
-              <span class="label-text font-semibold text-primary-700">Enable Animations</span>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@animations_enabled}
-                phx-click="toggle_animations"
-              />
-            </label>
+        
+    <!-- SVG Diagram with Toggle -->
+        <div class="card bg-gradient-to-br from-secondary-50 to-tertiary-50 shadow-2xl mb-6 border border-tertiary-200 rounded-2xl">
+          <div class="card-body">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="card-title text-2xl text-primary-700">5-Bucket Cash Flow System</h2>
+              <label class="label cursor-pointer gap-3">
+                <span class="label-text font-semibold text-primary-700">Enable Animations</span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary"
+                  checked={@animations_enabled}
+                  phx-click="toggle_animations"
+                />
+              </label>
+            </div>
+            <.bucket_diagram
+              accounts={@accounts}
+              thresholds={@thresholds}
+              config={@config}
+              animating_flows={@animating_flows}
+              animations_enabled={@animations_enabled}
+            />
           </div>
-          <.bucket_diagram
-            accounts={@accounts}
-            thresholds={@thresholds}
-            config={@config}
-            animating_flows={@animating_flows}
-            animations_enabled={@animations_enabled}
-          />
         </div>
-      </div>
+        
+    <!-- Action Buttons -->
+        <div class="flex gap-3 mb-8 flex-wrap">
+          <button
+            type="button"
+            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            style="background-color: #27AE60; border-color: #27AE60;"
+            phx-click="open_modal"
+            phx-value-modal="deposit"
+          >
+            + Record Income
+          </button>
 
-      <!-- Action Buttons -->
-      <div class="flex gap-3 mb-8 flex-wrap">
-        <button
-          type="button"
-          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-          style="background-color: #27AE60; border-color: #27AE60;"
-          phx-click="open_modal"
-          phx-value-modal="deposit"
-        >
-          + Record Income
-        </button>
+          <button
+            type="button"
+            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            style="background-color: #E74C3C; border-color: #E74C3C;"
+            phx-click="open_modal"
+            phx-value-modal="withdrawal"
+          >
+            - Record Expense
+          </button>
 
-        <button
-          type="button"
-          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-          style="background-color: #E74C3C; border-color: #E74C3C;"
-          phx-click="open_modal"
-          phx-value-modal="withdrawal"
-        >
-          - Record Expense
-        </button>
+          <button
+            type="button"
+            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            style="background-color: #E8A03C; border-color: #E8A03C;"
+            phx-click="open_modal"
+            phx-value-modal="transfer"
+          >
+            ↩ Rebalance to Expense
+          </button>
 
-        <button
-          type="button"
-          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-          style="background-color: #E8A03C; border-color: #E8A03C;"
-          phx-click="open_modal"
-          phx-value-modal="transfer"
-        >
-          ↩ Rebalance to Expense
-        </button>
+          <button
+            type="button"
+            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            style="background-color: #3A7CA5; border-color: #3A7CA5;"
+            phx-click="pay_salary"
+          >
+            💰 Pay Salary
+          </button>
 
-        <button
-          type="button"
-          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-          style="background-color: #3A7CA5; border-color: #3A7CA5;"
-          phx-click="pay_salary"
-        >
-          💰 Pay Salary
-        </button>
-
-        <button
-          type="button"
-          class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-          style="background-color: #1E2A38; border-color: #1E2A38;"
-          phx-click="open_modal"
-          phx-value-modal="config"
-        >
-          ⚙️ Settings
-        </button>
-      </div>
-
-      <!-- Thresholds Info -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <div class="stat bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg rounded-xl border border-green-200 p-6">
-          <div class="stat-title text-sm font-semibold text-green-900">Expense Threshold</div>
-          <div class="stat-value text-green-600 text-2xl font-bold">
-            ${format_cents(@thresholds.expense)}
-          </div>
-          <div class="stat-desc text-xs text-green-700">= Monthly Opex × 1.25</div>
+          <button
+            type="button"
+            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            style="background-color: #1E2A38; border-color: #1E2A38;"
+            phx-click="open_modal"
+            phx-value-modal="config"
+          >
+            ⚙️ Settings
+          </button>
         </div>
-
-        <div class="stat bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg rounded-xl border border-blue-200 p-6">
-          <div class="stat-title text-sm font-semibold text-blue-900">Savings Threshold</div>
-          <div class="stat-value text-blue-600 text-2xl font-bold">
-            ${format_cents(@thresholds.business_savings)}
+        
+    <!-- Thresholds Info -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <div class="stat bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg rounded-xl border border-green-200 p-6">
+            <div class="stat-title text-sm font-semibold text-green-900">Expense Threshold</div>
+            <div class="stat-value text-green-600 text-2xl font-bold">
+              ${format_cents(@thresholds.expense)}
+            </div>
+            <div class="stat-desc text-xs text-green-700">= Monthly Opex × 1.25</div>
           </div>
-          <div class="stat-desc text-xs text-blue-700">= Expense Threshold × 4</div>
+
+          <div class="stat bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg rounded-xl border border-blue-200 p-6">
+            <div class="stat-title text-sm font-semibold text-blue-900">Savings Threshold</div>
+            <div class="stat-value text-blue-600 text-2xl font-bold">
+              ${format_cents(@thresholds.business_savings)}
+            </div>
+            <div class="stat-desc text-xs text-blue-700">= Expense Threshold × 4</div>
+          </div>
+
+          <div class="stat bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg rounded-xl border border-amber-200 p-6">
+            <div class="stat-title text-sm font-semibold text-amber-900">Investment Target</div>
+            <div class="stat-value text-amber-600 text-2xl font-bold">
+              ${format_cents(@config.investment_target_cents)}
+            </div>
+            <div class="stat-desc text-xs text-amber-700">User-defined goal</div>
+          </div>
         </div>
+        
+    <!-- Recent Transactions -->
+        <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl border border-secondary-200 rounded-2xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl text-primary-700 mb-4">📋 Recent Transactions</h2>
 
-        <div class="stat bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg rounded-xl border border-amber-200 p-6">
-          <div class="stat-title text-sm font-semibold text-amber-900">Investment Target</div>
-          <div class="stat-value text-amber-600 text-2xl font-bold">
-            ${format_cents(@config.investment_target_cents)}
-          </div>
-          <div class="stat-desc text-xs text-amber-700">User-defined goal</div>
-        </div>
-      </div>
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead class="bg-primary-100 text-primary-900">
+                  <tr>
+                    <th class="text-sm font-bold">Type</th>
+                    <th class="text-sm font-bold">Amount</th>
+                    <th class="text-sm font-bold">Description</th>
+                    <th class="text-sm font-bold">Date</th>
+                  </tr>
+                </thead>
 
-      <!-- Recent Transactions -->
-      <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl border border-secondary-200 rounded-2xl">
-        <div class="card-body">
-          <h2 class="card-title text-2xl text-primary-700 mb-4">📋 Recent Transactions</h2>
+                <tbody>
+                  <tr
+                    :for={txn <- @recent_txns}
+                    class="hover:bg-primary-50 border-b border-secondary-200"
+                  >
+                    <td class="text-sm">
+                      <span class={["badge badge-sm font-bold", type_badge_class(txn.type)]}>
+                        {format_type(txn.type)}
+                      </span>
+                    </td>
+                    <td class="text-sm font-mono font-bold text-primary-700">
+                      ${format_cents(txn.amount_cents)}
+                    </td>
+                    <td class="text-xs text-base-content/70">{txn.description}</td>
+                    <td class="text-xs text-base-content/80">
+                      {Calendar.strftime(txn.inserted_at, "%m/%d %H:%M")}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead class="bg-primary-100 text-primary-900">
-                <tr>
-                  <th class="text-sm font-bold">Type</th>
-                  <th class="text-sm font-bold">Amount</th>
-                  <th class="text-sm font-bold">Description</th>
-                  <th class="text-sm font-bold">Date</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                <tr :for={txn <- @recent_txns} class="hover:bg-primary-50 border-b border-secondary-200">
-                  <td class="text-sm">
-                    <span class={["badge badge-sm font-bold", type_badge_class(txn.type)]}>
-                      {format_type(txn.type)}
-                    </span>
-                  </td>
-                  <td class="text-sm font-mono font-bold text-primary-700">${format_cents(txn.amount_cents)}</td>
-                  <td class="text-xs text-base-content/70">{txn.description}</td>
-                  <td class="text-xs text-base-content/80">
-                    {Calendar.strftime(txn.inserted_at, "%m/%d %H:%M")}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p :if={@recent_txns == []} class="text-center text-base-content/70 py-8 text-lg">
-            No transactions yet
-          </p>
-
-          <!-- Pagination -->
-          <div :if={@total_txn_count > 0} class="flex items-center justify-between mt-6 pt-4 border-t border-secondary-200">
-            <span class="text-sm text-base-content/70">
-              Page {[@page]} of {[@max_page]} ({[@total_txn_count]} total)
-            </span>
-            <div class="flex gap-2">
-              <button
-                class="btn btn-sm btn-outline"
-                phx-click="prev_page"
-                disabled={@page == 1}
-              >
-                ← Previous
-              </button>
-              <button
-                class="btn btn-sm btn-outline"
-                phx-click="next_page"
-                disabled={@page >= @max_page}
-              >
-                Next →
-              </button>
+            <p :if={@recent_txns == []} class="text-center text-base-content/70 py-8 text-lg">
+              No transactions yet
+            </p>
+            
+    <!-- Pagination -->
+            <div
+              :if={@total_txn_count > 0}
+              class="flex items-center justify-between mt-6 pt-4 border-t border-secondary-200"
+            >
+              <span class="text-sm text-base-content/70">
+                Page {[@page]} of {[@max_page]} ({[@total_txn_count]} total)
+              </span>
+              <div class="flex gap-2">
+                <button
+                  class="btn btn-sm btn-outline"
+                  phx-click="prev_page"
+                  disabled={@page == 1}
+                >
+                  ← Previous
+                </button>
+                <button
+                  class="btn btn-sm btn-outline"
+                  phx-click="next_page"
+                  disabled={@page >= @max_page}
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           </div>
         </div>
+        
+    <!-- Modals -->
+        <.deposit_modal active_modal={@active_modal} form_error={@form_error} config={@config} />
+        <.withdraw_modal active_modal={@active_modal} form_error={@form_error} config={@config} />
+        <.transfer_modal active_modal={@active_modal} form_error={@form_error} accounts={@accounts} />
+        <.config_modal active_modal={@active_modal} form_error={@form_error} config={@config} />
       </div>
-
-      <!-- Modals -->
-      <.deposit_modal active_modal={@active_modal} form_error={@form_error} config={@config} />
-      <.withdraw_modal active_modal={@active_modal} form_error={@form_error} config={@config} />
-      <.transfer_modal active_modal={@active_modal} form_error={@form_error} accounts={@accounts} />
-      <.config_modal active_modal={@active_modal} form_error={@form_error} config={@config} />
-
-      </div><!-- end :dashboard -->
+      <!-- end :dashboard -->
 
       <!-- ============================================================ -->
       <!-- PROJECTIONS VIEW -->
       <!-- ============================================================ -->
       <div :if={@active_view == :projections}>
-
-        <!-- Loading state (before first switch) -->
+        
+    <!-- Loading state (before first switch) -->
         <div :if={is_nil(@proj_inputs)} class="text-center py-12 text-base-content/70">
           Loading projections…
         </div>
@@ -870,8 +900,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
               </div>
             </div>
           </form>
-
-          <!-- Key Metrics — click editable values to change them -->
+          
+    <!-- Key Metrics — click editable values to change them -->
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
             <.proj_stat
               field="mrr"
@@ -922,8 +952,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
               editable={false}
             />
           </div>
-
-          <!-- Subscription Plan Breakdown — click subscriber count or price to edit -->
+          
+    <!-- Subscription Plan Breakdown — click subscriber count or price to edit -->
           <div class="card bg-base-100 shadow mb-6">
             <div class="card-body p-5">
               <h3 class="font-semibold text-sm mb-3">
@@ -966,8 +996,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
               </table>
             </div>
           </div>
-
-          <!-- Service Breakdown — click count or price to edit -->
+          
+    <!-- Service Breakdown — click count or price to edit -->
           <div class="card bg-base-100 shadow mb-6">
             <div class="card-body p-5">
               <h3 class="font-semibold text-sm mb-3">
@@ -1010,20 +1040,24 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
               </table>
             </div>
           </div>
-
-          <!-- Break-Even Card -->
+          
+    <!-- Break-Even Card -->
           <div class="card bg-base-100 shadow mb-6">
             <div class="card-body p-5">
               <h3 class="font-bold text-base mb-3">Break-Even Analysis</h3>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <p class="text-xs text-base-content/70 mb-1">Total monthly costs to cover</p>
-                  <p class="text-2xl font-bold">${format_cents(@projections.break_even.total_monthly_costs)}</p>
+                  <p class="text-2xl font-bold">
+                    ${format_cents(@projections.break_even.total_monthly_costs)}
+                  </p>
                 </div>
                 <div>
                   <p class="text-xs text-base-content/70 mb-1">MRR covers</p>
                   <div class="flex items-center gap-3">
-                    <p class="text-2xl font-bold text-primary">{@projections.break_even.mrr_coverage_pct}%</p>
+                    <p class="text-2xl font-bold text-primary">
+                      {@projections.break_even.mrr_coverage_pct}%
+                    </p>
                     <div class="flex-1">
                       <progress
                         class="progress progress-primary w-full"
@@ -1047,14 +1081,15 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
               </div>
             </div>
           </div>
-
-          <!-- Month-by-Month Projection Table -->
+          
+    <!-- Month-by-Month Projection Table -->
           <div class="card bg-base-100 shadow">
             <div class="card-body p-0">
               <div class="p-5 pb-2">
                 <h3 class="font-bold text-base">
                   {if @proj_inputs.growth_rate > 0,
-                    do: "#{@proj_inputs.months}-Month Projection (#{round(@proj_inputs.growth_rate * 100)}% monthly growth)",
+                    do:
+                      "#{@proj_inputs.months}-Month Projection (#{round(@proj_inputs.growth_rate * 100)}% monthly growth)",
                     else: "#{@proj_inputs.months}-Month Projection (flat baseline)"}
                 </h3>
                 <p class="text-xs text-base-content/70 mt-1">
@@ -1077,34 +1112,59 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
                     </tr>
                   </thead>
                   <tbody>
-                    <tr :for={row <- @projections.monthly}
-                        class={["border-b border-base-200",
-                          row.net_profit >= 0 && "hover:bg-success/5" || "hover:bg-error/5"]}>
+                    <tr
+                      :for={row <- @projections.monthly}
+                      class={[
+                        "border-b border-base-200",
+                        (row.net_profit >= 0 && "hover:bg-success/5") || "hover:bg-error/5"
+                      ]}
+                    >
                       <td class="font-semibold text-sm">{row.month_label}</td>
-                      <td class="text-right text-sm font-mono">${format_cents(row.projected_income)}</td>
-                      <td class="text-right text-sm font-mono text-primary">${format_cents(row.mrr_component)}</td>
-                      <td class="text-right text-sm font-mono text-base-content/80">${format_cents(row.one_time_component)}</td>
-                      <td class="text-right text-sm font-mono text-error">${format_cents(row.fixed_costs)}</td>
-                      <td class="text-right text-sm font-mono text-warning">${format_cents(row.variable_costs)}</td>
-                      <td class={["text-right text-sm font-bold font-mono",
-                        row.net_profit >= 0 && "text-success" || "text-error"]}>
+                      <td class="text-right text-sm font-mono">
+                        ${format_cents(row.projected_income)}
+                      </td>
+                      <td class="text-right text-sm font-mono text-primary">
+                        ${format_cents(row.mrr_component)}
+                      </td>
+                      <td class="text-right text-sm font-mono text-base-content/80">
+                        ${format_cents(row.one_time_component)}
+                      </td>
+                      <td class="text-right text-sm font-mono text-error">
+                        ${format_cents(row.fixed_costs)}
+                      </td>
+                      <td class="text-right text-sm font-mono text-warning">
+                        ${format_cents(row.variable_costs)}
+                      </td>
+                      <td class={[
+                        "text-right text-sm font-bold font-mono",
+                        (row.net_profit >= 0 && "text-success") || "text-error"
+                      ]}>
                         {if row.net_profit < 0, do: "-"}${format_cents(abs(row.net_profit))}
                       </td>
-                      <td class={["text-right text-sm",
-                        row.margin_pct >= 0 && "text-success" || "text-error"]}>
+                      <td class={[
+                        "text-right text-sm",
+                        (row.margin_pct >= 0 && "text-success") || "text-error"
+                      ]}>
                         {row.margin_pct}%
                       </td>
-                      <td class={["text-right text-sm font-mono",
-                        row.cumulative_profit >= 0 && "text-success/70" || "text-error/70"]}>
-                        {if row.cumulative_profit < 0, do: "-"}${format_cents(abs(row.cumulative_profit))}
+                      <td class={[
+                        "text-right text-sm font-mono",
+                        (row.cumulative_profit >= 0 && "text-success/70") || "text-error/70"
+                      ]}>
+                        {if row.cumulative_profit < 0, do: "-"}${format_cents(
+                          abs(row.cumulative_profit)
+                        )}
                       </td>
                     </tr>
                   </tbody>
                   <tfoot class="bg-base-200 font-bold">
                     <tr>
                       <td colspan="6" class="text-sm">Total ({@proj_inputs.months} months)</td>
-                      <td class={["text-right text-sm font-mono",
-                        List.last(@projections.monthly).cumulative_profit >= 0 && "text-success" || "text-error"]}>
+                      <td class={[
+                        "text-right text-sm font-mono",
+                        (List.last(@projections.monthly).cumulative_profit >= 0 && "text-success") ||
+                          "text-error"
+                      ]}>
                         <% final = List.last(@projections.monthly).cumulative_profit %>
                         {if final < 0, do: "-"}${format_cents(abs(final))}
                       </td>
@@ -1115,8 +1175,10 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
               </div>
             </div>
           </div>
-        </div><!-- end :if proj_inputs loaded -->
-      </div><!-- end :projections -->
+        </div>
+        <!-- end :if proj_inputs loaded -->
+      </div>
+      <!-- end :projections -->
 
     </div>
     """

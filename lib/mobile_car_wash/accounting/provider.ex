@@ -25,8 +25,10 @@ defmodule MobileCarWash.Accounting.Provider do
         }
 
   @callback create_contact(contact_params()) :: {:ok, map()} | {:error, term()}
-  @callback find_contact_by_email(String.t()) :: {:ok, map()} | {:error, :not_found} | {:error, term()}
+  @callback find_contact_by_email(String.t()) ::
+              {:ok, map()} | {:error, :not_found} | {:error, term()}
   @callback create_invoice(invoice_params()) :: {:ok, map()} | {:error, term()}
-  @callback record_payment(invoice_id :: String.t(), payment_params()) :: {:ok, map()} | {:error, term()}
+  @callback record_payment(invoice_id :: String.t(), payment_params()) ::
+              {:ok, map()} | {:error, term()}
   @callback get_invoice(invoice_id :: String.t()) :: {:ok, map()} | {:error, term()}
 end

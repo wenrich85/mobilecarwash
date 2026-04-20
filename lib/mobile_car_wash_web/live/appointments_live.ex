@@ -43,7 +43,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         end
       end
 
-    share_link = if customer, do: MobileCarWash.Marketing.Referrals.share_link_for(customer), else: nil
+    share_link =
+      if customer, do: MobileCarWash.Marketing.Referrals.share_link_for(customer), else: nil
 
     socket =
       socket
@@ -112,8 +113,7 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   end
 
   def handle_event("validate_photos", params, socket) do
-    {:noreply,
-     assign(socket, photo_caption: params["caption"] || socket.assigns.photo_caption)}
+    {:noreply, assign(socket, photo_caption: params["caption"] || socket.assigns.photo_caption)}
   end
 
   def handle_event("cancel_photo_upload", %{"ref" => ref, "source" => source}, socket) do
@@ -283,9 +283,11 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   def handle_info({:appointment_update, %{appointment_id: id}}, socket) do
     case Ash.get(Appointment, id) do
       {:ok, updated} ->
-        appointments = Enum.map(socket.assigns.appointments, fn a ->
-          if a.id == updated.id, do: updated, else: a
-        end)
+        appointments =
+          Enum.map(socket.assigns.appointments, fn a ->
+            if a.id == updated.id, do: updated, else: a
+          end)
+
         {:noreply, assign(socket, appointments: appointments)}
 
       _ ->
@@ -323,15 +325,15 @@ defmodule MobileCarWashWeb.AppointmentsLive do
           Recurring Schedules
         </.link>
       </div>
-
-      <!-- Loyalty Punch Card -->
+      
+    <!-- Loyalty Punch Card -->
       <div :if={@loyalty_card} class="card bg-base-100 shadow mb-6">
         <div class="card-body p-4">
           <% free = MobileCarWash.Loyalty.available_free_washes(@loyalty_card) %>
           <% punches = MobileCarWash.Loyalty.punches_in_cycle(@loyalty_card) %>
           <% total = MobileCarWash.Loyalty.punches_per_reward() %>
-
-          <!-- Free wash available banner -->
+          
+    <!-- Free wash available banner -->
           <div :if={free > 0} class="alert alert-success mb-3">
             <span class="font-semibold">
               🎁 You have {free} free wash{if free != 1, do: "es"} ready! Apply it at your next booking.
@@ -341,17 +343,19 @@ defmodule MobileCarWashWeb.AppointmentsLive do
           <div class="flex items-center justify-between mb-2">
             <h3 class="font-semibold">Loyalty Card</h3>
             <span class="text-xs text-base-content/70">
-              {if free > 0, do: "#{punches} punches toward next reward", else: "#{punches} / #{total} punches"}
+              {if free > 0,
+                do: "#{punches} punches toward next reward",
+                else: "#{punches} / #{total} punches"}
             </span>
           </div>
-
-          <!-- Punch slots: 2 rows of 5 -->
+          
+    <!-- Punch slots: 2 rows of 5 -->
           <div class="grid grid-cols-5 gap-2">
             <div
               :for={n <- 1..total}
               class={[
                 "aspect-square rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all",
-                n <= punches && "bg-primary border-primary text-primary-content" ||
+                (n <= punches && "bg-primary border-primary text-primary-content") ||
                   "border-base-300 text-base-content/20"
               ]}
             >
@@ -361,23 +365,33 @@ defmodule MobileCarWashWeb.AppointmentsLive do
 
           <p class="text-xs text-base-content/70 mt-2 text-center">
             {cond do
-              free > 0 -> "#{total - punches} more punch#{if total - punches != 1, do: "es"} until your next free wash"
-              punches == 0 -> "Every wash earns a punch — 10 punches = 1 free wash"
-              true -> "#{total - punches} more punch#{if total - punches != 1, do: "es"} to earn a free wash"
+              free > 0 ->
+                "#{total - punches} more punch#{if total - punches != 1, do: "es"} until your next free wash"
+
+              punches == 0 ->
+                "Every wash earns a punch — 10 punches = 1 free wash"
+
+              true ->
+                "#{total - punches} more punch#{if total - punches != 1, do: "es"} to earn a free wash"
             end}
           </p>
         </div>
       </div>
-
-      <!-- Share & earn -->
-      <div :if={@share_link && @current_customer} class="card bg-gradient-to-br from-primary/10 to-secondary/10 shadow mb-6">
+      
+    <!-- Share & earn -->
+      <div
+        :if={@share_link && @current_customer}
+        class="card bg-gradient-to-br from-primary/10 to-secondary/10 shadow mb-6"
+      >
         <div class="card-body p-4">
           <div class="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h3 class="font-semibold">🎁 Share &amp; earn</h3>
               <p class="text-sm text-base-content/80">
                 Send a friend your referral link — they save on their first wash and you earn
-                <span class="font-semibold">${MobileCarWash.Marketing.Referrals.default_reward_dollars()} in credit</span>
+                <span class="font-semibold">
+                  ${MobileCarWash.Marketing.Referrals.default_reward_dollars()} in credit
+                </span>
                 when they book.
               </p>
             </div>
@@ -417,7 +431,9 @@ defmodule MobileCarWashWeb.AppointmentsLive do
           <div class="card-body p-4">
             <div class="flex justify-between items-start">
               <div>
-                <h3 class="font-bold">{Map.get(@service_types, appt.service_type_id, %{name: "Service"}).name}</h3>
+                <h3 class="font-bold">
+                  {Map.get(@service_types, appt.service_type_id, %{name: "Service"}).name}
+                </h3>
                 <p class="text-sm text-base-content/80">
                   {Calendar.strftime(appt.scheduled_at, "%B %d, %Y at %I:%M %p")}
                 </p>
@@ -436,8 +452,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
               >
                 Track Live
               </.link>
-
-              <!-- Upload problem photos (before appointment starts) -->
+              
+    <!-- Upload problem photos (before appointment starts) -->
               <button
                 :if={appt.status in [:pending, :confirmed]}
                 class="btn btn-outline btn-sm"
@@ -447,8 +463,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
                 + Problem Area Photos
               </button>
             </div>
-
-            <!-- Photo Upload Form — mobile-first uploader with dual
+            
+    <!-- Photo Upload Form — mobile-first uploader with dual
                  CTAs (camera and library) and auto-upload. -->
             <div :if={@uploading_for == appt.id} class="mt-4 bg-base-200 rounded-2xl p-4 space-y-4">
               <div class="flex justify-between items-start">

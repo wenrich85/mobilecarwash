@@ -30,7 +30,9 @@ config :swoosh, :api_client, false
 config :mobile_car_wash, Oban, testing: :inline
 
 # Token signing secret for authentication (test)
-config :mobile_car_wash, :token_signing_secret, "test-only-secret-change-in-production-at-least-64-chars-long-please"
+config :mobile_car_wash,
+       :token_signing_secret,
+       "test-only-secret-change-in-production-at-least-64-chars-long-please"
 
 # Use mock Twilio client in tests
 config :mobile_car_wash, :twilio_client, MobileCarWash.Notifications.TwilioClientMock
@@ -50,7 +52,10 @@ config :mobile_car_wash, :image_generator, MobileCarWash.AI.ImageGeneratorMock
 # CRUD doesn't hit the live Stripe API.
 config :mobile_car_wash, :stripe_product_module, MobileCarWash.Billing.StripeProductMock
 config :mobile_car_wash, :stripe_price_module, MobileCarWash.Billing.StripePriceMock
-config :mobile_car_wash, :stripe_payment_intent_module, MobileCarWash.Billing.StripePaymentIntentMock
+
+config :mobile_car_wash,
+       :stripe_payment_intent_module,
+       MobileCarWash.Billing.StripePaymentIntentMock
 
 # Print only warnings and errors during test
 config :logger, level: :warning

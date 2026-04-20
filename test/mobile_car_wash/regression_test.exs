@@ -13,7 +13,11 @@ defmodule MobileCarWash.RegressionTest do
     email = email || "reg-#{:rand.uniform(100_000)}@test.com"
 
     MobileCarWash.Accounts.Customer
-    |> Ash.Changeset.for_create(:create_guest, %{email: email, name: "Reg Test", phone: "+15125551234"})
+    |> Ash.Changeset.for_create(:create_guest, %{
+      email: email,
+      name: "Reg Test",
+      phone: "+15125551234"
+    })
     |> Ash.create!()
   end
 
@@ -22,7 +26,10 @@ defmodule MobileCarWash.RegressionTest do
 
     MobileCarWash.Scheduling.ServiceType
     |> Ash.Changeset.for_create(:create, %{
-      name: "Reg Wash", slug: slug, base_price_cents: 5000, duration_minutes: 45
+      name: "Reg Wash",
+      slug: slug,
+      base_price_cents: 5000,
+      duration_minutes: 45
     })
     |> Ash.create!()
   end
@@ -255,14 +262,21 @@ defmodule MobileCarWash.RegressionTest do
       for n <- 1..3 do
         MobileCarWash.Operations.ProcedureStep
         |> Ash.Changeset.for_create(:create, %{
-          step_number: n, title: "Step #{n}", estimated_minutes: 5, required: true
+          step_number: n,
+          title: "Step #{n}",
+          estimated_minutes: 5,
+          required: true
         })
         |> Ash.Changeset.force_change_attribute(:procedure_id, proc.id)
         |> Ash.create!()
       end
 
       # Assign tech first (required before confirming), then confirm
-      tech = MobileCarWash.Operations.Technician |> Ash.Changeset.for_create(:create, %{name: "WO Tech"}) |> Ash.create!()
+      tech =
+        MobileCarWash.Operations.Technician
+        |> Ash.Changeset.for_create(:create, %{name: "WO Tech"})
+        |> Ash.create!()
+
       {:ok, assigned} = Dispatch.assign_technician(appt.id, tech.id)
       {:ok, _} = assigned |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
 
@@ -320,7 +334,11 @@ defmodule MobileCarWash.RegressionTest do
       original = Application.get_env(:mobile_car_wash, :accounting_provider)
 
       try do
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.ZohoBooks)
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.ZohoBooks
+        )
 
         guest = create_guest()
         customer_struct = %{name: guest.name, email: guest.email, phone: "+15125551234"}
@@ -333,7 +351,9 @@ defmodule MobileCarWash.RegressionTest do
         }
 
         # Should not crash — gracefully returns :ok when provider is unconfigured
-        result = MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Basic Wash")
+        result =
+          MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Basic Wash")
+
         assert result == :ok
       after
         if original do
@@ -348,7 +368,11 @@ defmodule MobileCarWash.RegressionTest do
       original = Application.get_env(:mobile_car_wash, :accounting_provider)
 
       try do
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.QuickBooks)
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.QuickBooks
+        )
 
         guest = create_guest()
         customer_struct = %{name: guest.name, email: guest.email, phone: "+15125551234"}
@@ -360,7 +384,9 @@ defmodule MobileCarWash.RegressionTest do
           stripe_payment_intent_id: "pi_test_qb"
         }
 
-        result = MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Deep Clean")
+        result =
+          MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Deep Clean")
+
         assert result == :ok
       after
         if original do
@@ -392,11 +418,22 @@ defmodule MobileCarWash.RegressionTest do
 
       try do
         # Start with Zoho, switch to QuickBooks mid-flight
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.ZohoBooks)
-        Application.put_env(:mobile_car_wash, :accounting_provider, MobileCarWash.Accounting.QuickBooks)
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.ZohoBooks
+        )
+
+        Application.put_env(
+          :mobile_car_wash,
+          :accounting_provider,
+          MobileCarWash.Accounting.QuickBooks
+        )
 
         # Facade should still complete (graceful skip with unconfigured provider)
-        result = MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Basic Wash")
+        result =
+          MobileCarWash.Accounting.sync_payment(customer_struct, payment_struct, "Basic Wash")
+
         assert result == :ok
       after
         if original do

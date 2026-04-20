@@ -8,7 +8,8 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
   defp confirmed_appointment(opts \\ []) do
     %{
       status: Keyword.get(opts, :status, :confirmed),
-      technician_id: if(Keyword.has_key?(opts, :technician_id), do: opts[:technician_id], else: "tech-1"),
+      technician_id:
+        if(Keyword.has_key?(opts, :technician_id), do: opts[:technician_id], else: "tech-1"),
       service_type_id: "svc-1"
     }
   end
@@ -76,6 +77,7 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
         item(step_number: 1, started_at: ~U[2026-01-01 10:00:00Z]),
         item(step_number: 2)
       ]
+
       target = Enum.at(items, 1)
       refute WashStateMachine.can_start_step?(target, items)
     end
@@ -97,6 +99,7 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
         item(step_number: 1, completed: true, completed_at: ~U[2026-01-01 10:05:00Z]),
         item(step_number: 2)
       ]
+
       target = Enum.at(items, 1)
       assert WashStateMachine.can_start_step?(target, items)
     end
@@ -106,6 +109,7 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
         item(step_number: 1, required: true),
         item(step_number: 2)
       ]
+
       target = Enum.at(items, 1)
       refute WashStateMachine.can_start_step?(target, items)
     end
@@ -115,6 +119,7 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
         item(step_number: 1, required: false),
         item(step_number: 2)
       ]
+
       target = Enum.at(items, 1)
       assert WashStateMachine.can_start_step?(target, items)
     end
@@ -146,6 +151,7 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
         item(step_number: 2, required: true, completed: true),
         item(step_number: 3, required: false)
       ]
+
       assert WashStateMachine.all_required_complete?(items)
     end
 
@@ -154,6 +160,7 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
         item(step_number: 1, required: true, completed: true),
         item(step_number: 2, required: true, completed: false)
       ]
+
       refute WashStateMachine.all_required_complete?(items)
     end
   end
@@ -167,6 +174,7 @@ defmodule MobileCarWash.Booking.WashStateMachineTest do
         item(step_number: 2),
         item(step_number: 3)
       ]
+
       assert WashStateMachine.next_step(items) == Enum.at(items, 1)
     end
 

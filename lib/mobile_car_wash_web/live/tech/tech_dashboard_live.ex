@@ -20,9 +20,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
     # Find technician record linked to this user account (or fall back to name match)
     technicians = Ash.read!(MobileCarWash.Operations.Technician)
+
     tech_record =
       Enum.find(technicians, fn t -> t.user_account_id == tech_user.id end) ||
-      Enum.find(technicians, fn t -> t.name == tech_user.name end)
+        Enum.find(technicians, fn t -> t.name == tech_user.name end)
 
     is_admin = tech_user.role == :admin
 
@@ -50,7 +51,11 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     # Load earnings summary (only if linked to a tech record)
     earnings_tab = :week
     earnings_ref = Date.utc_today()
-    earnings = if tech_record, do: TechEarnings.earnings_for_period(tech_record, earnings_tab, earnings_ref), else: nil
+
+    earnings =
+      if tech_record,
+        do: TechEarnings.earnings_for_period(tech_record, earnings_tab, earnings_ref),
+        else: nil
 
     all_appts = todays ++ tomorrows ++ upcoming
     service_map = Ash.read!(ServiceType) |> Map.new(&{&1.id, &1})
@@ -97,6 +102,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
     if connected?(socket) do
       AppointmentTracker.subscribe_to_new_appointments()
+
       # Personal channel — receives broadcasts when dispatch assigns this tech to an appointment.
       # This fires even before the appointment appears in our list, so we learn about new
       # assignments without having a pre-existing per-appointment subscription.
@@ -106,6 +112,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         # duty status changes.
         MobileCarWash.Operations.TechnicianTracker.subscribe(tech_record.id)
       end
+
       # Subscribe to currently-assigned appointments for in-place status updates.
       for appt <- todays ++ tomorrows ++ upcoming do
         AppointmentTracker.subscribe(appt.id)
@@ -153,12 +160,16 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   end
 
   def handle_event("earnings_prev", _params, socket) do
-    ref = TechEarnings.shift_period(socket.assigns.earnings_tab, socket.assigns.earnings_ref, :prev)
+    ref =
+      TechEarnings.shift_period(socket.assigns.earnings_tab, socket.assigns.earnings_ref, :prev)
+
     {:noreply, load_earnings(socket, socket.assigns.earnings_tab, ref)}
   end
 
   def handle_event("earnings_next", _params, socket) do
-    ref = TechEarnings.shift_period(socket.assigns.earnings_tab, socket.assigns.earnings_ref, :next)
+    ref =
+      TechEarnings.shift_period(socket.assigns.earnings_tab, socket.assigns.earnings_ref, :next)
+
     {:noreply, load_earnings(socket, socket.assigns.earnings_tab, ref)}
   end
 
@@ -195,30 +206,43 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
     # Load any missing addresses/vehicles
     new_addr_ids = Enum.map(appts, & &1.address_id) |> Enum.uniq()
+
     address_map =
       if new_addr_ids != [] do
-        MobileCarWash.Fleet.Address |> Ash.Query.filter(id in ^new_addr_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+        MobileCarWash.Fleet.Address
+        |> Ash.Query.filter(id in ^new_addr_ids)
+        |> Ash.read!()
+        |> Map.new(&{&1.id, &1})
       else
         %{}
       end
 
     new_veh_ids = Enum.map(appts, & &1.vehicle_id) |> Enum.uniq()
+
     vehicle_map =
       if new_veh_ids != [] do
-        MobileCarWash.Fleet.Vehicle |> Ash.Query.filter(id in ^new_veh_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+        MobileCarWash.Fleet.Vehicle
+        |> Ash.Query.filter(id in ^new_veh_ids)
+        |> Ash.read!()
+        |> Map.new(&{&1.id, &1})
       else
         %{}
       end
 
     new_cust_ids = Enum.map(appts, & &1.customer_id) |> Enum.uniq()
+
     customer_map =
       if new_cust_ids != [] do
-        Customer |> Ash.Query.filter(id in ^new_cust_ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
+        Customer
+        |> Ash.Query.filter(id in ^new_cust_ids)
+        |> Ash.read!(authorize?: false)
+        |> Map.new(&{&1.id, &1.name})
       else
         %{}
       end
 
-    pins = build_map_pins(appts, socket.assigns.service_map, customer_map, address_map, vehicle_map)
+    pins =
+      build_map_pins(appts, socket.assigns.service_map, customer_map, address_map, vehicle_map)
 
     socket =
       socket
@@ -237,13 +261,22 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
       # Move from zone_appointments to requested list
       requested_appt = Enum.find(socket.assigns.zone_appointments, &(&1.id == appointment_id))
-      zone_appointments = Enum.reject(socket.assigns.zone_appointments, &(&1.id == appointment_id))
+
+      zone_appointments =
+        Enum.reject(socket.assigns.zone_appointments, &(&1.id == appointment_id))
+
       requested_ids = MapSet.put(socket.assigns.requested_ids, appointment_id)
-      requested_appts = socket.assigns.requested_appts ++ (if requested_appt, do: [requested_appt], else: [])
+
+      requested_appts =
+        socket.assigns.requested_appts ++ if requested_appt, do: [requested_appt], else: []
 
       {:noreply,
        socket
-       |> assign(zone_appointments: zone_appointments, requested_ids: requested_ids, requested_appts: requested_appts)
+       |> assign(
+         zone_appointments: zone_appointments,
+         requested_ids: requested_ids,
+         requested_appts: requested_appts
+       )
        |> put_flash(:info, "Request sent to dispatch!")}
     else
       {:noreply, put_flash(socket, :error, "No technician record linked")}
@@ -283,8 +316,11 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   end
 
   # Appointment state-machine transitions.
-  def handle_event("depart", %{"id" => id}, socket), do: transition_appointment(socket, id, :depart)
-  def handle_event("arrive", %{"id" => id}, socket), do: transition_appointment(socket, id, :arrive)
+  def handle_event("depart", %{"id" => id}, socket),
+    do: transition_appointment(socket, id, :depart)
+
+  def handle_event("arrive", %{"id" => id}, socket),
+    do: transition_appointment(socket, id, :arrive)
 
   def handle_event("open_supply_log", %{"id" => appointment_id}, socket) do
     {:noreply,
@@ -325,20 +361,25 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         qty_str = String.trim(row["qty"] || "")
 
         case {supply_id, Decimal.parse(qty_str)} do
-          {"", _} -> {:skip}
+          {"", _} ->
+            {:skip}
+
           {_, {qty, ""}} ->
             if Decimal.gt?(qty, Decimal.new(0)) do
-              {:ok, %{
-                supply_id: supply_id,
-                appointment_id: appointment_id,
-                technician_id: tech && tech.id,
-                van_id: tech && tech.van_id,
-                quantity_used: qty
-              }}
+              {:ok,
+               %{
+                 supply_id: supply_id,
+                 appointment_id: appointment_id,
+                 technician_id: tech && tech.id,
+                 van_id: tech && tech.van_id,
+                 quantity_used: qty
+               }}
             else
               {:error, "Quantity must be greater than zero"}
             end
-          _ -> {:error, "Invalid quantity for a supply row"}
+
+          _ ->
+            {:error, "Invalid quantity for a supply row"}
         end
       end)
 
@@ -370,8 +411,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         <h1 class="text-2xl font-bold">My Schedule</h1>
         <p class="text-base-content/80">Welcome, {@tech_user.name}</p>
       </div>
-
-      <!-- Duty-status control — top-of-page so it's always one tap away -->
+      
+    <!-- Duty-status control — top-of-page so it's always one tap away -->
       <div :if={@tech_record} class="card bg-base-100 shadow mb-6">
         <div class="card-body p-4">
           <div class="flex items-center justify-between">
@@ -435,7 +476,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       </div>
 
       <div :if={!@tech_record && @is_admin} class="alert alert-info mb-6">
-        <span>Viewing as admin — showing all appointments. Link your account to a technician in
+        <span>
+          Viewing as admin — showing all appointments. Link your account to a technician in
           <.link navigate={~p"/admin/dispatch"} class="link font-semibold">Dispatch</.link>
           to see personal schedule.
         </span>
@@ -444,14 +486,28 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       <div :if={@unassigned_count > 0} class="alert alert-info mb-6">
         <span>{@unassigned_count} unassigned appointment(s) — check with dispatch.</span>
       </div>
-
-      <!-- Map -->
+      
+    <!-- Map -->
       <div class="mb-8">
         <div class="flex justify-between items-center mb-3">
-          <h2 class="text-lg font-bold">{if @map_view == :today, do: "Today's Route", else: "All Appointments"}</h2>
+          <h2 class="text-lg font-bold">
+            {if @map_view == :today, do: "Today's Route", else: "All Appointments"}
+          </h2>
           <div class="tabs tabs-boxed tabs-sm">
-            <button class={["tab", @map_view == :today && "tab-active"]} phx-click="map_view" phx-value-view="today">Today</button>
-            <button class={["tab", @map_view == :all && "tab-active"]} phx-click="map_view" phx-value-view="all">All</button>
+            <button
+              class={["tab", @map_view == :today && "tab-active"]}
+              phx-click="map_view"
+              phx-value-view="today"
+            >
+              Today
+            </button>
+            <button
+              class={["tab", @map_view == :all && "tab-active"]}
+              phx-click="map_view"
+              phx-value-view="all"
+            >
+              All
+            </button>
           </div>
         </div>
         <div
@@ -461,14 +517,22 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           class="w-full h-64 rounded-lg shadow border border-base-300 z-0"
         />
         <div class="flex gap-3 mt-2 text-xs text-base-content/70">
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#ADB5BD] inline-block"></span> Pending</span>
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#3A7CA5] inline-block"></span> Confirmed</span>
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#E6A817] inline-block"></span> In Progress</span>
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#2A9D6F] inline-block"></span> Completed</span>
+          <span class="flex items-center gap-1">
+            <span class="w-3 h-3 rounded-full bg-[#ADB5BD] inline-block"></span> Pending
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="w-3 h-3 rounded-full bg-[#3A7CA5] inline-block"></span> Confirmed
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="w-3 h-3 rounded-full bg-[#E6A817] inline-block"></span> In Progress
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="w-3 h-3 rounded-full bg-[#2A9D6F] inline-block"></span> Completed
+          </span>
         </div>
       </div>
-
-      <!-- Today -->
+      
+    <!-- Today -->
       <div class="mb-8">
         <h2 class="text-lg font-bold mb-3">Today</h2>
         <div :if={@todays_appointments == []} class="text-base-content/70 text-sm">
@@ -482,13 +546,21 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             address={Map.get(@address_map, appt.address_id)}
             vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
-            progress={Map.get(@progress_map, appt.id, %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil})}
+            progress={
+              Map.get(@progress_map, appt.id, %{
+                checklist_id: nil,
+                steps_done: 0,
+                steps_total: 0,
+                current_step: nil,
+                eta_minutes: nil,
+                checklist_status: nil
+              })
+            }
           />
-
         </div>
       </div>
-
-      <!-- Tomorrow -->
+      
+    <!-- Tomorrow -->
       <div class="mb-8">
         <h2 class="text-lg font-bold mb-3">Tomorrow</h2>
         <div :if={@tomorrows_appointments == []} class="text-base-content/70 text-sm">
@@ -502,12 +574,21 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             address={Map.get(@address_map, appt.address_id)}
             vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
-            progress={Map.get(@progress_map, appt.id, %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil})}
+            progress={
+              Map.get(@progress_map, appt.id, %{
+                checklist_id: nil,
+                steps_done: 0,
+                steps_total: 0,
+                current_step: nil,
+                eta_minutes: nil,
+                checklist_status: nil
+              })
+            }
           />
         </div>
       </div>
-
-      <!-- Upcoming -->
+      
+    <!-- Upcoming -->
       <div :if={@upcoming_appointments != []} class="mb-8">
         <h2 class="text-lg font-bold mb-3">Upcoming</h2>
         <div class="space-y-3">
@@ -518,16 +599,24 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
             address={Map.get(@address_map, appt.address_id)}
             vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
-            progress={Map.get(@progress_map, appt.id, %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil})}
+            progress={
+              Map.get(@progress_map, appt.id, %{
+                checklist_id: nil,
+                steps_done: 0,
+                steps_total: 0,
+                current_step: nil,
+                eta_minutes: nil,
+                checklist_status: nil
+              })
+            }
           />
         </div>
       </div>
-
-      <!-- Requested — awaiting dispatch approval -->
+      
+    <!-- Requested — awaiting dispatch approval -->
       <div :if={@requested_appts != []} class="mb-8">
         <h2 class="text-lg font-bold mb-3">
-          Requested
-          <span class="badge badge-sm badge-ghost ml-2">{length(@requested_appts)}</span>
+          Requested <span class="badge badge-sm badge-ghost ml-2">{length(@requested_appts)}</span>
         </h2>
         <div class="space-y-3">
           <div
@@ -543,7 +632,9 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                       {Zones.short_label(ra.zone)}
                     </span>
                   </div>
-                  <p class="text-sm text-base-content/70">{Calendar.strftime(ra.scheduled_at, "%b %d · %I:%M %p")}</p>
+                  <p class="text-sm text-base-content/70">
+                    {Calendar.strftime(ra.scheduled_at, "%b %d · %I:%M %p")}
+                  </p>
                   <p class="text-xs text-base-content/70">{ra.address_street}, {ra.address_city}</p>
                 </div>
                 <span class="badge badge-ghost badge-sm">Awaiting approval</span>
@@ -552,18 +643,24 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           </div>
         </div>
       </div>
-
-      <!-- Available Appointments -->
+      
+    <!-- Available Appointments -->
       <div :if={@tech_record && @zone_appointments != []} class="mb-8">
         <h2 class="text-lg font-bold mb-3">
           {if @tech_record.zone, do: "Available in Your Zone", else: "Available Appointments"}
-          <span :if={@tech_record.zone} class={["badge badge-sm ml-2", Zones.badge_class(@tech_record.zone)]}>
+          <span
+            :if={@tech_record.zone}
+            class={["badge badge-sm ml-2", Zones.badge_class(@tech_record.zone)]}
+          >
             {Zones.short_label(@tech_record.zone)}
           </span>
         </h2>
         <p class="text-sm text-base-content/70 mb-3">Unassigned appointments. Tap to request.</p>
         <div class="space-y-3">
-          <div :for={za <- @zone_appointments} class="card bg-base-100 shadow-sm border-l-4 border-warning">
+          <div
+            :for={za <- @zone_appointments}
+            class="card bg-base-100 shadow-sm border-l-4 border-warning"
+          >
             <div class="card-body p-4">
               <div class="flex justify-between items-start">
                 <div>
@@ -573,7 +670,9 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                       {Zones.short_label(za.zone)}
                     </span>
                   </div>
-                  <p class="text-sm text-base-content/80">{Calendar.strftime(za.scheduled_at, "%b %d · %I:%M %p")}</p>
+                  <p class="text-sm text-base-content/80">
+                    {Calendar.strftime(za.scheduled_at, "%b %d · %I:%M %p")}
+                  </p>
                   <p class="text-xs text-base-content/70">{za.address_street}, {za.address_city}</p>
                 </div>
                 <button
@@ -588,12 +687,12 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           </div>
         </div>
       </div>
-
-      <!-- Earnings -->
+      
+    <!-- Earnings -->
       <div :if={@tech_record} class="mb-8">
         <h2 class="text-lg font-bold mb-3">Earnings</h2>
-
-        <!-- Period Tabs -->
+        
+    <!-- Period Tabs -->
         <div class="tabs tabs-boxed mb-4">
           <button
             :for={tab <- [{:day, "Day"}, {:week, "Week"}, {:month, "Month"}, {:year, "Year"}]}
@@ -604,8 +703,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             {elem(tab, 1)}
           </button>
         </div>
-
-        <!-- Period Navigation -->
+        
+    <!-- Period Navigation -->
         <div :if={@earnings} class="flex items-center justify-between mb-4">
           <button class="btn btn-ghost btn-sm" phx-click="earnings_prev">
             &larr; Prev
@@ -630,15 +729,19 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             Next &rarr;
           </button>
         </div>
-
-        <!-- Summary Card -->
+        
+    <!-- Summary Card -->
         <div :if={@earnings} class="card bg-base-100 shadow mb-4">
           <div class="card-body p-4">
             <div class="flex justify-between items-start">
               <div>
-                <p class="text-3xl font-bold text-success">${format_dollars(@earnings.total_cents)}</p>
+                <p class="text-3xl font-bold text-success">
+                  ${format_dollars(@earnings.total_cents)}
+                </p>
                 <p class="text-sm text-base-content/80">
-                  {@earnings.washes_count} wash{if @earnings.washes_count != 1, do: "es"} @ ${format_dollars(@earnings.rate_cents)}/wash
+                  {@earnings.washes_count} wash{if @earnings.washes_count != 1, do: "es"} @ ${format_dollars(
+                    @earnings.rate_cents
+                  )}/wash
                 </p>
               </div>
               <div class="text-right">
@@ -647,8 +750,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             </div>
           </div>
         </div>
-
-        <!-- Wash List for Period -->
+        
+    <!-- Wash List for Period -->
         <div :if={@earnings && @earnings.washes != []} class="overflow-x-auto">
           <table class="table table-sm">
             <thead>
@@ -755,9 +858,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   end
 
   defp load_earnings(socket, tab, ref) do
-    earnings = if socket.assigns.tech_record,
-      do: TechEarnings.earnings_for_period(socket.assigns.tech_record, tab, ref),
-      else: nil
+    earnings =
+      if socket.assigns.tech_record,
+        do: TechEarnings.earnings_for_period(socket.assigns.tech_record, tab, ref),
+        else: nil
 
     assign(socket, earnings_tab: tab, earnings_ref: ref, earnings: earnings)
   end
@@ -771,8 +875,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   defp format_dollars(_), do: "0.00"
 
   defp format_period_label(:day, date, _), do: Calendar.strftime(date, "%A, %B %d")
+
   defp format_period_label(:week, start_date, end_date),
     do: "#{Calendar.strftime(start_date, "%b %d")} – #{Calendar.strftime(end_date, "%b %d")}"
+
   defp format_period_label(:month, date, _), do: Calendar.strftime(date, "%B %Y")
   defp format_period_label(:year, date, _), do: "#{date.year}"
 
@@ -801,18 +907,20 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             {format_status(@appointment.status)}
           </span>
         </div>
-
-        <!-- Progress if checklist exists -->
+        
+    <!-- Progress if checklist exists -->
         <div :if={@progress.steps_total > 0} class="mt-2">
           <progress
             class="progress progress-primary w-full"
             value={@progress.steps_done}
             max={@progress.steps_total}
           />
-          <span class="text-xs text-base-content/70">{@progress.steps_done}/{@progress.steps_total} steps</span>
+          <span class="text-xs text-base-content/70">
+            {@progress.steps_done}/{@progress.steps_total} steps
+          </span>
         </div>
-
-        <!-- State-machine action buttons. One button per state so the tech
+        
+    <!-- State-machine action buttons. One button per state so the tech
              always sees exactly what's next without reading a menu. -->
         <div class="mt-3 flex gap-2">
           <button
@@ -841,8 +949,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           >
             Start wash
           </button>
-
-          <!-- Full-width primary CTA so the tech can jump back to the
+          
+    <!-- Full-width primary CTA so the tech can jump back to the
                checklist in one tap when a wash is mid-flight. -->
           <.link
             :if={@appointment.status == :in_progress and @progress.checklist_id}
@@ -854,11 +962,14 @@ defmodule MobileCarWashWeb.TechDashboardLive do
               ({@progress.steps_done}/{@progress.steps_total})
             </span>
           </.link>
-
-          <!-- Fallback for any other state that already has a checklist row
+          
+    <!-- Fallback for any other state that already has a checklist row
                (e.g. :on_site with a pre-built list). -->
           <.link
-            :if={@appointment.status != :in_progress and @progress.steps_total > 0 and @progress.checklist_id}
+            :if={
+              @appointment.status != :in_progress and @progress.steps_total > 0 and
+                @progress.checklist_id
+            }
             navigate={~p"/tech/checklist/#{@progress.checklist_id}"}
             class="btn btn-primary btn-sm flex-1"
           >
@@ -928,14 +1039,22 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp load_customer_map(appointments) do
     ids = Enum.map(appointments, & &1.customer_id) |> Enum.uniq()
-    if ids == [], do: %{}, else:
-      Customer |> Ash.Query.filter(id in ^ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
+
+    if ids == [],
+      do: %{},
+      else:
+        Customer
+        |> Ash.Query.filter(id in ^ids)
+        |> Ash.read!(authorize?: false)
+        |> Map.new(&{&1.id, &1.name})
   end
 
   defp load_address_map(appointments) do
     ids = Enum.map(appointments, & &1.address_id) |> Enum.uniq()
-    if ids == [], do: %{}, else:
-      Address |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+
+    if ids == [],
+      do: %{},
+      else: Address |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
   end
 
   defp load_zone_appointments(nil, _address_map, _service_map), do: []
@@ -950,6 +1069,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
     # Load their addresses to check zone
     addr_ids = Enum.map(unassigned, & &1.address_id) |> Enum.uniq()
+
     addr_map =
       if addr_ids != [] do
         Address |> Ash.Query.filter(id in ^addr_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
@@ -971,12 +1091,13 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     Enum.map(filtered, fn appt ->
       addr = Map.get(addr_map, appt.address_id)
       svc = Map.get(service_map, appt.service_type_id)
+
       %{
         id: appt.id,
         scheduled_at: appt.scheduled_at,
-        service_name: svc && svc.name || "Service",
-        address_street: addr && addr.street || "",
-        address_city: addr && addr.city || "",
+        service_name: (svc && svc.name) || "Service",
+        address_street: (addr && addr.street) || "",
+        address_city: (addr && addr.city) || "",
         zone: addr && addr.zone
       }
     end)
@@ -984,8 +1105,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp load_vehicle_map(appointments) do
     ids = Enum.map(appointments, & &1.vehicle_id) |> Enum.uniq()
-    if ids == [], do: %{}, else:
-      Vehicle |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+
+    if ids == [],
+      do: %{},
+      else: Vehicle |> Ash.Query.filter(id in ^ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
   end
 
   defp build_map_pins(appointments, service_map, customer_map, address_map, vehicle_map) do
@@ -997,6 +1120,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       case coords do
         {lat, lng} ->
           vehicle = Map.get(vehicle_map, appt.vehicle_id)
+
           %{
             lat: lat,
             lng: lng,
@@ -1076,14 +1200,17 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   defp status_class(_), do: "badge-ghost"
 
   defp vehicle_label(%{make: make, model: model, size: size}) do
-    type = case size do
-      :car -> "Car"
-      :suv_van -> "SUV/Van"
-      :pickup -> "Pickup"
-      _ -> ""
-    end
+    type =
+      case size do
+        :car -> "Car"
+        :suv_van -> "SUV/Van"
+        :pickup -> "Pickup"
+        _ -> ""
+      end
+
     [make, model, type] |> Enum.reject(&(is_nil(&1) or &1 == "")) |> Enum.join(" · ")
   end
+
   defp vehicle_label(_), do: nil
 
   defp format_status(:pending), do: "Pending"

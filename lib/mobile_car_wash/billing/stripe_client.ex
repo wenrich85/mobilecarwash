@@ -160,7 +160,11 @@ defmodule MobileCarWash.Billing.StripeClient do
   end
 
   defp billing_portal_module do
-    Application.get_env(:mobile_car_wash, :stripe_billing_portal_module, Stripe.BillingPortal.Session)
+    Application.get_env(
+      :mobile_car_wash,
+      :stripe_billing_portal_module,
+      Stripe.BillingPortal.Session
+    )
   end
 
   defp product_module do

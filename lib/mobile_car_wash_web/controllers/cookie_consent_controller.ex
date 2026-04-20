@@ -66,7 +66,8 @@ defmodule MobileCarWashWeb.CookieConsentController do
     |> Base.encode16(case: :lower)
   end
 
-  defp fresh_session_id, do: "sess_" <> Base.url_encode64(:crypto.strong_rand_bytes(16), padding: false)
+  defp fresh_session_id,
+    do: "sess_" <> Base.url_encode64(:crypto.strong_rand_bytes(16), padding: false)
 
   defp redirect_back(conn) do
     case get_req_header(conn, "referer") do

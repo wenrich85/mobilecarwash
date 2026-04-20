@@ -19,7 +19,8 @@ defmodule MobileCarWash.Marketing.ReferralLeaderboardTest do
         password: "Password123!",
         password_confirmation: "Password123!",
         name: "LB Test",
-        phone: "+15125554#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
+        phone:
+          "+15125554#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
       })
       |> Ash.create()
 
@@ -34,7 +35,8 @@ defmodule MobileCarWash.Marketing.ReferralLeaderboardTest do
         password: "Password123!",
         password_confirmation: "Password123!",
         name: "EE",
-        phone: "+15125553#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
+        phone:
+          "+15125553#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}"
       })
       |> Ash.Changeset.force_change_attribute(:referred_by_id, referrer.id)
       |> Ash.create()

@@ -19,7 +19,11 @@ defmodule MobileCarWash.AI.PhotoAnalyzerWorkerTest do
     VisionClientMock.init()
 
     original = Application.get_env(:mobile_car_wash, :ai_photo_analysis, [])
-    Application.put_env(:mobile_car_wash, :ai_photo_analysis, enabled: true, max_per_appointment: 10)
+
+    Application.put_env(:mobile_car_wash, :ai_photo_analysis,
+      enabled: true,
+      max_per_appointment: 10
+    )
 
     on_exit(fn ->
       Application.put_env(:mobile_car_wash, :ai_photo_analysis, original)
@@ -70,8 +74,13 @@ defmodule MobileCarWash.AI.PhotoAnalyzerWorkerTest do
          %{appointment: appointment} do
       src = write_tmp_jpeg()
 
-      {:ok, _} = PhotoUpload.save_file(appointment.id, src, "after.jpg", :after, uploaded_by: :technician)
-      {:ok, _} = PhotoUpload.save_file(appointment.id, write_tmp_jpeg(), "step.jpg", :step_completion, uploaded_by: :technician)
+      {:ok, _} =
+        PhotoUpload.save_file(appointment.id, src, "after.jpg", :after, uploaded_by: :technician)
+
+      {:ok, _} =
+        PhotoUpload.save_file(appointment.id, write_tmp_jpeg(), "step.jpg", :step_completion,
+          uploaded_by: :technician
+        )
 
       assert VisionClientMock.calls() == []
     end

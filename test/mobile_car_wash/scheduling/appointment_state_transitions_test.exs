@@ -222,6 +222,7 @@ defmodule MobileCarWash.Scheduling.AppointmentStateTransitionsTest do
 
       # None of the on-the-way channels should fire from :start any more
       refute_received {:email, %{subject: "Tech is on the way" <> _}}
+
       assert ApnsClientMock.pushes_to("ios-transition-token")
              |> Enum.any?(fn {_, p, _} -> p.data.kind == "tech_on_the_way" end) == false
 

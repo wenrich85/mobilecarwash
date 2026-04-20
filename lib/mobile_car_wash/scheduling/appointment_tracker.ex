@@ -36,51 +36,80 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
   def broadcast_assigned_to_tech(_appointment_id, nil), do: :ok
 
   def broadcast_assigned_to_tech(appointment_id, technician_id) do
-    PubSub.broadcast(@pubsub, "tech:#{technician_id}:assigned", {:appointment_assigned, appointment_id})
+    PubSub.broadcast(
+      @pubsub,
+      "tech:#{technician_id}:assigned",
+      {:appointment_assigned, appointment_id}
+    )
   end
 
   @doc "Broadcast that a tech is requesting an appointment."
   def broadcast_tech_request(appointment_id, technician_id, technician_name) do
-    PubSub.broadcast(@pubsub, "appointments:tech_requests", {:tech_request, %{
-      appointment_id: appointment_id,
-      technician_id: technician_id,
-      technician_name: technician_name
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      "appointments:tech_requests",
+      {:tech_request,
+       %{
+         appointment_id: appointment_id,
+         technician_id: technician_id,
+         technician_name: technician_name
+       }}
+    )
   end
 
   @doc "Broadcast that an appointment's technician assignment or confirmation status changed."
   def broadcast_assignment_changed(appointment_id) do
-    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
-      appointment_id: appointment_id,
-      event: :assignment_changed
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      topic(appointment_id),
+      {:appointment_update,
+       %{
+         appointment_id: appointment_id,
+         event: :assignment_changed
+       }}
+    )
   end
 
   def broadcast_departed(appointment_id) do
-    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
-      appointment_id: appointment_id,
-      status: :en_route,
-      event: :departed,
-      message: "Your tech is on the way!"
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      topic(appointment_id),
+      {:appointment_update,
+       %{
+         appointment_id: appointment_id,
+         status: :en_route,
+         event: :departed,
+         message: "Your tech is on the way!"
+       }}
+    )
   end
 
   def broadcast_arrived(appointment_id) do
-    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
-      appointment_id: appointment_id,
-      status: :on_site,
-      event: :arrived,
-      message: "Your tech has arrived."
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      topic(appointment_id),
+      {:appointment_update,
+       %{
+         appointment_id: appointment_id,
+         status: :on_site,
+         event: :arrived,
+         message: "Your tech has arrived."
+       }}
+    )
   end
 
   def broadcast_started(appointment_id) do
-    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
-      appointment_id: appointment_id,
-      status: :in_progress,
-      event: :started,
-      message: "Your wash has begun!"
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      topic(appointment_id),
+      {:appointment_update,
+       %{
+         appointment_id: appointment_id,
+         status: :in_progress,
+         event: :started,
+         message: "Your wash has begun!"
+       }}
+    )
   end
 
   @doc """
@@ -90,36 +119,51 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
   def broadcast_step_progress(appointment_id, %{} = data) do
     remaining_minutes = calculate_remaining_minutes(data[:items] || [])
 
-    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
-      appointment_id: appointment_id,
-      status: :in_progress,
-      event: :step_update,
-      current_step: data[:current_step],
-      steps_done: data[:steps_done],
-      steps_total: data[:steps_total],
-      eta_minutes: remaining_minutes,
-      items: sanitize_items(data[:items] || []),
-      message: "Step #{data[:steps_done]}/#{data[:steps_total]}: #{data[:current_step]}"
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      topic(appointment_id),
+      {:appointment_update,
+       %{
+         appointment_id: appointment_id,
+         status: :in_progress,
+         event: :step_update,
+         current_step: data[:current_step],
+         steps_done: data[:steps_done],
+         steps_total: data[:steps_total],
+         eta_minutes: remaining_minutes,
+         items: sanitize_items(data[:items] || []),
+         message: "Step #{data[:steps_done]}/#{data[:steps_total]}: #{data[:current_step]}"
+       }}
+    )
   end
 
   def broadcast_photo(appointment_id, photo_type) do
-    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
-      appointment_id: appointment_id,
-      status: :in_progress,
-      event: :photo_uploaded,
-      photo_type: photo_type
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      topic(appointment_id),
+      {:appointment_update,
+       %{
+         appointment_id: appointment_id,
+         status: :in_progress,
+         event: :photo_uploaded,
+         photo_type: photo_type
+       }}
+    )
   end
 
   def broadcast_completed(appointment_id) do
-    PubSub.broadcast(@pubsub, topic(appointment_id), {:appointment_update, %{
-      appointment_id: appointment_id,
-      status: :completed,
-      event: :completed,
-      eta_minutes: 0,
-      message: "Your wash is complete!"
-    }})
+    PubSub.broadcast(
+      @pubsub,
+      topic(appointment_id),
+      {:appointment_update,
+       %{
+         appointment_id: appointment_id,
+         status: :completed,
+         event: :completed,
+         eta_minutes: 0,
+         message: "Your wash is complete!"
+       }}
+    )
   end
 
   defp topic(appointment_id), do: "appointment:#{appointment_id}"

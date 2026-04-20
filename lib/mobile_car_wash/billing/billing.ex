@@ -5,9 +5,9 @@ defmodule MobileCarWash.Billing do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Billing.SubscriptionPlan
-    resource MobileCarWash.Billing.Subscription
-    resource MobileCarWash.Billing.SubscriptionUsage
-    resource MobileCarWash.Billing.Payment
+    resource(MobileCarWash.Billing.SubscriptionPlan)
+    resource(MobileCarWash.Billing.Subscription)
+    resource(MobileCarWash.Billing.SubscriptionUsage)
+    resource(MobileCarWash.Billing.Payment)
   end
 end

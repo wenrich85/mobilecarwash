@@ -2,7 +2,9 @@ defmodule MobileCarWashWeb.Router do
   use MobileCarWashWeb, :router
   use AshAuthentication.Phoenix.Router
 
-  @ws_connect if Application.compile_env(:mobile_car_wash, :dev_routes), do: "ws://localhost:*", else: ""
+  @ws_connect if Application.compile_env(:mobile_car_wash, :dev_routes),
+                do: "ws://localhost:*",
+                else: ""
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -151,7 +153,8 @@ defmodule MobileCarWashWeb.Router do
         {MobileCarWashWeb.SignInRateLimit, :limit_sign_in}
       ]
     )
-    sign_out_route AuthController
+
+    sign_out_route(AuthController)
 
     # One-shot email verification link. The token in the query string
     # is its own authz; no plug auth required.
@@ -300,5 +303,4 @@ defmodule MobileCarWashWeb.Router do
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
-
 end

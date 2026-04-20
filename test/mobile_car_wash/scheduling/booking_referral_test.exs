@@ -21,7 +21,8 @@ defmodule MobileCarWash.Scheduling.BookingReferralTest do
     end
 
     test "returns {:error, :not_found} for invalid code" do
-      assert {:error, :not_found} = Booking.validate_referral_code("BADCODE1", Ash.UUID.generate())
+      assert {:error, :not_found} =
+               Booking.validate_referral_code("BADCODE1", Ash.UUID.generate())
     end
 
     test "returns {:error, :self_referral} if customer uses own code" do
@@ -35,7 +36,8 @@ defmodule MobileCarWash.Scheduling.BookingReferralTest do
         })
         |> Ash.create()
 
-      assert {:error, :self_referral} = Booking.validate_referral_code(customer.referral_code, customer.id)
+      assert {:error, :self_referral} =
+               Booking.validate_referral_code(customer.referral_code, customer.id)
     end
   end
 

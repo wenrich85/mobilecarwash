@@ -86,8 +86,8 @@ defmodule MobileCarWashWeb.Admin.EventsLive do
           ← Dashboard
         </.link>
       </div>
-
-      <!-- Filters -->
+      
+    <!-- Filters -->
       <div class="flex gap-4 mb-6">
         <select
           class="select select-bordered"
@@ -108,15 +108,15 @@ defmodule MobileCarWashWeb.Admin.EventsLive do
           Filtering: {@selected_event}
         </div>
       </div>
-
-      <!-- Events Table -->
+      
+    <!-- Events Table -->
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-0">
           <.event_feed events={@events} />
         </div>
       </div>
-
-      <!-- Pagination -->
+      
+    <!-- Pagination -->
       <div class="flex justify-between items-center mt-4">
         <button
           class="btn btn-outline btn-sm"

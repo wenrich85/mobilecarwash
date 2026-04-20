@@ -47,7 +47,8 @@ defmodule MobileCarWashWeb.PrivacyLive do
         </li>
         <li>
           <strong>Analytics & site usage:</strong>
-          we use <strong>Google Analytics</strong> (GA4) to understand how visitors use the site.
+          we use <strong>Google Analytics</strong>
+          (GA4) to understand how visitors use the site.
           GA4 sets cookies and collects information such as pages viewed, approximate location
           (city-level), device type, and referring source.
         </li>
@@ -67,10 +68,14 @@ defmodule MobileCarWashWeb.PrivacyLive do
       </ul>
 
       <h2>Service providers</h2>
-      <p>We share limited information with the following processors so they can perform services on our behalf:</p>
+      <p>
+        We share limited information with the following processors so they can perform services on our behalf:
+      </p>
       <ul>
         <li><strong>Stripe</strong> — payment processing.</li>
-        <li><strong>Twilio</strong> — SMS notifications (confirmations, reminders, technician updates).</li>
+        <li>
+          <strong>Twilio</strong> — SMS notifications (confirmations, reminders, technician updates).
+        </li>
         <li><strong>Google Analytics</strong> — site analytics.</li>
         <li><strong>DigitalOcean</strong> — hosting and infrastructure.</li>
       </ul>
@@ -84,14 +89,17 @@ defmodule MobileCarWashWeb.PrivacyLive do
         When you book with us, you consent to receive transactional SMS messages (booking
         confirmation, appointment reminders, technician-on-the-way notices, and post-wash
         review requests). Message and data rates may apply. Reply <strong>STOP</strong>
-        to any message to opt out; reply <strong>HELP</strong> for help.
+        to any message to opt out; reply <strong>HELP</strong>
+        for help.
       </p>
 
       <h2>Cookies and tracking</h2>
       <p>
         We use cookies for essential site functionality (session, CSRF protection) and for
-        Google Analytics. You can disable cookies in your browser, install the
-        <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">Google Analytics opt-out add-on</a>,
+        Google Analytics. You can disable cookies in your browser, install the <a
+          href="https://tools.google.com/dlpage/gaoptout"
+          rel="noopener"
+        >Google Analytics opt-out add-on</a>,
         or enable your browser's Do Not Track / Global Privacy Control signal.
       </p>
 
@@ -128,8 +136,7 @@ defmodule MobileCarWashWeb.PrivacyLive do
 
       <h2>Contact</h2>
       <p>
-        Questions or requests? Email
-        <a href="mailto:hello@drivewaydetailcosa.com">hello@drivewaydetailcosa.com</a>.
+        Questions or requests? Email <a href="mailto:hello@drivewaydetailcosa.com">hello@drivewaydetailcosa.com</a>.
       </p>
 
       <p class="mt-10">

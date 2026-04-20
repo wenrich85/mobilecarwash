@@ -29,7 +29,9 @@ defmodule MobileCarWashWeb.Auth.SignInLive do
             </svg>
             <div>
               <h3 class="font-bold">Authentication Required</h3>
-              <div class="text-xs">Sign in to continue. Use the mobile app or contact support for sign-up.</div>
+              <div class="text-xs">
+                Sign in to continue. Use the mobile app or contact support for sign-up.
+              </div>
             </div>
           </div>
 

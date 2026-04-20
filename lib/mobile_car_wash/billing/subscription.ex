@@ -9,70 +9,70 @@ defmodule MobileCarWash.Billing.Subscription do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "subscriptions"
-    repo MobileCarWash.Repo
+    table("subscriptions")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :stripe_subscription_id, :string do
-      public? true
+      public?(true)
     end
 
     attribute :status, :atom do
-      constraints one_of: [:active, :paused, :cancelled, :past_due]
-      default :active
-      allow_nil? false
-      public? true
+      constraints(one_of: [:active, :paused, :cancelled, :past_due])
+      default(:active)
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :current_period_start, :date do
-      public? true
+      public?(true)
     end
 
     attribute :current_period_end, :date do
-      public? true
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
     belongs_to :customer, MobileCarWash.Accounts.Customer do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     belongs_to :plan, MobileCarWash.Billing.SubscriptionPlan do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     has_many :usage_records, MobileCarWash.Billing.SubscriptionUsage
   end
 
   actions do
-    defaults [:read, create: :*, update: :*]
+    defaults([:read, create: :*, update: :*])
 
     update :cancel do
-      change set_attribute(:status, :cancelled)
+      change(set_attribute(:status, :cancelled))
     end
 
     update :pause do
-      change set_attribute(:status, :paused)
+      change(set_attribute(:status, :paused))
     end
 
     update :resume do
-      change set_attribute(:status, :active)
+      change(set_attribute(:status, :active))
     end
 
     update :mark_past_due do
-      change set_attribute(:status, :past_due)
+      change(set_attribute(:status, :past_due))
     end
 
     read :active_for_customer do
-      argument :customer_id, :uuid, allow_nil?: false
-      filter expr(customer_id == ^arg(:customer_id) and status in [:active, :paused, :past_due])
+      argument(:customer_id, :uuid, allow_nil?: false)
+      filter(expr(customer_id == ^arg(:customer_id) and status in [:active, :paused, :past_due]))
     end
   end
 end

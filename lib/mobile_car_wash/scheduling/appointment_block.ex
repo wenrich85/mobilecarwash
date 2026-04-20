@@ -11,74 +11,78 @@ defmodule MobileCarWash.Scheduling.AppointmentBlock do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "appointment_blocks"
-    repo MobileCarWash.Repo
+    table("appointment_blocks")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :starts_at, :utc_datetime do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :ends_at, :utc_datetime do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :closes_at, :utc_datetime do
-      allow_nil? false
-      public? true
-      description "Cutoff for accepting new bookings (default: midnight the day before starts_at)"
+      allow_nil?(false)
+      public?(true)
+
+      description(
+        "Cutoff for accepting new bookings (default: midnight the day before starts_at)"
+      )
     end
 
     attribute :capacity, :integer do
-      allow_nil? false
-      default 3
-      public? true
+      allow_nil?(false)
+      default(3)
+      public?(true)
     end
 
     attribute :status, :atom do
-      constraints one_of: [:open, :scheduled, :in_progress, :completed, :cancelled]
-      default :open
-      allow_nil? false
-      public? true
+      constraints(one_of: [:open, :scheduled, :in_progress, :completed, :cancelled])
+      default(:open)
+      allow_nil?(false)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
     belongs_to :service_type, MobileCarWash.Scheduling.ServiceType do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     belongs_to :technician, MobileCarWash.Operations.Technician do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     belongs_to :van, MobileCarWash.Operations.Van do
-      allow_nil? true
+      allow_nil?(true)
     end
 
     has_many :appointments, MobileCarWash.Scheduling.Appointment do
-      destination_attribute :appointment_block_id
+      destination_attribute(:appointment_block_id)
     end
   end
 
   aggregates do
-    count :appointment_count, :appointments
+    count(:appointment_count, :appointments)
   end
 
   actions do
-    defaults [:read]
+    defaults([:read])
 
     create :create do
-      primary? true
-      accept [
+      primary?(true)
+
+      accept([
         :service_type_id,
         :technician_id,
         :van_id,
@@ -87,13 +91,14 @@ defmodule MobileCarWash.Scheduling.AppointmentBlock do
         :closes_at,
         :capacity,
         :status
-      ]
+      ])
     end
 
     update :update do
-      primary? true
-      require_atomic? false
-      accept [
+      primary?(true)
+      require_atomic?(false)
+
+      accept([
         :starts_at,
         :ends_at,
         :closes_at,
@@ -101,7 +106,7 @@ defmodule MobileCarWash.Scheduling.AppointmentBlock do
         :status,
         :technician_id,
         :van_id
-      ]
+      ])
     end
   end
 

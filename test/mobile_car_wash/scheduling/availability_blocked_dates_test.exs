@@ -4,7 +4,9 @@ defmodule MobileCarWash.Scheduling.AvailabilityBlockedDatesTest do
   alias MobileCarWash.Scheduling.{Availability, BlockedDate}
 
   test "available_slots returns empty for a blocked date" do
-    BlockedDate |> Ash.Changeset.for_create(:create, %{date: ~D[2030-03-04], reason: "Holiday"}) |> Ash.create!()
+    BlockedDate
+    |> Ash.Changeset.for_create(:create, %{date: ~D[2030-03-04], reason: "Holiday"})
+    |> Ash.create!()
 
     slots = Availability.available_slots(~D[2030-03-04], 45, [])
     assert slots == []

@@ -41,7 +41,8 @@ defmodule MobileCarWash.Booking.StateMachineTest do
     end
 
     test "fails when no service selected" do
-      assert {:error, :missing_selected_service} = StateMachine.transition(:forward, :select_service, empty_context())
+      assert {:error, :missing_selected_service} =
+               StateMachine.transition(:forward, :select_service, empty_context())
     end
   end
 
@@ -59,72 +60,110 @@ defmodule MobileCarWash.Booking.StateMachineTest do
 
   describe "transition(:forward, :vehicle, ctx)" do
     test "advances to :address when vehicle selected" do
-      ctx = context_with(%{selected_service: service(), current_customer: customer(), selected_vehicle: vehicle()})
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle()
+        })
+
       assert {:ok, :address} = StateMachine.transition(:forward, :vehicle, ctx)
     end
 
     test "fails when no vehicle" do
       ctx = context_with(%{selected_service: service(), current_customer: customer()})
-      assert {:error, :missing_selected_vehicle} = StateMachine.transition(:forward, :vehicle, ctx)
+
+      assert {:error, :missing_selected_vehicle} =
+               StateMachine.transition(:forward, :vehicle, ctx)
     end
   end
 
   describe "transition(:forward, :address, ctx)" do
     test "advances to :photos when address selected" do
-      ctx = context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle(), selected_address: address()
-      })
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle(),
+          selected_address: address()
+        })
+
       assert {:ok, :photos} = StateMachine.transition(:forward, :address, ctx)
     end
 
     test "fails when no address" do
-      ctx = context_with(%{selected_service: service(), current_customer: customer(), selected_vehicle: vehicle()})
-      assert {:error, :missing_selected_address} = StateMachine.transition(:forward, :address, ctx)
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle()
+        })
+
+      assert {:error, :missing_selected_address} =
+               StateMachine.transition(:forward, :address, ctx)
     end
   end
 
   describe "transition(:forward, :photos, ctx)" do
     test "advances to :schedule (optional — no guard)" do
-      ctx = context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle(), selected_address: address()
-      })
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle(),
+          selected_address: address()
+        })
+
       assert {:ok, :schedule} = StateMachine.transition(:forward, :photos, ctx)
     end
   end
 
   describe "transition(:forward, :schedule, ctx)" do
     test "advances to :review when slot selected" do
-      ctx = context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle(), selected_address: address(), selected_slot: slot()
-      })
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle(),
+          selected_address: address(),
+          selected_slot: slot()
+        })
+
       assert {:ok, :review} = StateMachine.transition(:forward, :schedule, ctx)
     end
 
     test "fails when no slot" do
-      ctx = context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle(), selected_address: address()
-      })
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle(),
+          selected_address: address()
+        })
+
       assert {:error, :missing_selected_slot} = StateMachine.transition(:forward, :schedule, ctx)
     end
   end
 
   describe "transition(:forward, :review, ctx)" do
     test "advances to :confirmed" do
-      ctx = context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle(), selected_address: address(), selected_slot: slot()
-      })
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle(),
+          selected_address: address(),
+          selected_slot: slot()
+        })
+
       assert {:ok, :confirmed} = StateMachine.transition(:forward, :review, ctx)
     end
   end
 
   describe "transition(:forward, :confirmed, ctx)" do
     test "cannot advance past confirmed" do
-      assert {:error, :already_confirmed} = StateMachine.transition(:forward, :confirmed, empty_context())
+      assert {:error, :already_confirmed} =
+               StateMachine.transition(:forward, :confirmed, empty_context())
     end
   end
 
@@ -158,11 +197,13 @@ defmodule MobileCarWash.Booking.StateMachineTest do
     end
 
     test "select_service has no previous" do
-      assert {:error, :no_prev_step} = StateMachine.transition(:back, :select_service, empty_context())
+      assert {:error, :no_prev_step} =
+               StateMachine.transition(:back, :select_service, empty_context())
     end
 
     test "confirmed cannot go back" do
-      assert {:error, :cannot_go_back} = StateMachine.transition(:back, :confirmed, empty_context())
+      assert {:error, :cannot_go_back} =
+               StateMachine.transition(:back, :confirmed, empty_context())
     end
   end
 
@@ -180,30 +221,55 @@ defmodule MobileCarWash.Booking.StateMachineTest do
 
     test "vehicle requires service + customer" do
       refute StateMachine.can_be_on?(:vehicle, context_with(%{selected_service: service()}))
-      assert StateMachine.can_be_on?(:vehicle, context_with(%{selected_service: service(), current_customer: customer()}))
+
+      assert StateMachine.can_be_on?(
+               :vehicle,
+               context_with(%{selected_service: service(), current_customer: customer()})
+             )
     end
 
     test "address requires service + customer + vehicle" do
-      refute StateMachine.can_be_on?(:address, context_with(%{
-        selected_service: service(), current_customer: customer()
-      }))
-      assert StateMachine.can_be_on?(:address, context_with(%{
-        selected_service: service(), current_customer: customer(), selected_vehicle: vehicle()
-      }))
+      refute StateMachine.can_be_on?(
+               :address,
+               context_with(%{
+                 selected_service: service(),
+                 current_customer: customer()
+               })
+             )
+
+      assert StateMachine.can_be_on?(
+               :address,
+               context_with(%{
+                 selected_service: service(),
+                 current_customer: customer(),
+                 selected_vehicle: vehicle()
+               })
+             )
     end
 
     test "schedule requires all up to address" do
-      assert StateMachine.can_be_on?(:schedule, context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle(), selected_address: address()
-      }))
+      assert StateMachine.can_be_on?(
+               :schedule,
+               context_with(%{
+                 selected_service: service(),
+                 current_customer: customer(),
+                 selected_vehicle: vehicle(),
+                 selected_address: address()
+               })
+             )
     end
 
     test "review requires all up to slot" do
-      assert StateMachine.can_be_on?(:review, context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle(), selected_address: address(), selected_slot: slot()
-      }))
+      assert StateMachine.can_be_on?(
+               :review,
+               context_with(%{
+                 selected_service: service(),
+                 current_customer: customer(),
+                 selected_vehicle: vehicle(),
+                 selected_address: address(),
+                 selected_slot: slot()
+               })
+             )
     end
 
     test "confirmed requires appointment" do
@@ -216,10 +282,13 @@ defmodule MobileCarWash.Booking.StateMachineTest do
 
   describe "resolve_step/2" do
     test "returns claimed step when valid" do
-      ctx = context_with(%{
-        selected_service: service(), current_customer: customer(),
-        selected_vehicle: vehicle()
-      })
+      ctx =
+        context_with(%{
+          selected_service: service(),
+          current_customer: customer(),
+          selected_vehicle: vehicle()
+        })
+
       assert :address == StateMachine.resolve_step(:address, ctx)
     end
 

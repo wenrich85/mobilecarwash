@@ -7,10 +7,11 @@ defmodule MobileCarWashWeb.AuthRedirectTest do
       assert conn.status == 302
 
       # Check that redirect goes to /auth/sign_in or similar
-      location = Enum.find_value(conn.resp_headers, fn
-        {"location", value} -> value
-        _ -> nil
-      end)
+      location =
+        Enum.find_value(conn.resp_headers, fn
+          {"location", value} -> value
+          _ -> nil
+        end)
 
       assert location != nil, "Should redirect to a login page"
       IO.inspect(location, label: "Redirect location")
@@ -20,10 +21,11 @@ defmodule MobileCarWashWeb.AuthRedirectTest do
       conn = get(conn, "/admin/metrics")
       assert conn.status == 302
 
-      location = Enum.find_value(conn.resp_headers, fn
-        {"location", value} -> value
-        _ -> nil
-      end)
+      location =
+        Enum.find_value(conn.resp_headers, fn
+          {"location", value} -> value
+          _ -> nil
+        end)
 
       assert location != nil, "Should redirect to a login page"
       IO.inspect(location, label: "Admin redirect location")
@@ -33,10 +35,11 @@ defmodule MobileCarWashWeb.AuthRedirectTest do
       conn = get(conn, "/tech/")
       assert conn.status == 302
 
-      location = Enum.find_value(conn.resp_headers, fn
-        {"location", value} -> value
-        _ -> nil
-      end)
+      location =
+        Enum.find_value(conn.resp_headers, fn
+          {"location", value} -> value
+          _ -> nil
+        end)
 
       assert location != nil, "Should redirect to a login page"
       IO.inspect(location, label: "Tech redirect location")

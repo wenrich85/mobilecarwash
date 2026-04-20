@@ -71,7 +71,10 @@ defmodule MobileCarWashWeb.Plugs.AuthRateLimit do
         conn
         |> put_resp_header("retry-after", "60")
         |> put_resp_content_type("application/json")
-        |> send_resp(429, ~s({"error":"rate_limited","message":"Too many auth attempts. Please wait a minute and try again."}))
+        |> send_resp(
+          429,
+          ~s({"error":"rate_limited","message":"Too many auth attempts. Please wait a minute and try again."})
+        )
         |> halt()
     end
   end

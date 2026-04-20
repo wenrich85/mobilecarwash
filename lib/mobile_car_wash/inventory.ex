@@ -11,8 +11,8 @@ defmodule MobileCarWash.Inventory do
   require Ash.Query
 
   resources do
-    resource Supply
-    resource SupplyUsage
+    resource(Supply)
+    resource(SupplyUsage)
   end
 
   @doc "All active supplies, sorted by category then name."

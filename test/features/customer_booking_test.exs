@@ -63,9 +63,33 @@ defmodule MobileCarWash.Features.CustomerBookingTest do
   defp create_subscription_plans(_context) do
     plans =
       for attrs <- [
-            %{name: "Basic", slug: "basic", price_cents: 9_000, basic_washes_per_month: 2, deep_cleans_per_month: 0, deep_clean_discount_percent: 25, description: "2 basic washes per month"},
-            %{name: "Standard", slug: "standard", price_cents: 12_500, basic_washes_per_month: 4, deep_cleans_per_month: 0, deep_clean_discount_percent: 30, description: "4 basic washes per month"},
-            %{name: "Premium", slug: "premium", price_cents: 20_000, basic_washes_per_month: 3, deep_cleans_per_month: 1, deep_clean_discount_percent: 50, description: "Premium plan"}
+            %{
+              name: "Basic",
+              slug: "basic",
+              price_cents: 9_000,
+              basic_washes_per_month: 2,
+              deep_cleans_per_month: 0,
+              deep_clean_discount_percent: 25,
+              description: "2 basic washes per month"
+            },
+            %{
+              name: "Standard",
+              slug: "standard",
+              price_cents: 12_500,
+              basic_washes_per_month: 4,
+              deep_cleans_per_month: 0,
+              deep_clean_discount_percent: 30,
+              description: "4 basic washes per month"
+            },
+            %{
+              name: "Premium",
+              slug: "premium",
+              price_cents: 20_000,
+              basic_washes_per_month: 3,
+              deep_cleans_per_month: 1,
+              deep_clean_discount_percent: 50,
+              description: "Premium plan"
+            }
           ] do
         SubscriptionPlan
         |> Ash.Changeset.for_create(:create, attrs)

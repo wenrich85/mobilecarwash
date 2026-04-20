@@ -81,7 +81,10 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
         {:noreply, put_flash(socket, :error, "No payment method on file")}
 
       stripe_id ->
-        case StripeClient.create_billing_portal_session(stripe_id, "#{base_url}/account/subscription") do
+        case StripeClient.create_billing_portal_session(
+               stripe_id,
+               "#{base_url}/account/subscription"
+             ) do
           {:ok, session} ->
             {:noreply, redirect(socket, external: session.url)}
 
@@ -96,16 +99,16 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
     ~H"""
     <div class="max-w-lg mx-auto py-8 px-4">
       <h1 class="text-2xl font-bold mb-6">My Plan</h1>
-
-      <!-- No Subscription -->
+      
+    <!-- No Subscription -->
       <div :if={is_nil(@subscription)} class="text-center py-12">
         <p class="text-base-content/70 mb-4">You don't have an active subscription</p>
         <.link navigate={~p"/subscribe"} class="btn btn-primary">
           View Plans
         </.link>
       </div>
-
-      <!-- Active Subscription -->
+      
+    <!-- Active Subscription -->
       <div :if={@subscription}>
         <!-- Plan Card -->
         <div class="card bg-base-100 shadow mb-6">
@@ -119,18 +122,20 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
                 {format_status(@subscription.status)}
               </span>
             </div>
-
-            <!-- Period -->
+            
+    <!-- Period -->
             <div class="mt-4 text-sm text-base-content/80">
               <span :if={@subscription.current_period_start && @subscription.current_period_end}>
-                Current period: {Calendar.strftime(@subscription.current_period_start, "%b %d")} –
-                {Calendar.strftime(@subscription.current_period_end, "%b %d, %Y")}
+                Current period: {Calendar.strftime(@subscription.current_period_start, "%b %d")} – {Calendar.strftime(
+                  @subscription.current_period_end,
+                  "%b %d, %Y"
+                )}
               </span>
             </div>
           </div>
         </div>
-
-        <!-- Usage Card -->
+        
+    <!-- Usage Card -->
         <div :if={@usage} class="card bg-base-100 shadow mb-6">
           <div class="card-body">
             <h3 class="font-bold mb-3">This Period's Usage</h3>
@@ -164,8 +169,8 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
             </div>
           </div>
         </div>
-
-        <!-- Actions -->
+        
+    <!-- Actions -->
         <div class="space-y-3">
           <.link navigate={~p"/book"} class="btn btn-primary btn-block">
             Book a Wash
@@ -207,8 +212,8 @@ defmodule MobileCarWashWeb.SubscriptionManageLive do
             Cancel Subscription
           </button>
         </div>
-
-        <!-- Cancel Confirmation -->
+        
+    <!-- Cancel Confirmation -->
         <div :if={@show_cancel_confirm} class="modal modal-open">
           <div class="modal-box">
             <h3 class="font-bold text-lg">Cancel Subscription?</h3>

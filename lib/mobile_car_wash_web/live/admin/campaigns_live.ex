@@ -140,7 +140,12 @@ defmodule MobileCarWashWeb.Admin.CampaignsLive do
 
             <label class="form-control md:col-span-2">
               <span class="label-text">Image URL (optional)</span>
-              <input type="url" name="post[image_url]" class="input input-bordered" placeholder="https://…" />
+              <input
+                type="url"
+                name="post[image_url]"
+                class="input input-bordered"
+                placeholder="https://…"
+              />
             </label>
 
             <fieldset class="form-control md:col-span-2">
@@ -150,7 +155,12 @@ defmodule MobileCarWashWeb.Admin.CampaignsLive do
                   :for={ch <- @available_channels}
                   class="cursor-pointer flex items-center gap-2 bg-base-100 px-3 py-1 rounded-lg border border-base-300"
                 >
-                  <input type="checkbox" name="post[channels][]" value={ch} class="checkbox checkbox-sm" />
+                  <input
+                    type="checkbox"
+                    name="post[channels][]"
+                    value={ch}
+                    class="checkbox checkbox-sm"
+                  />
                   <span class="text-sm">{ch}</span>
                 </label>
               </div>
@@ -163,7 +173,12 @@ defmodule MobileCarWashWeb.Admin.CampaignsLive do
                   :for={p <- @personas}
                   class="cursor-pointer flex items-center gap-2 bg-base-100 px-3 py-1 rounded-lg border border-base-300"
                 >
-                  <input type="checkbox" name="post[persona_ids][]" value={p.id} class="checkbox checkbox-sm" />
+                  <input
+                    type="checkbox"
+                    name="post[persona_ids][]"
+                    value={p.id}
+                    class="checkbox checkbox-sm"
+                  />
                   <span class="text-sm">{p.name}</span>
                 </label>
               </div>

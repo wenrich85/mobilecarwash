@@ -70,12 +70,17 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   def handle_event("filter", params, socket) do
     filter_date =
       case params["date"] do
-        "" -> nil
-        nil -> socket.assigns.filter_date
-        d -> case Date.from_iso8601(d) do
-          {:ok, date} -> date
-          _ -> socket.assigns.filter_date
-        end
+        "" ->
+          nil
+
+        nil ->
+          socket.assigns.filter_date
+
+        d ->
+          case Date.from_iso8601(d) do
+            {:ok, date} -> date
+            _ -> socket.assigns.filter_date
+          end
       end
 
     filter_status = params["status"] || socket.assigns.filter_status
@@ -91,14 +96,26 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
     {:noreply,
      socket
-     |> assign(filter_date: filter_date, filter_status: filter_status, filter_tech: filter_tech, filter_zone: filter_zone, filter_requested: filter_requested)
+     |> assign(
+       filter_date: filter_date,
+       filter_status: filter_status,
+       filter_tech: filter_tech,
+       filter_zone: filter_zone,
+       filter_requested: filter_requested
+     )
      |> load_appointments()}
   end
 
   def handle_event("clear_filters", _params, socket) do
     {:noreply,
      socket
-     |> assign(filter_date: nil, filter_status: "pending", filter_tech: nil, filter_zone: nil, filter_requested: false)
+     |> assign(
+       filter_date: nil,
+       filter_status: "pending",
+       filter_tech: nil,
+       filter_zone: nil,
+       filter_requested: false
+     )
      |> load_appointments()}
   end
 
@@ -106,6 +123,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     zone = if zone_str == "", do: nil, else: zone_str
 
     import Ecto.Query
+
     MobileCarWash.Repo.update_all(
       from(t in "technicians", where: t.id == type(^Ecto.UUID.dump!(tech_id), :binary_id)),
       set: [zone: zone]
@@ -120,7 +138,11 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     {:noreply, load_appointments(socket)}
   end
 
-  def handle_event("assign_tech", %{"appointment-id" => appt_id, "technician_id" => tech_id}, socket) do
+  def handle_event(
+        "assign_tech",
+        %{"appointment-id" => appt_id, "technician_id" => tech_id},
+        socket
+      ) do
     Dispatch.assign_technician(appt_id, tech_id)
     {:noreply, load_appointments(socket)}
   end
@@ -164,10 +186,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     case Integer.parse(rate_str) do
       {rate_dollars, _} ->
         import Ecto.Query
+
         MobileCarWash.Repo.update_all(
           from(t in "technicians", where: t.id == type(^tech_id, :binary_id)),
           set: [pay_rate_cents: rate_dollars * 100]
         )
+
         technicians = active_technicians()
         {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Rate updated")}
 
@@ -177,10 +201,14 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   end
 
   def handle_event("add_technician", %{"name" => name, "phone" => phone}, socket) do
-    case Technician |> Ash.Changeset.for_create(:create, %{name: name, phone: phone}) |> Ash.create() do
+    case Technician
+         |> Ash.Changeset.for_create(:create, %{name: name, phone: phone})
+         |> Ash.create() do
       {:ok, _} ->
         technicians = active_technicians()
-        {:noreply, socket |> assign(technicians: technicians) |> put_flash(:info, "Technician added")}
+
+        {:noreply,
+         socket |> assign(technicians: technicians) |> put_flash(:info, "Technician added")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not add technician")}
@@ -194,16 +222,21 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   end
 
   # Step progress — update the active panel in-memory, no DB query
-  def handle_info({:appointment_update, %{event: :step_update, appointment_id: id} = data}, socket) do
+  def handle_info(
+        {:appointment_update, %{event: :step_update, appointment_id: id} = data},
+        socket
+      ) do
     active =
       Enum.map(socket.assigns.active, fn {appt, progress} ->
         if appt.id == id do
-          {appt, %{progress |
-            steps_done: data[:steps_done] || progress.steps_done,
-            steps_total: data[:steps_total] || progress.steps_total,
-            current_step: data[:current_step] || progress.current_step,
-            eta_minutes: data[:eta_minutes]
-          }}
+          {appt,
+           %{
+             progress
+             | steps_done: data[:steps_done] || progress.steps_done,
+               steps_total: data[:steps_total] || progress.steps_total,
+               current_step: data[:current_step] || progress.current_step,
+               eta_minutes: data[:eta_minutes]
+           }}
         else
           {appt, progress}
         end
@@ -245,15 +278,17 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           service = Map.get(socket.assigns.service_map, appt.service_type_id, "Service")
           time = Calendar.strftime(appt.scheduled_at, "%b %d · %I:%M %p")
           "#{service} on #{time}"
+
         _ ->
           "an appointment"
       end
 
     # Track which appointments have been requested and by whom
-    tech_requests = Map.put(socket.assigns.tech_requests, request.appointment_id, %{
-      technician_id: request.technician_id,
-      technician_name: tech_name
-    })
+    tech_requests =
+      Map.put(socket.assigns.tech_requests, request.appointment_id, %{
+        technician_id: request.technician_id,
+        technician_name: tech_name
+      })
 
     {:noreply,
      socket
@@ -278,10 +313,13 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
         </div>
       </div>
-
-      <!-- Filters -->
+      
+    <!-- Filters -->
       <div class="max-w-7xl mx-auto mb-6">
-        <form phx-change="filter" class="flex flex-wrap gap-2 items-end bg-base-100 p-4 rounded-lg shadow-sm">
+        <form
+          phx-change="filter"
+          class="flex flex-wrap gap-2 items-end bg-base-100 p-4 rounded-lg shadow-sm"
+        >
           <div class="form-control">
             <label class="label label-text text-xs">Date</label>
             <input
@@ -328,7 +366,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
               />
               <span class="label-text text-sm">
                 Requested
-                <span :if={map_size(@tech_requests) > 0} class="badge badge-warning badge-xs ml-1">{map_size(@tech_requests)}</span>
+                <span :if={map_size(@tech_requests) > 0} class="badge badge-warning badge-xs ml-1">
+                  {map_size(@tech_requests)}
+                </span>
               </span>
             </label>
           </div>
@@ -336,8 +376,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
         </form>
       </div>
-
-      <!-- Techs on shift — live duty-status strip. Updates via
+      
+    <!-- Techs on shift — live duty-status strip. Updates via
            TechnicianTracker's firehose topic as techs tap Break /
            Back on duty / Off from their dashboard. -->
       <div :if={@technicians != []} class="max-w-7xl mx-auto mb-6">
@@ -361,8 +401,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           </div>
         </div>
       </div>
-
-      <!-- Map -->
+      
+    <!-- Map -->
       <div class="max-w-7xl mx-auto mb-8 bg-base-100 p-4 rounded-lg shadow">
         <h2 class="text-lg font-bold mb-3">Map</h2>
         <div
@@ -372,12 +412,11 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           class="w-full h-80 rounded-lg border border-base-300 z-0"
         />
       </div>
-
-      <!-- Active Washes (always show if any) -->
+      
+    <!-- Active Washes (always show if any) -->
       <div :if={@active != []} class="max-w-7xl mx-auto mb-8">
         <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-          <span class="badge badge-success badge-lg">{length(@active)}</span>
-          Active Washes
+          <span class="badge badge-success badge-lg">{length(@active)}</span> Active Washes
         </h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <.active_wash_card
@@ -390,16 +429,36 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           />
         </div>
       </div>
-
-      <!-- Kanban Board -->
+      
+    <!-- Kanban Board -->
       <div class="min-h-screen">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-7xl mx-auto pb-8">
           <!-- PENDING COLUMN -->
           <.kanban_column
             title="Pending"
             status={:pending}
-            appointments={filter_appointments_by_status(@all_appointments, :pending, @filter_date, @filter_tech, @filter_zone, @address_map)}
-            count={length(filter_appointments_by_status(@all_appointments, :pending, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            appointments={
+              filter_appointments_by_status(
+                @all_appointments,
+                :pending,
+                @filter_date,
+                @filter_tech,
+                @filter_zone,
+                @address_map
+              )
+            }
+            count={
+              length(
+                filter_appointments_by_status(
+                  @all_appointments,
+                  :pending,
+                  @filter_date,
+                  @filter_tech,
+                  @filter_zone,
+                  @address_map
+                )
+              )
+            }
             badge_color="badge-warning"
             technicians={@technicians}
             customer_map={@customer_map}
@@ -408,13 +467,33 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             vehicle_map={@vehicle_map}
             tech_requests={@tech_requests}
           />
-
-          <!-- CONFIRMED COLUMN -->
+          
+    <!-- CONFIRMED COLUMN -->
           <.kanban_column
             title="Confirmed"
             status={:confirmed}
-            appointments={filter_appointments_by_status(@all_appointments, :confirmed, @filter_date, @filter_tech, @filter_zone, @address_map)}
-            count={length(filter_appointments_by_status(@all_appointments, :confirmed, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            appointments={
+              filter_appointments_by_status(
+                @all_appointments,
+                :confirmed,
+                @filter_date,
+                @filter_tech,
+                @filter_zone,
+                @address_map
+              )
+            }
+            count={
+              length(
+                filter_appointments_by_status(
+                  @all_appointments,
+                  :confirmed,
+                  @filter_date,
+                  @filter_tech,
+                  @filter_zone,
+                  @address_map
+                )
+              )
+            }
             badge_color="badge-info"
             technicians={@technicians}
             customer_map={@customer_map}
@@ -423,13 +502,33 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             vehicle_map={@vehicle_map}
             tech_requests={@tech_requests}
           />
-
-          <!-- IN PROGRESS COLUMN -->
+          
+    <!-- IN PROGRESS COLUMN -->
           <.kanban_column
             title="In Progress"
             status={:in_progress}
-            appointments={filter_appointments_by_status(@all_appointments, :in_progress, @filter_date, @filter_tech, @filter_zone, @address_map)}
-            count={length(filter_appointments_by_status(@all_appointments, :in_progress, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            appointments={
+              filter_appointments_by_status(
+                @all_appointments,
+                :in_progress,
+                @filter_date,
+                @filter_tech,
+                @filter_zone,
+                @address_map
+              )
+            }
+            count={
+              length(
+                filter_appointments_by_status(
+                  @all_appointments,
+                  :in_progress,
+                  @filter_date,
+                  @filter_tech,
+                  @filter_zone,
+                  @address_map
+                )
+              )
+            }
             badge_color="badge-success"
             technicians={@technicians}
             customer_map={@customer_map}
@@ -438,13 +537,33 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             vehicle_map={@vehicle_map}
             tech_requests={@tech_requests}
           />
-
-          <!-- COMPLETED COLUMN -->
+          
+    <!-- COMPLETED COLUMN -->
           <.kanban_column
             title="Completed"
             status={:completed}
-            appointments={filter_appointments_by_status(@all_appointments, :completed, @filter_date, @filter_tech, @filter_zone, @address_map)}
-            count={length(filter_appointments_by_status(@all_appointments, :completed, @filter_date, @filter_tech, @filter_zone, @address_map))}
+            appointments={
+              filter_appointments_by_status(
+                @all_appointments,
+                :completed,
+                @filter_date,
+                @filter_tech,
+                @filter_zone,
+                @address_map
+              )
+            }
+            count={
+              length(
+                filter_appointments_by_status(
+                  @all_appointments,
+                  :completed,
+                  @filter_date,
+                  @filter_tech,
+                  @filter_zone,
+                  @address_map
+                )
+              )
+            }
             badge_color="badge-ghost"
             technicians={@technicians}
             customer_map={@customer_map}
@@ -455,8 +574,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
           />
         </div>
       </div>
-
-      <!-- Manage Technicians -->
+      
+    <!-- Manage Technicians -->
       <div class="mb-8">
         <button class="btn btn-ghost btn-sm mb-4" phx-click="toggle_manage_techs">
           {if @show_manage_techs, do: "Hide", else: "Manage"} Technicians
@@ -469,11 +588,22 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
               <form phx-submit="add_technician" class="flex gap-2 items-end">
                 <div class="form-control flex-1">
                   <label class="label label-text text-xs">Name</label>
-                  <input type="text" name="name" class="input input-bordered input-sm" required placeholder="Tech name" />
+                  <input
+                    type="text"
+                    name="name"
+                    class="input input-bordered input-sm"
+                    required
+                    placeholder="Tech name"
+                  />
                 </div>
                 <div class="form-control flex-1">
                   <label class="label label-text text-xs">Phone</label>
-                  <input type="text" name="phone" class="input input-bordered input-sm" placeholder="555-0000" />
+                  <input
+                    type="text"
+                    name="phone"
+                    class="input input-bordered input-sm"
+                    placeholder="555-0000"
+                  />
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">Add</button>
               </form>
@@ -528,7 +658,11 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
                     </select>
                   </td>
                   <td>
-                    <form phx-submit="update_tech_rate" phx-value-tech-id={tech.id} class="flex gap-1 items-center">
+                    <form
+                      phx-submit="update_tech_rate"
+                      phx-value-tech-id={tech.id}
+                      class="flex gap-1 items-center"
+                    >
                       <span class="text-xs">$</span>
                       <input
                         type="number"
@@ -563,7 +697,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     # Date filter
     query =
       case socket.assigns.filter_date do
-        nil -> query
+        nil ->
+          query
+
         date ->
           {:ok, day_start} = DateTime.new(date, ~T[00:00:00])
           {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
@@ -582,15 +718,20 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
     # Load customer names
     customer_ids = Enum.map(all, & &1.customer_id) |> Enum.uniq()
+
     customer_map =
       if customer_ids != [] do
-        Customer |> Ash.Query.filter(id in ^customer_ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
+        Customer
+        |> Ash.Query.filter(id in ^customer_ids)
+        |> Ash.read!(authorize?: false)
+        |> Map.new(&{&1.id, &1.name})
       else
         %{}
       end
 
     # Load address data (for zone badges)
     address_ids = Enum.map(all, & &1.address_id) |> Enum.uniq()
+
     address_map =
       if address_ids != [] do
         Address |> Ash.Query.filter(id in ^address_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
@@ -600,9 +741,13 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
     # Load vehicle data (for map pin icons)
     vehicle_ids = Enum.map(all, & &1.vehicle_id) |> Enum.uniq()
+
     vehicle_map =
       if vehicle_ids != [] do
-        MobileCarWash.Fleet.Vehicle |> Ash.Query.filter(id in ^vehicle_ids) |> Ash.read!() |> Map.new(&{&1.id, &1})
+        MobileCarWash.Fleet.Vehicle
+        |> Ash.Query.filter(id in ^vehicle_ids)
+        |> Ash.read!()
+        |> Map.new(&{&1.id, &1})
       else
         %{}
       end
@@ -610,9 +755,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     # Zone filter (applied in memory — small daily count)
     filtered =
       case socket.assigns.filter_zone do
-        nil -> all
+        nil ->
+          all
+
         zone_str ->
           zone = String.to_existing_atom(zone_str)
+
           Enum.filter(all, fn appt ->
             addr = Map.get(address_map, appt.address_id)
             addr && addr.zone == zone
@@ -631,6 +779,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
     # Active washes (always show regardless of filters)
     active_appts = Appointment |> Ash.Query.filter(status == :in_progress) |> Ash.read!()
+
     active =
       Enum.map(active_appts, fn appt ->
         {appt, Dispatch.checklist_progress(appt.id)}
@@ -659,11 +808,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         case coords do
           {lat, lng} ->
             vehicle = Map.get(vehicle_map, appt.vehicle_id)
+
             %{
               lat: lat,
               lng: lng,
               status: to_string(appt.status),
-              vehicle_type: vehicle && to_string(vehicle.size) || "car",
+              vehicle_type: (vehicle && to_string(vehicle.size)) || "car",
               service: Map.get(socket.assigns.service_map, appt.service_type_id, "Service"),
               customer: Map.get(customer_map, appt.customer_id, "Customer"),
               time: Calendar.strftime(appt.scheduled_at, "%b %d · %I:%M %p"),
@@ -701,12 +851,14 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   defp reload_one_appointment(socket, appointment_id) do
     case Ash.get(Appointment, appointment_id) do
       {:ok, updated} ->
-        all = Enum.map(socket.assigns.all_appointments, fn a ->
-          if a.id == updated.id, do: updated, else: a
-        end)
+        all =
+          Enum.map(socket.assigns.all_appointments, fn a ->
+            if a.id == updated.id, do: updated, else: a
+          end)
 
         # Re-derive active list from updated all_appointments
         active_appts = Enum.filter(all, &(&1.status == :in_progress))
+
         active =
           Enum.map(active_appts, fn appt ->
             existing = Enum.find(socket.assigns.active, fn {a, _} -> a.id == appt.id end)
@@ -715,9 +867,14 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
         # Subscribe to the appointment topic if newly loaded (e.g., just confirmed)
         socket =
-          if connected?(socket) && !MapSet.member?(socket.assigns.subscribed_appointment_ids, appointment_id) do
+          if connected?(socket) &&
+               !MapSet.member?(socket.assigns.subscribed_appointment_ids, appointment_id) do
             AppointmentTracker.subscribe(appointment_id)
-            assign(socket, subscribed_appointment_ids: MapSet.put(socket.assigns.subscribed_appointment_ids, appointment_id))
+
+            assign(socket,
+              subscribed_appointment_ids:
+                MapSet.put(socket.assigns.subscribed_appointment_ids, appointment_id)
+            )
           else
             socket
           end
@@ -814,6 +971,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   defp duty_status_dot(_), do: "bg-base-300"
 
   defp tech_name(nil, _techs), do: "Unassigned"
+
   defp tech_name(tech_id, techs) do
     case Enum.find(techs, &(&1.id == tech_id)) do
       nil -> "Unknown"
@@ -825,28 +983,39 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     Process.send_after(self(), :refresh, @refresh_interval)
   end
 
-  defp filter_appointments_by_status(appointments, status, filter_date, filter_tech, filter_zone, address_map) do
+  defp filter_appointments_by_status(
+         appointments,
+         status,
+         filter_date,
+         filter_tech,
+         filter_zone,
+         address_map
+       ) do
     appointments
     |> Enum.filter(fn appt ->
       # Status filter
-      appt.status == status &&
       # Date filter
-      (is_nil(filter_date) || date_matches(appt.scheduled_at, filter_date)) &&
       # Technician filter
-      (is_nil(filter_tech) || (filter_tech == "unassigned" && is_nil(appt.technician_id)) || appt.technician_id == filter_tech) &&
       # Zone filter
-      (is_nil(filter_zone) || zone_matches(appt, filter_zone, address_map))
+      appt.status == status &&
+        (is_nil(filter_date) || date_matches(appt.scheduled_at, filter_date)) &&
+        (is_nil(filter_tech) || (filter_tech == "unassigned" && is_nil(appt.technician_id)) ||
+           appt.technician_id == filter_tech) &&
+        (is_nil(filter_zone) || zone_matches(appt, filter_zone, address_map))
     end)
   end
 
   defp date_matches(scheduled_at, filter_date) do
     {:ok, day_start} = DateTime.new(filter_date, ~T[00:00:00])
     {:ok, day_end} = DateTime.new(Date.add(filter_date, 1), ~T[00:00:00])
-    DateTime.compare(scheduled_at, day_start) in [:gt, :eq] && DateTime.compare(scheduled_at, day_end) == :lt
+
+    DateTime.compare(scheduled_at, day_start) in [:gt, :eq] &&
+      DateTime.compare(scheduled_at, day_end) == :lt
   end
 
   defp zone_matches(appointment, filter_zone, address_map) do
     zone = String.to_existing_atom(filter_zone)
+
     case Map.get(address_map, appointment.address_id) do
       %{zone: appt_zone} -> appt_zone == zone
       _ -> false

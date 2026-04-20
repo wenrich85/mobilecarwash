@@ -62,8 +62,8 @@ defmodule MobileCarWashWeb.PhotoUploader do
     ~H"""
     <div class="space-y-5">
       <.action_buttons camera_upload={@camera_upload} library_upload={@library_upload} />
-
-      <!-- In-flight entries across both inputs, shown in a single grid -->
+      
+    <!-- In-flight entries across both inputs, shown in a single grid -->
       <div
         :if={@camera_upload.entries != [] or @library_upload.entries != []}
         class="grid grid-cols-2 md:grid-cols-3 gap-3"
@@ -75,8 +75,8 @@ defmodule MobileCarWashWeb.PhotoUploader do
       <.preview_grid photos={@uploaded_photos} />
 
       <.car_part_chips selected={@selected_car_part} show_all={@show_all_parts} />
-
-      <!-- Value-bound so ✨ AI auto-fill populates the input directly. -->
+      
+    <!-- Value-bound so ✨ AI auto-fill populates the input directly. -->
       <input
         type="text"
         name="caption"
@@ -113,8 +113,8 @@ defmodule MobileCarWashWeb.PhotoUploader do
         </span>
         <.live_file_input upload={@camera_upload} capture="environment" class="sr-only" />
       </label>
-
-      <!-- Upload from library (also the desktop drag target) -->
+      
+    <!-- Upload from library (also the desktop drag target) -->
       <label
         for={@library_upload.ref}
         phx-drop-target={@library_upload.ref}
@@ -162,7 +162,10 @@ defmodule MobileCarWashWeb.PhotoUploader do
   defp entry_preview(assigns) do
     ~H"""
     <div class="relative">
-      <.live_img_preview entry={@entry} class="w-full aspect-square object-cover rounded-2xl shadow-sm" />
+      <.live_img_preview
+        entry={@entry}
+        class="w-full aspect-square object-cover rounded-2xl shadow-sm"
+      />
       <div class="absolute inset-x-2 bottom-2">
         <progress class="progress progress-primary w-full h-1.5" value={@entry.progress} max="100" />
       </div>
@@ -291,7 +294,7 @@ defmodule MobileCarWashWeb.PhotoUploader do
       </span>
       <div class="flex flex-wrap gap-2">
         <button
-          :for={{label, atom} <- (if @show_all, do: @all_parts, else: @common_parts)}
+          :for={{label, atom} <- if @show_all, do: @all_parts, else: @common_parts}
           type="button"
           class={[
             "btn btn-sm rounded-full",

@@ -10,25 +10,46 @@ defmodule MobileCarWash.Marketing do
 
   require Ash.Query
 
-  alias MobileCarWash.Marketing.{AcquisitionChannel, MarketingSpend, Persona, PersonaMembership, Post}
+  alias MobileCarWash.Marketing.{
+    AcquisitionChannel,
+    MarketingSpend,
+    Persona,
+    PersonaMembership,
+    Post
+  }
 
   resources do
-    resource AcquisitionChannel
-    resource MarketingSpend
-    resource Persona
-    resource PersonaMembership
-    resource Post
+    resource(AcquisitionChannel)
+    resource(MarketingSpend)
+    resource(Persona)
+    resource(PersonaMembership)
+    resource(Post)
   end
 
   @canonical_channels [
     %{slug: "google_organic", display_name: "Google Organic", category: :organic, sort_order: 10},
     %{slug: "google_paid", display_name: "Google Ads", category: :paid, sort_order: 20},
-    %{slug: "meta_paid", display_name: "Meta (Facebook + Instagram)", category: :paid, sort_order: 30},
+    %{
+      slug: "meta_paid",
+      display_name: "Meta (Facebook + Instagram)",
+      category: :paid,
+      sort_order: 30
+    },
     %{slug: "nextdoor", display_name: "Nextdoor", category: :paid, sort_order: 40},
     %{slug: "referral", display_name: "Referral", category: :referral, sort_order: 50},
     %{slug: "word_of_mouth", display_name: "Word of Mouth", category: :offline, sort_order: 60},
-    %{slug: "door_hangers", display_name: "Door Hangers / Flyers", category: :offline, sort_order: 70},
-    %{slug: "pre_launch", display_name: "Pre-Launch (Legacy)", category: :unknown, sort_order: 900},
+    %{
+      slug: "door_hangers",
+      display_name: "Door Hangers / Flyers",
+      category: :offline,
+      sort_order: 70
+    },
+    %{
+      slug: "pre_launch",
+      display_name: "Pre-Launch (Legacy)",
+      category: :unknown,
+      sort_order: 900
+    },
     %{slug: "unknown", display_name: "Unknown", category: :unknown, sort_order: 999}
   ]
 

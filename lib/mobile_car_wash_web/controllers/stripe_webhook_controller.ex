@@ -81,6 +81,7 @@ defmodule MobileCarWashWeb.StripeWebhookController do
 
   defp process_event(%{type: "invoice.payment_succeeded"} = event) do
     invoice = event.data.object
+
     if invoice.subscription do
       Logger.info("Stripe invoice paid for subscription: #{invoice.subscription}")
       SubscriptionOrchestrator.handle_invoice_paid(invoice)
@@ -89,6 +90,7 @@ defmodule MobileCarWashWeb.StripeWebhookController do
 
   defp process_event(%{type: "invoice.payment_failed"} = event) do
     invoice = event.data.object
+
     if invoice.subscription do
       Logger.info("Stripe invoice failed for subscription: #{invoice.subscription}")
       SubscriptionOrchestrator.handle_invoice_failed(invoice)

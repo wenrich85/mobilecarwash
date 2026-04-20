@@ -54,7 +54,9 @@ defmodule MobileCarWashWeb.Admin.VansLive do
         case van |> Ash.Changeset.for_update(:update, attrs) |> Ash.update() do
           {:ok, _} ->
             {:noreply,
-             socket |> assign(vans: load_vans(), editing_van: nil) |> put_flash(:info, "Van updated")}
+             socket
+             |> assign(vans: load_vans(), editing_van: nil)
+             |> put_flash(:info, "Van updated")}
 
           {:error, _} ->
             {:noreply, put_flash(socket, :error, "Could not update van")}
@@ -85,26 +87,37 @@ defmodule MobileCarWashWeb.Admin.VansLive do
     <div class="max-w-5xl mx-auto py-8 px-4">
       <h1 class="text-3xl font-bold mb-2">Vans</h1>
       <p class="text-base-content/80 mb-6">Manage service vans and equipment.</p>
-
-      <!-- Add Van -->
+      
+    <!-- Add Van -->
       <div class="card bg-base-100 shadow mb-6">
         <div class="card-body p-4">
           <h3 class="font-bold mb-3">Add Van</h3>
           <form phx-submit="add_van" class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div class="form-control">
               <label class="label label-text text-xs">Van Name</label>
-              <input type="text" name="van[name]" class="input input-bordered input-sm" required placeholder="Van 1" />
+              <input
+                type="text"
+                name="van[name]"
+                class="input input-bordered input-sm"
+                required
+                placeholder="Van 1"
+              />
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">License Plate</label>
-              <input type="text" name="van[license_plate]" class="input input-bordered input-sm" placeholder="ABC123" />
+              <input
+                type="text"
+                name="van[license_plate]"
+                class="input input-bordered input-sm"
+                placeholder="ABC123"
+              />
             </div>
             <button type="submit" class="btn btn-primary btn-sm">Add Van</button>
           </form>
         </div>
       </div>
-
-      <!-- Van List -->
+      
+    <!-- Van List -->
       <div class="space-y-3">
         <div :for={van <- @vans} class={["card bg-base-100 shadow-sm", !van.active && "opacity-50"]}>
           <div class="card-body p-4">
@@ -113,12 +126,16 @@ defmodule MobileCarWashWeb.Admin.VansLive do
               <div>
                 <div class="flex items-center gap-2">
                   <h4 class="font-bold">{van.name}</h4>
-                  <span :if={van.license_plate} class="badge badge-sm badge-ghost">{van.license_plate}</span>
+                  <span :if={van.license_plate} class="badge badge-sm badge-ghost">
+                    {van.license_plate}
+                  </span>
                   <span :if={!van.active} class="badge badge-sm badge-error">Inactive</span>
                 </div>
               </div>
               <div class="flex gap-2">
-                <button class="btn btn-ghost btn-xs" phx-click="edit_van" phx-value-id={van.id}>Edit</button>
+                <button class="btn btn-ghost btn-xs" phx-click="edit_van" phx-value-id={van.id}>
+                  Edit
+                </button>
                 <button
                   class={["btn btn-xs", if(van.active, do: "btn-warning", else: "btn-success")]}
                   phx-click="toggle_van"
@@ -128,20 +145,38 @@ defmodule MobileCarWashWeb.Admin.VansLive do
                 </button>
               </div>
             </div>
-
-            <!-- Edit mode -->
-            <form :if={@editing_van == van.id} phx-submit="update_van" phx-value-id={van.id} class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            
+    <!-- Edit mode -->
+            <form
+              :if={@editing_van == van.id}
+              phx-submit="update_van"
+              phx-value-id={van.id}
+              class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end"
+            >
               <div class="form-control">
                 <label class="label label-text text-xs">Van Name</label>
-                <input type="text" name="van[name]" class="input input-bordered input-sm" value={van.name} required />
+                <input
+                  type="text"
+                  name="van[name]"
+                  class="input input-bordered input-sm"
+                  value={van.name}
+                  required
+                />
               </div>
               <div class="form-control">
                 <label class="label label-text text-xs">License Plate</label>
-                <input type="text" name="van[license_plate]" class="input input-bordered input-sm" value={van.license_plate} />
+                <input
+                  type="text"
+                  name="van[license_plate]"
+                  class="input input-bordered input-sm"
+                  value={van.license_plate}
+                />
               </div>
               <div class="flex gap-1">
                 <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
-                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">Cancel</button>
+                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">
+                  Cancel
+                </button>
               </div>
             </form>
           </div>

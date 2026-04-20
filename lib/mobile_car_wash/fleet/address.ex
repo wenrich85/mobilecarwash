@@ -8,81 +8,81 @@ defmodule MobileCarWash.Fleet.Address do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "addresses"
-    repo MobileCarWash.Repo
+    table("addresses")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :street, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :city, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :state, :string do
-      allow_nil? false
-      default "TX"
-      public? true
+      allow_nil?(false)
+      default("TX")
+      public?(true)
     end
 
     attribute :zip, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :latitude, :float do
-      public? true
+      public?(true)
     end
 
     attribute :longitude, :float do
-      public? true
+      public?(true)
     end
 
     attribute :zone, :atom do
-      constraints one_of: [:nw, :ne, :sw, :se]
-      public? true
+      constraints(one_of: [:nw, :ne, :sw, :se])
+      public?(true)
     end
 
     attribute :is_default, :boolean do
-      default false
-      public? true
+      default(false)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
     belongs_to :customer, MobileCarWash.Accounts.Customer do
-      allow_nil? false
+      allow_nil?(false)
     end
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults([:read, :destroy])
 
     create :create do
-      accept [:street, :city, :state, :zip, :latitude, :longitude, :is_default]
-      change MobileCarWash.Fleet.Changes.AutoGeocodeFromZip
-      change MobileCarWash.Fleet.Changes.SetZoneFromZip
+      accept([:street, :city, :state, :zip, :latitude, :longitude, :is_default])
+      change(MobileCarWash.Fleet.Changes.AutoGeocodeFromZip)
+      change(MobileCarWash.Fleet.Changes.SetZoneFromZip)
     end
 
     update :update do
-      require_atomic? false
-      accept [:street, :city, :state, :zip, :latitude, :longitude, :is_default]
-      change MobileCarWash.Fleet.Changes.AutoGeocodeFromZip
-      change MobileCarWash.Fleet.Changes.SetZoneFromZip
+      require_atomic?(false)
+      accept([:street, :city, :state, :zip, :latitude, :longitude, :is_default])
+      change(MobileCarWash.Fleet.Changes.AutoGeocodeFromZip)
+      change(MobileCarWash.Fleet.Changes.SetZoneFromZip)
     end
 
     read :for_customer do
-      argument :customer_id, :uuid, allow_nil?: false
-      filter expr(customer_id == ^arg(:customer_id))
+      argument(:customer_id, :uuid, allow_nil?: false)
+      filter(expr(customer_id == ^arg(:customer_id)))
     end
   end
 end

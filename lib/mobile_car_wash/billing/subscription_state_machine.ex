@@ -37,7 +37,10 @@ defmodule MobileCarWash.Billing.SubscriptionStateMachine do
   @spec can_be_on?(step(), context()) :: boolean()
   def can_be_on?(:select_plan, _ctx), do: true
   def can_be_on?(:auth, ctx), do: present?(ctx, :selected_plan)
-  def can_be_on?(:review, ctx), do: present?(ctx, :selected_plan) and present?(ctx, :current_customer)
+
+  def can_be_on?(:review, ctx),
+    do: present?(ctx, :selected_plan) and present?(ctx, :current_customer)
+
   def can_be_on?(:checkout, ctx), do: can_be_on?(:review, ctx)
 
   @spec resolve_step(step(), context()) :: step()

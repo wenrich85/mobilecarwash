@@ -9,47 +9,47 @@ defmodule MobileCarWash.Operations.ProcedureStep do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "procedure_steps"
-    repo MobileCarWash.Repo
+    table("procedure_steps")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :step_number, :integer do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :title, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :description, :string do
-      public? true
+      public?(true)
     end
 
     attribute :estimated_minutes, :integer do
-      public? true
+      public?(true)
     end
 
     attribute :required, :boolean do
-      default true
-      public? true
+      default(true)
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
     belongs_to :procedure, MobileCarWash.Operations.Procedure do
-      allow_nil? false
+      allow_nil?(false)
     end
   end
 
   actions do
-    defaults [:read, :destroy, create: :*, update: :*]
+    defaults([:read, :destroy, create: :*, update: :*])
   end
 end

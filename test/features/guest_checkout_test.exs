@@ -110,7 +110,12 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
 
       {:ok, address} =
         Address
-        |> Ash.Changeset.for_create(:create, %{street: "999 Guest Ln", city: "Austin", state: "TX", zip: "78701"})
+        |> Ash.Changeset.for_create(:create, %{
+          street: "999 Guest Ln",
+          city: "Austin",
+          state: "TX",
+          zip: "78701"
+        })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
@@ -138,14 +143,24 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
       # Step 2: Add vehicle (pickup = 1.5x)
       {:ok, vehicle} =
         Vehicle
-        |> Ash.Changeset.for_create(:create, %{make: "Ford", model: "F-150", year: 2024, size: :pickup})
+        |> Ash.Changeset.for_create(:create, %{
+          make: "Ford",
+          model: "F-150",
+          year: 2024,
+          size: :pickup
+        })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
       # Step 3: Add address
       {:ok, address} =
         Address
-        |> Ash.Changeset.for_create(:create, %{street: "100 E2E Blvd", city: "Austin", state: "TX", zip: "78745"})
+        |> Ash.Changeset.for_create(:create, %{
+          street: "100 E2E Blvd",
+          city: "Austin",
+          state: "TX",
+          zip: "78745"
+        })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
@@ -197,13 +212,22 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
 
       {:ok, vehicle} =
         Vehicle
-        |> Ash.Changeset.for_create(:create, %{make: "Toyota", model: "Highlander", size: :suv_van})
+        |> Ash.Changeset.for_create(:create, %{
+          make: "Toyota",
+          model: "Highlander",
+          size: :suv_van
+        })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
       {:ok, address} =
         Address
-        |> Ash.Changeset.for_create(:create, %{street: "200 SUV St", city: "Austin", state: "TX", zip: "78702"})
+        |> Ash.Changeset.for_create(:create, %{
+          street: "200 SUV St",
+          city: "Austin",
+          state: "TX",
+          zip: "78702"
+        })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
@@ -243,7 +267,12 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
 
       {:ok, address} =
         Address
-        |> Ash.Changeset.for_create(:create, %{street: "300 Car St", city: "Austin", state: "TX", zip: "78703"})
+        |> Ash.Changeset.for_create(:create, %{
+          street: "300 Car St",
+          city: "Austin",
+          state: "TX",
+          zip: "78703"
+        })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 

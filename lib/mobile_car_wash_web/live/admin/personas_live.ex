@@ -215,7 +215,10 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
 
   defp friendly_error(%Ash.Error.Invalid{errors: errors}) do
     cond do
-      Enum.any?(errors, &(&1.__struct__ == Ash.Error.Changes.InvalidAttribute && &1.field == :slug)) ->
+      Enum.any?(
+        errors,
+        &(&1.__struct__ == Ash.Error.Changes.InvalidAttribute && &1.field == :slug)
+      ) ->
         "Slug is already taken"
 
       true ->
@@ -257,188 +260,192 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
               phx-debounce="300"
               class="grid grid-cols-1 md:grid-cols-2 gap-4"
             >
-            <label class="form-control">
-              <span class="label-text">Slug</span>
-              <input
-                type="text"
-                name="persona[slug]"
-                value={persona_val(@editing, :slug)}
-                class="input input-bordered"
-                required
-              />
-            </label>
-
-            <label class="form-control">
-              <span class="label-text">Name</span>
-              <input
-                type="text"
-                name="persona[name]"
-                value={persona_val(@editing, :name)}
-                class="input input-bordered"
-                required
-              />
-            </label>
-
-            <label class="form-control md:col-span-2">
-              <span class="label-text">Description</span>
-              <textarea name="persona[description]" rows="3" class="textarea textarea-bordered">{persona_val(@editing, :description)}</textarea>
-            </label>
-
-            <label class="form-control md:col-span-2">
-              <span class="label-text">Image prompt (for AI generation — Phase 2C)</span>
-              <input
-                type="text"
-                name="persona[image_prompt]"
-                value={persona_val(@editing, :image_prompt)}
-                class="input input-bordered"
-              />
-            </label>
-
-            <label class="form-control">
-              <span class="label-text">Sort order</span>
-              <input
-                type="number"
-                name="persona[sort_order]"
-                value={persona_val(@editing, :sort_order) || 100}
-                class="input input-bordered"
-              />
-            </label>
-
-            <label class="form-control cursor-pointer justify-center">
-              <span class="label-text">
+              <label class="form-control">
+                <span class="label-text">Slug</span>
                 <input
-                  type="checkbox"
-                  name="persona[active]"
-                  value="true"
-                  checked={persona_val(@editing, :active) != false}
-                  class="checkbox checkbox-primary"
-                /> Active
-              </span>
-            </label>
+                  type="text"
+                  name="persona[slug]"
+                  value={persona_val(@editing, :slug)}
+                  class="input input-bordered"
+                  required
+                />
+              </label>
 
-            <!-- Criteria — any empty / "Any" field is ignored at save time -->
-            <div class="md:col-span-2 divider text-xs text-base-content/60">Criteria (who matches)</div>
+              <label class="form-control">
+                <span class="label-text">Name</span>
+                <input
+                  type="text"
+                  name="persona[name]"
+                  value={persona_val(@editing, :name)}
+                  class="input input-bordered"
+                  required
+                />
+              </label>
 
-            <label class="form-control">
-              <span class="label-text">Acquisition channel</span>
-              <select name="persona[criteria_channel_slug]" class="select select-bordered">
-                <option value="">Any</option>
-                <option
-                  :for={chan <- @channels}
-                  value={chan.slug}
-                  selected={@draft_criteria["acquired_channel_slug"] == chan.slug}
-                >
-                  {chan.display_name}
-                </option>
-              </select>
-            </label>
+              <label class="form-control md:col-span-2">
+                <span class="label-text">Description</span>
+                <textarea name="persona[description]" rows="3" class="textarea textarea-bordered">{persona_val(@editing, :description)}</textarea>
+              </label>
 
-            <label class="form-control">
-              <span class="label-text">Device type (latest event)</span>
-              <select name="persona[criteria_device_type]" class="select select-bordered">
-                <option value="">Any</option>
-                <option
-                  :for={dt <- ~w(mobile tablet desktop bot)}
-                  value={dt}
-                  selected={@draft_criteria["device_type"] == dt}
-                >
-                  {dt}
-                </option>
-              </select>
-            </label>
+              <label class="form-control md:col-span-2">
+                <span class="label-text">Image prompt (for AI generation — Phase 2C)</span>
+                <input
+                  type="text"
+                  name="persona[image_prompt]"
+                  value={persona_val(@editing, :image_prompt)}
+                  class="input input-bordered"
+                />
+              </label>
 
-            <label class="form-control">
-              <span class="label-text">Lifetime revenue min ($)</span>
-              <input
-                type="number"
-                min="0"
-                name="persona[criteria_revenue_min]"
-                value={bound_display(@draft_criteria, "gte")}
-                class="input input-bordered"
-              />
-            </label>
+              <label class="form-control">
+                <span class="label-text">Sort order</span>
+                <input
+                  type="number"
+                  name="persona[sort_order]"
+                  value={persona_val(@editing, :sort_order) || 100}
+                  class="input input-bordered"
+                />
+              </label>
 
-            <label class="form-control">
-              <span class="label-text">Lifetime revenue max ($)</span>
-              <input
-                type="number"
-                min="0"
-                name="persona[criteria_revenue_max]"
-                value={bound_display(@draft_criteria, "lte")}
-                class="input input-bordered"
-              />
-            </label>
+              <label class="form-control cursor-pointer justify-center">
+                <span class="label-text">
+                  <input
+                    type="checkbox"
+                    name="persona[active]"
+                    value="true"
+                    checked={persona_val(@editing, :active) != false}
+                    class="checkbox checkbox-primary"
+                  /> Active
+                </span>
+              </label>
+              
+    <!-- Criteria — any empty / "Any" field is ignored at save time -->
+              <div class="md:col-span-2 divider text-xs text-base-content/60">
+                Criteria (who matches)
+              </div>
 
-            <label class="form-control md:col-span-2">
-              <span class="label-text">Active subscription</span>
-              <select name="persona[criteria_has_subscription]" class="select select-bordered">
-                <option value="">Any</option>
-                <option value="true" selected={@draft_criteria["has_subscription"] == true}>
-                  Only subscribers
-                </option>
-                <option value="false" selected={@draft_criteria["has_subscription"] == false}>
-                  Only non-subscribers
-                </option>
-              </select>
-            </label>
+              <label class="form-control">
+                <span class="label-text">Acquisition channel</span>
+                <select name="persona[criteria_channel_slug]" class="select select-bordered">
+                  <option value="">Any</option>
+                  <option
+                    :for={chan <- @channels}
+                    value={chan.slug}
+                    selected={@draft_criteria["acquired_channel_slug"] == chan.slug}
+                  >
+                    {chan.display_name}
+                  </option>
+                </select>
+              </label>
 
-            <div :if={@form_error} class="md:col-span-2 alert alert-error">
-              <span>{@form_error}</span>
-            </div>
+              <label class="form-control">
+                <span class="label-text">Device type (latest event)</span>
+                <select name="persona[criteria_device_type]" class="select select-bordered">
+                  <option value="">Any</option>
+                  <option
+                    :for={dt <- ~w(mobile tablet desktop bot)}
+                    value={dt}
+                    selected={@draft_criteria["device_type"] == dt}
+                  >
+                    {dt}
+                  </option>
+                </select>
+              </label>
 
-            <div class="md:col-span-2 flex justify-end gap-2">
-              <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">Cancel</button>
-              <button type="submit" class="btn btn-primary btn-sm">Save</button>
-            </div>
-          </form>
+              <label class="form-control">
+                <span class="label-text">Lifetime revenue min ($)</span>
+                <input
+                  type="number"
+                  min="0"
+                  name="persona[criteria_revenue_min]"
+                  value={bound_display(@draft_criteria, "gte")}
+                  class="input input-bordered"
+                />
+              </label>
+
+              <label class="form-control">
+                <span class="label-text">Lifetime revenue max ($)</span>
+                <input
+                  type="number"
+                  min="0"
+                  name="persona[criteria_revenue_max]"
+                  value={bound_display(@draft_criteria, "lte")}
+                  class="input input-bordered"
+                />
+              </label>
+
+              <label class="form-control md:col-span-2">
+                <span class="label-text">Active subscription</span>
+                <select name="persona[criteria_has_subscription]" class="select select-bordered">
+                  <option value="">Any</option>
+                  <option value="true" selected={@draft_criteria["has_subscription"] == true}>
+                    Only subscribers
+                  </option>
+                  <option value="false" selected={@draft_criteria["has_subscription"] == false}>
+                    Only non-subscribers
+                  </option>
+                </select>
+              </label>
+
+              <div :if={@form_error} class="md:col-span-2 alert alert-error">
+                <span>{@form_error}</span>
+              </div>
+
+              <div class="md:col-span-2 flex justify-end gap-2">
+                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">
+                  Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+              </div>
+            </form>
+          </div>
         </div>
+        
+    <!-- Live preview (right column of the editor grid) -->
+        <aside class="card bg-base-100 border border-base-300 lg:col-span-1">
+          <div class="card-body">
+            <h3 class="card-title text-base">Live preview</h3>
+            <div class="stat px-0">
+              <div class="stat-title">Customers matching</div>
+              <div class="stat-value text-primary">{@match_count}</div>
+              <div class="stat-desc">Updates as you tweak criteria.</div>
+            </div>
+
+            <div :if={@match_sample != []} class="mt-2">
+              <div class="text-sm font-medium mb-2">Sample</div>
+              <ul class="text-sm space-y-1">
+                <li :for={c <- @match_sample} class="truncate">
+                  <span class="font-medium">{c.name}</span>
+                  <span class="text-base-content/60">· {c.email}</span>
+                </li>
+              </ul>
+            </div>
+
+            <div :if={match?(%Persona{}, @editing)} class="mt-4">
+              <div class="text-sm font-medium mb-2">AI image</div>
+              <img
+                :if={@editing.image_url}
+                src={@editing.image_url}
+                alt={"#{@editing.name} image"}
+                class="rounded-lg w-full aspect-square object-cover border border-base-300"
+              />
+              <div
+                :if={is_nil(@editing.image_url)}
+                class="rounded-lg aspect-square border border-dashed border-base-300 flex items-center justify-center text-6xl"
+              >
+                🎭
+              </div>
+              <button
+                class="btn btn-ghost btn-sm mt-2 w-full"
+                phx-click="regen_image"
+                phx-value-id={@editing.id}
+              >
+                {if @editing.image_url, do: "Regenerate image", else: "Generate image"}
+              </button>
+            </div>
+          </div>
+        </aside>
       </div>
-
-      <!-- Live preview (right column of the editor grid) -->
-      <aside class="card bg-base-100 border border-base-300 lg:col-span-1">
-        <div class="card-body">
-          <h3 class="card-title text-base">Live preview</h3>
-          <div class="stat px-0">
-            <div class="stat-title">Customers matching</div>
-            <div class="stat-value text-primary">{@match_count}</div>
-            <div class="stat-desc">Updates as you tweak criteria.</div>
-          </div>
-
-          <div :if={@match_sample != []} class="mt-2">
-            <div class="text-sm font-medium mb-2">Sample</div>
-            <ul class="text-sm space-y-1">
-              <li :for={c <- @match_sample} class="truncate">
-                <span class="font-medium">{c.name}</span>
-                <span class="text-base-content/60">· {c.email}</span>
-              </li>
-            </ul>
-          </div>
-
-          <div :if={match?(%Persona{}, @editing)} class="mt-4">
-            <div class="text-sm font-medium mb-2">AI image</div>
-            <img
-              :if={@editing.image_url}
-              src={@editing.image_url}
-              alt={"#{@editing.name} image"}
-              class="rounded-lg w-full aspect-square object-cover border border-base-300"
-            />
-            <div
-              :if={is_nil(@editing.image_url)}
-              class="rounded-lg aspect-square border border-dashed border-base-300 flex items-center justify-center text-6xl"
-            >
-              🎭
-            </div>
-            <button
-              class="btn btn-ghost btn-sm mt-2 w-full"
-              phx-click="regen_image"
-              phx-value-id={@editing.id}
-            >
-              {if @editing.image_url, do: "Regenerate image", else: "Generate image"}
-            </button>
-          </div>
-        </div>
-      </aside>
-    </div>
 
       <div class="overflow-x-auto bg-base-100 rounded-lg border border-base-300">
         <table class="table">

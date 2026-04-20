@@ -5,12 +5,12 @@ defmodule MobileCarWash.Scheduling do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Scheduling.ServiceType
-    resource MobileCarWash.Scheduling.Appointment
-    resource MobileCarWash.Scheduling.AppointmentBlock
-    resource MobileCarWash.Scheduling.BlockTemplate
-    resource MobileCarWash.Scheduling.RecurringSchedule
-    resource MobileCarWash.Scheduling.BlockedDate
-    resource MobileCarWash.Scheduling.SchedulingSettings
+    resource(MobileCarWash.Scheduling.ServiceType)
+    resource(MobileCarWash.Scheduling.Appointment)
+    resource(MobileCarWash.Scheduling.AppointmentBlock)
+    resource(MobileCarWash.Scheduling.BlockTemplate)
+    resource(MobileCarWash.Scheduling.RecurringSchedule)
+    resource(MobileCarWash.Scheduling.BlockedDate)
+    resource(MobileCarWash.Scheduling.SchedulingSettings)
   end
 end

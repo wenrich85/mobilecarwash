@@ -11,7 +11,9 @@ defmodule MobileCarWashWeb.Admin.OperationsComponents do
       <div class="card bg-base-100 shadow-md w-56 border-l-4 border-primary">
         <div class="card-body p-4">
           <h3 class="card-title text-sm">{@position.name}</h3>
-          <p :if={@position.description} class="text-xs text-base-content/80 line-clamp-2">{@position.description}</p>
+          <p :if={@position.description} class="text-xs text-base-content/80 line-clamp-2">
+            {@position.description}
+          </p>
           <div class="badge badge-ghost badge-xs">Level {@position.level}</div>
         </div>
       </div>
@@ -36,7 +38,9 @@ defmodule MobileCarWashWeb.Admin.OperationsComponents do
         <div class="flex justify-between items-start">
           <div>
             <h3 class="card-title">{@procedure.name}</h3>
-            <p :if={@procedure.description} class="text-sm text-base-content/80 mt-1">{@procedure.description}</p>
+            <p :if={@procedure.description} class="text-sm text-base-content/80 mt-1">
+              {@procedure.description}
+            </p>
           </div>
           <div class="flex gap-2">
             <span class="badge badge-primary">{length(@steps)} steps</span>
@@ -61,7 +65,9 @@ defmodule MobileCarWashWeb.Admin.OperationsComponents do
                   <td class="font-mono text-sm">{step.step_number}</td>
                   <td>
                     <div class="font-semibold">{step.title}</div>
-                    <div :if={step.description} class="text-xs text-base-content/70">{step.description}</div>
+                    <div :if={step.description} class="text-xs text-base-content/70">
+                      {step.description}
+                    </div>
                   </td>
                   <td>{step.estimated_minutes || "-"} min</td>
                   <td>
@@ -75,7 +81,11 @@ defmodule MobileCarWashWeb.Admin.OperationsComponents do
         </div>
 
         <div class="card-actions justify-end mt-4">
-          <button class="btn btn-ghost btn-sm" phx-click="toggle_procedure" phx-value-id={@procedure.id}>
+          <button
+            class="btn btn-ghost btn-sm"
+            phx-click="toggle_procedure"
+            phx-value-id={@procedure.id}
+          >
             {if @expanded, do: "Collapse", else: "View Steps"}
           </button>
         </div>

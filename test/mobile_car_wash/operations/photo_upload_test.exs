@@ -171,7 +171,11 @@ defmodule MobileCarWash.Operations.PhotoUploadTest do
 
     customer =
       MobileCarWash.Accounts.Customer
-      |> Ash.Changeset.for_create(:create_guest, %{email: email, name: "Photo Test", phone: "+15125551234"})
+      |> Ash.Changeset.for_create(:create_guest, %{
+        email: email,
+        name: "Photo Test",
+        phone: "+15125551234"
+      })
       |> Ash.create!()
 
     vehicle =
@@ -182,7 +186,12 @@ defmodule MobileCarWash.Operations.PhotoUploadTest do
 
     address =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "123 Main St", city: "San Antonio", state: "TX", zip: "78201"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "123 Main St",
+        city: "San Antonio",
+        state: "TX",
+        zip: "78201"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create!()
 

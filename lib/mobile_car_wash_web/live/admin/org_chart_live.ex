@@ -171,28 +171,45 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
           <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
         </div>
       </div>
-
-      <!-- Visual Org Chart -->
+      
+    <!-- Visual Org Chart -->
       <div :if={@tree} class="flex justify-center mb-12 overflow-x-auto p-8">
         <.org_node position={@tree} children={@tree[:children] || []} />
       </div>
-
-      <!-- Add Position -->
+      
+    <!-- Add Position -->
       <div class="card bg-base-100 shadow mb-6">
         <div class="card-body p-4">
           <h3 class="font-bold mb-3">Add Position</h3>
           <form phx-submit="add_position" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
             <div class="form-control">
               <label class="label label-text text-xs">Name</label>
-              <input type="text" name="position[name]" class="input input-bordered input-sm" required placeholder="Position title" />
+              <input
+                type="text"
+                name="position[name]"
+                class="input input-bordered input-sm"
+                required
+                placeholder="Position title"
+              />
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">Level</label>
-              <input type="number" name="position[level]" class="input input-bordered input-sm" value="0" min="0" />
+              <input
+                type="number"
+                name="position[level]"
+                class="input input-bordered input-sm"
+                value="0"
+                min="0"
+              />
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">Sort Order</label>
-              <input type="number" name="position[sort_order]" class="input input-bordered input-sm" value="0" />
+              <input
+                type="number"
+                name="position[sort_order]"
+                class="input input-bordered input-sm"
+                value="0"
+              />
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">Parent Position</label>
@@ -205,12 +222,18 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
           </form>
           <div class="form-control mt-3">
             <label class="label label-text text-xs">Description</label>
-            <input type="text" name="position[description]" form="add_position" class="input input-bordered input-sm" placeholder="Job description" />
+            <input
+              type="text"
+              name="position[description]"
+              form="add_position"
+              class="input input-bordered input-sm"
+              placeholder="Job description"
+            />
           </div>
         </div>
       </div>
-
-      <!-- Position List with CRUD -->
+      
+    <!-- Position List with CRUD -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div :for={pos <- @positions} class="card bg-base-100 shadow">
           <div class="card-body p-4">
@@ -219,91 +242,170 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
               <div class="flex-1 cursor-pointer" phx-click="select_position" phx-value-id={pos.id}>
                 <h3 class="font-bold hover:text-primary">{pos.name}</h3>
                 <span class="badge badge-primary badge-sm">Level {pos.level}</span>
-                <p :if={pos.description} class="text-sm text-base-content/80 mt-2">{pos.description}</p>
+                <p :if={pos.description} class="text-sm text-base-content/80 mt-2">
+                  {pos.description}
+                </p>
               </div>
               <div class="flex gap-1">
-                <button class="btn btn-ghost btn-xs" phx-click="edit_position" phx-value-id={pos.id}>Edit</button>
-                <button class="btn btn-ghost btn-xs text-error" phx-click="delete_position" phx-value-id={pos.id}>Delete</button>
+                <button class="btn btn-ghost btn-xs" phx-click="edit_position" phx-value-id={pos.id}>
+                  Edit
+                </button>
+                <button
+                  class="btn btn-ghost btn-xs text-error"
+                  phx-click="delete_position"
+                  phx-value-id={pos.id}
+                >
+                  Delete
+                </button>
               </div>
             </div>
-
-            <!-- Edit mode -->
-            <form :if={@editing_position == pos.id} phx-submit="update_position" phx-value-id={pos.id} class="space-y-3">
+            
+    <!-- Edit mode -->
+            <form
+              :if={@editing_position == pos.id}
+              phx-submit="update_position"
+              phx-value-id={pos.id}
+              class="space-y-3"
+            >
               <div class="grid grid-cols-1 gap-3">
                 <div class="form-control">
                   <label class="label label-text text-xs">Name</label>
-                  <input type="text" name="position[name]" class="input input-bordered input-sm" value={pos.name} required />
+                  <input
+                    type="text"
+                    name="position[name]"
+                    class="input input-bordered input-sm"
+                    value={pos.name}
+                    required
+                  />
                 </div>
                 <div class="grid grid-cols-3 gap-2">
                   <div class="form-control">
                     <label class="label label-text text-xs">Level</label>
-                    <input type="number" name="position[level]" class="input input-bordered input-sm" value={pos.level} min="0" />
+                    <input
+                      type="number"
+                      name="position[level]"
+                      class="input input-bordered input-sm"
+                      value={pos.level}
+                      min="0"
+                    />
                   </div>
                   <div class="form-control">
                     <label class="label label-text text-xs">Sort Order</label>
-                    <input type="number" name="position[sort_order]" class="input input-bordered input-sm" value={pos.sort_order} />
+                    <input
+                      type="number"
+                      name="position[sort_order]"
+                      class="input input-bordered input-sm"
+                      value={pos.sort_order}
+                    />
                   </div>
                   <div class="form-control">
                     <label class="label label-text text-xs">Parent</label>
-                    <select name="position[parent_position_id]" class="select select-bordered select-sm">
+                    <select
+                      name="position[parent_position_id]"
+                      class="select select-bordered select-sm"
+                    >
                       <option value="">None</option>
-                      <option :for={p <- @positions} value={p.id} selected={pos.parent_position_id == p.id}>{p.name}</option>
+                      <option
+                        :for={p <- @positions}
+                        value={p.id}
+                        selected={pos.parent_position_id == p.id}
+                      >
+                        {p.name}
+                      </option>
                     </select>
                   </div>
                 </div>
                 <div class="form-control">
                   <label class="label label-text text-xs">Description</label>
-                  <textarea name="position[description]" class="textarea textarea-bordered textarea-sm">{pos.description}</textarea>
+                  <textarea
+                    name="position[description]"
+                    class="textarea textarea-bordered textarea-sm"
+                  >{pos.description}</textarea>
                 </div>
               </div>
               <div class="flex gap-1">
                 <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
-                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">Cancel</button>
+                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
         </div>
       </div>
-
-      <!-- Position Contracts Panel -->
+      
+    <!-- Position Contracts Panel -->
       <div :if={@selected_position_id} class="card bg-base-100 shadow mb-8">
         <div class="card-body">
-          <h3 class="card-title mb-4">Position Contract for {Enum.find(@positions, &(&1.id == @selected_position_id)).name}</h3>
-
-          <!-- Add Contract Form -->
+          <h3 class="card-title mb-4">
+            Position Contract for {Enum.find(@positions, &(&1.id == @selected_position_id)).name}
+          </h3>
+          
+    <!-- Add Contract Form -->
           <div class="mb-6 pb-6 border-b">
             <h4 class="font-semibold mb-3">Add Contract</h4>
-            <form phx-submit="add_contract" phx-value-position-id={@selected_position_id} class="space-y-3">
+            <form
+              phx-submit="add_contract"
+              phx-value-position-id={@selected_position_id}
+              class="space-y-3"
+            >
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div class="form-control">
                   <label class="label label-text text-xs">Contract Title</label>
-                  <input type="text" name="contract[title]" class="input input-bordered input-sm" required placeholder="e.g., Lead Technician Agreement" />
+                  <input
+                    type="text"
+                    name="contract[title]"
+                    class="input input-bordered input-sm"
+                    required
+                    placeholder="e.g., Lead Technician Agreement"
+                  />
                 </div>
               </div>
               <div class="form-control">
                 <label class="label label-text text-xs">Purpose</label>
-                <textarea name="contract[purpose]" class="textarea textarea-bordered textarea-sm" placeholder="Primary purpose of this position"></textarea>
+                <textarea
+                  name="contract[purpose]"
+                  class="textarea textarea-bordered textarea-sm"
+                  placeholder="Primary purpose of this position"
+                ></textarea>
               </div>
               <div class="form-control">
                 <label class="label label-text text-xs">Responsibilities (Markdown)</label>
-                <textarea name="contract[responsibilities]" class="textarea textarea-bordered textarea-sm" placeholder="- Manage team scheduling&#10;- Conduct quality inspections&#10;- etc."></textarea>
+                <textarea
+                  name="contract[responsibilities]"
+                  class="textarea textarea-bordered textarea-sm"
+                  placeholder="- Manage team scheduling&#10;- Conduct quality inspections&#10;- etc."
+                ></textarea>
               </div>
               <div class="form-control">
                 <label class="label label-text text-xs">Performance Standards</label>
-                <textarea name="contract[standards]" class="textarea textarea-bordered textarea-sm" placeholder="- 95% customer satisfaction&#10;- Complete 5 appointments/day&#10;- etc."></textarea>
+                <textarea
+                  name="contract[standards]"
+                  class="textarea textarea-bordered textarea-sm"
+                  placeholder="- 95% customer satisfaction&#10;- Complete 5 appointments/day&#10;- etc."
+                ></textarea>
               </div>
               <button type="submit" class="btn btn-primary btn-sm">Add Contract</button>
             </form>
           </div>
-
-          <!-- Contracts List -->
+          
+    <!-- Contracts List -->
           <div class="space-y-4">
-            <div :for={contract <- @contracts} class="collapse collapse-arrow border border-base-300 bg-base-200">
+            <div
+              :for={contract <- @contracts}
+              class="collapse collapse-arrow border border-base-300 bg-base-200"
+            >
               <input type="radio" name="contract-accordion" />
               <div class="collapse-title font-medium">
                 <div class="flex justify-between items-center">
                   <span>{contract.title}</span>
-                  <button class="btn btn-ghost btn-xs text-error" phx-click="delete_contract" phx-value-id={contract.id}>Delete</button>
+                  <button
+                    class="btn btn-ghost btn-xs text-error"
+                    phx-click="delete_contract"
+                    phx-value-id={contract.id}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
               <div class="collapse-content space-y-3">
@@ -370,12 +472,14 @@ defmodule MobileCarWashWeb.Admin.OrgChartLive do
 
   defp parse_int(nil), do: nil
   defp parse_int(""), do: nil
+
   defp parse_int(str) when is_binary(str) do
     case Integer.parse(str) do
       {n, _} -> n
       :error -> nil
     end
   end
+
   defp parse_int(n) when is_integer(n), do: n
 
   defp blank_to_nil(""), do: nil

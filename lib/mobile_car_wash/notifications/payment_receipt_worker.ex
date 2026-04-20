@@ -21,7 +21,9 @@ defmodule MobileCarWash.Notifications.PaymentReceiptWorker do
                 {:ok, svc} -> svc.name
                 _ -> "Detailing Service"
               end
-            _ -> "Detailing Service"
+
+            _ ->
+              "Detailing Service"
           end
         else
           "Subscription Payment"

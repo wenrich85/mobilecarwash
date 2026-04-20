@@ -63,6 +63,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
       case field do
         "pay_rate" ->
           tech = socket.assigns.technician
+
           if tech.pay_rate_pct do
             pct = Decimal.to_float(tech.pay_rate_pct) * 100
             :erlang.float_to_binary(pct, decimals: 1)
@@ -74,7 +75,8 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
           nil
       end
 
-    {:noreply, assign(socket, editing: String.to_existing_atom(field), pay_rate_input: input, error: nil)}
+    {:noreply,
+     assign(socket, editing: String.to_existing_atom(field), pay_rate_input: input, error: nil)}
   end
 
   def handle_event("cancel_edit", _params, socket) do
@@ -129,15 +131,15 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
   def render(assigns) do
     ~H"""
     <div class="max-w-4xl mx-auto py-8 px-4">
-
-      <!-- Breadcrumb -->
+      
+    <!-- Breadcrumb -->
       <div class="mb-6">
         <.link navigate={~p"/admin/dispatch"} class="btn btn-ghost btn-sm">
           ← Dispatch
         </.link>
       </div>
-
-      <!-- Header -->
+      
+    <!-- Header -->
       <div class="card bg-base-100 shadow mb-6">
         <div class="card-body p-6">
           <div class="flex items-start justify-between flex-wrap gap-4">
@@ -153,7 +155,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                 {zone_label(@technician.zone)}
               </span>
               <button
-                class={["btn btn-sm", @technician.active && "btn-success" || "btn-ghost"]}
+                class={["btn btn-sm", (@technician.active && "btn-success") || "btn-ghost"]}
                 phx-click="toggle_active"
               >
                 {if @technician.active, do: "Active", else: "Inactive"}
@@ -162,11 +164,11 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
           </div>
         </div>
       </div>
-
-      <!-- Van + Pay Rate row -->
+      
+    <!-- Van + Pay Rate row -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-
-        <!-- Van assignment -->
+        
+    <!-- Van assignment -->
         <div class="card bg-base-100 shadow">
           <div class="card-body p-4">
             <h3 class="font-semibold mb-3">Van</h3>
@@ -198,18 +200,21 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                   selected={@technician.van_id == v.id}
                   disabled={!v.active}
                 >
-                  {v.name}{if v.license_plate, do: " · #{v.license_plate}"}{if !v.active, do: " (inactive)"}
+                  {v.name}{if v.license_plate, do: " · #{v.license_plate}"}{if !v.active,
+                    do: " (inactive)"}
                 </option>
               </select>
               <div class="flex gap-2">
                 <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
-                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">Cancel</button>
+                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
         </div>
-
-        <!-- Pay rate -->
+        
+    <!-- Pay rate -->
         <div class="card bg-base-100 shadow">
           <div class="card-body p-4">
             <h3 class="font-semibold mb-3">Pay Rate</h3>
@@ -250,19 +255,23 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
               <p :if={@error} class="text-error text-xs">{@error}</p>
               <div class="flex gap-2">
                 <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
-                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">Cancel</button>
+                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
         </div>
       </div>
-
-      <!-- Earnings stats -->
+      
+    <!-- Earnings stats -->
       <div class="stats shadow w-full mb-6">
         <div class="stat">
           <div class="stat-title">Washes This Week</div>
           <div class="stat-value text-primary">{@earnings.washes_count}</div>
-          <div class="stat-desc">{format_date_range(@earnings.period_start, @earnings.period_end)}</div>
+          <div class="stat-desc">
+            {format_date_range(@earnings.period_start, @earnings.period_end)}
+          </div>
         </div>
         <div class="stat">
           <div class="stat-title">Earned This Week</div>
@@ -281,12 +290,14 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
           <div class="stat-desc">actual vs scheduled</div>
         </div>
       </div>
-
-      <!-- Appointment tabs -->
+      
+    <!-- Appointment tabs -->
       <div class="mb-2">
         <div class="tabs tabs-bordered">
           <button
-            :for={{tab, label} <- [{:past, "Past"}, {:today, "Today / Active"}, {:upcoming, "Upcoming"}]}
+            :for={
+              {tab, label} <- [{:past, "Past"}, {:today, "Today / Active"}, {:upcoming, "Upcoming"}]
+            }
             class={["tab", @active_tab == tab && "tab-active"]}
             phx-click="switch_tab"
             phx-value-tab={tab}
@@ -345,8 +356,8 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
           </div>
         </div>
       </div>
-
-      <!-- Supply Usage -->
+      
+    <!-- Supply Usage -->
       <div class="mt-8">
         <h2 class="text-lg font-bold mb-3">Supply Usage (last 50)</h2>
         <div :if={@supply_usage == []} class="text-base-content/70 text-sm">
@@ -371,7 +382,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
                   </td>
                   <td class="text-sm">
                     <% supply = Map.get(@supply_map, rec.supply_id) %>
-                    {supply && supply.name || "Unknown"}
+                    {(supply && supply.name) || "Unknown"}
                   </td>
                   <td class="text-sm font-semibold">
                     <% supply = Map.get(@supply_map, rec.supply_id) %>
@@ -387,7 +398,6 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
           </div>
         </div>
       </div>
-
     </div>
     """
   end
@@ -421,6 +431,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
   end
 
   defp load_checklist_times([]), do: %{}
+
   defp load_checklist_times(appointments) do
     alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem}
     ids = Enum.map(appointments, & &1.id)
@@ -444,7 +455,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
         items
         |> Enum.group_by(& &1.checklist_id)
         |> Map.new(fn {cl_id, cl_items} ->
-          total_secs = Enum.sum(Enum.map(cl_items, & &1.actual_seconds || 0))
+          total_secs = Enum.sum(Enum.map(cl_items, &(&1.actual_seconds || 0)))
           {cl_id, div(total_secs, 60)}
         end)
 
@@ -494,9 +505,14 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
   end
 
   defp load_customer_map([]), do: %{}
+
   defp load_customer_map(appointments) do
     ids = appointments |> Enum.map(& &1.customer_id) |> Enum.uniq()
-    Customer |> Ash.Query.filter(id in ^ids) |> Ash.read!(authorize?: false) |> Map.new(&{&1.id, &1.name})
+
+    Customer
+    |> Ash.Query.filter(id in ^ids)
+    |> Ash.read!(authorize?: false)
+    |> Map.new(&{&1.id, &1.name})
   end
 
   # --- Formatting helpers ---
@@ -506,9 +522,11 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
     remainder = rem(cents, 100)
     "#{dollars}.#{String.pad_leading("#{remainder}", 2, "0")}"
   end
+
   defp format_dollars(_), do: "0.00"
 
   defp format_pct(nil), do: "—"
+
   defp format_pct(decimal) do
     pct = Decimal.to_float(decimal) * 100
     if trunc(pct) == pct, do: "#{trunc(pct)}", else: :erlang.float_to_binary(pct, decimals: 1)
@@ -546,6 +564,7 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
 
   defp avg_actual_minutes(washes) do
     with_actual = Enum.filter(washes, & &1.actual_minutes)
+
     if with_actual == [] do
       "—"
     else
@@ -555,19 +574,24 @@ defmodule MobileCarWashWeb.Admin.TechnicianProfileLive do
   end
 
   defp format_qty(nil), do: "0"
+
   defp format_qty(%Decimal{} = d) do
     f = Decimal.to_float(d)
     if trunc(f) == f, do: "#{trunc(f)}", else: "#{Float.round(f, 2)}"
   end
+
   defp format_qty(n), do: to_string(n)
 
   defp parse_pct(str) do
     str = String.trim(str)
+
     case Float.parse(str) do
       {val, ""} when val >= 0 and val <= 100 ->
         {:ok, Decimal.from_float(val / 100)}
+
       {_, ""} ->
         {:error, "Must be between 0 and 100"}
+
       _ ->
         {:error, "Enter a number (e.g. 30 for 30%)"}
     end

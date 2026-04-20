@@ -5,6 +5,6 @@ defmodule MobileCarWash.Audit do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Audit.AuditLog
+    resource(MobileCarWash.Audit.AuditLog)
   end
 end

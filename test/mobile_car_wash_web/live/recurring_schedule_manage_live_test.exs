@@ -37,7 +37,12 @@ defmodule MobileCarWashWeb.RecurringScheduleManageLiveTest do
 
     {:ok, address} =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "100 Main St", city: "San Antonio", state: "TX", zip: "78259"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "100 Main St",
+        city: "San Antonio",
+        state: "TX",
+        zip: "78259"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 
@@ -55,7 +60,13 @@ defmodule MobileCarWashWeb.RecurringScheduleManageLiveTest do
     # Follow the redirect and use that conn's cookies for LiveView
     conn = recycle(conn)
 
-    %{conn: conn, customer: customer, service_type: service_type, vehicle: vehicle, address: address}
+    %{
+      conn: conn,
+      customer: customer,
+      service_type: service_type,
+      vehicle: vehicle,
+      address: address
+    }
   end
 
   test "unauthenticated user is redirected to sign-in" do
@@ -73,7 +84,12 @@ defmodule MobileCarWashWeb.RecurringScheduleManageLiveTest do
     assert html =~ "No recurring schedules"
   end
 
-  test "can create a new recurring schedule", %{conn: conn, vehicle: vehicle, address: address, service_type: service_type} do
+  test "can create a new recurring schedule", %{
+    conn: conn,
+    vehicle: vehicle,
+    address: address,
+    service_type: service_type
+  } do
     {:ok, view, _html} = live(conn, ~p"/account/recurring")
 
     view |> element("button", "Add Schedule") |> render_click()
@@ -95,7 +111,13 @@ defmodule MobileCarWashWeb.RecurringScheduleManageLiveTest do
     assert html =~ "Schedule created"
   end
 
-  test "can deactivate a schedule", %{conn: conn, customer: customer, vehicle: vehicle, address: address, service_type: service_type} do
+  test "can deactivate a schedule", %{
+    conn: conn,
+    customer: customer,
+    vehicle: vehicle,
+    address: address,
+    service_type: service_type
+  } do
     {:ok, _schedule} =
       RecurringSchedule
       |> Ash.Changeset.for_create(:create, %{

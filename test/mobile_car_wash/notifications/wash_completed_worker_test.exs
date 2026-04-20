@@ -39,7 +39,12 @@ defmodule MobileCarWash.Notifications.WashCompletedWorkerTest do
     # Create address
     {:ok, address} =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "123 Test St", city: "Austin", state: "TX", zip: "78701"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "123 Test St",
+        city: "Austin",
+        state: "TX",
+        zip: "78701"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 

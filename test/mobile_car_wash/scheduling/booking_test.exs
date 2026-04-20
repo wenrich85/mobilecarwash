@@ -24,7 +24,9 @@ defmodule MobileCarWash.Scheduling.BookingTest do
       |> Ash.read!()
 
     case existing do
-      [st | _] -> st
+      [st | _] ->
+        st
+
       [] ->
         MobileCarWash.Scheduling.ServiceType
         |> Ash.Changeset.for_create(:create, %{
@@ -46,7 +48,12 @@ defmodule MobileCarWash.Scheduling.BookingTest do
 
   defp create_address(customer_id) do
     MobileCarWash.Fleet.Address
-    |> Ash.Changeset.for_create(:create, %{street: "123 Test St", city: "Austin", state: "TX", zip: "78701"})
+    |> Ash.Changeset.for_create(:create, %{
+      street: "123 Test St",
+      city: "Austin",
+      state: "TX",
+      zip: "78701"
+    })
     |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
     |> Ash.create!()
   end

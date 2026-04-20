@@ -36,9 +36,12 @@ defmodule MobileCarWashWeb.AuthController do
       {:ok, %{"sub" => subject}, _} ->
         case AshAuthentication.subject_to_user(subject, MobileCarWash.Accounts.Customer) do
           {:ok, _user} ->
-            strategy = AshAuthentication.Info.strategy!(MobileCarWash.Accounts.Customer, :password)
+            strategy =
+              AshAuthentication.Info.strategy!(MobileCarWash.Accounts.Customer, :password)
 
-            case AshAuthentication.Strategy.action(strategy, :sign_in_with_token, %{"token" => token}) do
+            case AshAuthentication.Strategy.action(strategy, :sign_in_with_token, %{
+                   "token" => token
+                 }) do
               {:ok, authenticated_user} ->
                 success(conn, {:password, :sign_in_with_token}, authenticated_user, nil)
 
@@ -62,7 +65,10 @@ defmodule MobileCarWashWeb.AuthController do
   def failure(conn, activity, reason) do
     require Logger
     ip = conn.remote_ip |> :inet.ntoa() |> to_string()
-    Logger.warning("Auth failure: activity=#{inspect(activity)} ip=#{ip} reason=#{inspect(reason)}")
+
+    Logger.warning(
+      "Auth failure: activity=#{inspect(activity)} ip=#{ip} reason=#{inspect(reason)}"
+    )
 
     conn
     |> put_flash(:error, "Authentication failed. Please check your credentials.")

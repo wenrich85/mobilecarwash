@@ -37,7 +37,8 @@ defmodule MobileCarWash.Marketing.PersonasMatchPreviewTest do
         password: "Password123!",
         password_confirmation: "Password123!",
         name: "Match Test",
-        phone: "+15125557#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
+        phone:
+          "+15125557#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
         acquired_channel_id: channel_id
       })
       |> Ash.create()
@@ -90,7 +91,8 @@ defmodule MobileCarWash.Marketing.PersonasMatchPreviewTest do
     end
 
     test "returns [] when no customer matches", %{meta: _meta} do
-      assert Personas.sample_matching(%{"acquired_channel_slug" => "totally_fake_channel"}, 5) == []
+      assert Personas.sample_matching(%{"acquired_channel_slug" => "totally_fake_channel"}, 5) ==
+               []
     end
   end
 end

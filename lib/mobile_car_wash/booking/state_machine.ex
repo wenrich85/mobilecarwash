@@ -8,7 +8,14 @@ defmodule MobileCarWash.Booking.StateMachine do
   @steps [:select_service, :auth, :vehicle, :address, :photos, :schedule, :review, :confirmed]
 
   @type step ::
-          :select_service | :auth | :vehicle | :address | :photos | :schedule | :review | :confirmed
+          :select_service
+          | :auth
+          | :vehicle
+          | :address
+          | :photos
+          | :schedule
+          | :review
+          | :confirmed
 
   @type context :: %{
           selected_service: term(),
@@ -42,8 +49,13 @@ defmodule MobileCarWash.Booking.StateMachine do
   @spec can_be_on?(step(), context()) :: boolean()
   def can_be_on?(:select_service, _ctx), do: true
   def can_be_on?(:auth, ctx), do: present?(ctx, :selected_service)
-  def can_be_on?(:vehicle, ctx), do: present?(ctx, :selected_service) and present?(ctx, :current_customer)
-  def can_be_on?(:address, ctx), do: can_be_on?(:vehicle, ctx) and present?(ctx, :selected_vehicle)
+
+  def can_be_on?(:vehicle, ctx),
+    do: present?(ctx, :selected_service) and present?(ctx, :current_customer)
+
+  def can_be_on?(:address, ctx),
+    do: can_be_on?(:vehicle, ctx) and present?(ctx, :selected_vehicle)
+
   def can_be_on?(:photos, ctx), do: can_be_on?(:address, ctx) and present?(ctx, :selected_address)
   def can_be_on?(:schedule, ctx), do: can_be_on?(:photos, ctx)
   def can_be_on?(:review, ctx), do: can_be_on?(:schedule, ctx) and present?(ctx, :selected_slot)
@@ -81,7 +93,8 @@ defmodule MobileCarWash.Booking.StateMachine do
   defp validate_forward_guard(:auth, ctx), do: require_present(ctx, :current_customer)
   defp validate_forward_guard(:vehicle, ctx), do: require_present(ctx, :selected_vehicle)
   defp validate_forward_guard(:address, ctx), do: require_present(ctx, :selected_address)
-  defp validate_forward_guard(:photos, _ctx), do: :ok  # Optional — always passes
+  # Optional — always passes
+  defp validate_forward_guard(:photos, _ctx), do: :ok
   defp validate_forward_guard(:schedule, ctx), do: require_present(ctx, :selected_slot)
   defp validate_forward_guard(:review, _ctx), do: :ok
   defp validate_forward_guard(:confirmed, _ctx), do: {:error, :already_confirmed}

@@ -42,7 +42,9 @@ defmodule MobileCarWash.Scheduling.Dispatch do
     {:ok, day_end} = DateTime.new(Date.add(date, 1), ~T[00:00:00])
 
     Appointment
-    |> Ash.Query.filter(scheduled_at >= ^day_start and scheduled_at < ^day_end and status != :cancelled)
+    |> Ash.Query.filter(
+      scheduled_at >= ^day_start and scheduled_at < ^day_end and status != :cancelled
+    )
     |> Ash.Query.sort(scheduled_at: :asc)
     |> Ash.read!()
   end
@@ -67,7 +69,11 @@ defmodule MobileCarWash.Scheduling.Dispatch do
         active = Enum.find(items, &(&1.started_at && !&1.completed))
         next = Enum.find(items, &(!&1.completed))
         current = active || next
-        eta = items |> Enum.reject(& &1.completed) |> Enum.reduce(0, fn i, acc -> acc + (i.estimated_minutes || 5) end)
+
+        eta =
+          items
+          |> Enum.reject(& &1.completed)
+          |> Enum.reduce(0, fn i, acc -> acc + (i.estimated_minutes || 5) end)
 
         %{
           checklist_id: checklist.id,
@@ -79,7 +85,14 @@ defmodule MobileCarWash.Scheduling.Dispatch do
         }
 
       [] ->
-        %{checklist_id: nil, steps_done: 0, steps_total: 0, current_step: nil, eta_minutes: nil, checklist_status: nil}
+        %{
+          checklist_id: nil,
+          steps_done: 0,
+          steps_total: 0,
+          current_step: nil,
+          eta_minutes: nil,
+          checklist_status: nil
+        }
     end
   end
 end

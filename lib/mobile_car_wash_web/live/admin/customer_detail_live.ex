@@ -182,7 +182,9 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
           <div class="flex gap-2 mt-2">
             <span class="badge badge-ghost">{@customer.role}</span>
             <span :if={@customer.email_verified_at} class="badge badge-success">Verified</span>
-            <span :if={is_nil(@customer.email_verified_at)} class="badge badge-warning">Unverified</span>
+            <span :if={is_nil(@customer.email_verified_at)} class="badge badge-warning">
+              Unverified
+            </span>
           </div>
         </div>
 
@@ -242,8 +244,8 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
             </form>
           </div>
         </div>
-
-        <!-- Personas -->
+        
+    <!-- Personas -->
         <div class="card bg-base-100 border border-base-300">
           <div class="card-body">
             <div class="flex items-center justify-between">
@@ -299,8 +301,8 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
           </div>
         </div>
       </div>
-
-      <!-- Appointments -->
+      
+    <!-- Appointments -->
       <div class="card bg-base-100 border border-base-300 mt-6">
         <div class="card-body">
           <h2 class="card-title">Recent appointments</h2>

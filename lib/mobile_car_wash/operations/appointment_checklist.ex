@@ -10,57 +10,57 @@ defmodule MobileCarWash.Operations.AppointmentChecklist do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "appointment_checklists"
-    repo MobileCarWash.Repo
+    table("appointment_checklists")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :status, :atom do
-      constraints one_of: [:not_started, :in_progress, :completed]
-      default :not_started
-      allow_nil? false
-      public? true
+      constraints(one_of: [:not_started, :in_progress, :completed])
+      default(:not_started)
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :started_at, :utc_datetime do
-      public? true
+      public?(true)
     end
 
     attribute :completed_at, :utc_datetime do
-      public? true
+      public?(true)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   relationships do
     belongs_to :appointment, MobileCarWash.Scheduling.Appointment do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     belongs_to :procedure, MobileCarWash.Operations.Procedure do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     has_many :items, MobileCarWash.Operations.ChecklistItem do
-      destination_attribute :checklist_id
+      destination_attribute(:checklist_id)
     end
   end
 
   actions do
-    defaults [:read, create: :*, update: :*]
+    defaults([:read, create: :*, update: :*])
 
     update :start_checklist do
-      change set_attribute(:status, :in_progress)
-      change set_attribute(:started_at, &DateTime.utc_now/0)
+      change(set_attribute(:status, :in_progress))
+      change(set_attribute(:started_at, &DateTime.utc_now/0))
     end
 
     update :complete_checklist do
-      change set_attribute(:status, :completed)
-      change set_attribute(:completed_at, &DateTime.utc_now/0)
+      change(set_attribute(:status, :completed))
+      change(set_attribute(:completed_at, &DateTime.utc_now/0))
     end
   end
 end

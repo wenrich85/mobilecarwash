@@ -59,8 +59,12 @@ defmodule MobileCarWash.AI.VisionClient do
              json: body,
              receive_timeout: 30_000
            ) do
-        {:ok, %{status: 200, body: resp}} -> parse_anthropic_response(resp)
-        {:ok, %{status: 429}} -> {:error, :rate_limited}
+        {:ok, %{status: 200, body: resp}} ->
+          parse_anthropic_response(resp)
+
+        {:ok, %{status: 429}} ->
+          {:error, :rate_limited}
+
         {:ok, %{status: status, body: resp}} ->
           Logger.warning("Anthropic API #{status}: #{inspect(resp)}")
           {:error, {:http_error, status}}

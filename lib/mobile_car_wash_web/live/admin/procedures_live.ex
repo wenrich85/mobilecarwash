@@ -138,7 +138,11 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
 
     case Procedure |> Ash.Changeset.for_create(:create, attrs) |> Ash.create() do
       {:ok, _} ->
-        {:noreply, socket |> assign(procedures: load_procedures()) |> reload_steps() |> put_flash(:info, "Procedure added")}
+        {:noreply,
+         socket
+         |> assign(procedures: load_procedures())
+         |> reload_steps()
+         |> put_flash(:info, "Procedure added")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Could not add procedure")}
@@ -181,7 +185,8 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
       steps = ProcedureStep |> Ash.Query.filter(procedure_id == ^id) |> Ash.read!()
 
       if length(steps) > 0 do
-        {:noreply, put_flash(socket, :error, "Cannot delete procedure with steps. Delete all steps first.")}
+        {:noreply,
+         put_flash(socket, :error, "Cannot delete procedure with steps. Delete all steps first.")}
       else
         case Ash.destroy(proc) do
           :ok ->
@@ -217,15 +222,21 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
           <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
         </div>
       </div>
-
-      <!-- Add Procedure -->
+      
+    <!-- Add Procedure -->
       <div class="card bg-base-100 shadow mb-6">
         <div class="card-body p-4">
           <h3 class="font-bold mb-3">Add Procedure</h3>
           <form phx-submit="add_procedure" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             <div class="form-control">
               <label class="label label-text text-xs">Name</label>
-              <input type="text" name="procedure[name]" class="input input-bordered input-sm" required placeholder="Procedure name" />
+              <input
+                type="text"
+                name="procedure[name]"
+                class="input input-bordered input-sm"
+                required
+                placeholder="Procedure name"
+              />
             </div>
             <div class="form-control">
               <label class="label label-text text-xs">Category</label>
@@ -238,7 +249,12 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
             </div>
             <div class="form-control md:col-span-2">
               <label class="label label-text text-xs">Description</label>
-              <input type="text" name="procedure[description]" class="input input-bordered input-sm" placeholder="What does this procedure do?" />
+              <input
+                type="text"
+                name="procedure[description]"
+                class="input input-bordered input-sm"
+                placeholder="What does this procedure do?"
+              />
             </div>
             <button type="submit" class="btn btn-primary btn-sm">Add Procedure</button>
           </form>
@@ -252,39 +268,66 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
             <div :if={@editing_procedure != proc.id} class="flex justify-between items-start">
               <div>
                 <h3 class="card-title">{proc.name}</h3>
-                <p :if={proc.description} class="text-sm text-base-content/80 mt-1">{proc.description}</p>
+                <p :if={proc.description} class="text-sm text-base-content/80 mt-1">
+                  {proc.description}
+                </p>
               </div>
               <div class="flex gap-2">
-                <span class="badge badge-primary">{length(Map.get(@steps_by_proc, proc.id, []))} steps</span>
-                <span class="badge badge-ghost">~{total_minutes(Map.get(@steps_by_proc, proc.id, []))} min</span>
+                <span class="badge badge-primary">
+                  {length(Map.get(@steps_by_proc, proc.id, []))} steps
+                </span>
+                <span class="badge badge-ghost">
+                  ~{total_minutes(Map.get(@steps_by_proc, proc.id, []))} min
+                </span>
                 <span class="badge badge-outline">{proc.category}</span>
               </div>
             </div>
-
-            <!-- Edit mode -->
-            <form :if={@editing_procedure == proc.id} phx-submit="update_procedure" phx-value-id={proc.id} class="space-y-3">
+            
+    <!-- Edit mode -->
+            <form
+              :if={@editing_procedure == proc.id}
+              phx-submit="update_procedure"
+              phx-value-id={proc.id}
+              class="space-y-3"
+            >
               <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div class="form-control">
                   <label class="label label-text text-xs">Name</label>
-                  <input type="text" name="procedure[name]" class="input input-bordered input-sm" value={proc.name} required />
+                  <input
+                    type="text"
+                    name="procedure[name]"
+                    class="input input-bordered input-sm"
+                    value={proc.name}
+                    required
+                  />
                 </div>
                 <div class="form-control">
                   <label class="label label-text text-xs">Category</label>
                   <select name="procedure[category]" class="select select-bordered select-sm">
                     <option value="wash" selected={proc.category == :wash}>Wash</option>
                     <option value="admin" selected={proc.category == :admin}>Admin</option>
-                    <option value="customer_service" selected={proc.category == :customer_service}>Customer Service</option>
+                    <option value="customer_service" selected={proc.category == :customer_service}>
+                      Customer Service
+                    </option>
                     <option value="safety" selected={proc.category == :safety}>Safety</option>
                   </select>
                 </div>
                 <div class="form-control md:col-span-2">
                   <label class="label label-text text-xs">Description</label>
-                  <input type="text" name="procedure[description]" class="input input-bordered input-sm" value={proc.description} placeholder="What does this procedure do?" />
+                  <input
+                    type="text"
+                    name="procedure[description]"
+                    class="input input-bordered input-sm"
+                    value={proc.description}
+                    placeholder="What does this procedure do?"
+                  />
                 </div>
               </div>
               <div class="flex gap-1">
                 <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
-                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">Cancel</button>
+                <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">
+                  Cancel
+                </button>
               </div>
             </form>
 
@@ -308,31 +351,65 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
                     <span class="font-mono text-sm text-base-content/70 w-6">{step.step_number}</span>
                     <div class="flex-1">
                       <span class="font-semibold">{step.title}</span>
-                      <span :if={step.description} class="text-xs text-base-content/70 ml-2">{step.description}</span>
+                      <span :if={step.description} class="text-xs text-base-content/70 ml-2">
+                        {step.description}
+                      </span>
                     </div>
                     <span class="text-xs text-base-content/70">{step.estimated_minutes || 5}m</span>
                     <span :if={step.required} class="badge badge-error badge-xs">Req</span>
                     <span :if={!step.required} class="badge badge-ghost badge-xs">Opt</span>
-                    <button class="btn btn-ghost btn-xs" phx-click="edit_step" phx-value-id={step.id}>Edit</button>
-                    <button class="btn btn-ghost btn-xs text-error" phx-click="delete_step" phx-value-id={step.id}>×</button>
+                    <button class="btn btn-ghost btn-xs" phx-click="edit_step" phx-value-id={step.id}>
+                      Edit
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-xs text-error"
+                      phx-click="delete_step"
+                      phx-value-id={step.id}
+                    >
+                      ×
+                    </button>
                   </div>
-
-                  <!-- Inline edit form -->
-                  <form :if={@editing_step == step.id} phx-submit="save_step" phx-value-id={step.id} class="flex-1 flex items-center gap-2">
-                    <input type="text" name="title" value={step.title} class="input input-bordered input-xs flex-1" />
-                    <input type="text" name="description" value={step.description} placeholder="Description" class="input input-bordered input-xs flex-1" />
-                    <input type="number" name="estimated_minutes" value={step.estimated_minutes} class="input input-bordered input-xs w-16" min="1" />
+                  
+    <!-- Inline edit form -->
+                  <form
+                    :if={@editing_step == step.id}
+                    phx-submit="save_step"
+                    phx-value-id={step.id}
+                    class="flex-1 flex items-center gap-2"
+                  >
+                    <input
+                      type="text"
+                      name="title"
+                      value={step.title}
+                      class="input input-bordered input-xs flex-1"
+                    />
+                    <input
+                      type="text"
+                      name="description"
+                      value={step.description}
+                      placeholder="Description"
+                      class="input input-bordered input-xs flex-1"
+                    />
+                    <input
+                      type="number"
+                      name="estimated_minutes"
+                      value={step.estimated_minutes}
+                      class="input input-bordered input-xs w-16"
+                      min="1"
+                    />
                     <select name="required" class="select select-bordered select-xs">
                       <option value="true" selected={step.required}>Req</option>
                       <option value="false" selected={!step.required}>Opt</option>
                     </select>
                     <button type="submit" class="btn btn-primary btn-xs">Save</button>
-                    <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_edit">Cancel</button>
+                    <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_edit">
+                      Cancel
+                    </button>
                   </form>
                 </div>
               </div>
-
-              <!-- Add Step button -->
+              
+    <!-- Add Step button -->
               <button
                 class="btn btn-outline btn-sm btn-block mt-3"
                 phx-click="add_step"
@@ -346,8 +423,16 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
               <button class="btn btn-ghost btn-sm" phx-click="toggle_procedure" phx-value-id={proc.id}>
                 {if MapSet.member?(@expanded, proc.id), do: "Collapse", else: "View & Edit Steps"}
               </button>
-              <button class="btn btn-ghost btn-xs" phx-click="edit_procedure" phx-value-id={proc.id}>Edit</button>
-              <button class="btn btn-ghost btn-xs text-error" phx-click="delete_procedure" phx-value-id={proc.id}>Delete</button>
+              <button class="btn btn-ghost btn-xs" phx-click="edit_procedure" phx-value-id={proc.id}>
+                Edit
+              </button>
+              <button
+                class="btn btn-ghost btn-xs text-error"
+                phx-click="delete_procedure"
+                phx-value-id={proc.id}
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
@@ -420,11 +505,13 @@ defmodule MobileCarWashWeb.Admin.ProceduresLive do
 
   defp parse_int(nil), do: nil
   defp parse_int(""), do: nil
+
   defp parse_int(str) when is_binary(str) do
     case Integer.parse(str) do
       {n, _} -> n
       :error -> nil
     end
   end
+
   defp parse_int(n) when is_integer(n), do: n
 end

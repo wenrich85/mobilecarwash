@@ -86,15 +86,19 @@ defmodule MobileCarWashWeb.Admin.ScheduleTemplatesLive do
       <p class="text-base-content/80 mb-6">
         Each row defines a recurring block slot. When the daily generator runs, it creates an AppointmentBlock for every active row whose day-of-week matches the target date.
       </p>
-
-      <!-- Add form -->
+      
+    <!-- Add form -->
       <div class="card bg-base-100 shadow mb-6">
         <div class="card-body p-4">
           <h3 class="font-bold mb-3">Add Template</h3>
           <form phx-submit="add_template" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             <div class="form-control">
               <label class="label label-text text-xs">Service</label>
-              <select name="template[service_type_id]" class="select select-bordered select-sm" required>
+              <select
+                name="template[service_type_id]"
+                class="select select-bordered select-sm"
+                required
+              >
                 <option :for={svc <- @services} value={svc.id}>{svc.name}</option>
               </select>
             </div>
@@ -120,8 +124,8 @@ defmodule MobileCarWashWeb.Admin.ScheduleTemplatesLive do
           </form>
         </div>
       </div>
-
-      <!-- Templates list -->
+      
+    <!-- Templates list -->
       <div :if={@templates == []} class="text-center py-12 text-base-content/70">
         No templates yet. The generator will fall back to default 8am + 1pm slots until you add some.
       </div>

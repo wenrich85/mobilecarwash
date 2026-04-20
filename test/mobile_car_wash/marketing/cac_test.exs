@@ -50,7 +50,8 @@ defmodule MobileCarWash.Marketing.CACTest do
         password: "Password123!",
         password_confirmation: "Password123!",
         name: "CAC #{email_suffix}",
-        phone: "+15125559#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
+        phone:
+          "+15125559#{:rand.uniform(999) |> Integer.to_string() |> String.pad_leading(3, "0")}",
         acquired_at: acquired_at,
         acquired_channel_id: channel_id
       })

@@ -10,7 +10,7 @@ defmodule MobileCarWash.Loyalty do
   require Ash.Query
 
   resources do
-    resource LoyaltyCard
+    resource(LoyaltyCard)
   end
 
   @punches_per_reward 10
@@ -67,6 +67,7 @@ defmodule MobileCarWash.Loyalty do
 
   @doc "Number of free washes available to redeem."
   def available_free_washes(nil), do: 0
+
   def available_free_washes(%{punch_count: p, redeemed_count: r}),
     do: Kernel.max(div(p, @punches_per_reward) - r, 0)
 

@@ -40,7 +40,9 @@ defmodule MobileCarWash.Booking.WashStateMachine do
   end
 
   @doc "Can this step be completed? Must be started and not already completed."
-  def can_complete_step?(%{started_at: started_at, completed: false}) when not is_nil(started_at), do: true
+  def can_complete_step?(%{started_at: started_at, completed: false}) when not is_nil(started_at),
+    do: true
+
   def can_complete_step?(_), do: false
 
   @doc "Are all required items complete?"

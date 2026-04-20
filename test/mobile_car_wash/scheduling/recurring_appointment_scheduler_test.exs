@@ -40,7 +40,12 @@ defmodule MobileCarWash.Scheduling.RecurringAppointmentSchedulerTest do
 
     {:ok, address} =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "100 Main St", city: "San Antonio", state: "TX", zip: "78259"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "100 Main St",
+        city: "San Antonio",
+        state: "TX",
+        zip: "78259"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 

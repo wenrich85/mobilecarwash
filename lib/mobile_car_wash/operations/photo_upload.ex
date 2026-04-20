@@ -42,21 +42,32 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     # Validate file content matches claimed extension
     with :ok <- validate_file_content(source_path, ext) do
       save_file_validated(appointment_id, source_path, original_filename, ext, photo_type,
-        uploaded_by: uploaded_by, caption: caption, checklist_item_id: checklist_item_id,
-        car_part: car_part, client_id: client_id)
+        uploaded_by: uploaded_by,
+        caption: caption,
+        checklist_item_id: checklist_item_id,
+        car_part: car_part,
+        client_id: client_id
+      )
     end
   end
 
   defp validate_file_content(source_path, ext) do
     case File.read(source_path) do
       {:ok, <<header::binary-size(4), _rest::binary>>} ->
-        valid? = Enum.any?(@magic_bytes, fn {magic, _mime} ->
-          byte_size(magic) <= byte_size(header) and :binary.match(header, magic) != :nomatch
-        end)
-        if valid? or ext in ~w(.jpg .jpeg .png .webp), do: :ok, else: {:error, "Invalid image file"}
+        valid? =
+          Enum.any?(@magic_bytes, fn {magic, _mime} ->
+            byte_size(magic) <= byte_size(header) and :binary.match(header, magic) != :nomatch
+          end)
 
-      {:ok, _} -> {:error, "File too small to validate"}
-      {:error, _} -> {:error, "Cannot read uploaded file"}
+        if valid? or ext in ~w(.jpg .jpeg .png .webp),
+          do: :ok,
+          else: {:error, "Invalid image file"}
+
+      {:ok, _} ->
+        {:error, "File too small to validate"}
+
+      {:error, _} ->
+        {:error, "Cannot read uploaded file"}
     end
   end
 
@@ -191,7 +202,8 @@ defmodule MobileCarWash.Operations.PhotoUpload do
 
         case File.rm(local) do
           :ok -> :ok
-          {:error, :enoent} -> :ok  # already gone — treat as success
+          # already gone — treat as success
+          {:error, :enoent} -> :ok
           {:error, reason} -> {:error, reason}
         end
     end
@@ -221,7 +233,8 @@ defmodule MobileCarWash.Operations.PhotoUpload do
 
     case ExAws.S3.presigned_url(config, :get, bucket, key, expires_in: 14_400) do
       {:ok, url} -> url
-      _ -> path  # fallback — will 403 in browser but won't crash the app
+      # fallback — will 403 in browser but won't crash the app
+      _ -> path
     end
   end
 

@@ -13,41 +13,41 @@ defmodule MobileCarWash.CashFlow.Config do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "cash_flow_config"
-    repo MobileCarWash.Repo
+    table("cash_flow_config")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :monthly_opex_cents, :integer do
-      allow_nil? false
-      default 0
+      allow_nil?(false)
+      default(0)
     end
 
     attribute :salary_cents, :integer do
-      allow_nil? false
-      default 0
+      allow_nil?(false)
+      default(0)
     end
 
     attribute :investment_target_cents, :integer do
-      allow_nil? false
-      default 0
+      allow_nil?(false)
+      default(0)
     end
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp(:inserted_at)
+    update_timestamp(:updated_at)
   end
 
   actions do
-    defaults [:read]
+    defaults([:read])
 
     create :create do
-      accept [:monthly_opex_cents, :salary_cents, :investment_target_cents]
+      accept([:monthly_opex_cents, :salary_cents, :investment_target_cents])
     end
 
     update :update_config do
-      accept [:monthly_opex_cents, :salary_cents, :investment_target_cents]
+      accept([:monthly_opex_cents, :salary_cents, :investment_target_cents])
     end
   end
 end

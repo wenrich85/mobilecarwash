@@ -14,59 +14,59 @@ defmodule MobileCarWash.Audit.AuditLog do
     data_layer: AshPostgres.DataLayer
 
   postgres do
-    table "audit_logs"
-    repo MobileCarWash.Repo
+    table("audit_logs")
+    repo(MobileCarWash.Repo)
   end
 
   attributes do
-    uuid_primary_key :id
+    uuid_primary_key(:id)
 
     attribute :actor_id, :uuid do
-      public? true
-      description "The user or system that performed the action"
+      public?(true)
+      description("The user or system that performed the action")
     end
 
     attribute :actor_type, :string do
-      default "system"
-      public? true
-      description "customer, system, admin"
+      default("system")
+      public?(true)
+      description("customer, system, admin")
     end
 
     attribute :action, :string do
-      allow_nil? false
-      public? true
-      description "e.g. appointment.created, subscription.cancelled"
+      allow_nil?(false)
+      public?(true)
+      description("e.g. appointment.created, subscription.cancelled")
     end
 
     attribute :resource_type, :string do
-      allow_nil? false
-      public? true
+      allow_nil?(false)
+      public?(true)
     end
 
     attribute :resource_id, :uuid do
-      public? true
+      public?(true)
     end
 
     attribute :metadata, :map do
-      default %{}
-      public? true
-      description "IP address, user agent, UTM params, etc."
+      default(%{})
+      public?(true)
+      description("IP address, user agent, UTM params, etc.")
     end
 
     attribute :changes, :map do
-      default %{}
-      public? true
-      description "Before/after diff of changed fields"
+      default(%{})
+      public?(true)
+      description("Before/after diff of changed fields")
     end
 
-    create_timestamp :inserted_at
+    create_timestamp(:inserted_at)
   end
 
   actions do
-    defaults [:read]
+    defaults([:read])
 
     create :log do
-      accept [
+      accept([
         :actor_id,
         :actor_type,
         :action,
@@ -74,7 +74,7 @@ defmodule MobileCarWash.Audit.AuditLog do
         :resource_id,
         :metadata,
         :changes
-      ]
+      ])
     end
   end
 end

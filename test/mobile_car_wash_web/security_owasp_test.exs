@@ -92,6 +92,7 @@ defmodule MobileCarWashWeb.SecurityOWASPTest do
 
       for route <- protected_routes do
         conn = get(conn, route)
+
         assert redirected_to(conn) == "/sign-in",
                "Unauth access to #{route} should redirect to /sign-in"
       end
@@ -391,7 +392,8 @@ defmodule MobileCarWashWeb.SecurityOWASPTest do
   describe "OWASP #8: Software and Data Integrity Failures" do
     test "Stripe webhooks are verified with signatures" do
       # Check that webhook signature verification is implemented
-      webhook_code = File.read!("lib/mobile_car_wash_web/controllers/stripe_webhook_controller.ex")
+      webhook_code =
+        File.read!("lib/mobile_car_wash_web/controllers/stripe_webhook_controller.ex")
 
       assert webhook_code =~ "Stripe" or webhook_code =~ "signature" or webhook_code =~ "payload",
              "Stripe webhook handling should be implemented"
@@ -466,7 +468,8 @@ defmodule MobileCarWashWeb.SecurityOWASPTest do
     end
 
     test "webhook endpoints are properly validated" do
-      webhook_code = File.read!("lib/mobile_car_wash_web/controllers/stripe_webhook_controller.ex")
+      webhook_code =
+        File.read!("lib/mobile_car_wash_web/controllers/stripe_webhook_controller.ex")
 
       # Should validate stripe signature (prevents forged requests)
       assert webhook_code =~ "signature" or webhook_code =~ "verify"

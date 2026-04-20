@@ -29,8 +29,10 @@ defmodule MobileCarWashWeb.LandingLive do
         services: services,
         plans: plans,
         page_title: "Driveway Detail Co — Mobile Detailing",
-        meta_description: "Professional mobile car wash and auto detailing that comes to you. Veteran-owned in Texas. Basic wash from $50, deep clean & detail from $200. Monthly plans available. Book online in 2 minutes.",
-        meta_keywords: "mobile car wash, mobile auto detailing, car wash at home, mobile car wash near me, driveway detailing, veteran owned car wash, Texas mobile detailing, car detail service, monthly car wash plan, on-site car wash",
+        meta_description:
+          "Professional mobile car wash and auto detailing that comes to you. Veteran-owned in Texas. Basic wash from $50, deep clean & detail from $200. Monthly plans available. Book online in 2 minutes.",
+        meta_keywords:
+          "mobile car wash, mobile auto detailing, car wash at home, mobile car wash near me, driveway detailing, veteran owned car wash, Texas mobile detailing, car detail service, monthly car wash plan, on-site car wash",
         canonical_path: "/"
       )
 
@@ -77,19 +79,40 @@ defmodule MobileCarWashWeb.LandingLive do
     <section class="hero min-h-[70vh] bg-gradient-to-br from-primary-800 via-primary-700 to-tertiary-700 text-white relative overflow-hidden">
       <!-- Decorative circles -->
       <div class="absolute top-[-5rem] right-[-5rem] w-64 h-64 bg-tertiary-400/10 rounded-full"></div>
-      <div class="absolute bottom-[-3rem] left-[-3rem] w-48 h-48 bg-tertiary-400/10 rounded-full"></div>
+      <div class="absolute bottom-[-3rem] left-[-3rem] w-48 h-48 bg-tertiary-400/10 rounded-full">
+      </div>
 
       <div class="hero-content text-center relative z-10">
         <div class="max-w-2xl">
-          <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="288" height="48" fetchpriority="high" decoding="async" class="h-12 w-auto mx-auto mb-6" />
+          <img
+            src="/images/logo_dark.svg"
+            alt="Driveway Detail Co"
+            width="288"
+            height="48"
+            fetchpriority="high"
+            decoding="async"
+            class="h-12 w-auto mx-auto mb-6"
+          />
           <h1 class="text-5xl font-bold leading-tight">Professional Detailing <br />at Your Door</h1>
-          <p class="text-tertiary-200 font-medium tracking-wide uppercase text-sm mt-4">Veteran-Owned &amp; Operated</p>
+          <p class="text-tertiary-200 font-medium tracking-wide uppercase text-sm mt-4">
+            Veteran-Owned &amp; Operated
+          </p>
           <p class="py-6 text-lg text-primary-200">
             Skip the drive. We bring the full detailing experience to your home, office, or anywhere you park.
           </p>
           <div class="flex gap-4 justify-center">
-            <a href="#services" class="btn btn-lg bg-tertiary-400 hover:bg-tertiary-500 text-white border-none">See Services</a>
-            <a href="#plans" class="btn btn-lg btn-outline border-white/40 text-white hover:bg-white/10 hover:border-white/60">View Plans</a>
+            <a
+              href="#services"
+              class="btn btn-lg bg-tertiary-400 hover:bg-tertiary-500 text-white border-none"
+            >
+              See Services
+            </a>
+            <a
+              href="#plans"
+              class="btn btn-lg btn-outline border-white/40 text-white hover:bg-white/10 hover:border-white/60"
+            >
+              View Plans
+            </a>
           </div>
         </div>
       </div>
@@ -102,7 +125,10 @@ defmodule MobileCarWashWeb.LandingLive do
         <p class="text-center text-base-content/80 mb-12">Professional results, wherever you park.</p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <div :for={service <- @services} class="card bg-base-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
+          <div
+            :for={service <- @services}
+            class="card bg-base-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+          >
             <div class="card-body">
               <h3 class="card-title text-2xl">{service.name}</h3>
               <p class="text-base-content/70">{service.description}</p>
@@ -137,11 +163,16 @@ defmodule MobileCarWashWeb.LandingLive do
         <h2 class="text-3xl font-bold text-center mb-12">How It Works</h2>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div :for={{num, title, desc} <- [
-            {"1", "Choose Your Service", "Pick a basic wash or deep clean that fits your needs."},
-            {"2", "Pick a Time", "Select a date and time that works for your schedule."},
-            {"3", "We Come to You", "Relax while we wash your car right where it's parked."}
-          ]} class="text-center">
+          <div
+            :for={
+              {num, title, desc} <- [
+                {"1", "Choose Your Service", "Pick a basic wash or deep clean that fits your needs."},
+                {"2", "Pick a Time", "Select a date and time that works for your schedule."},
+                {"3", "We Come to You", "Relax while we wash your car right where it's parked."}
+              ]
+            }
+            class="text-center"
+          >
             <div class="w-14 h-14 rounded-full bg-primary text-primary-content text-xl font-bold flex items-center justify-center mx-auto mb-4 shadow-md">
               {num}
             </div>
@@ -156,13 +187,18 @@ defmodule MobileCarWashWeb.LandingLive do
     <section id="plans" class="py-20 px-4 bg-base-200">
       <div class="max-w-6xl mx-auto">
         <h2 class="text-3xl font-bold text-center mb-3">Monthly Plans</h2>
-        <p class="text-center text-base-content/80 mb-12">Save with a subscription — cancel anytime.</p>
+        <p class="text-center text-base-content/80 mb-12">
+          Save with a subscription — cancel anytime.
+        </p>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div :for={plan <- @plans} class={[
-            "card bg-base-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200",
-            plan.slug == "standard" && "border-2 border-primary md:scale-105 shadow-xl"
-          ]}>
+          <div
+            :for={plan <- @plans}
+            class={[
+              "card bg-base-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200",
+              plan.slug == "standard" && "border-2 border-primary md:scale-105 shadow-xl"
+            ]}
+          >
             <div class="card-body">
               <div :if={plan.slug == "standard"} class="badge badge-primary mb-2">Most Popular</div>
               <h3 class="card-title text-2xl">{plan.name}</h3>
@@ -174,15 +210,21 @@ defmodule MobileCarWashWeb.LandingLive do
 
               <ul class="mt-6 space-y-3">
                 <li :if={plan.basic_washes_per_month > 0} class="flex items-center gap-2">
-                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">&#10003;</span>
+                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">
+                    &#10003;
+                  </span>
                   <span>{plan.basic_washes_per_month} basic washes/month</span>
                 </li>
                 <li :if={plan.deep_cleans_per_month > 0} class="flex items-center gap-2">
-                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">&#10003;</span>
+                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">
+                    &#10003;
+                  </span>
                   <span>{plan.deep_cleans_per_month} deep clean included</span>
                 </li>
                 <li :if={plan.deep_clean_discount_percent > 0} class="flex items-center gap-2">
-                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">&#10003;</span>
+                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">
+                    &#10003;
+                  </span>
                   <span>{plan.deep_clean_discount_percent}% off deep cleans</span>
                 </li>
               </ul>
@@ -201,7 +243,15 @@ defmodule MobileCarWashWeb.LandingLive do
     <!-- Veteran Badge -->
     <section class="py-16 px-4 bg-primary-700 text-white">
       <div class="max-w-2xl mx-auto text-center">
-        <img src="/images/logo_dark.svg" alt="Driveway Detail Co" width="240" height="40" loading="lazy" decoding="async" class="h-10 w-auto mx-auto mb-4 opacity-80" />
+        <img
+          src="/images/logo_dark.svg"
+          alt="Driveway Detail Co"
+          width="240"
+          height="40"
+          loading="lazy"
+          decoding="async"
+          class="h-10 w-auto mx-auto mb-4 opacity-80"
+        />
         <p class="text-xl font-semibold">
           Proudly veteran-owned and operated
         </p>

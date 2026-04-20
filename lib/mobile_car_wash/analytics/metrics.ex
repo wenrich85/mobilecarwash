@@ -87,8 +87,16 @@ defmodule MobileCarWash.Analytics.Metrics do
     steps = [
       %{name: "Visitors", count: visitors, rate: 100.0},
       %{name: "Signups", count: signups, rate: safe_rate(signups, visitors)},
-      %{name: "Bookings Started", count: bookings_started, rate: safe_rate(bookings_started, signups)},
-      %{name: "Bookings Completed", count: bookings_completed, rate: safe_rate(bookings_completed, bookings_started)},
+      %{
+        name: "Bookings Started",
+        count: bookings_started,
+        rate: safe_rate(bookings_started, signups)
+      },
+      %{
+        name: "Bookings Completed",
+        count: bookings_completed,
+        rate: safe_rate(bookings_completed, bookings_started)
+      },
       %{name: "Payments", count: payments, rate: safe_rate(payments, bookings_completed)},
       %{name: "Returning", count: returning, rate: safe_rate(returning, payments)}
     ]

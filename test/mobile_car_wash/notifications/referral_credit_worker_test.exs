@@ -51,7 +51,10 @@ defmodule MobileCarWash.Notifications.ReferralCreditWorkerTest do
     assert body =~ "New Customer"
   end
 
-  test "skips SMS when referrer has no phone or sms_opt_in off", %{referrer: referrer, referee: referee} do
+  test "skips SMS when referrer has no phone or sms_opt_in off", %{
+    referrer: referrer,
+    referee: referee
+  } do
     referrer
     |> Ash.Changeset.for_update(:update, %{sms_opt_in: false})
     |> Ash.update!(authorize?: false)

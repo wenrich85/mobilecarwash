@@ -5,7 +5,7 @@ defmodule MobileCarWash.Fleet do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Fleet.Vehicle
-    resource MobileCarWash.Fleet.Address
+    resource(MobileCarWash.Fleet.Vehicle)
+    resource(MobileCarWash.Fleet.Address)
   end
 end

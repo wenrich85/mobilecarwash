@@ -175,19 +175,24 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
                     {block.status}
                   </span>
                   <span class="text-xs text-base-content/70">
-                    Tech: {block.technician && block.technician.name || "—"}
+                    Tech: {(block.technician && block.technician.name) || "—"}
                   </span>
                 </div>
 
                 <p class="text-sm mt-1">
                   <span class="font-semibold">
-                    {Calendar.strftime(block.starts_at, "%a %b %-d · %-I:%M %p")}
-                    – {Calendar.strftime(block.ends_at, "%-I:%M %p")}
+                    {Calendar.strftime(block.starts_at, "%a %b %-d · %-I:%M %p")} – {Calendar.strftime(
+                      block.ends_at,
+                      "%-I:%M %p"
+                    )}
                   </span>
                 </p>
 
                 <p :if={@editing_closes_at != block.id} class="text-sm text-base-content/80 mt-1">
-                  {block.appointment_count} / {block.capacity} booked · closes {Calendar.strftime(block.closes_at, "%a %b %-d %-I:%M %p")}
+                  {block.appointment_count} / {block.capacity} booked · closes {Calendar.strftime(
+                    block.closes_at,
+                    "%a %b %-d %-I:%M %p"
+                  )}
                   <button
                     :if={block.status == :open}
                     class="btn btn-ghost btn-xs ml-1"
@@ -213,7 +218,9 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
                     required
                   />
                   <button type="submit" class="btn btn-primary btn-xs">Save</button>
-                  <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_closes_at_edit">Cancel</button>
+                  <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_closes_at_edit">
+                    Cancel
+                  </button>
                 </form>
               </div>
 
@@ -267,9 +274,9 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
                   <tr :for={appt <- sorted_appointments(block.appointments)}>
                     <td>{appt.route_position || "—"}</td>
                     <td>{Calendar.strftime(appt.scheduled_at, "%-I:%M %p")}</td>
-                    <td>{appt.customer && appt.customer.name || "—"}</td>
+                    <td>{(appt.customer && appt.customer.name) || "—"}</td>
                     <td class="text-xs">
-                      {appt.address && "#{appt.address.street}, #{appt.address.city}" || "—"}
+                      {(appt.address && "#{appt.address.street}, #{appt.address.city}") || "—"}
                     </td>
                     <td><span class="badge badge-sm badge-ghost">{appt.status}</span></td>
                   </tr>

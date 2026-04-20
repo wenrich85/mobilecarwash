@@ -20,7 +20,8 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
   alias MobileCarWash.Scheduling.Appointment
 
   defp register_and_sign_in_tech(conn) do
-    {authed, user, token} = register_and_sign_in(conn, email: "api-tech-#{:rand.uniform(100_000)}@example.com")
+    {authed, user, token} =
+      register_and_sign_in(conn, email: "api-tech-#{:rand.uniform(100_000)}@example.com")
 
     {:ok, user} =
       user
@@ -91,7 +92,8 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
         vehicle_id: vehicle.id,
         address_id: address.id,
         service_type_id: service.id,
-        scheduled_at: DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second),
+        scheduled_at:
+          DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second),
         price_cents: 5_000,
         duration_minutes: 45
       })

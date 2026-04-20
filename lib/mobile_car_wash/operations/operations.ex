@@ -8,14 +8,14 @@ defmodule MobileCarWash.Operations do
   use Ash.Domain
 
   resources do
-    resource MobileCarWash.Operations.Technician
-    resource MobileCarWash.Operations.Van
-    resource MobileCarWash.Operations.OrgPosition
-    resource MobileCarWash.Operations.PositionContract
-    resource MobileCarWash.Operations.Procedure
-    resource MobileCarWash.Operations.ProcedureStep
-    resource MobileCarWash.Operations.AppointmentChecklist
-    resource MobileCarWash.Operations.ChecklistItem
-    resource MobileCarWash.Operations.Photo
+    resource(MobileCarWash.Operations.Technician)
+    resource(MobileCarWash.Operations.Van)
+    resource(MobileCarWash.Operations.OrgPosition)
+    resource(MobileCarWash.Operations.PositionContract)
+    resource(MobileCarWash.Operations.Procedure)
+    resource(MobileCarWash.Operations.ProcedureStep)
+    resource(MobileCarWash.Operations.AppointmentChecklist)
+    resource(MobileCarWash.Operations.ChecklistItem)
+    resource(MobileCarWash.Operations.Photo)
   end
 end

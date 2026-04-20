@@ -55,10 +55,11 @@ defmodule MobileCarWashWeb.BookingComponents do
 
   def service_card(assigns) do
     ~H"""
-    <div class={[
-      "card bg-base-100 shadow-md cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5",
-      if(@selected, do: "ring-2 ring-primary border-primary", else: "hover:border-primary/40")
-    ]}
+    <div
+      class={[
+        "card bg-base-100 shadow-md cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5",
+        if(@selected, do: "ring-2 ring-primary border-primary", else: "hover:border-primary/40")
+      ]}
       phx-click="select_service"
       phx-value-slug={@service.slug}
     >
@@ -112,7 +113,10 @@ defmodule MobileCarWashWeb.BookingComponents do
           phx-value-id={block.id}
         >
           <span class="font-semibold">
-            {Calendar.strftime(block.starts_at, "%I:%M %p")} – {Calendar.strftime(block.ends_at, "%I:%M %p")}
+            {Calendar.strftime(block.starts_at, "%I:%M %p")} – {Calendar.strftime(
+              block.ends_at,
+              "%I:%M %p"
+            )}
           </span>
           <span class="text-xs opacity-75">
             {block.capacity - block.appointment_count} of {block.capacity} spots left
@@ -191,7 +195,9 @@ defmodule MobileCarWashWeb.BookingComponents do
           <div>
             <span class="font-semibold">Vehicle:</span>
             <span>{@vehicle.year} {@vehicle.make} {@vehicle.model}</span>
-            <span class="badge badge-sm badge-outline ml-2">{MobileCarWash.Billing.Pricing.size_label(@vehicle.size)}</span>
+            <span class="badge badge-sm badge-outline ml-2">
+              {MobileCarWash.Billing.Pricing.size_label(@vehicle.size)}
+            </span>
             <span :if={@vehicle.size != :car} class="text-xs text-warning ml-1">
               ({MobileCarWash.Billing.Pricing.multiplier(@vehicle.size)}x)
             </span>
@@ -217,7 +223,10 @@ defmodule MobileCarWashWeb.BookingComponents do
           <div class="flex justify-between text-lg">
             <span class="font-bold">Total:</span>
             <div>
-              <span :if={@appointment.discount_cents > 0} class="line-through text-base-content/70 mr-2">
+              <span
+                :if={@appointment.discount_cents > 0}
+                class="line-through text-base-content/70 mr-2"
+              >
                 ${div(@service.base_price_cents, 100)}
               </span>
               <span class="font-bold text-primary">
@@ -240,8 +249,10 @@ defmodule MobileCarWashWeb.BookingComponents do
       <div class="text-6xl mb-4">✓</div>
       <h2 class="text-3xl font-bold mb-4">Booking Confirmed!</h2>
       <p class="text-lg text-base-content/70 mb-8">
-        Your {@service.name} is scheduled for
-        {Calendar.strftime(@appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}.
+        Your {@service.name} is scheduled for {Calendar.strftime(
+          @appointment.scheduled_at,
+          "%B %d, %Y at %I:%M %p"
+        )}.
       </p>
 
       <div class="card bg-base-100 shadow-xl max-w-md mx-auto">

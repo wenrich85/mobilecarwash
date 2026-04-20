@@ -157,8 +157,13 @@ defmodule MobileCarWash.Notifications.Email do
   Deadline reminder email — sent to admin for upcoming compliance/formation tasks.
   """
   def deadline_reminder(task, category, days_before, admin_email) do
-    due_str = if task.due_date, do: Calendar.strftime(task.due_date, "%B %d, %Y"), else: "No date set"
-    url_line = if task.external_url, do: "<p><a href=\"#{task.external_url}\">Go to website →</a></p>", else: ""
+    due_str =
+      if task.due_date, do: Calendar.strftime(task.due_date, "%B %d, %Y"), else: "No date set"
+
+    url_line =
+      if task.external_url,
+        do: "<p><a href=\"#{task.external_url}\">Go to website →</a></p>",
+        else: ""
 
     new()
     |> to(admin_email)
@@ -216,7 +221,9 @@ defmodule MobileCarWash.Notifications.Email do
   Payment receipt email — sent after each successful payment.
   """
   def payment_receipt(customer, payment, service_name) do
-    paid_at = if payment.paid_at, do: Calendar.strftime(payment.paid_at, "%B %d, %Y"), else: "Today"
+    paid_at =
+      if payment.paid_at, do: Calendar.strftime(payment.paid_at, "%B %d, %Y"), else: "Today"
+
     dollars = div(payment.amount_cents, 100)
     cents = rem(payment.amount_cents, 100)
     amount_str = "#{dollars}.#{String.pad_leading("#{cents}", 2, "0")}"
