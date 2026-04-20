@@ -12,7 +12,9 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
   alias MobileCarWash.Accounts.CustomerNote
   alias MobileCarWash.Marketing.{AcquisitionChannel, CustomerTag, Tag}
   alias MobileCarWash.Reporting.CustomerList
+  alias MobileCarWash.Repo
 
+  import Ecto.Query
   require Ash.Query
 
   @page_size 50
@@ -204,12 +206,46 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
     page = min(page, pages)
     page_rows = sorted |> Enum.drop((page - 1) * @page_size) |> Enum.take(@page_size)
 
+    # Pinned-note preview — only load for the visible page to avoid
+    # one extra query per off-screen customer.
+    pinned_note_by_customer =
+      page_rows
+      |> Enum.map(& &1.id)
+      |> top_pinned_note_by_customer()
+
     assign(socket,
       customers: page_rows,
       total: total,
       page: page,
-      pages: pages
+      pages: pages,
+      pinned_note_by_customer: pinned_note_by_customer
     )
+  end
+
+  # Returns %{customer_id => %{body:, inserted_at:}} for each row that
+  # has at least one pinned note. Newest pinned note wins on ties.
+  defp top_pinned_note_by_customer([]), do: %{}
+
+  defp top_pinned_note_by_customer(customer_ids) do
+    uuids = Enum.map(customer_ids, &Ecto.UUID.dump!/1)
+
+    rows =
+      from(n in "customer_notes",
+        where: n.pinned == true,
+        where: n.customer_id in ^uuids,
+        select: %{
+          customer_id: type(n.customer_id, Ecto.UUID),
+          body: n.body,
+          inserted_at: n.inserted_at
+        },
+        order_by: [desc: n.inserted_at]
+      )
+      |> Repo.all()
+
+    # First (newest) wins per customer_id.
+    Enum.reduce(rows, %{}, fn row, acc ->
+      Map.put_new(acc, row.customer_id, row)
+    end)
   end
 
   # --- URL / params helpers ---
@@ -465,6 +501,16 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
                 <.link navigate={~p"/admin/customers/#{c.id}"} class="link link-hover">
                   {c.name}
                 </.link>
+                <div
+                  :if={Map.has_key?(@pinned_note_by_customer, c.id)}
+                  class="flex items-center gap-1 text-xs text-base-content/70 mt-0.5"
+                  title={Map.get(@pinned_note_by_customer, c.id).body}
+                >
+                  <span class="hero-map-pin-micro size-3 shrink-0"></span>
+                  <span class="truncate max-w-xs">
+                    {Map.get(@pinned_note_by_customer, c.id).body}
+                  </span>
+                </div>
               </td>
               <td class="text-sm text-base-content/70 truncate">{c.email}</td>
               <td>

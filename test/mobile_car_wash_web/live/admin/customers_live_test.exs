@@ -298,6 +298,47 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       assert html =~ "ZZZ_ListColumnTag"
     end
 
+    test "shows pinned note inline under customer name", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!(nil, "Pin Note Target")
+
+      {:ok, _} =
+        MobileCarWash.Accounts.CustomerNote
+        |> Ash.Changeset.for_create(:add, %{
+          customer_id: target.id,
+          author_id: admin.id,
+          body: "GATE CODE 1234 — ring bell twice",
+          pinned: true
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers")
+
+      assert html =~ "Pin Note Target"
+      assert html =~ "GATE CODE 1234"
+    end
+
+    test "does not show unpinned notes inline", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!(nil, "Unpinned Only Target")
+
+      {:ok, _} =
+        MobileCarWash.Accounts.CustomerNote
+        |> Ash.Changeset.for_create(:add, %{
+          customer_id: target.id,
+          author_id: admin.id,
+          body: "SECRET_UNPINNED_NOTE_MARKER",
+          pinned: false
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers")
+
+      refute html =~ "SECRET_UNPINNED_NOTE_MARKER"
+    end
+
     test "bulk-tag toolbar is hidden when nothing is selected", %{conn: conn} do
       :ok = Marketing.seed_tags!()
       admin = register_admin!()
