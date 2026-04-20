@@ -10,6 +10,8 @@ defmodule MobileCarWash.Accounts.Customer do
     extensions: [AshAuthentication],
     authorizers: [Ash.Policy.Authorizer]
 
+  require Ash.Query
+
   postgres do
     table "customers"
     repo MobileCarWash.Repo
@@ -31,7 +33,18 @@ defmodule MobileCarWash.Accounts.Customer do
         identity_field :email
         hashed_password_field :hashed_password
 
-        register_action_accept [:name, :phone, :sms_opt_in, :push_opt_in]
+        register_action_accept [
+          :name,
+          :phone,
+          :sms_opt_in,
+          :push_opt_in,
+          :utm_source,
+          :utm_medium,
+          :utm_campaign,
+          :utm_content,
+          :referrer,
+          :acquired_channel_id
+        ]
       end
     end
   end
@@ -150,12 +163,32 @@ defmodule MobileCarWash.Accounts.Customer do
       public? true
     end
 
+    # Marketing attribution (first-touch). Stamped by the
+    # CaptureAttribution plug + register-flow changes; never
+    # overwritten by later visits. Drives the CAC / LTV per-channel
+    # rollups on /admin/marketing.
+    attribute :utm_source, :string, public?: true
+    attribute :utm_medium, :string, public?: true
+    attribute :utm_campaign, :string, public?: true
+    attribute :utm_content, :string, public?: true
+    attribute :referrer, :string, public?: true
+
+    attribute :acquired_at, :utc_datetime_usec do
+      public? true
+      default &DateTime.utc_now/0
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end
 
   relationships do
     belongs_to :referred_by, __MODULE__, allow_nil?: true
+
+    belongs_to :acquired_channel, MobileCarWash.Marketing.AcquisitionChannel do
+      allow_nil? true
+      public? true
+    end
   end
 
   identities do
@@ -256,7 +289,17 @@ defmodule MobileCarWash.Accounts.Customer do
 
     create :create_guest do
       @doc "Creates a lightweight guest customer — no password required"
-      accept [:email, :name, :phone]
+      accept [
+        :email,
+        :name,
+        :phone,
+        :utm_source,
+        :utm_medium,
+        :utm_campaign,
+        :utm_content,
+        :referrer,
+        :acquired_channel_id
+      ]
       change set_attribute(:role, :guest)
     end
 
@@ -308,6 +351,25 @@ defmodule MobileCarWash.Accounts.Customer do
       end
     end, on: [:create]
 
+    # Derive acquired_channel_id from the strongest signal present on
+    # the changeset. Precedence: explicit value > referral > paid-UTM >
+    # organic-UTM > unknown. Runs as a before_action so referred_by_id
+    # set via force_change_attribute after for_create is still visible.
+    change fn changeset, _context ->
+      Ash.Changeset.before_action(changeset, fn cs ->
+        if is_nil(Ash.Changeset.get_attribute(cs, :acquired_channel_id)) do
+          slug = derive_channel_slug(cs)
+
+          case resolve_channel_id(slug) do
+            nil -> cs
+            id -> Ash.Changeset.force_change_attribute(cs, :acquired_channel_id, id)
+          end
+        else
+          cs
+        end
+      end)
+    end, on: [:create]
+
     # Enqueue the verification email after a successful password signup.
     # Scoped to action.name == :register_with_password so :create_guest
     # and admin-driven creates don't trigger it. Fires on any path that
@@ -330,5 +392,53 @@ defmodule MobileCarWash.Accounts.Customer do
     :crypto.strong_rand_bytes(5)
     |> Base.encode32(padding: false)
     |> String.slice(0, 8)
+  end
+
+  defp derive_channel_slug(changeset) do
+    cond do
+      Ash.Changeset.get_attribute(changeset, :referred_by_id) ->
+        "referral"
+
+      true ->
+        source = changeset |> Ash.Changeset.get_attribute(:utm_source) |> norm()
+        medium = changeset |> Ash.Changeset.get_attribute(:utm_medium) |> norm()
+        derive_channel_from_utms(source, medium)
+    end
+  end
+
+  defp norm(nil), do: nil
+  defp norm(s) when is_binary(s), do: s |> String.downcase() |> String.trim()
+
+  # Paid media mediums that Google Analytics + ad platforms use.
+  @paid_mediums ~w(cpc ppc paid paid_social paidsocial paid-search paid_search display banner)
+  @organic_mediums ~w(organic search seo)
+
+  defp derive_channel_from_utms(source, medium) when medium in @paid_mediums do
+    case source do
+      "meta" -> "meta_paid"
+      "facebook" -> "meta_paid"
+      "instagram" -> "meta_paid"
+      "fb" -> "meta_paid"
+      "ig" -> "meta_paid"
+      "google" -> "google_paid"
+      "nextdoor" -> "nextdoor"
+      _ -> "unknown"
+    end
+  end
+
+  defp derive_channel_from_utms(_source, medium) when medium in @organic_mediums,
+    do: "google_organic"
+
+  defp derive_channel_from_utms(_, _), do: "unknown"
+
+  defp resolve_channel_id(nil), do: nil
+
+  defp resolve_channel_id(slug) do
+    case MobileCarWash.Marketing.AcquisitionChannel
+         |> Ash.Query.for_read(:by_slug, %{slug: slug})
+         |> Ash.read(authorize?: false) do
+      {:ok, [chan | _]} -> chan.id
+      _ -> nil
+    end
   end
 end

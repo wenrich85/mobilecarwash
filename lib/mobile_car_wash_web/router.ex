@@ -20,6 +20,10 @@ defmodule MobileCarWashWeb.Router do
     # is within the refresh threshold. No-op when no user is assigned,
     # so public routes pay effectively zero cost.
     plug MobileCarWashWeb.Plugs.SlideTokenExpiration
+    # First-touch marketing attribution capture. Reads UTM + ?ref= +
+    # referer once per session, no-ops afterwards. Must run after
+    # :fetch_session so the session is available.
+    plug MobileCarWashWeb.Plugs.CaptureAttribution
   end
 
   # Nonce + 'strict-dynamic' replaces host allowlists in script-src so

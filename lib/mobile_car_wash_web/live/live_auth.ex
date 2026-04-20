@@ -12,7 +12,10 @@ defmodule MobileCarWashWeb.LiveAuth do
   import Phoenix.Component, only: [assign: 2]
 
   def on_mount(:maybe_load_customer, _params, session, socket) do
-    {:cont, assign(socket, current_customer: load_customer(session))}
+    {:cont,
+     socket
+     |> assign(current_customer: load_customer(session))
+     |> assign(attribution: session["attribution"])}
   end
 
   def on_mount(:require_customer, _params, session, socket) do
