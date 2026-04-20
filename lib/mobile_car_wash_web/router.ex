@@ -7,6 +7,12 @@ defmodule MobileCarWashWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    # Stamp a stable session_id on every request. Downstream features
+    # (cookie consent, attribution, behavior tracking) key off it.
+    plug MobileCarWashWeb.Plugs.EnsureSessionId
+    # Load the current CookieConsent row (if any) into conn.assigns
+    # so the root layout can decide whether to render the banner.
+    plug MobileCarWashWeb.Plugs.LoadCookieConsent
     plug :fetch_live_flash
     plug :put_root_layout, html: {MobileCarWashWeb.Layouts, :root}
     plug :protect_from_forgery
@@ -134,6 +140,10 @@ defmodule MobileCarWashWeb.Router do
     # One-shot email verification link. The token in the query string
     # is its own authz; no plug auth required.
     get "/auth/verify-email", AuthController, :verify_email
+
+    # Cookie consent banner submission — essential route, no consent
+    # required to record the visitor's choice.
+    post "/cookie-consent", CookieConsentController, :create
 
     # Resend the verification email — used by the soft-gate banner shown
     # to signed-in but unverified customers.

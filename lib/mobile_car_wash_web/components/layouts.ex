@@ -12,6 +12,53 @@ defmodule MobileCarWashWeb.Layouts do
   embed_templates "layouts/*"
 
   @doc """
+  GDPR/CCPA strict-opt-in cookie consent banner. Rendered in the
+  root layout whenever `@current_consent` is nil (set by the
+  LoadCookieConsent plug). Hidden once the visitor picks a choice.
+  """
+  attr :conn, Plug.Conn, required: true
+
+  def cookie_banner(assigns) do
+    ~H"""
+    <div
+      id="cookie-banner"
+      class="fixed bottom-0 inset-x-0 z-50 bg-base-200 border-t border-base-300 shadow-lg"
+      role="dialog"
+      aria-label="Cookie consent"
+    >
+      <div class="max-w-5xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex-1 text-sm text-base-content/90">
+          <p class="font-semibold mb-1">We use cookies to improve your experience.</p>
+          <p class="text-base-content/70">
+            Essential cookies keep the site working. Analytics and marketing
+            cookies help us understand what's useful and reach more drivers
+            like you. You can change this anytime.
+          </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+          <form action="/cookie-consent" method="post" class="contents">
+            <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+            <input type="hidden" name="choice" value="essential_only" />
+            <button type="submit" class="btn btn-ghost btn-sm">
+              Essential only
+            </button>
+          </form>
+
+          <form action="/cookie-consent" method="post" class="contents">
+            <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+            <input type="hidden" name="choice" value="accept_all" />
+            <button type="submit" class="btn btn-primary btn-sm">
+              Accept all
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders your app layout.
 
   This function is typically invoked from every template,

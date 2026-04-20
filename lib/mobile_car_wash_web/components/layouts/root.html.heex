@@ -50,5 +50,9 @@
   </head>
   <body>
     {@inner_content}
+    <MobileCarWashWeb.Layouts.cookie_banner
+      :if={is_nil(assigns[:current_consent])}
+      conn={@conn}
+    />
   </body>
 </html>
