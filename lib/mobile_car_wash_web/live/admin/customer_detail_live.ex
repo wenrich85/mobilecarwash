@@ -16,6 +16,7 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
   alias MobileCarWash.Billing.{Subscription, SubscriptionPlan}
   alias MobileCarWash.Fleet.{Address, Vehicle}
   alias MobileCarWash.Marketing.{AcquisitionChannel, Persona, PersonaMembership, Personas}
+  alias MobileCarWash.Notifications.VerificationEmailWorker
   alias MobileCarWash.Repo
   alias MobileCarWash.Scheduling.Appointment
 
@@ -141,8 +142,76 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
     end
   end
 
+  def handle_event("resend_verification", _params, socket) do
+    customer = socket.assigns.customer
+    admin = socket.assigns.current_customer
+
+    # Enqueue the worker — it no-ops if the customer is already verified,
+    # so this is safe to click more than once.
+    %{customer_id: customer.id}
+    |> VerificationEmailWorker.new(queue: :notifications)
+    |> Oban.insert()
+
+    audit_note!(customer.id, admin.id, "Resent verification email to #{customer.email}.")
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Verification email sent")
+     |> load_detail(customer)}
+  end
+
+  def handle_event("apply_credit", %{"credit" => params}, socket) do
+    case parse_credit_dollars(params["amount_dollars"]) do
+      {:ok, cents} ->
+        customer = socket.assigns.customer
+        admin = socket.assigns.current_customer
+        new_balance = (customer.referral_credit_cents || 0) + cents
+
+        {:ok, updated} =
+          customer
+          |> Ash.Changeset.for_update(:update, %{referral_credit_cents: new_balance})
+          |> Ash.update(authorize?: false)
+
+        audit_note!(
+          customer.id,
+          admin.id,
+          "Applied $#{format_dollars(cents)} credit. New balance: $#{format_dollars(new_balance)}."
+        )
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Credit applied")
+         |> load_detail(updated)}
+
+      {:error, msg} ->
+        {:noreply, put_flash(socket, :error, msg)}
+    end
+  end
+
   defp truthy?(v) when v in [true, "true", "on", "1"], do: true
   defp truthy?(_), do: false
+
+  defp parse_credit_dollars(value) do
+    case value |> to_string() |> String.trim() |> Float.parse() do
+      {amount, ""} when amount > 0 -> {:ok, round(amount * 100)}
+      _ -> {:error, "Amount must be a positive number"}
+    end
+  end
+
+  defp format_dollars(cents) when is_integer(cents) do
+    :erlang.float_to_binary(cents / 100, decimals: 2)
+  end
+
+  defp audit_note!(customer_id, admin_id, body) do
+    CustomerNote
+    |> Ash.Changeset.for_create(:add, %{
+      customer_id: customer_id,
+      author_id: admin_id,
+      body: body,
+      pinned: false
+    })
+    |> Ash.create!(authorize?: false)
+  end
 
   # --- Private ---
 
@@ -344,6 +413,47 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
           <div class="text-xs text-base-content/60">
             Joined {Calendar.strftime(@customer.inserted_at, "%B %d, %Y")}
           </div>
+          <div class="text-xs text-base-content/60 mt-1">
+            Credit balance: {fmt_cents(@customer.referral_credit_cents)}
+          </div>
+        </div>
+      </div>
+      
+    <!-- Admin actions strip -->
+      <div class="card bg-base-100 border border-base-300 mb-6">
+        <div class="card-body flex flex-col md:flex-row md:items-center gap-4 py-4">
+          <div class="flex-1">
+            <h2 class="font-semibold">Admin actions</h2>
+            <p class="text-xs text-base-content/60">
+              All actions are recorded as notes for audit.
+            </p>
+          </div>
+
+          <button
+            :if={is_nil(@customer.email_verified_at)}
+            id="resend-verification"
+            phx-click="resend_verification"
+            class="btn btn-outline btn-sm"
+          >
+            Resend verification
+          </button>
+
+          <form
+            id="apply-credit"
+            phx-submit="apply_credit"
+            class="join"
+          >
+            <span class="join-item btn btn-sm btn-ghost no-animation cursor-default">$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              name="credit[amount_dollars]"
+              placeholder="25"
+              class="input input-bordered input-sm join-item w-24"
+            />
+            <button type="submit" class="btn btn-primary btn-sm join-item">Apply credit</button>
+          </form>
         </div>
       </div>
 

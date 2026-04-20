@@ -609,4 +609,98 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       assert html =~ "No notes yet"
     end
   end
+
+  describe "detail — admin actions" do
+    alias MobileCarWash.Accounts.CustomerNote
+
+    test "Resend verification button hidden when customer already verified",
+         %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      # Stamp verified.
+      target
+      |> Ash.Changeset.for_update(:update, %{})
+      |> Ash.Changeset.force_change_attribute(:email_verified_at, DateTime.utc_now())
+      |> Ash.update!(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      refute html =~ "Resend verification"
+    end
+
+    test "Resend verification action creates an audit note", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv |> element("#resend-verification") |> render_click()
+
+      {:ok, notes} =
+        CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert Enum.any?(notes, fn n -> n.body =~ "verification email" end)
+    end
+
+    test "Apply credit increments referral_credit_cents", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#apply-credit", %{"credit" => %{"amount_dollars" => "25"}})
+      |> render_submit()
+
+      {:ok, reloaded} = Ash.get(Customer, target.id, authorize?: false)
+      assert reloaded.referral_credit_cents == 2_500
+    end
+
+    test "Apply credit creates an audit note", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#apply-credit", %{"credit" => %{"amount_dollars" => "10"}})
+      |> render_submit()
+
+      {:ok, notes} =
+        CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert Enum.any?(notes, fn n -> n.body =~ "$10" and n.body =~ "credit" end)
+    end
+
+    test "Apply credit rejects non-positive amounts", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#apply-credit", %{"credit" => %{"amount_dollars" => "0"}})
+      |> render_submit()
+
+      {:ok, reloaded} = Ash.get(Customer, target.id, authorize?: false)
+      assert reloaded.referral_credit_cents == 0
+
+      lv
+      |> form("#apply-credit", %{"credit" => %{"amount_dollars" => "-5"}})
+      |> render_submit()
+
+      {:ok, reloaded} = Ash.get(Customer, target.id, authorize?: false)
+      assert reloaded.referral_credit_cents == 0
+    end
+  end
 end
