@@ -10,10 +10,14 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Marketing
   alias MobileCarWash.Marketing.{AcquisitionChannel, CAC, MarketingSpend, Referrals}
 
-  @periods [last_7: "Last 7 Days", last_30: "Last 30 Days", last_90: "Last 90 Days", mtd: "Month to Date"]
+  @periods [
+    last_7: "Last 7 Days",
+    last_30: "Last 30 Days",
+    last_90: "Last 90 Days",
+    mtd: "Month to Date"
+  ]
 
   @impl true
   def mount(_params, _session, socket) do
@@ -112,7 +116,9 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
 
   defp fmt_cents(nil), do: "—"
   defp fmt_cents(0), do: "$0"
-  defp fmt_cents(cents) when is_integer(cents), do: "$#{:erlang.float_to_binary(cents / 100, decimals: 2)}"
+
+  defp fmt_cents(cents) when is_integer(cents),
+    do: "$#{:erlang.float_to_binary(cents / 100, decimals: 2)}"
 
   defp fmt_pct(nil), do: "—"
   defp fmt_pct(n), do: "#{n}%"
@@ -140,8 +146,8 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
           </option>
         </select>
       </div>
-
-      <!-- KPI tiles -->
+      
+    <!-- KPI tiles -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="stat bg-base-200 rounded-lg">
           <div class="stat-title">Total Spend</div>
@@ -160,8 +166,8 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
           <div class="stat-value text-success">{fmt_cents(@summary.total_revenue_cents)}</div>
         </div>
       </div>
-
-      <!-- Per-channel table -->
+      
+    <!-- Per-channel table -->
       <div class="overflow-x-auto mb-8 bg-base-100 rounded-lg border border-base-300">
         <table class="table">
           <thead>
@@ -194,8 +200,8 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
           </tbody>
         </table>
       </div>
-
-      <!-- Referral leaderboard -->
+      
+    <!-- Referral leaderboard -->
       <div class="card bg-base-100 border border-base-300 mb-8">
         <div class="card-body">
           <h2 class="card-title">Top referrers</h2>
@@ -227,14 +233,20 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
           </table>
         </div>
       </div>
-
-      <!-- Log spend form -->
+      
+    <!-- Log spend form -->
       <div class="card bg-base-200">
         <div class="card-body">
           <h2 class="card-title">Log Spend</h2>
-          <p class="text-sm text-base-content/70">Record ad spend per channel per day. Sums appear in the table above immediately.</p>
+          <p class="text-sm text-base-content/70">
+            Record ad spend per channel per day. Sums appear in the table above immediately.
+          </p>
 
-          <form id="log-spend" phx-submit="log_spend" class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+          <form
+            id="log-spend"
+            phx-submit="log_spend"
+            class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4"
+          >
             <label class="form-control">
               <span class="label-text">Channel</span>
               <select name="spend[channel_id]" class="select select-bordered" required>
@@ -261,7 +273,12 @@ defmodule MobileCarWashWeb.Admin.MarketingLive do
 
             <label class="form-control">
               <span class="label-text">Notes</span>
-              <input type="text" name="spend[notes]" class="input input-bordered" placeholder="Campaign note" />
+              <input
+                type="text"
+                name="spend[notes]"
+                class="input input-bordered"
+                placeholder="Campaign note"
+              />
             </label>
 
             <div :if={@spend_error} class="md:col-span-4 alert alert-error">

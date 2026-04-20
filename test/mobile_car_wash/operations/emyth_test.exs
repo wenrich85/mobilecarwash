@@ -120,11 +120,17 @@ defmodule MobileCarWash.Operations.EMythTest do
 
     {:ok, address} =
       MobileCarWash.Fleet.Address
-      |> Ash.Changeset.for_create(:create, %{street: "123 Test", city: "Austin", state: "TX", zip: "78701"})
+      |> Ash.Changeset.for_create(:create, %{
+        street: "123 Test",
+        city: "Austin",
+        state: "TX",
+        zip: "78701"
+      })
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 
-    {:ok, scheduled_at} = DateTime.new(~D[2026-04-20], ~T[10:00:00])
+    scheduled_at =
+      DateTime.utc_now() |> DateTime.add(86_400, :second) |> DateTime.truncate(:second)
 
     {:ok, appointment} =
       MobileCarWash.Scheduling.Appointment
