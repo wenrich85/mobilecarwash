@@ -4,5 +4,8 @@ Disallow: /admin
 Disallow: /tech
 Disallow: /dev
 Disallow: /auth
+Disallow: /photos
+Disallow: /appointments
+Disallow: /account
 
-Sitemap: https://drivewaydetail.co/sitemap.xml
+Sitemap: https://drivewaydetailcosa.com/sitemap.xml

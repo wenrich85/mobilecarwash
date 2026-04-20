@@ -65,47 +65,12 @@ defmodule MobileCarWashWeb.LandingLive do
 
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, local_business_json: local_business_schema(assigns.services))
+
     ~H"""
     <!-- Structured Data for Google -->
     <script type="application/ld+json" nonce={@csp_nonce}>
-    {
-      "@context": "https://schema.org",
-      "@type": "AutoWash",
-      "name": "Driveway Detail Co",
-      "description": "Professional mobile car wash and auto detailing. We come to your home or office. Veteran-owned in San Antonio, TX.",
-      "url": "https://drivewaydetailcosa.com",
-      "image": "https://drivewaydetailcosa.com/images/og-share.png",
-      "priceRange": "$50-$200",
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "San Antonio",
-        "addressRegion": "TX",
-        "addressCountry": "US"
-      },
-      "geo": {
-        "@type": "GeoCoordinates",
-        "latitude": 29.4241,
-        "longitude": -98.4936
-      },
-      "areaServed": {
-        "@type": "City",
-        "name": "San Antonio",
-        "containedInPlace": {"@type": "AdministrativeArea", "name": "Texas"}
-      },
-      "serviceType": ["Mobile Car Wash", "Auto Detailing", "Mobile Detailing", "Car Detail"],
-      "knowsAbout": ["Car Washing", "Auto Detailing", "Mobile Services"],
-      "paymentAccepted": "Credit Card",
-      "currenciesAccepted": "USD",
-      "openingHours": "Mo-Sa 08:00-18:00",
-      "hasOfferCatalog": {
-        "@type": "OfferCatalog",
-        "name": "Detailing Services",
-        "itemListElement": [
-          {"@type": "Offer", "name": "Basic Wash", "price": "50.00", "priceCurrency": "USD"},
-          {"@type": "Offer", "name": "Deep Clean & Detail", "price": "200.00", "priceCurrency": "USD"}
-        ]
-      }
-    }
+      <%= Phoenix.HTML.raw(@local_business_json) %>
     </script>
 
     <!-- Hero Section — Navy gradient with Steel Blue accent -->
@@ -256,5 +221,66 @@ defmodule MobileCarWashWeb.LandingLive do
       </div>
     </footer>
     """
+  end
+
+  # Build the full AutoWash/LocalBusiness JSON-LD block as a JSON
+  # string. Dynamic `hasOfferCatalog.itemListElement` is populated
+  # from the live ServiceType list so new services appear in rich
+  # snippets without a code deploy.
+  defp local_business_schema(services) do
+    offers =
+      Enum.map(services, fn s ->
+        %{
+          "@type" => "Offer",
+          "name" => s.name,
+          "price" => :erlang.float_to_binary(s.base_price_cents / 100, decimals: 2),
+          "priceCurrency" => "USD",
+          "category" => "Car Detailing"
+        }
+      end)
+
+    %{
+      "@context" => "https://schema.org",
+      "@type" => "AutoWash",
+      "name" => "Driveway Detail Co",
+      "description" =>
+        "Professional mobile car wash and auto detailing. We come to your home or office. Veteran-owned in San Antonio, TX.",
+      "url" => "https://drivewaydetailcosa.com",
+      "image" => "https://drivewaydetailcosa.com/images/og-share.png",
+      "telephone" => "+1-512-555-0100",
+      "priceRange" => "$50-$200",
+      "address" => %{
+        "@type" => "PostalAddress",
+        "addressLocality" => "San Antonio",
+        "addressRegion" => "TX",
+        "addressCountry" => "US"
+      },
+      "geo" => %{
+        "@type" => "GeoCoordinates",
+        "latitude" => 29.4241,
+        "longitude" => -98.4936
+      },
+      "areaServed" => %{
+        "@type" => "City",
+        "name" => "San Antonio",
+        "containedInPlace" => %{"@type" => "AdministrativeArea", "name" => "Texas"}
+      },
+      "serviceType" => [
+        "Mobile Car Wash",
+        "Auto Detailing",
+        "Mobile Detailing",
+        "Car Detail"
+      ],
+      "knowsAbout" => ["Car Washing", "Auto Detailing", "Mobile Services"],
+      "paymentAccepted" => "Credit Card",
+      "currenciesAccepted" => "USD",
+      "openingHours" => "Mo-Sa 08:00-18:00",
+      "hasOfferCatalog" => %{
+        "@type" => "OfferCatalog",
+        "name" => "Detailing Services",
+        "itemListElement" => offers
+      }
+    }
+    |> Jason.encode!()
   end
 end

@@ -105,6 +105,9 @@ defmodule MobileCarWashWeb.Router do
     post "/stripe", StripeWebhookController, :handle
   end
 
+  # Sitemap — public, static-ish XML, no session / auth needed.
+  get "/sitemap.xml", MobileCarWashWeb.SitemapController, :show
+
   # Public routes — landing page, booking, auth
   scope "/", MobileCarWashWeb do
     pipe_through :browser

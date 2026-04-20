@@ -22,7 +22,7 @@ defmodule MobileCarWashWeb do
   # MobileCarWashWeb.PhotoController with per-appointment authorization.
   # Adding `uploads` here would bypass that check — see
   # .claude/SECURITY_AUDIT_REPORT.md CRITICAL #3 for history.
-  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt sitemap.xml)
+  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt)
 
   def router do
     quote do
