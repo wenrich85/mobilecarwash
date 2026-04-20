@@ -266,6 +266,65 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       assert html_p2 =~ oldest.name
       refute html_p2 =~ last.name
     end
+
+    test "renders applied tag chip in row", %{conn: conn} do
+      # Use a unique custom tag name that won't appear anywhere else on
+      # the page (e.g. in the layout/footer).
+      {:ok, custom_tag} =
+        MobileCarWash.Marketing.Tag
+        |> Ash.Changeset.for_create(:create, %{
+          slug: "list_test_tag_#{System.unique_integer([:positive])}",
+          name: "ZZZ_ListColumnTag",
+          color: :info
+        })
+        |> Ash.create(authorize?: false)
+
+      admin = register_admin!()
+      tagged = register_customer!(nil, "Tagged Target Customer")
+
+      {:ok, _} =
+        MobileCarWash.Marketing.CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: tagged.id,
+          tag_id: custom_tag.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers")
+
+      assert html =~ "Tagged Target Customer"
+      assert html =~ "ZZZ_ListColumnTag"
+    end
+
+    test "filter by tag narrows the list", %{conn: conn} do
+      :ok = Marketing.seed_tags!()
+
+      {:ok, [vip]} =
+        MobileCarWash.Marketing.Tag
+        |> Ash.Query.for_read(:by_slug, %{slug: "vip"})
+        |> Ash.read(authorize?: false)
+
+      admin = register_admin!()
+      tagged = register_customer!(nil, "Has VIP Tag")
+      untagged = register_customer!(nil, "No Tag On Me")
+
+      {:ok, _} =
+        MobileCarWash.Marketing.CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: tagged.id,
+          tag_id: vip.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers?tag=#{vip.id}")
+
+      assert html =~ tagged.name
+      refute html =~ untagged.name
+    end
   end
 
   describe "detail" do

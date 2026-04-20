@@ -10,7 +10,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
   use MobileCarWashWeb, :live_view
 
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Marketing.AcquisitionChannel
+  alias MobileCarWash.Marketing.{AcquisitionChannel, Tag}
   alias MobileCarWash.Repo
 
   import Ecto.Query
@@ -47,10 +47,19 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
       |> Ash.read!(authorize?: false)
       |> Map.new(&{&1.id, &1})
 
+    tags =
+      Tag
+      |> Ash.Query.for_read(:active)
+      |> Ash.read!(authorize?: false)
+
+    tag_by_id = Map.new(tags, &{&1.id, &1})
+
     {:ok,
      socket
      |> assign(page_title: "Customers")
      |> assign(channels: channels)
+     |> assign(tags: tags)
+     |> assign(tag_by_id: tag_by_id)
      |> assign(sort_options: @sort_options)
      |> assign(role_options: @roles)
      |> assign(verified_options: @verified_options)}
@@ -62,7 +71,8 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
       q: param(params, "q", ""),
       channel_id: param(params, "channel", ""),
       role: param(params, "role", ""),
-      verified: param(params, "verified", "")
+      verified: param(params, "verified", ""),
+      tag_id: param(params, "tag", "")
     }
 
     sort = param(params, "sort", "joined_desc")
@@ -83,6 +93,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
         "channel" => Map.get(params, "channel", ""),
         "role" => Map.get(params, "role", ""),
         "verified" => Map.get(params, "verified", ""),
+        "tag" => Map.get(params, "tag", ""),
         "sort" => socket.assigns.sort
       }
       |> trim_blanks()
@@ -121,16 +132,20 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
     ids = Enum.map(customers, & &1.id)
     revenue = revenue_by_customer(ids)
     last_wash = last_completed_by_customer(ids)
+    tag_ids_by_customer = tag_ids_by_customer(ids)
 
     enriched =
       Enum.map(customers, fn c ->
         Map.merge(c, %{
           __lifetime_revenue__: Map.get(revenue, c.id, 0),
-          __last_wash_at__: Map.get(last_wash, c.id)
+          __last_wash_at__: Map.get(last_wash, c.id),
+          __tag_ids__: Map.get(tag_ids_by_customer, c.id, [])
         })
       end)
 
-    sorted = sort_customers(enriched, sort)
+    filtered = filter_by_tag(enriched, filters.tag_id)
+
+    sorted = sort_customers(filtered, sort)
     total = length(sorted)
     pages = max(1, div(total + @page_size - 1, @page_size))
     page = min(page, pages)
@@ -142,6 +157,13 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
       page: page,
       pages: pages
     )
+  end
+
+  defp filter_by_tag(customers, ""), do: customers
+  defp filter_by_tag(customers, nil), do: customers
+
+  defp filter_by_tag(customers, tag_id) do
+    Enum.filter(customers, &(tag_id in &1.__tag_ids__))
   end
 
   defp ash_query(query, filters) do
@@ -237,6 +259,24 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
     |> Map.new(fn %{customer_id: cid, total: t} -> {cid, to_int(t)} end)
   end
 
+  defp tag_ids_by_customer([]), do: %{}
+
+  defp tag_ids_by_customer(customer_ids) do
+    uuids = Enum.map(customer_ids, &Ecto.UUID.dump!/1)
+
+    query =
+      from ct in "customer_tags",
+        where: ct.customer_id in ^uuids,
+        select: %{
+          customer_id: type(ct.customer_id, Ecto.UUID),
+          tag_id: type(ct.tag_id, Ecto.UUID)
+        }
+
+    query
+    |> Repo.all()
+    |> Enum.group_by(& &1.customer_id, & &1.tag_id)
+  end
+
   defp last_completed_by_customer([]), do: %{}
 
   defp last_completed_by_customer(customer_ids) do
@@ -280,7 +320,8 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
       "q" => filters.q,
       "channel" => filters.channel_id,
       "role" => filters.role,
-      "verified" => filters.verified
+      "verified" => filters.verified,
+      "tag" => filters.tag_id
     }
   end
 
@@ -313,6 +354,13 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
   defp fmt_date(nil), do: "—"
   defp fmt_date(%DateTime{} = dt), do: Calendar.strftime(dt, "%b %d, %Y")
   defp fmt_date(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%b %d, %Y")
+
+  defp tag_badge_class(%{color: :primary}), do: "badge-primary"
+  defp tag_badge_class(%{color: :success}), do: "badge-success"
+  defp tag_badge_class(%{color: :warning}), do: "badge-warning"
+  defp tag_badge_class(%{color: :error}), do: "badge-error"
+  defp tag_badge_class(%{color: :info}), do: "badge-info"
+  defp tag_badge_class(_), do: "badge-neutral"
 
   defp channel_label(_channels, nil), do: "—"
 
@@ -359,7 +407,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
         id="customer-filters"
         phx-change="filter"
         phx-submit="filter"
-        class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-4"
+        class="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4"
       >
         <input
           type="search"
@@ -399,6 +447,13 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
             {label}
           </option>
         </select>
+
+        <select name="tag" class="select select-bordered">
+          <option value="">Any tag</option>
+          <option :for={t <- @tags} value={t.id} selected={t.id == @filters.tag_id}>
+            {t.name}
+          </option>
+        </select>
       </form>
 
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -418,7 +473,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
         <button
           :if={
             @filters.q != "" or @filters.channel_id != "" or @filters.role != "" or
-              @filters.verified != ""
+              @filters.verified != "" or @filters.tag_id != ""
           }
           phx-click="clear_filters"
           class="btn btn-ghost btn-sm"
@@ -435,6 +490,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
               <th>Email</th>
               <th>Role</th>
               <th>Channel</th>
+              <th>Tags</th>
               <th>Last wash</th>
               <th>Risk</th>
               <th class="text-right">Lifetime revenue</th>
@@ -453,6 +509,17 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
                 <span class="badge badge-sm badge-ghost">{c.role}</span>
               </td>
               <td class="text-sm">{channel_label(@channels, c.acquired_channel_id)}</td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    :for={tid <- c.__tag_ids__}
+                    :if={Map.has_key?(@tag_by_id, tid)}
+                    class={"badge badge-xs " <> tag_badge_class(Map.get(@tag_by_id, tid))}
+                  >
+                    {Map.get(@tag_by_id, tid).name}
+                  </span>
+                </div>
+              </td>
               <td class="text-sm text-base-content/70">{fmt_date(c.__last_wash_at__)}</td>
               <td>
                 <% {label, cls} = risk(c.__last_wash_at__, c.inserted_at) %>
@@ -464,7 +531,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
               </td>
             </tr>
             <tr :if={@customers == []}>
-              <td colspan="8" class="text-center py-8 text-base-content/60">
+              <td colspan="9" class="text-center py-8 text-base-content/60">
                 No customers match those filters.
               </td>
             </tr>
