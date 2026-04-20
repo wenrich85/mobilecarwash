@@ -8,10 +8,13 @@ defmodule MobileCarWash.Marketing do
   """
   use Ash.Domain
 
-  alias MobileCarWash.Marketing.AcquisitionChannel
+  require Ash.Query
+
+  alias MobileCarWash.Marketing.{AcquisitionChannel, MarketingSpend}
 
   resources do
     resource AcquisitionChannel
+    resource MarketingSpend
   end
 
   @canonical_channels [
@@ -55,4 +58,31 @@ defmodule MobileCarWash.Marketing do
   @doc "Canonical channel slug → used by plugs / changes to derive acquired_channel_id."
   @spec canonical_slugs() :: [String.t()]
   def canonical_slugs, do: Enum.map(@canonical_channels, & &1.slug)
+
+  @doc """
+  Sum of all MarketingSpend rows whose spent_on falls within [from, to].
+  Range is inclusive on both ends.
+  """
+  @spec total_spend_cents_in_range(Date.t(), Date.t()) :: non_neg_integer()
+  def total_spend_cents_in_range(from, to) do
+    MarketingSpend
+    |> Ash.Query.for_read(:in_range, %{from: from, to: to})
+    |> Ash.read!(authorize?: false)
+    |> Enum.reduce(0, fn spend, acc -> acc + spend.amount_cents end)
+  end
+
+  @doc """
+  Per-channel spend totals for [from, to]. Returns a map of
+  channel_id (UUID string) => cents.
+  """
+  @spec spend_cents_by_channel_in_range(Date.t(), Date.t()) :: %{binary() => non_neg_integer()}
+  def spend_cents_by_channel_in_range(from, to) do
+    MarketingSpend
+    |> Ash.Query.for_read(:in_range, %{from: from, to: to})
+    |> Ash.read!(authorize?: false)
+    |> Enum.group_by(& &1.channel_id)
+    |> Map.new(fn {cid, rows} ->
+      {cid, Enum.reduce(rows, 0, fn r, acc -> acc + r.amount_cents end)}
+    end)
+  end
 end
