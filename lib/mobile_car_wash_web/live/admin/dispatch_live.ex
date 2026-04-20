@@ -12,7 +12,10 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   alias MobileCarWash.Scheduling.ServiceType
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.Address
+  alias MobileCarWash.Repo
   alias MobileCarWash.Zones
+
+  import Ecto.Query, only: [from: 2]
 
   require Ash.Query
 
@@ -53,6 +56,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         address_map: %{},
         vehicle_map: %{},
         tech_requests: %{},
+        flagged_customer_ids: MapSet.new(),
         subscribed_appointment_ids: MapSet.new()
       )
       |> load_appointments()
@@ -466,6 +470,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             address_map={@address_map}
             vehicle_map={@vehicle_map}
             tech_requests={@tech_requests}
+            flagged_customer_ids={@flagged_customer_ids}
           />
           
     <!-- CONFIRMED COLUMN -->
@@ -501,6 +506,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             address_map={@address_map}
             vehicle_map={@vehicle_map}
             tech_requests={@tech_requests}
+            flagged_customer_ids={@flagged_customer_ids}
           />
           
     <!-- IN PROGRESS COLUMN -->
@@ -536,6 +542,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             address_map={@address_map}
             vehicle_map={@vehicle_map}
             tech_requests={@tech_requests}
+            flagged_customer_ids={@flagged_customer_ids}
           />
           
     <!-- COMPLETED COLUMN -->
@@ -571,6 +578,7 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             address_map={@address_map}
             vehicle_map={@vehicle_map}
             tech_requests={@tech_requests}
+            flagged_customer_ids={@flagged_customer_ids}
           />
         </div>
       </div>
@@ -729,6 +737,11 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         %{}
       end
 
+    # Set of customer_ids with at least one applied tag whose
+    # `affects_booking` is true — drives the booking-flag badge on
+    # each appointment card.
+    flagged_customer_ids = booking_flagged_customer_ids(customer_ids)
+
     # Load address data (for zone badges)
     address_ids = Enum.map(all, & &1.address_id) |> Enum.uniq()
 
@@ -835,7 +848,8 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         customer_map: customer_map,
         address_map: address_map,
         vehicle_map: vehicle_map,
-        map_pins: map_pins
+        map_pins: map_pins,
+        flagged_customer_ids: flagged_customer_ids
       )
 
     # Push pin data to the map hook on filter changes
@@ -892,6 +906,28 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
   defp active_technicians do
     Ash.read!(Technician) |> Enum.filter(& &1.active)
+  end
+
+  # Which of these customers have any applied tag with
+  # `affects_booking: true`? Returns a MapSet we can MapSet.member?/2
+  # inside the kanban card render without N+1.
+  defp booking_flagged_customer_ids([]), do: MapSet.new()
+
+  defp booking_flagged_customer_ids(customer_ids) do
+    uuids = Enum.map(customer_ids, &Ecto.UUID.dump!/1)
+
+    rows =
+      from(ct in "customer_tags",
+        join: t in "tags",
+        on: ct.tag_id == t.id,
+        where: t.affects_booking == true,
+        where: ct.customer_id in ^uuids,
+        select: type(ct.customer_id, Ecto.UUID),
+        distinct: true
+      )
+      |> Repo.all()
+
+    MapSet.new(rows)
   end
 
   # Pulls each tech's currently-active appointment so the dispatch strip

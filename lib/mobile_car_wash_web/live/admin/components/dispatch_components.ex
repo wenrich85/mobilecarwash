@@ -9,17 +9,26 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
   attr :address_zone, :atom, default: nil
   attr :requested_by, :map, default: nil
   attr :vehicle, :map, default: nil
+  attr :booking_flagged?, :boolean, default: false
 
   def appointment_card(assigns) do
     ~H"""
     <div class={[
       "card bg-base-100 shadow-sm border-l-4",
       cond do
+        @booking_flagged? -> "border-error"
         @requested_by -> "border-info"
         is_nil(@appointment.technician_id) -> "border-warning"
         true -> "border-primary"
       end
     ]}>
+      <div
+        :if={@booking_flagged?}
+        class="booking-flag flex items-center gap-1 text-xs bg-error/10 text-error rounded px-2 py-1"
+      >
+        <span class="hero-exclamation-triangle-micro size-3 shrink-0"></span>
+        <span class="font-semibold">Booking flag — check customer record</span>
+      </div>
       <div class="card-body p-4">
         <!-- Tech request banner -->
         <div
@@ -196,8 +205,12 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
   attr :address_map, :map, required: true
   attr :vehicle_map, :map, required: true
   attr :tech_requests, :map, required: true
+  attr :flagged_customer_ids, :any, default: nil
 
   def kanban_column(assigns) do
+    assigns =
+      assign_new(assigns, :flagged_customer_ids, fn -> MapSet.new() end)
+
     ~H"""
     <div class="bg-base-100 rounded-lg shadow-sm p-4 flex flex-col h-full">
       <!-- Column Header -->
@@ -220,6 +233,7 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
           address_zone={get_address_zone(appt, @address_map)}
           vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
           requested_by={Map.get(@tech_requests, appt.id)}
+          booking_flagged?={MapSet.member?(@flagged_customer_ids, appt.customer_id)}
         />
       </div>
     </div>
