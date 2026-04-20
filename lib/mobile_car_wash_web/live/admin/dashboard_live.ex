@@ -176,6 +176,12 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
             path: "/admin/personas"
           },
           %{
+            icon: "📢",
+            title: "Campaigns",
+            description: "Draft + publish social posts. Log adapter ships now; Meta/X slot in later.",
+            path: "/admin/campaigns"
+          },
+          %{
             icon: "🎨",
             title: "Style Guide",
             description: "Component library reference — colors, typography, cards, buttons.",
