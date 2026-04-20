@@ -182,6 +182,12 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
             path: "/admin/campaigns"
           },
           %{
+            icon: "👤",
+            title: "Customers",
+            description: "Every customer + attribution + lifetime revenue. Reassign channels, tag personas.",
+            path: "/admin/customers"
+          },
+          %{
             icon: "🎨",
             title: "Style Guide",
             description: "Component library reference — colors, typography, cards, buttons.",
