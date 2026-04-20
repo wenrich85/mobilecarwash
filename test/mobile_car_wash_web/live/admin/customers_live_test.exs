@@ -915,5 +915,46 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       # is not among them.
       refute html =~ ~s(value="#{vip.id}")
     end
+
+    test "banner shown when customer has an affects_booking tag",
+         %{conn: conn, dns: dns} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, _} =
+        CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: target.id,
+          tag_id: dns.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      assert html =~ ~s(id="booking-flag-alert")
+      assert html =~ "Do Not Service"
+    end
+
+    test "no banner when only non-affects_booking tags are applied",
+         %{conn: conn, vip: vip} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, _} =
+        CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: target.id,
+          tag_id: vip.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      refute html =~ ~s(id="booking-flag-alert")
+    end
   end
 end

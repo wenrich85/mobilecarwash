@@ -303,6 +303,14 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
     {notes, authors_by_id} = load_notes(customer.id)
     {customer_tags, tag_by_id, available_tags} = load_tags(customer.id)
 
+    # Applied tags that have affects_booking: true. Drives the red
+    # banner above the page so an admin can't miss the flag.
+    booking_flagged_tags =
+      customer_tags
+      |> Enum.map(&Map.get(tag_by_id, &1.tag_id))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.filter(& &1.affects_booking)
+
     channel = Enum.find(channels, &(&1.id == customer.acquired_channel_id))
 
     socket
@@ -324,7 +332,8 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
       authors_by_id: authors_by_id,
       customer_tags: customer_tags,
       tag_by_id: tag_by_id,
-      available_tags: available_tags
+      available_tags: available_tags,
+      booking_flagged_tags: booking_flagged_tags
     )
   end
 
@@ -476,6 +485,26 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
         <.link navigate={~p"/admin/customers"} class="text-sm link link-hover">
           ← All customers
         </.link>
+      </div>
+
+      <div
+        :if={@booking_flagged_tags != []}
+        id="booking-flag-alert"
+        role="alert"
+        class="alert alert-error mb-6"
+      >
+        <span class="hero-exclamation-triangle size-5 shrink-0"></span>
+        <div class="flex-1">
+          <div class="font-semibold">
+            Booking flag — review before confirming any work.
+          </div>
+          <div class="text-sm">
+            Applied:
+            <span :for={t <- @booking_flagged_tags} class="font-semibold">
+              {t.name}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
