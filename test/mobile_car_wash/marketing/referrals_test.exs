@@ -67,6 +67,30 @@ defmodule MobileCarWash.Marketing.ReferralsTest do
       assert link =~ "ref=#{customer.referral_code}"
     end
 
+    test "backfills a referral_code when the customer was created before the feature" do
+      customer = register!()
+
+      # Simulate a pre-migration customer by wiping their code.
+      {:ok, stripped} =
+        customer
+        |> Ash.Changeset.for_update(:update, %{})
+        |> Ash.Changeset.force_change_attribute(:referral_code, nil)
+        |> Ash.update(authorize?: false)
+
+      assert is_nil(stripped.referral_code)
+
+      link = Referrals.share_link_for(stripped)
+
+      # Link must contain *some* ref= value (the freshly-minted code).
+      assert link =~ "ref="
+      assert link =~ "utm_source=referral"
+
+      # And the customer record now has a persisted code.
+      {:ok, reloaded} = Ash.get(MobileCarWash.Accounts.Customer, customer.id, authorize?: false)
+      assert is_binary(reloaded.referral_code)
+      assert link =~ "ref=#{reloaded.referral_code}"
+    end
+
     test "uses the configured external_base_url" do
       original = Application.get_env(:mobile_car_wash, :external_base_url)
 

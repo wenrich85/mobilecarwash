@@ -35,12 +35,47 @@ defmodule MobileCarWash.Marketing.Referrals do
   Builds a UTM-tagged landing URL with the customer's referral code
   embedded as `?ref=CODE`. Carries UTM source/medium so the
   attribution plug can bucket the lead correctly.
+
+  Pre-migration customers (created before 2026-04-05 when the referral
+  system landed) have a `nil` referral_code. The nil clause backfills
+  a fresh code on the customer record before building the link, so
+  every /appointments page load from legacy accounts Just Works.
   """
   @spec share_link_for(Customer.t()) :: String.t()
   def share_link_for(%Customer{referral_code: code}) when is_binary(code) do
     base = Application.get_env(:mobile_car_wash, :external_base_url, @default_base_url)
 
     "#{base}/?utm_source=referral&utm_medium=share&ref=#{URI.encode_www_form(code)}"
+  end
+
+  def share_link_for(%Customer{referral_code: nil} = customer) do
+    {:ok, backfilled} = backfill_referral_code(customer)
+    share_link_for(backfilled)
+  end
+
+  # Mint a referral_code + persist. On the vanishingly unlikely unique
+  # collision, just re-read whatever code ended up on the row and use it.
+  defp backfill_referral_code(customer) do
+    code = generate_referral_code()
+
+    case customer
+         |> Ash.Changeset.for_update(:update, %{})
+         |> Ash.Changeset.force_change_attribute(:referral_code, code)
+         |> Ash.update(authorize?: false) do
+      {:ok, updated} ->
+        {:ok, updated}
+
+      {:error, _} ->
+        # Unique-violation or any other shape — fall back to whatever's
+        # in the DB so the caller still gets a usable struct.
+        Ash.get(Customer, customer.id, authorize?: false)
+    end
+  end
+
+  defp generate_referral_code do
+    :crypto.strong_rand_bytes(5)
+    |> Base.encode32(padding: false)
+    |> String.slice(0, 8)
   end
 
   @doc """
