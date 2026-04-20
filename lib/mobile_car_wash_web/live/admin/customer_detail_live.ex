@@ -13,6 +13,8 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
   use MobileCarWashWeb, :live_view
 
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Billing.{Subscription, SubscriptionPlan}
+  alias MobileCarWash.Fleet.{Address, Vehicle}
   alias MobileCarWash.Marketing.{AcquisitionChannel, Persona, PersonaMembership, Personas}
   alias MobileCarWash.Repo
   alias MobileCarWash.Scheduling.Appointment
@@ -113,6 +115,9 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
 
     appointments = load_appointments(customer.id)
     lifetime_revenue = lifetime_revenue(customer.id)
+    {subscription, plan} = load_subscription(customer.id)
+    vehicles = load_vehicles(customer.id)
+    addresses = load_addresses(customer.id)
 
     channel = Enum.find(channels, &(&1.id == customer.acquired_channel_id))
 
@@ -126,8 +131,47 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
       persona_by_id: persona_by_id,
       memberships: memberships,
       appointments: appointments,
-      lifetime_revenue: lifetime_revenue
+      lifetime_revenue: lifetime_revenue,
+      subscription: subscription,
+      subscription_plan: plan,
+      vehicles: vehicles,
+      addresses: addresses
     )
+  end
+
+  # Most-recent non-cancelled subscription + its plan. Nil tuple if none.
+  defp load_subscription(customer_id) do
+    case Subscription
+         |> Ash.Query.for_read(:active_for_customer, %{customer_id: customer_id})
+         |> Ash.Query.sort(inserted_at: :desc)
+         |> Ash.Query.limit(1)
+         |> Ash.read(authorize?: false) do
+      {:ok, [sub | _]} ->
+        plan =
+          case Ash.get(SubscriptionPlan, sub.plan_id, authorize?: false) do
+            {:ok, p} -> p
+            _ -> nil
+          end
+
+        {sub, plan}
+
+      _ ->
+        {nil, nil}
+    end
+  end
+
+  defp load_vehicles(customer_id) do
+    Vehicle
+    |> Ash.Query.filter(customer_id == ^customer_id)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.read!(authorize?: false)
+  end
+
+  defp load_addresses(customer_id) do
+    Address
+    |> Ash.Query.filter(customer_id == ^customer_id)
+    |> Ash.Query.sort([{:is_default, :desc}, {:inserted_at, :desc}])
+    |> Ash.read!(authorize?: false)
   end
 
   defp load_appointments(customer_id) do
@@ -159,6 +203,29 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
 
   defp fmt_cents(cents) when is_integer(cents),
     do: "$" <> :erlang.float_to_binary(cents / 100, decimals: 2)
+
+  defp fmt_date(nil), do: "—"
+  defp fmt_date(%Date{} = d), do: Calendar.strftime(d, "%b %d, %Y")
+  defp fmt_date(%DateTime{} = dt), do: Calendar.strftime(dt, "%b %d, %Y")
+
+  # Subscription status pill color. `:active` is green, paused is amber,
+  # past_due is red, cancelled is ghost.
+  defp sub_status_class(:active), do: "badge-success"
+  defp sub_status_class(:paused), do: "badge-warning"
+  defp sub_status_class(:past_due), do: "badge-error"
+  defp sub_status_class(_), do: "badge-ghost"
+
+  defp format_vehicle(v) do
+    [v.year, v.color, v.make, v.model]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" ")
+  end
+
+  defp format_address_line(a) do
+    [a.street, "#{a.city}, #{a.state} #{a.zip}"]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" · ")
+  end
 
   defp unassigned_personas(personas, memberships) do
     taken = MapSet.new(memberships, & &1.persona_id)
@@ -299,6 +366,100 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
               <button type="submit" class="btn btn-primary btn-sm join-item">Tag</button>
             </form>
           </div>
+        </div>
+      </div>
+      
+    <!-- Subscription -->
+      <div class="card bg-base-100 border border-base-300 mt-6">
+        <div class="card-body">
+          <h2 class="card-title">Subscription</h2>
+
+          <div :if={is_nil(@subscription)} class="text-sm text-base-content/60 py-2">
+            No active subscription.
+          </div>
+
+          <div :if={@subscription} class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <dl class="text-sm space-y-2">
+              <div>
+                <dt class="text-base-content/60 inline">Plan</dt>
+                <dd class="inline font-medium ml-1">
+                  {(@subscription_plan && @subscription_plan.name) || "—"}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-base-content/60 inline">Price</dt>
+                <dd class="inline font-medium ml-1">
+                  {fmt_cents(@subscription_plan && @subscription_plan.price_cents)}/mo
+                </dd>
+              </div>
+              <div>
+                <dt class="text-base-content/60 inline">Status</dt>
+                <dd class="inline ml-1">
+                  <span class={"badge badge-sm " <> sub_status_class(@subscription.status)}>
+                    {@subscription.status}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+
+            <dl class="text-sm space-y-2">
+              <div>
+                <dt class="text-base-content/60 inline">Current period</dt>
+                <dd class="inline ml-1">
+                  {fmt_date(@subscription.current_period_start)} → {fmt_date(
+                    @subscription.current_period_end
+                  )}
+                </dd>
+              </div>
+              <div :if={@subscription.stripe_subscription_id}>
+                <dt class="text-base-content/60 inline">Stripe ID</dt>
+                <dd class="inline ml-1">
+                  <code class="text-xs">{@subscription.stripe_subscription_id}</code>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+      
+    <!-- Vehicles -->
+      <div class="card bg-base-100 border border-base-300 mt-6">
+        <div class="card-body">
+          <h2 class="card-title">
+            Vehicles <span class="badge badge-sm badge-ghost ml-2">{length(@vehicles)}</span>
+          </h2>
+
+          <div :if={@vehicles == []} class="text-sm text-base-content/60 py-2">
+            No vehicles on file.
+          </div>
+
+          <ul :if={@vehicles != []} class="divide-y divide-base-300">
+            <li :for={v <- @vehicles} class="py-2 flex justify-between items-center">
+              <span class="font-medium">{format_vehicle(v)}</span>
+              <span class="badge badge-sm badge-ghost">{v.size}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+    <!-- Addresses -->
+      <div class="card bg-base-100 border border-base-300 mt-6">
+        <div class="card-body">
+          <h2 class="card-title">
+            Service addresses
+            <span class="badge badge-sm badge-ghost ml-2">{length(@addresses)}</span>
+          </h2>
+
+          <div :if={@addresses == []} class="text-sm text-base-content/60 py-2">
+            No addresses on file.
+          </div>
+
+          <ul :if={@addresses != []} class="divide-y divide-base-300">
+            <li :for={a <- @addresses} class="py-2 flex justify-between items-center">
+              <span>{format_address_line(a)}</span>
+              <span :if={a.is_default} class="badge badge-sm badge-primary">Default</span>
+            </li>
+          </ul>
         </div>
       </div>
       

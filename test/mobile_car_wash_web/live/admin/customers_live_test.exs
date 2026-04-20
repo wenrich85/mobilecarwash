@@ -11,7 +11,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
   import Phoenix.LiveViewTest
 
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Billing.Payment
+  alias MobileCarWash.Billing.{Payment, Subscription, SubscriptionPlan}
   alias MobileCarWash.Fleet.{Address, Vehicle}
   alias MobileCarWash.Marketing
   alias MobileCarWash.Marketing.{AcquisitionChannel, Persona, PersonaMembership}
@@ -376,6 +376,97 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
 
       assert {:error, {:live_redirect, %{to: "/admin/customers"}}} =
                live(conn, ~p"/admin/customers/#{Ecto.UUID.generate()}")
+    end
+
+    test "shows active subscription plan name", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, plan} =
+        SubscriptionPlan
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Gold Shine Plan",
+          slug: "gold_shine_#{System.unique_integer([:positive])}",
+          price_cents: 12_500,
+          basic_washes_per_month: 4,
+          deep_cleans_per_month: 0,
+          deep_clean_discount_percent: 30,
+          description: ""
+        })
+        |> Ash.create(authorize?: false)
+
+      {:ok, _sub} =
+        Subscription
+        |> Ash.Changeset.for_create(:create, %{
+          status: :active,
+          current_period_start: Date.utc_today(),
+          current_period_end: Date.add(Date.utc_today(), 30),
+          stripe_subscription_id: "sub_test_#{System.unique_integer([:positive])}"
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, target.id)
+        |> Ash.Changeset.force_change_attribute(:plan_id, plan.id)
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      assert html =~ "Gold Shine Plan"
+      assert html =~ "active"
+    end
+
+    test "renders 'No active subscription' when customer has none", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      assert html =~ "No active subscription"
+    end
+
+    test "shows customer's vehicles", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, _v} =
+        Vehicle
+        |> Ash.Changeset.for_create(:create, %{
+          make: "Subaru",
+          model: "Outback",
+          year: 2022,
+          color: "Steel Blue",
+          size: :suv_van
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, target.id)
+        |> Ash.create()
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      assert html =~ "Subaru"
+      assert html =~ "Outback"
+    end
+
+    test "shows customer's service addresses", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, _a} =
+        Address
+        |> Ash.Changeset.for_create(:create, %{
+          street: "777 Driveway Lane",
+          city: "San Antonio",
+          state: "TX",
+          zip: "78261"
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, target.id)
+        |> Ash.create()
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      assert html =~ "777 Driveway Lane"
+      assert html =~ "78261"
     end
   end
 end
