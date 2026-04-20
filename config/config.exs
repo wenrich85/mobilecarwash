@@ -34,7 +34,10 @@ config :mobile_car_wash, Oban,
     notifications: 5,
     billing: 3,
     analytics: 5,
-    maintenance: 2
+    maintenance: 2,
+    # AI image/text generation — separate so a run-away image-gen loop
+    # can't block customer-facing notifications.
+    ai: 2
   ],
   plugins: [
     {Oban.Plugins.Cron,

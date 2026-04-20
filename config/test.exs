@@ -42,6 +42,10 @@ config :mobile_car_wash, :apns_client, MobileCarWash.Notifications.ApnsClientMoc
 # leave the VM.
 config :mobile_car_wash, :vision_client, MobileCarWash.AI.VisionClientMock
 
+# Use the ETS-backed mock image generator in tests so no tokens are
+# ever spent on OpenAI DALL-E calls from CI.
+config :mobile_car_wash, :image_generator, MobileCarWash.AI.ImageGeneratorMock
+
 # Use mock Stripe Product/Price modules in tests so ServiceType/SubscriptionPlan
 # CRUD doesn't hit the live Stripe API.
 config :mobile_car_wash, :stripe_product_module, MobileCarWash.Billing.StripeProductMock

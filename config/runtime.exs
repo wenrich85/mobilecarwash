@@ -28,6 +28,14 @@ if ga_id = System.get_env("GOOGLE_ANALYTICS_ID") do
   config :mobile_car_wash, :google_analytics_id, ga_id
 end
 
+# OpenAI API key (all environments — image generation falls back to
+# {:error, :openai_not_configured} when unset, so dev + prod are
+# safely no-op without it). Tests route through ImageGeneratorMock
+# regardless via config/test.exs.
+if openai_key = System.get_env("OPENAI_API_KEY") do
+  config :mobile_car_wash, :openai_api_key, openai_key
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

@@ -3,6 +3,7 @@ defmodule MobileCarWashWeb.Admin.PersonasLiveTest do
   Marketing Phase 2B / Slice 3: admin CRUD for Persona records.
   """
   use MobileCarWashWeb.ConnCase, async: false
+  use Oban.Testing, repo: MobileCarWash.Repo
 
   import Phoenix.LiveViewTest
 
@@ -126,6 +127,67 @@ defmodule MobileCarWashWeb.Admin.PersonasLiveTest do
         |> render_submit()
 
       assert html =~ "taken" or html =~ "exists" or html =~ "already" or html =~ "unique"
+    end
+  end
+
+  describe "regenerate image" do
+    test "enqueues PersonaImageWorker for the clicked persona", %{conn: conn} do
+      admin = register_admin!()
+
+      {:ok, persona} =
+        Persona
+        |> Ash.Changeset.for_create(:create, %{
+          slug: "regen_test",
+          name: "Regen Test",
+          description: "Vibrant car enthusiast"
+        })
+        |> Ash.create(authorize?: false)
+
+      MobileCarWash.AI.ImageGeneratorMock.reset()
+
+      MobileCarWash.AI.ImageGeneratorMock.stub(:generate, fn _prompt ->
+        {:ok, "https://x/regen.png"}
+      end)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _html} = live(conn, ~p"/admin/personas")
+
+      lv |> element("##{"regen-#{persona.id}"}") |> render_click()
+
+      # Oban runs inline in tests, so clicking the button runs the worker
+      # synchronously. Verify by checking the mock was invoked and the
+      # persona got its new URL.
+      assert "Vibrant car enthusiast" in MobileCarWash.AI.ImageGeneratorMock.prompts()
+
+      {:ok, reloaded} = Ash.get(Persona, persona.id, authorize?: false)
+      assert reloaded.image_url == "https://x/regen.png"
+    end
+
+    test "swaps the image in place when :persona_image_ready broadcasts",
+         %{conn: conn} do
+      admin = register_admin!()
+
+      {:ok, persona} =
+        Persona
+        |> Ash.Changeset.for_create(:create, %{
+          slug: "pubsub_swap",
+          name: "PubSub Swap",
+          description: ""
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _html} = live(conn, ~p"/admin/personas")
+
+      # Simulate the worker finishing.
+      Phoenix.PubSub.broadcast(
+        MobileCarWash.PubSub,
+        "persona:#{persona.id}",
+        {:persona_image_ready, persona.id, "https://x/final.png"}
+      )
+
+      html = render(lv)
+      assert html =~ "https://x/final.png"
     end
   end
 

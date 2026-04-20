@@ -11,16 +11,36 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Marketing.Persona
+  alias MobileCarWash.Marketing.{Persona, PersonaImageWorker}
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok,
-     socket
-     |> assign(page_title: "Personas")
-     |> assign(form_error: nil)
-     |> assign(editing: nil)
-     |> load_personas()}
+    socket =
+      socket
+      |> assign(page_title: "Personas")
+      |> assign(form_error: nil)
+      |> assign(editing: nil)
+      |> load_personas()
+
+    # Subscribe to every listed persona's image-ready topic so we can
+    # swap placeholders in place when the Oban worker finishes.
+    if connected?(socket) do
+      Enum.each(socket.assigns.personas, fn p ->
+        Phoenix.PubSub.subscribe(MobileCarWash.PubSub, "persona:#{p.id}")
+      end)
+    end
+
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:persona_image_ready, persona_id, url}, socket) do
+    personas =
+      Enum.map(socket.assigns.personas, fn p ->
+        if p.id == persona_id, do: %{p | image_url: url}, else: p
+      end)
+
+    {:noreply, assign(socket, personas: personas)}
   end
 
   @impl true
@@ -63,6 +83,17 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
       {:error, changeset} ->
         {:noreply, assign(socket, form_error: friendly_error(changeset))}
     end
+  end
+
+  def handle_event("regen_image", %{"id" => id}, socket) do
+    # Enqueue + subscribe — the worker broadcasts on this topic.
+    Phoenix.PubSub.subscribe(MobileCarWash.PubSub, "persona:#{id}")
+
+    %{"persona_id" => id}
+    |> PersonaImageWorker.new()
+    |> Oban.insert!()
+
+    {:noreply, socket}
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
@@ -220,6 +251,7 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
         <table class="table">
           <thead>
             <tr>
+              <th>Image</th>
               <th>Name</th>
               <th>Slug</th>
               <th>Description</th>
@@ -229,6 +261,20 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
           </thead>
           <tbody>
             <tr :for={p <- @personas} class="hover">
+              <td class="w-20">
+                <img
+                  :if={p.image_url}
+                  src={p.image_url}
+                  alt={"#{p.name} image"}
+                  class="w-16 h-16 object-cover rounded-lg border border-base-300"
+                />
+                <div
+                  :if={is_nil(p.image_url)}
+                  class="w-16 h-16 rounded-lg border border-dashed border-base-300 flex items-center justify-center text-2xl"
+                >
+                  🎭
+                </div>
+              </td>
               <td class="font-medium">{p.name}</td>
               <td><code>{p.slug}</code></td>
               <td class="max-w-sm truncate">{p.description}</td>
@@ -238,6 +284,15 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
                 </span>
               </td>
               <td class="text-right">
+                <button
+                  id={"regen-#{p.id}"}
+                  class="btn btn-ghost btn-xs"
+                  phx-click="regen_image"
+                  phx-value-id={p.id}
+                  title="Generate a new AI image from the description"
+                >
+                  Regenerate
+                </button>
                 <button class="btn btn-ghost btn-xs" phx-click="start_edit" phx-value-id={p.id}>
                   Edit
                 </button>
@@ -253,7 +308,7 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
               </td>
             </tr>
             <tr :if={@personas == []}>
-              <td colspan="5" class="text-center text-base-content/60 py-8">
+              <td colspan="6" class="text-center text-base-content/60 py-8">
                 No personas yet — create one to start segmenting customers.
               </td>
             </tr>
