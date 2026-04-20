@@ -208,6 +208,15 @@ defmodule MobileCarWashWeb.Router do
 
   # Admin routes — owner-only metrics dashboard
   scope "/admin", MobileCarWashWeb.Admin do
+    pipe_through [:browser, MobileCarWashWeb.Plugs.RequireAdmin]
+
+    # Controller-based exports — must be declared BEFORE the
+    # `/customers/:id` LV route below or `export.csv` gets parsed as
+    # an id and the LV mount redirects with "Customer not found".
+    get "/customers/export.csv", CustomersExportController, :show
+  end
+
+  scope "/admin", MobileCarWashWeb.Admin do
     pipe_through :browser
 
     live_session :admin,

@@ -9,11 +9,10 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Accounts.{Customer, CustomerNote}
+  alias MobileCarWash.Accounts.CustomerNote
   alias MobileCarWash.Marketing.{AcquisitionChannel, CustomerTag, Tag}
-  alias MobileCarWash.Repo
+  alias MobileCarWash.Reporting.CustomerList
 
-  import Ecto.Query
   require Ash.Query
 
   @page_size 50
@@ -195,32 +194,11 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
   defp load_customers(socket) do
     %{filters: filters, sort: sort, page: page} = socket.assigns
 
-    # Ash filter pass — channel / role / verified / text search. Cheap
-    # enough at solo-operator scale to load the whole filtered set and
-    # sort + paginate in memory after enrichment.
-    customers =
-      Customer
-      |> ash_query(filters)
-      |> Ash.read!(authorize?: false)
-      |> filter_by_query(filters.q)
+    sorted =
+      filters
+      |> CustomerList.list_filtered()
+      |> CustomerList.sort(sort)
 
-    ids = Enum.map(customers, & &1.id)
-    revenue = revenue_by_customer(ids)
-    last_wash = last_completed_by_customer(ids)
-    tag_ids_by_customer = tag_ids_by_customer(ids)
-
-    enriched =
-      Enum.map(customers, fn c ->
-        Map.merge(c, %{
-          __lifetime_revenue__: Map.get(revenue, c.id, 0),
-          __last_wash_at__: Map.get(last_wash, c.id),
-          __tag_ids__: Map.get(tag_ids_by_customer, c.id, [])
-        })
-      end)
-
-    filtered = filter_by_tag(enriched, filters.tag_id)
-
-    sorted = sort_customers(filtered, sort)
     total = length(sorted)
     pages = max(1, div(total + @page_size - 1, @page_size))
     page = min(page, pages)
@@ -232,144 +210,6 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
       page: page,
       pages: pages
     )
-  end
-
-  defp filter_by_tag(customers, ""), do: customers
-  defp filter_by_tag(customers, nil), do: customers
-
-  defp filter_by_tag(customers, tag_id) do
-    Enum.filter(customers, &(tag_id in &1.__tag_ids__))
-  end
-
-  defp ash_query(query, filters) do
-    query
-    |> maybe_filter_channel(filters.channel_id)
-    |> maybe_filter_role(filters.role)
-    |> maybe_filter_verified(filters.verified)
-  end
-
-  defp maybe_filter_channel(q, ""), do: q
-
-  defp maybe_filter_channel(q, channel_id) do
-    Ash.Query.filter(q, acquired_channel_id == ^channel_id)
-  end
-
-  defp maybe_filter_role(q, ""), do: q
-
-  defp maybe_filter_role(q, role) when is_binary(role) do
-    atom = String.to_existing_atom(role)
-    Ash.Query.filter(q, role == ^atom)
-  rescue
-    ArgumentError -> q
-  end
-
-  defp maybe_filter_verified(q, "yes"),
-    do: Ash.Query.filter(q, not is_nil(email_verified_at))
-
-  defp maybe_filter_verified(q, "no"),
-    do: Ash.Query.filter(q, is_nil(email_verified_at))
-
-  defp maybe_filter_verified(q, _), do: q
-
-  defp filter_by_query(customers, ""), do: customers
-  defp filter_by_query(customers, nil), do: customers
-
-  defp filter_by_query(customers, query) do
-    q = String.downcase(query)
-
-    Enum.filter(customers, fn c ->
-      String.contains?(String.downcase(c.name || ""), q) or
-        String.contains?(String.downcase(to_string(c.email)), q)
-    end)
-  end
-
-  defp sort_customers(customers, "joined_desc"),
-    do: Enum.sort_by(customers, & &1.inserted_at, {:desc, DateTime})
-
-  defp sort_customers(customers, "joined_asc"),
-    do: Enum.sort_by(customers, & &1.inserted_at, {:asc, DateTime})
-
-  defp sort_customers(customers, "ltv_desc"),
-    do: Enum.sort_by(customers, & &1.__lifetime_revenue__, :desc)
-
-  defp sort_customers(customers, "last_wash_desc") do
-    # Nil last-wash goes to the bottom.
-    Enum.sort_by(
-      customers,
-      fn c -> {c.__last_wash_at__ || ~U[1970-01-01 00:00:00Z], c.inserted_at} end,
-      fn a, b ->
-        case DateTime.compare(elem(a, 0), elem(b, 0)) do
-          :gt -> true
-          :lt -> false
-          :eq -> DateTime.compare(elem(a, 1), elem(b, 1)) != :lt
-        end
-      end
-    )
-  end
-
-  defp sort_customers(customers, "name_asc"),
-    do: Enum.sort_by(customers, &String.downcase(&1.name || ""))
-
-  defp sort_customers(customers, _), do: sort_customers(customers, "joined_desc")
-
-  # --- Aggregates ---
-
-  defp revenue_by_customer([]), do: %{}
-
-  defp revenue_by_customer(customer_ids) do
-    uuids = Enum.map(customer_ids, &Ecto.UUID.dump!/1)
-
-    query =
-      from p in "payments",
-        where: p.status == "succeeded",
-        where: p.customer_id in ^uuids,
-        group_by: p.customer_id,
-        select: %{
-          customer_id: type(p.customer_id, Ecto.UUID),
-          total: sum(p.amount_cents)
-        }
-
-    query
-    |> Repo.all()
-    |> Map.new(fn %{customer_id: cid, total: t} -> {cid, to_int(t)} end)
-  end
-
-  defp tag_ids_by_customer([]), do: %{}
-
-  defp tag_ids_by_customer(customer_ids) do
-    uuids = Enum.map(customer_ids, &Ecto.UUID.dump!/1)
-
-    query =
-      from ct in "customer_tags",
-        where: ct.customer_id in ^uuids,
-        select: %{
-          customer_id: type(ct.customer_id, Ecto.UUID),
-          tag_id: type(ct.tag_id, Ecto.UUID)
-        }
-
-    query
-    |> Repo.all()
-    |> Enum.group_by(& &1.customer_id, & &1.tag_id)
-  end
-
-  defp last_completed_by_customer([]), do: %{}
-
-  defp last_completed_by_customer(customer_ids) do
-    uuids = Enum.map(customer_ids, &Ecto.UUID.dump!/1)
-
-    query =
-      from a in "appointments",
-        where: a.status == "completed",
-        where: a.customer_id in ^uuids,
-        group_by: a.customer_id,
-        select: %{
-          customer_id: type(a.customer_id, Ecto.UUID),
-          last_at: max(a.scheduled_at)
-        }
-
-    query
-    |> Repo.all()
-    |> Map.new(fn %{customer_id: cid, last_at: at} -> {cid, at} end)
   end
 
   # --- URL / params helpers ---
@@ -415,10 +255,6 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
   end
 
   # --- Formatting ---
-
-  defp to_int(nil), do: 0
-  defp to_int(%Decimal{} = d), do: Decimal.to_integer(d)
-  defp to_int(n) when is_integer(n), do: n
 
   defp fmt_cents(nil), do: "$0.00"
   defp fmt_cents(0), do: "$0.00"
@@ -545,16 +381,26 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
           </select>
         </form>
 
-        <button
-          :if={
-            @filters.q != "" or @filters.channel_id != "" or @filters.role != "" or
-              @filters.verified != "" or @filters.tag_id != ""
-          }
-          phx-click="clear_filters"
-          class="btn btn-ghost btn-sm"
-        >
-          Clear filters
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            :if={
+              @filters.q != "" or @filters.channel_id != "" or @filters.role != "" or
+                @filters.verified != "" or @filters.tag_id != ""
+            }
+            phx-click="clear_filters"
+            class="btn btn-ghost btn-sm"
+          >
+            Clear filters
+          </button>
+
+          <a
+            id="export-csv"
+            href={~p"/admin/customers/export.csv?#{page_query(@filters, @sort, 1)}"}
+            class="btn btn-outline btn-sm"
+          >
+            Export CSV
+          </a>
+        </div>
       </div>
 
       <div
