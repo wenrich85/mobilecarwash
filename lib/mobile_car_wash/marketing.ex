@@ -10,11 +10,13 @@ defmodule MobileCarWash.Marketing do
 
   require Ash.Query
 
-  alias MobileCarWash.Marketing.{AcquisitionChannel, MarketingSpend}
+  alias MobileCarWash.Marketing.{AcquisitionChannel, MarketingSpend, Persona, PersonaMembership}
 
   resources do
     resource AcquisitionChannel
     resource MarketingSpend
+    resource Persona
+    resource PersonaMembership
   end
 
   @canonical_channels [

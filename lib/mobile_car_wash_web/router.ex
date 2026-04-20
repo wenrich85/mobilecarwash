@@ -200,6 +200,7 @@ defmodule MobileCarWashWeb.Router do
       live "/", DashboardLive
       live "/metrics", MetricsLive
       live "/marketing", MarketingLive
+      live "/personas", PersonasLive
       live "/events", EventsLive
       live "/formation", FormationLive
       live "/org-chart", OrgChartLive

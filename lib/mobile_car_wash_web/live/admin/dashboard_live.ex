@@ -170,6 +170,12 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
             path: "/admin/marketing"
           },
           %{
+            icon: "🎭",
+            title: "Personas",
+            description: "Named customer archetypes for targeted campaigns. Auto-tagged from behavior.",
+            path: "/admin/personas"
+          },
+          %{
             icon: "🎨",
             title: "Style Guide",
             description: "Component library reference — colors, typography, cards, buttons.",
