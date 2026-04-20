@@ -298,6 +298,127 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       assert html =~ "ZZZ_ListColumnTag"
     end
 
+    test "bulk-tag toolbar is hidden when nothing is selected", %{conn: conn} do
+      :ok = Marketing.seed_tags!()
+      admin = register_admin!()
+      _c = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers")
+
+      refute html =~ ~s(id="bulk-toolbar")
+    end
+
+    test "bulk apply tags every selected customer", %{conn: conn} do
+      :ok = Marketing.seed_tags!()
+
+      {:ok, [vip]} =
+        MobileCarWash.Marketing.Tag
+        |> Ash.Query.for_read(:by_slug, %{slug: "vip"})
+        |> Ash.read(authorize?: false)
+
+      admin = register_admin!()
+      a = register_customer!(nil, "Bulk Target A")
+      b = register_customer!(nil, "Bulk Target B")
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers")
+
+      lv |> element("#select-#{a.id}") |> render_click()
+      lv |> element("#select-#{b.id}") |> render_click()
+
+      lv
+      |> form("#bulk-tag-form", %{"tag_id" => vip.id})
+      |> render_submit()
+
+      for cid <- [a.id, b.id] do
+        {:ok, tags} =
+          MobileCarWash.Marketing.CustomerTag
+          |> Ash.Query.for_read(:for_customer, %{customer_id: cid})
+          |> Ash.read(authorize?: false)
+
+        assert length(tags) == 1
+        assert hd(tags).tag_id == vip.id
+      end
+    end
+
+    test "bulk apply creates audit notes per customer", %{conn: conn} do
+      :ok = Marketing.seed_tags!()
+
+      {:ok, [vip]} =
+        MobileCarWash.Marketing.Tag
+        |> Ash.Query.for_read(:by_slug, %{slug: "vip"})
+        |> Ash.read(authorize?: false)
+
+      admin = register_admin!()
+      target = register_customer!(nil, "Bulk Audit Target")
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers")
+
+      lv |> element("#select-#{target.id}") |> render_click()
+
+      lv
+      |> form("#bulk-tag-form", %{"tag_id" => vip.id})
+      |> render_submit()
+
+      {:ok, notes} =
+        MobileCarWash.Accounts.CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert Enum.any?(notes, fn n -> n.body =~ "VIP" and n.body =~ "Tagged" end)
+    end
+
+    test "bulk apply skips customers already tagged (no error)", %{conn: conn} do
+      :ok = Marketing.seed_tags!()
+
+      {:ok, [vip]} =
+        MobileCarWash.Marketing.Tag
+        |> Ash.Query.for_read(:by_slug, %{slug: "vip"})
+        |> Ash.read(authorize?: false)
+
+      admin = register_admin!()
+      already = register_customer!(nil, "Already Tagged")
+      fresh = register_customer!(nil, "Fresh Tag Target")
+
+      # Pre-tag `already` with VIP.
+      {:ok, _} =
+        MobileCarWash.Marketing.CustomerTag
+        |> Ash.Changeset.for_create(:tag, %{
+          customer_id: already.id,
+          tag_id: vip.id,
+          author_id: admin.id
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers")
+
+      lv |> element("#select-#{already.id}") |> render_click()
+      lv |> element("#select-#{fresh.id}") |> render_click()
+
+      lv
+      |> form("#bulk-tag-form", %{"tag_id" => vip.id})
+      |> render_submit()
+
+      # Fresh customer now has the tag.
+      {:ok, tags} =
+        MobileCarWash.Marketing.CustomerTag
+        |> Ash.Query.for_read(:for_customer, %{customer_id: fresh.id})
+        |> Ash.read(authorize?: false)
+
+      assert length(tags) == 1
+
+      # Already-tagged customer still has exactly one row (no dup).
+      {:ok, tags} =
+        MobileCarWash.Marketing.CustomerTag
+        |> Ash.Query.for_read(:for_customer, %{customer_id: already.id})
+        |> Ash.read(authorize?: false)
+
+      assert length(tags) == 1
+    end
+
     test "filter by tag narrows the list", %{conn: conn} do
       :ok = Marketing.seed_tags!()
 

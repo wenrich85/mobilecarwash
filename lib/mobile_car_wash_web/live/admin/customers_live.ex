@@ -9,8 +9,8 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Marketing.{AcquisitionChannel, Tag}
+  alias MobileCarWash.Accounts.{Customer, CustomerNote}
+  alias MobileCarWash.Marketing.{AcquisitionChannel, CustomerTag, Tag}
   alias MobileCarWash.Repo
 
   import Ecto.Query
@@ -62,7 +62,8 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
      |> assign(tag_by_id: tag_by_id)
      |> assign(sort_options: @sort_options)
      |> assign(role_options: @roles)
-     |> assign(verified_options: @verified_options)}
+     |> assign(verified_options: @verified_options)
+     |> assign(selected_ids: MapSet.new())}
   end
 
   @impl true
@@ -113,6 +114,80 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
 
   def handle_event("clear_filters", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/admin/customers", replace: true)}
+  end
+
+  def handle_event("toggle_select", %{"id" => id}, socket) do
+    selected =
+      if MapSet.member?(socket.assigns.selected_ids, id) do
+        MapSet.delete(socket.assigns.selected_ids, id)
+      else
+        MapSet.put(socket.assigns.selected_ids, id)
+      end
+
+    {:noreply, assign(socket, selected_ids: selected)}
+  end
+
+  def handle_event("clear_selection", _params, socket) do
+    {:noreply, assign(socket, selected_ids: MapSet.new())}
+  end
+
+  def handle_event("bulk_tag", %{"tag_id" => ""}, socket) do
+    {:noreply, put_flash(socket, :error, "Pick a tag to apply")}
+  end
+
+  def handle_event("bulk_tag", %{"tag_id" => tag_id}, socket) do
+    case Ash.get(Tag, tag_id, authorize?: false) do
+      {:ok, tag} ->
+        ids = MapSet.to_list(socket.assigns.selected_ids)
+        admin_id = socket.assigns.current_customer.id
+        {applied, skipped} = apply_tag_to_customers(ids, tag, admin_id)
+
+        flash =
+          case {applied, skipped} do
+            {n, 0} -> "Tagged #{n} customer(s) with #{tag.name}"
+            {0, n} -> "All #{n} already had #{tag.name}"
+            {a, s} -> "Tagged #{a}, skipped #{s} already tagged"
+          end
+
+        {:noreply,
+         socket
+         |> assign(selected_ids: MapSet.new())
+         |> put_flash(:info, flash)
+         |> load_customers()}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Tag not found")}
+    end
+  end
+
+  # Attempts to tag each customer. Returns {applied_count, skipped_count}.
+  # Skipped = duplicate-pair (customer already has the tag).
+  defp apply_tag_to_customers(ids, tag, admin_id) do
+    Enum.reduce(ids, {0, 0}, fn cid, {ok, skip} ->
+      case CustomerTag
+           |> Ash.Changeset.for_create(:tag, %{
+             customer_id: cid,
+             tag_id: tag.id,
+             author_id: admin_id
+           })
+           |> Ash.create(authorize?: false) do
+        {:ok, _} ->
+          CustomerNote
+          |> Ash.Changeset.for_create(:add, %{
+            customer_id: cid,
+            author_id: admin_id,
+            body: "Tagged customer: #{tag.name} (bulk).",
+            pinned: false
+          })
+          |> Ash.create!(authorize?: false)
+
+          {ok + 1, skip}
+
+        {:error, _} ->
+          # Most common cause: unique-pair violation (already tagged).
+          {ok, skip + 1}
+      end
+    end)
   end
 
   # --- Loading ---
@@ -482,10 +557,41 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
         </button>
       </div>
 
+      <div
+        :if={MapSet.size(@selected_ids) > 0}
+        id="bulk-toolbar"
+        class="alert alert-info mb-3 flex flex-col md:flex-row md:items-center gap-3"
+      >
+        <div class="flex-1 text-sm">
+          <span class="font-semibold">{MapSet.size(@selected_ids)}</span> selected
+        </div>
+
+        <form
+          id="bulk-tag-form"
+          phx-submit="bulk_tag"
+          class="join"
+        >
+          <select name="tag_id" class="select select-bordered select-sm join-item">
+            <option value="">Apply tag…</option>
+            <option :for={t <- @tags} value={t.id}>{t.name}</option>
+          </select>
+          <button type="submit" class="btn btn-sm btn-primary join-item">Apply</button>
+        </form>
+
+        <button
+          type="button"
+          phx-click="clear_selection"
+          class="btn btn-ghost btn-sm"
+        >
+          Clear selection
+        </button>
+      </div>
+
       <div class="overflow-x-auto bg-base-100 rounded-lg border border-base-300">
         <table class="table">
           <thead>
             <tr>
+              <th class="w-10"></th>
               <th>Name</th>
               <th>Email</th>
               <th>Role</th>
@@ -499,6 +605,16 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
           </thead>
           <tbody>
             <tr :for={c <- @customers} class="hover">
+              <td>
+                <input
+                  type="checkbox"
+                  id={"select-#{c.id}"}
+                  phx-click="toggle_select"
+                  phx-value-id={c.id}
+                  checked={MapSet.member?(@selected_ids, c.id)}
+                  class="checkbox checkbox-sm"
+                />
+              </td>
               <td class="font-medium">
                 <.link navigate={~p"/admin/customers/#{c.id}"} class="link link-hover">
                   {c.name}
@@ -531,7 +647,7 @@ defmodule MobileCarWashWeb.Admin.CustomersLive do
               </td>
             </tr>
             <tr :if={@customers == []}>
-              <td colspan="9" class="text-center py-8 text-base-content/60">
+              <td colspan="10" class="text-center py-8 text-base-content/60">
                 No customers match those filters.
               </td>
             </tr>
