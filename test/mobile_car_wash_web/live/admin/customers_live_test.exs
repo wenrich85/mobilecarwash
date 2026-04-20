@@ -902,6 +902,41 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       assert Enum.any?(notes, fn n -> n.body =~ "$10" and n.body =~ "credit" end)
     end
 
+    test "Disable button submits reason and disables the customer", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#disable-account", %{"disable" => %{"reason" => "Repeated no-shows"}})
+      |> render_submit()
+
+      {:ok, reloaded} = Ash.get(Customer, target.id, authorize?: false)
+      assert reloaded.disabled_at
+      assert reloaded.disabled_reason == "Repeated no-shows"
+    end
+
+    test "Re-enable clears disabled_at", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      # Disable first.
+      {:ok, _} =
+        target
+        |> Ash.Changeset.for_update(:disable, %{reason: "test"})
+        |> Ash.update(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv |> element("#reenable-account") |> render_click()
+
+      {:ok, reloaded} = Ash.get(Customer, target.id, authorize?: false)
+      assert is_nil(reloaded.disabled_at)
+    end
+
     test "Apply credit rejects non-positive amounts", %{conn: conn} do
       admin = register_admin!()
       target = register_customer!()

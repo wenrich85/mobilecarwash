@@ -28,6 +28,9 @@ defmodule MobileCarWashWeb.Router do
     # is within the refresh threshold. No-op when no user is assigned,
     # so public routes pay effectively zero cost.
     plug MobileCarWashWeb.Plugs.SlideTokenExpiration
+    # Kick disabled accounts out of any signed-in session. No-ops for
+    # anonymous traffic.
+    plug MobileCarWashWeb.Plugs.EnforceAccountActive
     # First-touch marketing attribution capture. Reads UTM + ?ref= +
     # referer once per session, no-ops afterwards. Must run after
     # :fetch_session so the session is available.
@@ -86,6 +89,7 @@ defmodule MobileCarWashWeb.Router do
     plug MobileCarWashWeb.Plugs.AuthRateLimit
     plug :load_from_bearer
     plug MobileCarWashWeb.Plugs.SlideTokenExpiration
+    plug MobileCarWashWeb.Plugs.EnforceAccountActive
   end
 
   pipeline :rate_limited_auth do

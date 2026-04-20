@@ -173,6 +173,21 @@ defmodule MobileCarWash.Accounts.Customer do
       public?(true)
     end
 
+    # Soft-delete. When non-nil, the account is blocked from sign-in
+    # and signed-in sessions are terminated by the EnforceAccountActive
+    # plug. Data is preserved (orders, payments, audit) so we can
+    # un-disable later without loss.
+    attribute :disabled_at, :utc_datetime_usec do
+      allow_nil?(true)
+      public?(true)
+    end
+
+    attribute :disabled_reason, :string do
+      allow_nil?(true)
+      public?(true)
+      constraints(max_length: 500)
+    end
+
     # Marketing attribution (first-touch). Stamped by the
     # CaptureAttribution plug + register-flow changes; never
     # overwritten by later visits. Drives the CAC / LTV per-channel
@@ -353,6 +368,34 @@ defmodule MobileCarWash.Accounts.Customer do
       end)
 
       change(set_attribute(:email_verified_at, &DateTime.utc_now/0))
+    end
+
+    # Admin-only soft-delete. Stamps disabled_at + a required reason
+    # so the audit trail on /admin/customers/:id has context. Does not
+    # anonymize data — enable `:anonymize_customer` separately if/when
+    # we need GDPR-style deletion.
+    update :disable do
+      require_atomic?(false)
+      argument(:reason, :string, allow_nil?: false)
+
+      validate(fn changeset, _ctx ->
+        reason = changeset |> Ash.Changeset.get_argument(:reason) |> to_string() |> String.trim()
+
+        if reason == "" do
+          {:error, field: :reason, message: "Reason is required"}
+        else
+          :ok
+        end
+      end)
+
+      change(set_attribute(:disabled_at, &DateTime.utc_now/0))
+      change(set_attribute(:disabled_reason, arg(:reason)))
+    end
+
+    update :reenable do
+      require_atomic?(false)
+      change(set_attribute(:disabled_at, nil))
+      change(set_attribute(:disabled_reason, nil))
     end
   end
 

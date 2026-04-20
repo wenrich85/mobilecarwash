@@ -213,6 +213,46 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
     end
   end
 
+  def handle_event("disable_account", %{"disable" => %{"reason" => reason}}, socket) do
+    customer = socket.assigns.customer
+    admin = socket.assigns.current_customer
+
+    case customer
+         |> Ash.Changeset.for_update(:disable, %{reason: reason})
+         |> Ash.update(authorize?: false) do
+      {:ok, updated} ->
+        audit_note!(customer.id, admin.id, "Disabled account. Reason: #{reason}")
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Account disabled")
+         |> load_detail(updated)}
+
+      {:error, %Ash.Error.Invalid{} = e} ->
+        {:noreply, put_flash(socket, :error, Exception.message(e))}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not disable account")}
+    end
+  end
+
+  def handle_event("reenable_account", _params, socket) do
+    customer = socket.assigns.customer
+    admin = socket.assigns.current_customer
+
+    {:ok, updated} =
+      customer
+      |> Ash.Changeset.for_update(:reenable, %{})
+      |> Ash.update(authorize?: false)
+
+    audit_note!(customer.id, admin.id, "Re-enabled account.")
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Account re-enabled")
+     |> load_detail(updated)}
+  end
+
   def handle_event("apply_credit", %{"credit" => params}, socket) do
     case parse_credit_dollars(params["amount_dollars"]) do
       {:ok, cents} ->
@@ -517,6 +557,7 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
             <span :if={is_nil(@customer.email_verified_at)} class="badge badge-warning">
               Unverified
             </span>
+            <span :if={@customer.disabled_at} class="badge badge-error">Disabled</span>
 
             <span
               :for={ct <- @customer_tags}
@@ -598,6 +639,50 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
             />
             <button type="submit" class="btn btn-primary btn-sm join-item">Apply credit</button>
           </form>
+          
+    <!-- Disable / re-enable — stays at the end of the strip so
+               it's the last thing the admin considers. -->
+          <button
+            :if={@customer.disabled_at}
+            id="reenable-account"
+            phx-click="reenable_account"
+            data-confirm="Re-enable this account? They'll be able to sign in again."
+            class="btn btn-success btn-sm"
+          >
+            Re-enable account
+          </button>
+
+          <form
+            :if={is_nil(@customer.disabled_at)}
+            id="disable-account"
+            phx-submit="disable_account"
+            class="join"
+          >
+            <input
+              name="disable[reason]"
+              placeholder="Reason (required)"
+              class="input input-bordered input-sm join-item w-48"
+              required
+            />
+            <button
+              type="submit"
+              data-confirm="Disable this account? They'll be signed out of every session and blocked from signing in."
+              class="btn btn-error btn-sm join-item"
+            >
+              Disable
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div :if={@customer.disabled_at} class="alert alert-warning mb-6">
+        <span class="hero-no-symbol size-5 shrink-0"></span>
+        <div>
+          <div class="font-semibold">Account disabled</div>
+          <div class="text-sm">
+            Reason: <em>{@customer.disabled_reason || "—"}</em> ·
+            Disabled {Calendar.strftime(@customer.disabled_at, "%b %d, %Y %I:%M %p")}
+          </div>
         </div>
       </div>
 
