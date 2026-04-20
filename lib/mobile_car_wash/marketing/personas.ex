@@ -37,6 +37,52 @@ defmodule MobileCarWash.Marketing.Personas do
   end
 
   @doc """
+  How many existing customers would match this criteria map? Drives
+  the live "N customers match" counter in the interactive editor.
+
+  Takes a raw map (not a Persona) so the admin can preview before
+  saving. Nil or a non-map is treated as empty criteria (matches all).
+  """
+  @spec count_matching(map() | nil) :: non_neg_integer()
+  def count_matching(criteria) when is_map(criteria) do
+    criteria_matchers(criteria) |> count_matching_customers()
+  end
+
+  def count_matching(_), do: count_matching_customers([])
+
+  @doc """
+  Returns up to `limit` customer records matching this criteria map.
+  Used for the "here's who matches" preview panel.
+  """
+  @spec sample_matching(map() | nil, pos_integer()) :: [map()]
+  def sample_matching(criteria, limit) when is_map(criteria) and is_integer(limit) and limit > 0 do
+    criteria
+    |> criteria_matchers()
+    |> sample_matching_customers(limit)
+  end
+
+  def sample_matching(_, limit), do: sample_matching_customers([], limit)
+
+  defp criteria_matchers(criteria) do
+    Enum.map(criteria, fn {key, value} ->
+      fn customer -> predicate(key, value, customer) end
+    end)
+  end
+
+  defp count_matching_customers(matchers) do
+    MobileCarWash.Accounts.Customer
+    |> Ash.read!(authorize?: false)
+    |> Enum.count(fn customer -> Enum.all?(matchers, & &1.(customer)) end)
+  end
+
+  defp sample_matching_customers(matchers, limit) do
+    MobileCarWash.Accounts.Customer
+    |> Ash.read!(authorize?: false)
+    |> Enum.filter(fn customer -> Enum.all?(matchers, & &1.(customer)) end)
+    |> Enum.take(limit)
+  end
+
+  @doc """
   Recomputes auto-assigned persona memberships for a single customer.
 
   For each active Persona: if the customer matches AND a membership

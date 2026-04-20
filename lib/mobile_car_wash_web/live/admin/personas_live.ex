@@ -11,15 +11,24 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Marketing.{Persona, PersonaImageWorker}
+  alias MobileCarWash.Marketing.{AcquisitionChannel, Persona, PersonaImageWorker, Personas}
 
   @impl true
   def mount(_params, _session, socket) do
+    channels =
+      AcquisitionChannel
+      |> Ash.Query.for_read(:active)
+      |> Ash.read!(authorize?: false)
+
     socket =
       socket
       |> assign(page_title: "Personas")
       |> assign(form_error: nil)
       |> assign(editing: nil)
+      |> assign(draft_criteria: %{})
+      |> assign(match_count: 0)
+      |> assign(match_sample: [])
+      |> assign(channels: channels)
       |> load_personas()
 
     # Subscribe to every listed persona's image-ready topic so we can
@@ -45,12 +54,28 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
 
   @impl true
   def handle_event("start_create", _params, socket) do
-    {:noreply, assign(socket, editing: :new, form_error: nil)}
+    {:noreply,
+     socket
+     |> assign(editing: :new, form_error: nil, draft_criteria: %{})
+     |> recompute_preview()}
   end
 
   def handle_event("start_edit", %{"id" => id}, socket) do
     persona = Enum.find(socket.assigns.personas, &(&1.id == id))
-    {:noreply, assign(socket, editing: persona, form_error: nil)}
+
+    {:noreply,
+     socket
+     |> assign(editing: persona, form_error: nil, draft_criteria: persona.criteria || %{})
+     |> recompute_preview()}
+  end
+
+  def handle_event("validate_persona", %{"persona" => params}, socket) do
+    criteria = extract_criteria(params)
+
+    {:noreply,
+     socket
+     |> assign(draft_criteria: criteria)
+     |> recompute_preview()}
   end
 
   def handle_event("cancel_edit", _params, socket) do
@@ -58,7 +83,10 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
   end
 
   def handle_event("save_persona", %{"persona" => attrs}, socket) do
-    attrs = normalize(attrs)
+    attrs =
+      attrs
+      |> normalize()
+      |> Map.put(:criteria, extract_criteria(attrs))
 
     result =
       case socket.assigns.editing do
@@ -139,6 +167,52 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
     end
   end
 
+  # Map the form's prefixed criteria_* fields into the canonical
+  # criteria map the rule engine understands. Empty strings / nil /
+  # "any" are treated as "unset" and dropped.
+  defp extract_criteria(params) do
+    %{}
+    |> maybe_put_str("acquired_channel_slug", params["criteria_channel_slug"])
+    |> maybe_put_str("device_type", params["criteria_device_type"])
+    |> maybe_put_revenue_bounds(params["criteria_revenue_min"], params["criteria_revenue_max"])
+    |> maybe_put_bool("has_subscription", params["criteria_has_subscription"])
+  end
+
+  defp maybe_put_str(map, _key, nil), do: map
+  defp maybe_put_str(map, _key, ""), do: map
+  defp maybe_put_str(map, _key, "any"), do: map
+  defp maybe_put_str(map, key, value) when is_binary(value), do: Map.put(map, key, value)
+
+  defp maybe_put_revenue_bounds(map, min_str, max_str) do
+    min_int = parse_int(min_str)
+    max_int = parse_int(max_str)
+
+    bounds =
+      %{}
+      |> put_if(min_int, fn acc -> Map.put(acc, "gte", min_int * 100) end)
+      |> put_if(max_int, fn acc -> Map.put(acc, "lte", max_int * 100) end)
+
+    if bounds == %{}, do: map, else: Map.put(map, "lifetime_revenue_cents", bounds)
+  end
+
+  defp put_if(acc, nil, _fun), do: acc
+  defp put_if(acc, _val, fun), do: fun.(acc)
+
+  defp maybe_put_bool(map, _key, nil), do: map
+  defp maybe_put_bool(map, _key, ""), do: map
+  defp maybe_put_bool(map, _key, "any"), do: map
+  defp maybe_put_bool(map, key, "true"), do: Map.put(map, key, true)
+  defp maybe_put_bool(map, key, "false"), do: Map.put(map, key, false)
+  defp maybe_put_bool(map, _key, _), do: map
+
+  defp recompute_preview(socket) do
+    criteria = socket.assigns.draft_criteria
+
+    socket
+    |> assign(match_count: Personas.count_matching(criteria))
+    |> assign(match_sample: Personas.sample_matching(criteria, 5))
+  end
+
   defp friendly_error(%Ash.Error.Invalid{errors: errors}) do
     cond do
       Enum.any?(errors, &(&1.__struct__ == Ash.Error.Changes.InvalidAttribute && &1.field == :slug)) ->
@@ -165,17 +239,24 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
         </button>
       </div>
 
-      <div :if={@editing} class="card bg-base-200 mb-6">
-        <div class="card-body">
-          <h2 class="card-title">
-            <%= if match?(%Persona{}, @editing) do %>
-              Edit Persona
-            <% else %>
-              New Persona
-            <% end %>
-          </h2>
+      <div :if={@editing} class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="card bg-base-200 lg:col-span-2">
+          <div class="card-body">
+            <h2 class="card-title">
+              <%= if match?(%Persona{}, @editing) do %>
+                Edit Persona
+              <% else %>
+                New Persona
+              <% end %>
+            </h2>
 
-          <form id="persona-form" phx-submit="save_persona" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form
+              id="persona-form"
+              phx-submit="save_persona"
+              phx-change="validate_persona"
+              phx-debounce="300"
+              class="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
             <label class="form-control">
               <span class="label-text">Slug</span>
               <input
@@ -235,6 +316,72 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
               </span>
             </label>
 
+            <!-- Criteria — any empty / "Any" field is ignored at save time -->
+            <div class="md:col-span-2 divider text-xs text-base-content/60">Criteria (who matches)</div>
+
+            <label class="form-control">
+              <span class="label-text">Acquisition channel</span>
+              <select name="persona[criteria_channel_slug]" class="select select-bordered">
+                <option value="">Any</option>
+                <option
+                  :for={chan <- @channels}
+                  value={chan.slug}
+                  selected={@draft_criteria["acquired_channel_slug"] == chan.slug}
+                >
+                  {chan.display_name}
+                </option>
+              </select>
+            </label>
+
+            <label class="form-control">
+              <span class="label-text">Device type (latest event)</span>
+              <select name="persona[criteria_device_type]" class="select select-bordered">
+                <option value="">Any</option>
+                <option
+                  :for={dt <- ~w(mobile tablet desktop bot)}
+                  value={dt}
+                  selected={@draft_criteria["device_type"] == dt}
+                >
+                  {dt}
+                </option>
+              </select>
+            </label>
+
+            <label class="form-control">
+              <span class="label-text">Lifetime revenue min ($)</span>
+              <input
+                type="number"
+                min="0"
+                name="persona[criteria_revenue_min]"
+                value={bound_display(@draft_criteria, "gte")}
+                class="input input-bordered"
+              />
+            </label>
+
+            <label class="form-control">
+              <span class="label-text">Lifetime revenue max ($)</span>
+              <input
+                type="number"
+                min="0"
+                name="persona[criteria_revenue_max]"
+                value={bound_display(@draft_criteria, "lte")}
+                class="input input-bordered"
+              />
+            </label>
+
+            <label class="form-control md:col-span-2">
+              <span class="label-text">Active subscription</span>
+              <select name="persona[criteria_has_subscription]" class="select select-bordered">
+                <option value="">Any</option>
+                <option value="true" selected={@draft_criteria["has_subscription"] == true}>
+                  Only subscribers
+                </option>
+                <option value="false" selected={@draft_criteria["has_subscription"] == false}>
+                  Only non-subscribers
+                </option>
+              </select>
+            </label>
+
             <div :if={@form_error} class="md:col-span-2 alert alert-error">
               <span>{@form_error}</span>
             </div>
@@ -246,6 +393,52 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
           </form>
         </div>
       </div>
+
+      <!-- Live preview (right column of the editor grid) -->
+      <aside class="card bg-base-100 border border-base-300 lg:col-span-1">
+        <div class="card-body">
+          <h3 class="card-title text-base">Live preview</h3>
+          <div class="stat px-0">
+            <div class="stat-title">Customers matching</div>
+            <div class="stat-value text-primary">{@match_count}</div>
+            <div class="stat-desc">Updates as you tweak criteria.</div>
+          </div>
+
+          <div :if={@match_sample != []} class="mt-2">
+            <div class="text-sm font-medium mb-2">Sample</div>
+            <ul class="text-sm space-y-1">
+              <li :for={c <- @match_sample} class="truncate">
+                <span class="font-medium">{c.name}</span>
+                <span class="text-base-content/60">· {c.email}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div :if={match?(%Persona{}, @editing)} class="mt-4">
+            <div class="text-sm font-medium mb-2">AI image</div>
+            <img
+              :if={@editing.image_url}
+              src={@editing.image_url}
+              alt={"#{@editing.name} image"}
+              class="rounded-lg w-full aspect-square object-cover border border-base-300"
+            />
+            <div
+              :if={is_nil(@editing.image_url)}
+              class="rounded-lg aspect-square border border-dashed border-base-300 flex items-center justify-center text-6xl"
+            >
+              🎭
+            </div>
+            <button
+              class="btn btn-ghost btn-sm mt-2 w-full"
+              phx-click="regen_image"
+              phx-value-id={@editing.id}
+            >
+              {if @editing.image_url, do: "Regenerate image", else: "Generate image"}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
 
       <div class="overflow-x-auto bg-base-100 rounded-lg border border-base-300">
         <table class="table">
@@ -321,4 +514,15 @@ defmodule MobileCarWashWeb.Admin.PersonasLive do
 
   defp persona_val(%Persona{} = p, field), do: Map.get(p, field)
   defp persona_val(_, _), do: nil
+
+  # The criteria stores cents; the form input is dollars.
+  defp bound_display(criteria, key) do
+    case criteria do
+      %{"lifetime_revenue_cents" => %{^key => cents}} when is_integer(cents) ->
+        div(cents, 100)
+
+      _ ->
+        ""
+    end
+  end
 end
