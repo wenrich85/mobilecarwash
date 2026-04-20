@@ -45,6 +45,19 @@ defmodule MobileCarWash.Analytics.Event do
       description "Flexible key-value data: page, referrer, utm_source, variant_id, etc."
     end
 
+    # --- Phase 2A enrichment: device + page metadata for persona work ---
+
+    attribute :device_type, :atom do
+      public? true
+      constraints one_of: [:mobile, :tablet, :desktop, :bot, :unknown]
+      default :unknown
+    end
+
+    attribute :os, :string, public?: true
+    attribute :browser, :string, public?: true
+    attribute :user_agent, :string, public?: true
+    attribute :page_path, :string, public?: true
+
     create_timestamp :inserted_at
   end
 
@@ -59,7 +72,18 @@ defmodule MobileCarWash.Analytics.Event do
     defaults [:read]
 
     create :track do
-      accept [:session_id, :event_name, :source, :properties, :customer_id]
+      accept [
+        :session_id,
+        :event_name,
+        :source,
+        :properties,
+        :customer_id,
+        :device_type,
+        :os,
+        :browser,
+        :user_agent,
+        :page_path
+      ]
     end
   end
 end

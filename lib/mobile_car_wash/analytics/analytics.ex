@@ -7,7 +7,7 @@ defmodule MobileCarWash.Analytics do
 
   require Ash.Query
 
-  alias MobileCarWash.Analytics.CookieConsent
+  alias MobileCarWash.Analytics.{CookieConsent, Event, UserAgent}
 
   resources do
     resource MobileCarWash.Analytics.Event
@@ -47,6 +47,63 @@ defmodule MobileCarWash.Analytics do
     case consent_for_session(session_id) do
       nil -> false
       consent -> Map.get(consent, category, false)
+    end
+  end
+
+  @doc """
+  Consent-gated event track. Takes a map with keys:
+
+    * :session_id      (required)
+    * :event_name      (required)
+    * :category        — :essential | :analytics | :marketing (default :analytics)
+    * :source          — defaults "web"
+    * :properties      — defaults %{}
+    * :customer_id     — optional
+    * :user_agent      — optional; auto-parsed into device_type/os/browser
+                         when the explicit fields aren't provided
+    * :device_type / :os / :browser — override the UA parse
+    * :page_path       — optional
+
+  Returns `:ok` when the event is written, `:dropped_no_consent` when
+  the session hasn't granted the relevant category. Essential events
+  always fire.
+  """
+  @spec track_event(map()) :: :ok | :dropped_no_consent | {:error, term()}
+  def track_event(%{session_id: session_id, event_name: _} = args) do
+    category = Map.get(args, :category, :analytics)
+
+    if consents?(session_id, category) do
+      write_event(args)
+    else
+      :dropped_no_consent
+    end
+  end
+
+  defp write_event(args) do
+    parsed =
+      case args[:user_agent] do
+        ua when is_binary(ua) and ua != "" -> UserAgent.parse(ua)
+        _ -> %{device_type: :unknown, os: nil, browser: nil}
+      end
+
+    attrs = %{
+      session_id: args.session_id,
+      event_name: args.event_name,
+      source: Map.get(args, :source, "web"),
+      properties: Map.get(args, :properties, %{}),
+      customer_id: args[:customer_id],
+      device_type: args[:device_type] || parsed.device_type,
+      os: args[:os] || parsed.os,
+      browser: args[:browser] || parsed.browser,
+      user_agent: args[:user_agent],
+      page_path: args[:page_path]
+    }
+
+    case Event
+         |> Ash.Changeset.for_create(:track, attrs)
+         |> Ash.create(authorize?: false) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
     end
   end
 end
