@@ -469,4 +469,144 @@ defmodule MobileCarWashWeb.Admin.CustomersLiveTest do
       assert html =~ "78261"
     end
   end
+
+  describe "detail — notes" do
+    alias MobileCarWash.Accounts.CustomerNote
+
+    test "admin adds a note via the form", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#add-note", %{"note" => %{"body" => "Called — likes early slots."}})
+      |> render_submit()
+
+      {:ok, notes} =
+        CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert [note] = notes
+      assert note.body == "Called — likes early slots."
+      assert note.author_id == admin.id
+
+      html = render(lv)
+      assert html =~ "Called \xe2\x80\x94 likes early slots."
+    end
+
+    test "empty note body is rejected", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv
+      |> form("#add-note", %{"note" => %{"body" => "   "}})
+      |> render_submit()
+
+      {:ok, notes} =
+        CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert notes == []
+    end
+
+    test "pinned notes sort before unpinned", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, _older} =
+        CustomerNote
+        |> Ash.Changeset.for_create(:add, %{
+          customer_id: target.id,
+          author_id: admin.id,
+          body: "OLDER UNPINNED NOTE",
+          pinned: false
+        })
+        |> Ash.create(authorize?: false)
+
+      {:ok, _newer_pinned} =
+        CustomerNote
+        |> Ash.Changeset.for_create(:add, %{
+          customer_id: target.id,
+          author_id: admin.id,
+          body: "PINNED NOTE",
+          pinned: true
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      pinned_pos = :binary.match(html, "PINNED NOTE") |> elem(0)
+      unpinned_pos = :binary.match(html, "OLDER UNPINNED NOTE") |> elem(0)
+
+      assert pinned_pos < unpinned_pos
+    end
+
+    test "admin deletes a note", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, note} =
+        CustomerNote
+        |> Ash.Changeset.for_create(:add, %{
+          customer_id: target.id,
+          author_id: admin.id,
+          body: "Will delete me",
+          pinned: false
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv |> element("#delete-note-#{note.id}") |> render_click()
+
+      {:ok, notes} =
+        CustomerNote
+        |> Ash.Query.for_read(:for_customer, %{customer_id: target.id})
+        |> Ash.read(authorize?: false)
+
+      assert notes == []
+    end
+
+    test "admin toggles pin on an existing note", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      {:ok, note} =
+        CustomerNote
+        |> Ash.Changeset.for_create(:add, %{
+          customer_id: target.id,
+          author_id: admin.id,
+          body: "Toggle me",
+          pinned: false
+        })
+        |> Ash.create(authorize?: false)
+
+      conn = sign_in(conn, admin)
+      {:ok, lv, _} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      lv |> element("#toggle-pin-#{note.id}") |> render_click()
+
+      {:ok, reloaded} = Ash.get(CustomerNote, note.id, authorize?: false)
+      assert reloaded.pinned == true
+    end
+
+    test "empty state when no notes exist", %{conn: conn} do
+      admin = register_admin!()
+      target = register_customer!()
+
+      conn = sign_in(conn, admin)
+      {:ok, _lv, html} = live(conn, ~p"/admin/customers/#{target.id}")
+
+      assert html =~ "No notes yet"
+    end
+  end
 end

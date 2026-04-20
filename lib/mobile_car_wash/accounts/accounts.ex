@@ -6,6 +6,7 @@ defmodule MobileCarWash.Accounts do
 
   resources do
     resource(MobileCarWash.Accounts.Customer)
+    resource(MobileCarWash.Accounts.CustomerNote)
     resource(MobileCarWash.Accounts.Token)
   end
 end

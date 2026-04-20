@@ -12,7 +12,7 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Accounts.{Customer, CustomerNote}
   alias MobileCarWash.Billing.{Subscription, SubscriptionPlan}
   alias MobileCarWash.Fleet.{Address, Vehicle}
   alias MobileCarWash.Marketing.{AcquisitionChannel, Persona, PersonaMembership, Personas}
@@ -93,6 +93,57 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
      |> load_detail(socket.assigns.customer)}
   end
 
+  def handle_event("add_note", %{"note" => params}, socket) do
+    body = params |> Map.get("body", "") |> to_string() |> String.trim()
+    pinned = params |> Map.get("pinned", "false") |> truthy?()
+
+    if body == "" do
+      {:noreply, put_flash(socket, :error, "Note body is required")}
+    else
+      case CustomerNote
+           |> Ash.Changeset.for_create(:add, %{
+             customer_id: socket.assigns.customer.id,
+             author_id: socket.assigns.current_customer.id,
+             body: body,
+             pinned: pinned
+           })
+           |> Ash.create(authorize?: false) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Note added")
+           |> load_detail(socket.assigns.customer)}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not save note")}
+      end
+    end
+  end
+
+  def handle_event("delete_note", %{"id" => id}, socket) do
+    case Ash.get(CustomerNote, id, authorize?: false) do
+      {:ok, note} -> Ash.destroy!(note, authorize?: false)
+      _ -> :ok
+    end
+
+    {:noreply, load_detail(socket, socket.assigns.customer)}
+  end
+
+  def handle_event("toggle_pin", %{"id" => id}, socket) do
+    with {:ok, note} <- Ash.get(CustomerNote, id, authorize?: false),
+         {:ok, _} <-
+           note
+           |> Ash.Changeset.for_update(:toggle_pin)
+           |> Ash.update(authorize?: false) do
+      {:noreply, load_detail(socket, socket.assigns.customer)}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Could not toggle pin")}
+    end
+  end
+
+  defp truthy?(v) when v in [true, "true", "on", "1"], do: true
+  defp truthy?(_), do: false
+
   # --- Private ---
 
   defp load_detail(socket, customer) do
@@ -118,6 +169,7 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
     {subscription, plan} = load_subscription(customer.id)
     vehicles = load_vehicles(customer.id)
     addresses = load_addresses(customer.id)
+    {notes, authors_by_id} = load_notes(customer.id)
 
     channel = Enum.find(channels, &(&1.id == customer.acquired_channel_id))
 
@@ -135,8 +187,39 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
       subscription: subscription,
       subscription_plan: plan,
       vehicles: vehicles,
-      addresses: addresses
+      addresses: addresses,
+      notes: notes,
+      authors_by_id: authors_by_id
     )
+  end
+
+  defp load_notes(customer_id) do
+    notes =
+      CustomerNote
+      |> Ash.Query.for_read(:for_customer, %{customer_id: customer_id})
+      |> Ash.read!(authorize?: false)
+
+    # One tiny lookup for all the authors so we can display names without
+    # N+1 loads in the template.
+    author_ids =
+      notes
+      |> Enum.map(& &1.author_id)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    authors_by_id =
+      case author_ids do
+        [] ->
+          %{}
+
+        ids ->
+          Customer
+          |> Ash.Query.filter(id in ^ids)
+          |> Ash.read!(authorize?: false)
+          |> Map.new(&{&1.id, &1})
+      end
+
+    {notes, authors_by_id}
   end
 
   # Most-recent non-cancelled subscription + its plan. Nil tuple if none.
@@ -419,6 +502,81 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
               </div>
             </dl>
           </div>
+        </div>
+      </div>
+      
+    <!-- Notes -->
+      <div class="card bg-base-100 border border-base-300 mt-6">
+        <div class="card-body">
+          <h2 class="card-title">
+            Notes <span class="badge badge-sm badge-ghost ml-2">{length(@notes)}</span>
+          </h2>
+
+          <form
+            id="add-note"
+            phx-submit="add_note"
+            class="flex flex-col gap-2 mb-4"
+          >
+            <textarea
+              name="note[body]"
+              rows="2"
+              placeholder="Add an internal note — customer can't see this."
+              class="textarea textarea-bordered w-full"
+            ></textarea>
+
+            <div class="flex items-center justify-between">
+              <label class="label cursor-pointer gap-2">
+                <input type="checkbox" name="note[pinned]" value="true" class="checkbox checkbox-sm" />
+                <span class="label-text text-sm">Pin this note to the top</span>
+              </label>
+
+              <button type="submit" class="btn btn-primary btn-sm">Save note</button>
+            </div>
+          </form>
+
+          <div :if={@notes == []} class="text-sm text-base-content/60 py-2">
+            No notes yet.
+          </div>
+
+          <ul :if={@notes != []} class="divide-y divide-base-300">
+            <li :for={n <- @notes} class="py-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span :if={n.pinned} class="badge badge-primary badge-xs">Pinned</span>
+                    <span class="text-xs text-base-content/60">
+                      {Map.get(@authors_by_id, n.author_id, %{name: "Unknown"}).name} · {Calendar.strftime(
+                        n.inserted_at,
+                        "%b %d, %Y %I:%M %p"
+                      )}
+                    </span>
+                  </div>
+                  <p class="text-sm whitespace-pre-wrap">{n.body}</p>
+                </div>
+
+                <div class="flex gap-1 shrink-0">
+                  <button
+                    id={"toggle-pin-#{n.id}"}
+                    phx-click="toggle_pin"
+                    phx-value-id={n.id}
+                    class="btn btn-ghost btn-xs"
+                    title={if n.pinned, do: "Unpin", else: "Pin"}
+                  >
+                    {if n.pinned, do: "Unpin", else: "Pin"}
+                  </button>
+                  <button
+                    id={"delete-note-#{n.id}"}
+                    phx-click="delete_note"
+                    phx-value-id={n.id}
+                    data-confirm="Delete this note?"
+                    class="btn btn-ghost btn-xs text-error"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </li>
+          </ul>
         </div>
       </div>
       
