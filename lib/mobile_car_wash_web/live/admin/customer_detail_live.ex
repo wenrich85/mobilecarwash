@@ -614,6 +614,14 @@ defmodule MobileCarWashWeb.Admin.CustomerDetailLive do
             </p>
           </div>
 
+          <.link
+            id="preview-as-customer"
+            navigate={~p"/admin/customers/#{@customer.id}/preview"}
+            class="btn btn-outline btn-sm"
+          >
+            Preview as customer
+          </.link>
+
           <button
             :if={is_nil(@customer.email_verified_at)}
             id="resend-verification"
