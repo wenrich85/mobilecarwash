@@ -164,6 +164,12 @@ defmodule MobileCarWashWeb.Admin.DashboardLive do
             path: "/admin/events"
           },
           %{
+            icon: "📣",
+            title: "Marketing",
+            description: "CAC + revenue per channel. Log ad spend and see what's actually working.",
+            path: "/admin/marketing"
+          },
+          %{
             icon: "🎨",
             title: "Style Guide",
             description: "Component library reference — colors, typography, cards, buttons.",
