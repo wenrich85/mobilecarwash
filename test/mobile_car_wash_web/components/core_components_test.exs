@@ -141,4 +141,38 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "Tech"
     end
   end
+
+  describe "header/1" do
+    test "renders title and subtitle" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.header>
+          Page title
+          <:subtitle>Helpful description</:subtitle>
+        </.header>
+        """)
+
+      assert html =~ "Page title"
+      assert html =~ "Helpful description"
+    end
+
+    test "renders actions slot" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.header>
+          Stuff
+          <:actions>
+            <button>New</button>
+          </:actions>
+        </.header>
+        """)
+
+      assert html =~ "Stuff"
+      assert html =~ "<button>New</button>"
+    end
+  end
 end
