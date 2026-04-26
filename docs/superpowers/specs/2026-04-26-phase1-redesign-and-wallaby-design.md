@@ -358,7 +358,7 @@ end
 
 | Asset | Action | Notes |
 |---|---|---|
-| Logos (light/dark/icon) | Create v2 SVGs at `priv/static/images/logo_v2_*.svg` | Cyan-accented mark + Inter wordmark "Driveway Detail". Existing files stay until v2 ships, then deleted. 1-2 hour design pass on the SVG outputs is approved scope. |
+| Logos (light/dark/icon) | Create v2 SVGs at `priv/static/images/logo_v2_*.svg` | Cyan-accented mark + Inter wordmark "Driveway Detail Co". Existing files stay until v2 ships, then deleted. 1-2 hour design pass on the SVG outputs is approved scope. |
 | OG share image | Replace `og-share.png` with `og-share-v2.png` (1200×630) | New design: hero headline + cyan-accented mark + service van photo |
 | Favicon | Regenerate from new icon | 16 / 32 / 180 / 192 / 512 sizes |
 | Email templates | Restyle Swoosh templates | Confirmation, subscription welcome, cancellation, password reset |
@@ -391,13 +391,13 @@ end
 5. **No visual regression tooling** — CSS changes can silently break a page nobody Wallaby-tests. Mitigation: existing 113-test LiveView suite catches structural breaks; visual breaks caught by manual eyeball during dev.
 6. **Animated bucket diagram nostalgia** — spec deletes it. If you miss it, that's a phase-2 "fun mode" toggle, not the default.
 7. **Existing 113 tests assert HTML strings** — many tests look for specific text or class names. Markup rewrites will break some. Plan: re-run suite after each page rewrite, fix assertions inline as part of each page's work.
-8. **Brand convention** — wordmark is "Driveway Detail", legal copy is "Driveway Detail Co. LLC". Implementer must use the right one in the right place (wordmark in hero/nav/buttons; full LLC name in footer / Terms / Privacy / receipts).
+8. **Brand convention** — wordmark is "Driveway Detail Co", legal copy is "Driveway Detail Co. LLC". Implementer must use the right one in the right place (wordmark in hero/nav/buttons; full LLC name in footer / Terms / Privacy / receipts).
 
 ---
 
 ## Resolved decisions (formerly open questions)
 
-1. **Brand name** — wordmark = "Driveway Detail". Legal/footer copy = "Driveway Detail Co. LLC". Domain stays `drivewaydetailcosa.com`.
+1. **Brand name** — wordmark = "Driveway Detail Co". Legal/footer copy = "Driveway Detail Co. LLC". Domain stays `drivewaydetailcosa.com`.
 2. **Pricing tiers** — 2 tiers, matching existing seed code: Basic Wash $50, **Premium $199.99** (renamed from "Deep Clean & Detail"). The 3-tier mockup from brainstorming is replaced by this 2-tier reality.
 3. **Hero / section copy** — implementer to draft using best judgement; user reviews in PR diff.
 4. **Logo SVG outputs** — 1-2 hour design pass granted.
