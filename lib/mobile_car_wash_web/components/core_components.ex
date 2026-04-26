@@ -607,4 +607,38 @@ defmodule MobileCarWashWeb.CoreComponents do
     </span>
     """
   end
+
+  @doc """
+  Renders a thin horizontal progress bar.
+
+  `value` is a float in 0.0..1.0 (clamped if outside).
+
+  ## Examples
+
+      <.progress_bar value={0.42} />
+      <.progress_bar value={0.8} variant={:amber} />
+  """
+  attr :value, :float, required: true
+  attr :variant, :atom, values: [:cyan, :amber, :green, :red], default: :cyan
+  attr :class, :any, default: nil
+
+  def progress_bar(assigns) do
+    pct = round(max(0.0, min(1.0, assigns.value)) * 100)
+
+    fill_class =
+      case assigns.variant do
+        :cyan -> "bg-cyan-500"
+        :amber -> "bg-warning"
+        :green -> "bg-success"
+        :red -> "bg-error"
+      end
+
+    assigns = assign(assigns, pct: pct, fill_class: fill_class)
+
+    ~H"""
+    <div class={["h-1 w-full bg-base-200 rounded-full overflow-hidden", @class]}>
+      <div class={["h-full rounded-full", @fill_class]} style={"width: #{@pct}%"} />
+    </div>
+    """
+  end
 end

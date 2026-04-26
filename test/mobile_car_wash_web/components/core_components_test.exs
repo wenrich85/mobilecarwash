@@ -245,4 +245,46 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "bg-base-200"
     end
   end
+
+  describe "progress_bar/1" do
+    test "renders cyan variant by default at given value" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.progress_bar value={0.42} />|)
+      assert html =~ "bg-cyan-500"
+      assert html =~ "width: 42%"
+    end
+
+    test "renders amber variant" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.progress_bar value={0.8} variant={:amber} />|)
+      assert html =~ "bg-warning"
+      assert html =~ "width: 80%"
+    end
+
+    test "renders green variant" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.progress_bar value={1.0} variant={:green} />|)
+      assert html =~ "bg-success"
+      assert html =~ "width: 100%"
+    end
+
+    test "renders red variant" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.progress_bar value={0.05} variant={:red} />|)
+      assert html =~ "bg-error"
+      assert html =~ "width: 5%"
+    end
+
+    test "clamps value above 1.0 to 100%" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.progress_bar value={1.5} />|)
+      assert html =~ "width: 100%"
+    end
+
+    test "clamps value below 0 to 0%" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.progress_bar value={-0.2} />|)
+      assert html =~ "width: 0%"
+    end
+  end
 end
