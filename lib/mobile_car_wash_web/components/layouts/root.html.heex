@@ -71,6 +71,12 @@
 <!-- Preconnect for external resources -->
     <link rel="preconnect" href="https://www.googletagmanager.com" />
     <link :if={assigns[:preconnect_tiles]} rel="preconnect" href="https://tiles.stadiamaps.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
     <.live_title default="Driveway Detail Co" suffix=" · Mobile Detailing">
       {assigns[:page_title]}
