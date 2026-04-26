@@ -53,4 +53,7 @@ npm-debug.log
 .claude/
 .zed/
 
+# Superpowers brainstorming session artifacts (mockups, events, server pids).
+.superpowers/
+
 DEPLOYMENT.md
