@@ -84,6 +84,60 @@ defmodule MobileCarWashWeb.CoreComponents do
   end
 
   @doc """
+  Renders a centered modal dialog.
+
+  ## Examples
+
+      <.modal id="confirm-modal">
+        <:title>Delete this?</:title>
+        This cannot be undone.
+        <:footer>
+          <.button variant="ghost" phx-click={hide("#confirm-modal")}>Cancel</.button>
+          <.button variant="destructive" phx-click="delete">Delete</.button>
+        </:footer>
+      </.modal>
+
+  Open with `show("#confirm-modal")` and close with `hide("#confirm-modal")`,
+  or wire `phx-click` to a custom handler.
+  """
+  attr :id, :string, required: true
+  attr :show, :boolean, default: false
+  attr :on_cancel, JS, default: %JS{}
+  slot :title
+  slot :inner_block, required: true
+  slot :footer
+
+  def modal(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      class={["fixed inset-0 z-50 flex items-center justify-center p-4", !@show && "hidden"]}
+      phx-mounted={@show && show("##{@id}")}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        class="absolute inset-0 bg-base-content/40 backdrop-blur-sm"
+        phx-click={@on_cancel |> hide("##{@id}")}
+      />
+      <div class="relative bg-base-100 rounded-box border border-base-300 shadow-lg max-w-md w-full max-h-[90vh] overflow-auto">
+        <div :if={@title != []} class="px-6 py-4 border-b border-base-300">
+          <h2 class="text-lg font-semibold text-base-content">
+            {render_slot(@title)}
+          </h2>
+        </div>
+        <div class="px-6 py-4 text-sm text-base-content/80">
+          {render_slot(@inner_block)}
+        </div>
+        <div :if={@footer != []} class="px-6 py-4 border-t border-base-300 flex justify-end gap-2">
+          {render_slot(@footer)}
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders a button or styled link.
 
   ## Examples

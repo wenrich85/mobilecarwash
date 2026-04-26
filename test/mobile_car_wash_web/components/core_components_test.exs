@@ -175,4 +175,39 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "<button>New</button>"
     end
   end
+
+  describe "modal/1" do
+    test "renders with title and body" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.modal id="test-modal">
+          <:title>Confirm</:title>
+          Are you sure?
+        </.modal>
+        """)
+
+      assert html =~ ~s(id="test-modal")
+      assert html =~ "Confirm"
+      assert html =~ "Are you sure?"
+    end
+
+    test "renders footer slot" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.modal id="m">
+          <:title>Hi</:title>
+          Body
+          <:footer>
+            <button>OK</button>
+          </:footer>
+        </.modal>
+        """)
+
+      assert html =~ "<button>OK</button>"
+    end
+  end
 end
