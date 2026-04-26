@@ -210,4 +210,39 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "<button>OK</button>"
     end
   end
+
+  describe "status_pill/1" do
+    test "renders on_target as success" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.status_pill status={:on_target}>On target</.status_pill>|)
+      assert html =~ "bg-success/15"
+      assert html =~ "text-success"
+      assert html =~ "On target"
+    end
+
+    test "renders underfunded as warning" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.status_pill status={:underfunded}>Underfunded</.status_pill>|)
+      assert html =~ "bg-warning/15"
+      assert html =~ "text-warning"
+    end
+
+    test "renders paid as success" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.status_pill status={:paid}>Paid</.status_pill>|)
+      assert html =~ "bg-success/15"
+    end
+
+    test "renders over as error" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.status_pill status={:over}>Over</.status_pill>|)
+      assert html =~ "bg-error/15"
+    end
+
+    test "renders long_term as neutral" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.status_pill status={:long_term}>Long-term</.status_pill>|)
+      assert html =~ "bg-base-200"
+    end
+  end
 end

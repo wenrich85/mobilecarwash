@@ -571,4 +571,40 @@ defmodule MobileCarWashWeb.CoreComponents do
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
   end
+
+  @doc """
+  Renders a small status indicator pill.
+
+  ## Examples
+
+      <.status_pill status={:on_target}>On target</.status_pill>
+      <.status_pill status={:underfunded}>Underfunded</.status_pill>
+  """
+  attr :status, :atom,
+    values: [:on_target, :underfunded, :paid, :over, :long_term],
+    required: true
+
+  slot :inner_block, required: true
+
+  def status_pill(assigns) do
+    classes =
+      case assigns.status do
+        :on_target -> "bg-success/15 text-success"
+        :paid -> "bg-success/15 text-success"
+        :underfunded -> "bg-warning/15 text-warning"
+        :over -> "bg-error/15 text-error"
+        :long_term -> "bg-base-200 text-base-content/60"
+      end
+
+    assigns = assign(assigns, :classes, classes)
+
+    ~H"""
+    <span class={[
+      "inline-flex items-center text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded",
+      @classes
+    ]}>
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
 end
