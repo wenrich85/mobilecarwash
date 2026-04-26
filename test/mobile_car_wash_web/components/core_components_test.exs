@@ -49,4 +49,44 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ ~s(href="/foo")
     end
   end
+
+  describe "input/1" do
+    test "renders text input with label" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.input name="email" label="Email" value="" />|)
+      assert html =~ ~s(name="email")
+      assert html =~ "Email"
+      assert html =~ "input"
+      assert html =~ "input-bordered"
+    end
+
+    test "renders textarea variant" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.input type="textarea" name="msg" label="Message" value="" />|)
+      assert html =~ "<textarea"
+      assert html =~ "textarea-bordered"
+    end
+
+    test "renders select variant" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.input type="select" name="tier" label="Tier" value="basic" options={[{"Basic", "basic"}, {"Premium", "premium"}]} />|)
+      assert html =~ "<select"
+      assert html =~ "select-bordered"
+      assert html =~ "Basic"
+      assert html =~ "Premium"
+    end
+
+    test "renders checkbox variant" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.input type="checkbox" name="agree" label="I agree" checked={false} />|)
+      assert html =~ ~s(type="checkbox")
+      assert html =~ "checkbox"
+    end
+
+    test "shows error messages when errors present" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.input name="email" label="Email" value="" errors={["can't be blank"]} />|)
+      assert html =~ "can&#39;t be blank"
+    end
+  end
 end

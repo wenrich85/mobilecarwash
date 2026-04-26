@@ -257,7 +257,7 @@ defmodule MobileCarWashWeb.CoreComponents do
         <select
           id={@id}
           name={@name}
-          class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
+          class={[@class || "select select-bordered w-full h-12 text-base", @errors != [] && (@error_class || "select-error")]}
           multiple={@multiple}
           {@rest}
         >
@@ -279,7 +279,7 @@ defmodule MobileCarWashWeb.CoreComponents do
           id={@id}
           name={@name}
           class={[
-            @class || "w-full textarea",
+            @class || "textarea textarea-bordered w-full min-h-32 text-base",
             @errors != [] && (@error_class || "textarea-error")
           ]}
           {@rest}
@@ -302,7 +302,7 @@ defmodule MobileCarWashWeb.CoreComponents do
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            @class || "w-full input",
+            @class || "input input-bordered w-full h-12 text-base",
             @errors != [] && (@error_class || "input-error")
           ]}
           {@rest}
