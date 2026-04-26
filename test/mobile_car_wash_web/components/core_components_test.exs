@@ -119,4 +119,26 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "Heads up."
     end
   end
+
+  describe "table/1" do
+    test "renders rows and headers" do
+      rows = [%{name: "Alice", role: "Admin"}, %{name: "Bob", role: "Tech"}]
+      assigns = %{rows: rows}
+
+      html =
+        rendered_to_string(~H"""
+        <.table id="users" rows={@rows}>
+          <:col :let={u} label="Name">{u.name}</:col>
+          <:col :let={u} label="Role">{u.role}</:col>
+        </.table>
+        """)
+
+      assert html =~ "Name"
+      assert html =~ "Role"
+      assert html =~ "Alice"
+      assert html =~ "Bob"
+      assert html =~ "Admin"
+      assert html =~ "Tech"
+    end
+  end
 end
