@@ -217,7 +217,7 @@ Top-to-bottom regions:
 1. **Top nav** — logo + "How it works" / "Pricing" / "Sign in" / "Book a wash" CTA
 2. **Hero** — trust badge ("San Antonio · Licensed & Insured"), headline, subhead, dual CTA (primary + "See pricing")
 3. **How it works** — 3-step grid (Book / We come / Pay when done) with numbered cyan badges
-4. **Pricing tiers** — 3 cards: Basic $50, Premium $95 (highlighted with cyan border + "MOST POPULAR" badge), Detail $200. Per-tier Book button.
+4. **Pricing tiers** — 2 cards: Basic Wash $50, Premium $199.99 (the higher-tier card gets the cyan border + "MOST POPULAR" badge to draw the eye to the higher AOV option). Per-tier Book button.
 5. **Tech credibility section** (dark cyan-glow strip) — "We tell you exactly when we'll arrive." 15-min windows, live SMS, before/after photos. Right side: stylized SMS conversation preview.
 6. **CTA band** — final conversion push
 7. **Footer** — minimal: copyright, location, Privacy / Terms
@@ -234,7 +234,7 @@ Behavior preserved, markup rewritten.
 - **Single-column 600px max-width** content area
 - **Per step:** section heading (22/600), helper subhead, large 48px-tap-target inputs, primary CTA at bottom, secondary "Back" link
 - **Address step** — single input with autocomplete, map preview below once selected
-- **Service step** — 3 service tier cards, pick one
+- **Service step** — 2 service tier cards, pick one
 - **Time step** — calendar grid + time-slot chips. Mobile: scrollable horizontal date strip.
 - **Pay step** — Stripe Payment Element embedded, trust copy ("No charge until job complete"), summary card right (desktop) / above (mobile) with service + time + total
 - **Mobile sticky footer CTA** pinned to bottom
@@ -317,8 +317,8 @@ end
 ### Test plan (5 tests)
 
 **Test 1 — `booking_golden_path_test.exs`**
-- Given a guest visitor + 2 seeded service tiers + 1 future open `AppointmentBlock`
-- When they: visit landing → click "Book a wash" → enter address (mocked geocode → fixed lat/lng inside service area) → pick Premium → pick the open block → fill name/email/phone + Stripe Payment Element (test card 4242…) → click "Confirm booking"
+- Given a guest visitor + 2 seeded service tiers (Basic $50, Premium $199.99) + 1 future open `AppointmentBlock`
+- When they: visit landing → click "Book a wash" → enter address (mocked geocode → fixed lat/lng inside service area) → pick the Premium tier → pick the open block → fill name/email/phone + Stripe Payment Element (test card 4242…) → click "Confirm booking"
 - Then: lands on `/booking/success` with confirmation visible; DB has 1 new `Appointment` `status: :pending` and a Stripe PaymentIntent id
 
 **Test 2 — `customer_auth_test.exs`**
@@ -358,7 +358,7 @@ end
 
 | Asset | Action | Notes |
 |---|---|---|
-| Logos (light/dark/icon) | Create v2 SVGs at `priv/static/images/logo_v2_*.svg` | Cyan-accented mark + Inter wordmark. Existing files stay until v2 ships, then deleted. **Logo design: 1-2 hour design pass on the SVG outputs — initial pass produced from the spec is a starting point, not final.** |
+| Logos (light/dark/icon) | Create v2 SVGs at `priv/static/images/logo_v2_*.svg` | Cyan-accented mark + Inter wordmark "Driveway Detail". Existing files stay until v2 ships, then deleted. 1-2 hour design pass on the SVG outputs is approved scope. |
 | OG share image | Replace `og-share.png` with `og-share-v2.png` (1200×630) | New design: hero headline + cyan-accented mark + service van photo |
 | Favicon | Regenerate from new icon | 16 / 32 / 180 / 192 / 512 sizes |
 | Email templates | Restyle Swoosh templates | Confirmation, subscription welcome, cancellation, password reset |
@@ -387,21 +387,21 @@ end
 1. **Stripe Elements styling collision** — Stripe iframes need explicit color/font config via Stripe.js options. If forgotten, Payment Element looks 2015 on a 2026 page. **Mitigation:** dedicated subtask in implementation plan.
 2. **OAuth provider button branding** — out of scope today; flagged for phase 2 if added.
 3. **Email rendering across clients** — restyled emails should be Litmus / EmailOnAcid reviewed. Out of scope, noted as follow-up.
-4. **Copy gaps** — all hero/section copy marked `<!-- COPY: TBD -->`. Requires a copy pass before merge — tone, regional ("San Antonio"), claims (insurance, bonded). Don't ship lorem ipsum.
+4. **Copy review burden falls on PR diff** — implementer drafts copy using best judgement; user reviews in PR. Watch claims especially (insurance, bonded, "licensed") — must be true and verifiable, not aspirational marketing.
 5. **No visual regression tooling** — CSS changes can silently break a page nobody Wallaby-tests. Mitigation: existing 113-test LiveView suite catches structural breaks; visual breaks caught by manual eyeball during dev.
 6. **Animated bucket diagram nostalgia** — spec deletes it. If you miss it, that's a phase-2 "fun mode" toggle, not the default.
 7. **Existing 113 tests assert HTML strings** — many tests look for specific text or class names. Markup rewrites will break some. Plan: re-run suite after each page rewrite, fix assertions inline as part of each page's work.
-8. **Brand name ambiguity** — domain is `drivewaydetailcosa.com`. Spec uses "Driveway" as the wordmark. **Open question — see below.** Confirm before finalizing logo / copy.
+8. **Brand convention** — wordmark is "Driveway Detail", legal copy is "Driveway Detail Co. LLC". Implementer must use the right one in the right place (wordmark in hero/nav/buttons; full LLC name in footer / Terms / Privacy / receipts).
 
 ---
 
-## Open questions / TBDs
+## Resolved decisions (formerly open questions)
 
-1. **Brand name for the wordmark and copy** — "Driveway", "Driveway Detail", or "Driveway Detail COSA"? Domain implies the third; spec drafts use the first.
-2. **Premium tier price** — spec mockup uses $95 between Basic ($50) and Detail ($200). Confirm or adjust.
-3. **All hero / section copy** marked `<!-- COPY: TBD -->`.
-4. **Logo SVG outputs** — initial mark produced from spec is a starting point; needs a 1-2 hour design pass.
-5. **Subscription monthly price for Test 4** — spec uses $79/mo placeholder. Match to actual `SubscriptionPlan` records.
+1. **Brand name** — wordmark = "Driveway Detail". Legal/footer copy = "Driveway Detail Co. LLC". Domain stays `drivewaydetailcosa.com`.
+2. **Pricing tiers** — 2 tiers, matching existing seed code: Basic Wash $50, **Premium $199.99** (renamed from "Deep Clean & Detail"). The 3-tier mockup from brainstorming is replaced by this 2-tier reality.
+3. **Hero / section copy** — implementer to draft using best judgement; user reviews in PR diff.
+4. **Logo SVG outputs** — 1-2 hour design pass granted.
+5. **Subscription price for Test 4** — $79/mo confirmed.
 
 ---
 
