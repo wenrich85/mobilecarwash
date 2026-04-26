@@ -6,52 +6,49 @@
 @source "../js";
 @source "../../lib/mobile_car_wash_web";
 
-/* ============================================================
-   Brand Color Theme — registered as Tailwind utilities
-   Usage: bg-primary-700, text-tertiary-400, border-secondary-300
-   ============================================================ */
 @theme {
-  /* System font stack — avoids FOIT/FOUT and LCP render delay while Tailwind's
-     default webfont would otherwise load. */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji";
+  /* Webfonts loaded in root layout */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono",
+    Menlo, Monaco, Consolas, monospace;
 
-  /* Primary — Navy */
-  --color-primary-50:  #F0F2F5;
-  --color-primary-100: #D4DAE2;
-  --color-primary-200: #A9B5C5;
-  --color-primary-300: #7E91A8;
-  --color-primary-400: #536C8B;
-  --color-primary-500: #2E4A66;
-  --color-primary-600: #253D55;
-  --color-primary-700: #1E2A38;
-  --color-primary-800: #151E28;
-  --color-primary-900: #0C1219;
+  /* Brand palette — Modern SaaS reboot */
+  --color-surface:   #f8fafc;
+  --color-card:      #ffffff;
+  --color-ink:       #0f172a;
+  --color-primary:   #1e293b;
+  --color-accent:    #06b6d4;
 
-  /* Secondary — White/Neutral */
-  --color-secondary-50:  #FFFFFF;
-  --color-secondary-100: #F8F9FA;
-  --color-secondary-200: #E9ECEF;
-  --color-secondary-300: #DEE2E6;
-  --color-secondary-400: #CED4DA;
-  --color-secondary-500: #ADB5BD;
-  --color-secondary-600: #868E96;
-  --color-secondary-700: #495057;
-  --color-secondary-800: #343A40;
-  --color-secondary-900: #212529;
+  /* Slate ramp (Tailwind-compatible — usable as bg-slate-500 etc.) */
+  --color-slate-50:  #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
 
-  /* Tertiary — Steel Blue */
-  --color-tertiary-50:  #EBF4F9;
-  --color-tertiary-100: #C8E1EF;
-  --color-tertiary-200: #93C5DF;
-  --color-tertiary-300: #5EA8CF;
-  --color-tertiary-400: #3A7CA5;
-  --color-tertiary-500: #317193;
-  --color-tertiary-600: #2E6384;
-  --color-tertiary-700: #234A63;
-  --color-tertiary-800: #183242;
-  --color-tertiary-900: #0D1A21;
+  /* Cyan ramp */
+  --color-cyan-50:  #ecfeff;
+  --color-cyan-100: #cffafe;
+  --color-cyan-200: #a5f3fc;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-600: #0891b2;
+  --color-cyan-700: #0e7490;
+  --color-cyan-800: #155e75;
+  --color-cyan-900: #164e63;
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger:  #dc2626;
+  --color-info:    #0e7490;
 }
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
@@ -74,35 +71,36 @@
   default: false;
   prefersdark: true;
   color-scheme: "dark";
-  /* Base: deep Navy — true dark, not washed out */
-  --color-base-100: oklch(16% 0.02 250);
-  --color-base-200: oklch(13% 0.018 250);
-  --color-base-300: oklch(10% 0.015 250);
-  --color-base-content: oklch(90% 0.005 250);
-  /* Primary: Steel Blue — bright enough to pop on dark */
-  --color-primary: oklch(60% 0.13 230);
-  --color-primary-content: oklch(10% 0.02 230);
-  /* Secondary: muted Navy for supporting elements */
-  --color-secondary: oklch(35% 0.04 250);
-  --color-secondary-content: oklch(88% 0.005 250);
-  /* Accent: brighter Steel Blue for highlights */
-  --color-accent: oklch(65% 0.14 230);
-  --color-accent-content: oklch(10% 0.02 230);
-  /* Neutral: dark Navy */
-  --color-neutral: oklch(20% 0.025 250);
-  --color-neutral-content: oklch(88% 0 0);
-  /* Semantic colors — slightly muted for dark backgrounds */
-  --color-info: oklch(58% 0.12 230);
-  --color-info-content: oklch(90% 0.005 230);
-  --color-success: oklch(60% 0.14 155);
-  --color-success-content: oklch(10% 0.02 155);
-  --color-warning: oklch(70% 0.14 70);
-  --color-warning-content: oklch(10% 0.03 70);
-  --color-error: oklch(58% 0.20 25);
-  --color-error-content: oklch(90% 0.01 25);
-  --radius-selector: 0.375rem;
-  --radius-field: 0.375rem;
-  --radius-box: 0.5rem;
+
+  /* Surfaces — slate-900 base */
+  --color-base-100: #0f172a;
+  --color-base-200: #1e293b;
+  --color-base-300: #334155;
+  --color-base-content: #f1f5f9;
+
+  /* Brand */
+  --color-primary: #06b6d4;          /* cyan pops on dark */
+  --color-primary-content: #0f172a;
+  --color-secondary: #334155;
+  --color-secondary-content: #f1f5f9;
+  --color-accent: #22d3ee;
+  --color-accent-content: #0f172a;
+  --color-neutral: #f8fafc;
+  --color-neutral-content: #0f172a;
+
+  /* Semantic */
+  --color-info: #22d3ee;
+  --color-info-content: #0f172a;
+  --color-success: #16a34a;
+  --color-success-content: #f8fafc;
+  --color-warning: #f59e0b;
+  --color-warning-content: #0f172a;
+  --color-error: #dc2626;
+  --color-error-content: #f8fafc;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
@@ -115,35 +113,37 @@
   default: true;
   prefersdark: false;
   color-scheme: "light";
-  /* Base: clean white/gray from Secondary palette */
-  --color-base-100: oklch(99% 0 0);
-  --color-base-200: oklch(97% 0.002 250);
-  --color-base-300: oklch(93% 0.005 250);
-  --color-base-content: oklch(22% 0.02 250);
-  /* Primary: Steel Blue #3A7CA5 — used for CTAs and interactive elements */
-  --color-primary: oklch(55% 0.12 230);
-  --color-primary-content: oklch(98% 0.005 230);
-  /* Secondary: Navy #1E2A38 — used for headers, text, structure */
-  --color-secondary: oklch(27% 0.03 250);
-  --color-secondary-content: oklch(98% 0.002 250);
-  /* Accent: Steel Blue lighter — hover states, highlights */
-  --color-accent: oklch(62% 0.12 230);
-  --color-accent-content: oklch(98% 0.005 230);
-  /* Neutral: Navy mid-tone */
-  --color-neutral: oklch(35% 0.025 250);
-  --color-neutral-content: oklch(98% 0 0);
-  /* Semantic colors */
-  --color-info: oklch(55% 0.1 230);
-  --color-info-content: oklch(97% 0.005 230);
-  --color-success: oklch(65% 0.16 155);
-  --color-success-content: oklch(98% 0.01 155);
-  --color-warning: oklch(75% 0.15 70);
-  --color-warning-content: oklch(25% 0.03 70);
-  --color-error: oklch(55% 0.22 25);
-  --color-error-content: oklch(97% 0.01 25);
-  --radius-selector: 0.375rem;
-  --radius-field: 0.375rem;
-  --radius-box: 0.5rem;
+
+  /* Surfaces */
+  --color-base-100: #ffffff;     /* card */
+  --color-base-200: #f8fafc;     /* page background */
+  --color-base-300: #e2e8f0;     /* borders / dividers */
+  --color-base-content: #0f172a; /* ink (body text) */
+
+  /* Brand */
+  --color-primary: #1e293b;
+  --color-primary-content: #ffffff;
+  --color-secondary: #475569;
+  --color-secondary-content: #ffffff;
+  --color-accent: #06b6d4;
+  --color-accent-content: #ffffff;
+  --color-neutral: #0f172a;
+  --color-neutral-content: #f8fafc;
+
+  /* Semantic */
+  --color-info: #0e7490;
+  --color-info-content: #ffffff;
+  --color-success: #16a34a;
+  --color-success-content: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-content: #ffffff;
+  --color-error: #dc2626;
+  --color-error-content: #ffffff;
+
+  /* Geometry */
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
