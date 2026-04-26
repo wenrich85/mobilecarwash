@@ -89,4 +89,34 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "can&#39;t be blank"
     end
   end
+
+  describe "flash/1" do
+    test "renders info kind" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.flash kind={:info}>Saved.</.flash>|)
+      assert html =~ "alert-info"
+      assert html =~ "Saved."
+    end
+
+    test "renders error kind" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.flash kind={:error}>Bad.</.flash>|)
+      assert html =~ "alert-error"
+      assert html =~ "Bad."
+    end
+
+    test "renders success kind" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.flash kind={:success}>Ok.</.flash>|)
+      assert html =~ "alert-success"
+      assert html =~ "Ok."
+    end
+
+    test "renders warning kind" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.flash kind={:warning}>Heads up.</.flash>|)
+      assert html =~ "alert-warning"
+      assert html =~ "Heads up."
+    end
+  end
 end
