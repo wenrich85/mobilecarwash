@@ -849,7 +849,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <.bucket_card label="Operating" amount="$8,420" target="of $10,000 goal" target_pct={0.84} status={:on_target} status_label="On target" />
           <.bucket_card label="Tax reserve" amount="$3,150" target="of $5,000 goal" target_pct={0.63} status={:underfunded} status_label="Underfunded" />
           <.bucket_card label="Savings" amount="$10,200" target="of $15,000 goal" target_pct={0.68} status={:on_target} status_label="68% goal" />
-          <.bucket_card label="Investment" amount="$0" target="no goal set" target_pct={nil} status={:long_term} status_label="Long-term" />
+          <.bucket_card label="Investment" amount="$0" target="no goal set" status={:long_term} status_label="Long-term" />
           <.bucket_card label="Salary" amount="$3,037" target="paid Apr 1" target_pct={1.0} status={:paid} status_label="Paid" />
         </div>
       </section>
