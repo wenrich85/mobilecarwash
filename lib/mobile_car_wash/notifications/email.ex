@@ -5,7 +5,7 @@ defmodule MobileCarWash.Notifications.Email do
   """
   import Swoosh.Email
 
-  @from {"Mobile Car Wash", "noreply@mobilecarwash.com"}
+  @from {"Driveway Detail Co", "noreply@drivewaydetailcosa.com"}
 
   @doc """
   Email verification link — sent after signup. 24-hour lifetime; link
