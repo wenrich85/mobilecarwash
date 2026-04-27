@@ -10,20 +10,47 @@ defmodule MobileCarWashWeb.BookingComponents do
   attr :current_step, :atom, required: true
 
   def step_indicator(assigns) do
-    assigns = assign(assigns, steps: @steps, step_labels: step_labels())
+    labels = step_labels()
+    steps = @steps
+    current_index = Enum.find_index(steps, &(&1 == assigns.current_step)) || 0
+    step_number = current_index + 1
+    total_steps = length(steps)
+    progress_percent = round(step_number / total_steps * 100)
+    current_label = Keyword.get(labels, assigns.current_step, "")
+
+    next_label =
+      case Enum.at(steps, current_index + 1) do
+        nil -> nil
+        next -> Keyword.get(labels, next)
+      end
+
+    assigns =
+      assign(assigns,
+        step_number: step_number,
+        total_steps: total_steps,
+        progress_percent: progress_percent,
+        current_label: current_label,
+        next_label: next_label
+      )
 
     ~H"""
-    <ul class="steps steps-horizontal w-full mb-8">
-      <li
-        :for={{step, label} <- @step_labels}
-        class={[
-          "step",
-          step_class(@current_step, step)
-        ]}
-      >
-        <span class="hidden md:inline">{label}</span>
-      </li>
-    </ul>
+    <div class="mb-8">
+      <div class="flex items-baseline justify-between mb-2">
+        <div class="text-sm font-semibold text-base-content">
+          Step {@step_number} of {@total_steps} — {@current_label}
+        </div>
+        <div class="text-xs text-base-content/60">{@progress_percent}% complete</div>
+      </div>
+      <div class="h-1.5 bg-base-200 rounded-full overflow-hidden">
+        <div
+          class="h-full bg-cyan-500 rounded-full transition-all"
+          style={"width: #{@progress_percent}%"}
+        />
+      </div>
+      <div :if={@next_label} class="text-xs text-base-content/60 mt-1.5">
+        Next: {@next_label}
+      </div>
+    </div>
     """
   end
 
@@ -38,16 +65,6 @@ defmodule MobileCarWashWeb.BookingComponents do
       {:review, "Review"},
       {:confirmed, "Done"}
     ]
-  end
-
-  defp step_class(current, step) do
-    current_index = Enum.find_index(@steps, &(&1 == current))
-    step_index = Enum.find_index(@steps, &(&1 == step))
-
-    cond do
-      step_index <= current_index -> "step-primary"
-      true -> ""
-    end
   end
 
   attr :service, :map, required: true
