@@ -168,49 +168,12 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* ============================================================
-   Brand Color System
-   Primary:   Navy (#1E2A38)
-   Secondary: White (#FFFFFF)
-   Tertiary:  Steel Blue (#3A7CA5)
+   Legacy non-color design tokens
+   Color tokens live in @theme above. These shadow/spacing/
+   radius/type vars remain for any inline-style consumers.
    ============================================================ */
 
 :root {
-  /* Primary — Navy */
-  --brand-primary-50:  #F0F2F5;
-  --brand-primary-100: #D4DAE2;
-  --brand-primary-200: #A9B5C5;
-  --brand-primary-300: #7E91A8;
-  --brand-primary-400: #536C8B;
-  --brand-primary-500: #2E4A66;
-  --brand-primary-600: #253D55;
-  --brand-primary-700: #1E2A38;
-  --brand-primary-800: #151E28;
-  --brand-primary-900: #0C1219;
-
-  /* Secondary — White/Neutral */
-  --brand-secondary-50:  #FFFFFF;
-  --brand-secondary-100: #F8F9FA;
-  --brand-secondary-200: #E9ECEF;
-  --brand-secondary-300: #DEE2E6;
-  --brand-secondary-400: #CED4DA;
-  --brand-secondary-500: #ADB5BD;
-  --brand-secondary-600: #868E96;
-  --brand-secondary-700: #495057;
-  --brand-secondary-800: #343A40;
-  --brand-secondary-900: #212529;
-
-  /* Tertiary — Steel Blue */
-  --brand-tertiary-50:  #EBF4F9;
-  --brand-tertiary-100: #C8E1EF;
-  --brand-tertiary-200: #93C5DF;
-  --brand-tertiary-300: #5EA8CF;
-  --brand-tertiary-400: #3A7CA5;
-  --brand-tertiary-500: #317193;
-  --brand-tertiary-600: #2E6384;
-  --brand-tertiary-700: #234A63;
-  --brand-tertiary-800: #183242;
-  --brand-tertiary-900: #0D1A21;
-
   /* Shadows — Navy-tinted for warmth */
   --shadow-sm: 0 1px 3px rgba(30, 42, 56, 0.10);
   --shadow-md: 0 4px 8px rgba(30, 42, 56, 0.12), 0 1px 3px rgba(30, 42, 56, 0.06);
@@ -251,17 +214,13 @@
 
 /* Navbar: stronger bottom edge + subtle backdrop blur when sticky */
 .navbar {
-  border-bottom: 1px solid var(--brand-secondary-300);
+  border-bottom: 1px solid var(--color-base-300);
   backdrop-filter: blur(8px);
 }
 
 /* Cards: visible border in both modes for depth */
 .card {
-  border: 1px solid var(--brand-secondary-200);
-}
-[data-theme="dark"] .card {
-  border-color: var(--brand-primary-700);
-  background-color: var(--brand-primary-800);
+  border: 1px solid var(--color-base-300);
 }
 
 /* This file is for your main application CSS */

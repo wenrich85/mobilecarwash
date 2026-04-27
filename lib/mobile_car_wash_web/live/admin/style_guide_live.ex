@@ -46,63 +46,43 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
       <section id="colors" class="mb-16">
         <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Color Palette</h2>
         
-    <!-- Primary — Navy -->
+    <!-- Slate (neutral ramp) -->
         <div class="mb-8">
-          <h3 class="text-lg font-semibold mb-1">Primary — Navy</h3>
+          <h3 class="text-lg font-semibold mb-1">Slate — Neutral ramp</h3>
           <p class="text-sm text-base-content/80 mb-3">
-            Base: #1E2A38 (700). Used for headers, primary actions, and brand identity.
+            Base: <code>#64748b</code> (500). Text, borders, surfaces. Use as <code>bg-slate-&#123;50..900&#125;</code>, <code>text-slate-&#123;50..900&#125;</code>.
           </p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
-            <.swatch hex="#F0F2F5" label="50" dark={false} />
-            <.swatch hex="#D4DAE2" label="100" dark={false} />
-            <.swatch hex="#A9B5C5" label="200" dark={false} />
-            <.swatch hex="#7E91A8" label="300" dark={false} />
-            <.swatch hex="#536C8B" label="400" dark={true} />
-            <.swatch hex="#2E4A66" label="500" dark={true} />
-            <.swatch hex="#253D55" label="600" dark={true} />
-            <.swatch hex="#1E2A38" label="700" dark={true} />
-            <.swatch hex="#151E28" label="800" dark={true} />
-            <.swatch hex="#0C1219" label="900" dark={true} />
+            <.swatch hex="#f8fafc" label="50" dark={false} border={true} />
+            <.swatch hex="#f1f5f9" label="100" dark={false} />
+            <.swatch hex="#e2e8f0" label="200" dark={false} />
+            <.swatch hex="#cbd5e1" label="300" dark={false} />
+            <.swatch hex="#94a3b8" label="400" dark={false} />
+            <.swatch hex="#64748b" label="500" dark={true} />
+            <.swatch hex="#475569" label="600" dark={true} />
+            <.swatch hex="#334155" label="700" dark={true} />
+            <.swatch hex="#1e293b" label="800" dark={true} />
+            <.swatch hex="#0f172a" label="900" dark={true} />
           </div>
         </div>
-        
-    <!-- Secondary — White/Neutral -->
+
+    <!-- Cyan (accent ramp) -->
         <div class="mb-8">
-          <h3 class="text-lg font-semibold mb-1">Secondary — White / Neutral</h3>
+          <h3 class="text-lg font-semibold mb-1">Cyan — Accent ramp</h3>
           <p class="text-sm text-base-content/80 mb-3">
-            Base: #FFFFFF (50). Used for backgrounds, cards, and clean space.
+            Base: <code>#06b6d4</code> (500). Conversion CTAs, highlights, sparklines, "tech" sections. Use as <code>bg-cyan-&#123;50..900&#125;</code>.
           </p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
-            <.swatch hex="#FFFFFF" label="50" dark={false} border={true} />
-            <.swatch hex="#F8F9FA" label="100" dark={false} />
-            <.swatch hex="#E9ECEF" label="200" dark={false} />
-            <.swatch hex="#DEE2E6" label="300" dark={false} />
-            <.swatch hex="#CED4DA" label="400" dark={false} />
-            <.swatch hex="#ADB5BD" label="500" dark={false} />
-            <.swatch hex="#868E96" label="600" dark={true} />
-            <.swatch hex="#495057" label="700" dark={true} />
-            <.swatch hex="#343A40" label="800" dark={true} />
-            <.swatch hex="#212529" label="900" dark={true} />
-          </div>
-        </div>
-        
-    <!-- Tertiary — Steel Blue -->
-        <div class="mb-8">
-          <h3 class="text-lg font-semibold mb-1">Tertiary — Steel Blue</h3>
-          <p class="text-sm text-base-content/80 mb-3">
-            Base: #3A7CA5 (400). Used for links, interactive elements, and accent touches.
-          </p>
-          <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
-            <.swatch hex="#EBF4F9" label="50" dark={false} />
-            <.swatch hex="#C8E1EF" label="100" dark={false} />
-            <.swatch hex="#93C5DF" label="200" dark={false} />
-            <.swatch hex="#5EA8CF" label="300" dark={false} />
-            <.swatch hex="#3A7CA5" label="400" dark={true} />
-            <.swatch hex="#317193" label="500" dark={true} />
-            <.swatch hex="#2E6384" label="600" dark={true} />
-            <.swatch hex="#234A63" label="700" dark={true} />
-            <.swatch hex="#183242" label="800" dark={true} />
-            <.swatch hex="#0D1A21" label="900" dark={true} />
+            <.swatch hex="#ecfeff" label="50" dark={false} border={true} />
+            <.swatch hex="#cffafe" label="100" dark={false} />
+            <.swatch hex="#a5f3fc" label="200" dark={false} />
+            <.swatch hex="#67e8f9" label="300" dark={false} />
+            <.swatch hex="#22d3ee" label="400" dark={false} />
+            <.swatch hex="#06b6d4" label="500" dark={true} />
+            <.swatch hex="#0891b2" label="600" dark={true} />
+            <.swatch hex="#0e7490" label="700" dark={true} />
+            <.swatch hex="#155e75" label="800" dark={true} />
+            <.swatch hex="#164e63" label="900" dark={true} />
           </div>
         </div>
         
@@ -148,156 +128,58 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           </div>
         </div>
         
-    <!-- Color Usage Reference -->
+    <!-- Tailwind Class Reference -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-3">Tailwind Class Reference</h3>
           <p class="text-sm text-base-content/80 mb-4">
-            Every shade is a real Tailwind utility. Use them with any property prefix: <code class="bg-base-200 px-1 rounded">bg-</code>, <code class="bg-base-200 px-1 rounded">text-</code>, <code class="bg-base-200 px-1 rounded">border-</code>, <code class="bg-base-200 px-1 rounded">ring-</code>, etc.
+            Use these class families in templates. The <code>base-*</code> and brand semantic
+            utilities adapt to light/dark theme automatically; the <code>slate-*</code> and
+            <code>cyan-*</code> ramps are fixed colors usable for inline accents.
           </p>
-
           <div class="overflow-x-auto">
-            <table class="table table-sm">
+            <table class="table table-zebra text-sm">
               <thead>
                 <tr>
-                  <th>Palette</th>
-                  <th>Class Pattern</th>
-                  <th>Example</th>
-                  <th>Preview</th>
+                  <th>Pattern</th>
+                  <th>Usage</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td class="font-semibold">Primary (Navy)</td>
-                  <td class="font-mono text-xs">bg-primary-{50 - 900}</td>
-                  <td class="font-mono text-xs">bg-primary-700, text-primary-200</td>
-                  <td>
-                    <div class="flex gap-1">
-                      <div class="w-5 h-5 rounded bg-primary-100"></div>
-                      <div class="w-5 h-5 rounded bg-primary-300"></div>
-                      <div class="w-5 h-5 rounded bg-primary-500"></div>
-                      <div class="w-5 h-5 rounded bg-primary-700"></div>
-                      <div class="w-5 h-5 rounded bg-primary-900"></div>
-                    </div>
-                  </td>
+                  <td><code>bg-base-&#123;100,200,300&#125;</code></td>
+                  <td>Page surfaces — card / page-bg / borders. Theme-aware.</td>
                 </tr>
                 <tr>
-                  <td class="font-semibold">Secondary (Neutral)</td>
-                  <td class="font-mono text-xs">bg-secondary-{50 - 900}</td>
-                  <td class="font-mono text-xs">bg-secondary-100, border-secondary-300</td>
-                  <td>
-                    <div class="flex gap-1">
-                      <div class="w-5 h-5 rounded bg-secondary-100 border border-secondary-300"></div>
-                      <div class="w-5 h-5 rounded bg-secondary-300"></div>
-                      <div class="w-5 h-5 rounded bg-secondary-500"></div>
-                      <div class="w-5 h-5 rounded bg-secondary-700"></div>
-                      <div class="w-5 h-5 rounded bg-secondary-900"></div>
-                    </div>
-                  </td>
+                  <td><code>text-base-content</code> / <code>text-base-content/70</code></td>
+                  <td>Body text full / subtitle 70% opacity. Theme-aware.</td>
                 </tr>
                 <tr>
-                  <td class="font-semibold">Tertiary (Steel Blue)</td>
-                  <td class="font-mono text-xs">bg-tertiary-{50 - 900}</td>
-                  <td class="font-mono text-xs">bg-tertiary-400, text-tertiary-600</td>
-                  <td>
-                    <div class="flex gap-1">
-                      <div class="w-5 h-5 rounded bg-tertiary-100"></div>
-                      <div class="w-5 h-5 rounded bg-tertiary-300"></div>
-                      <div class="w-5 h-5 rounded bg-tertiary-400"></div>
-                      <div class="w-5 h-5 rounded bg-tertiary-600"></div>
-                      <div class="w-5 h-5 rounded bg-tertiary-900"></div>
-                    </div>
-                  </td>
+                  <td><code>bg-primary</code> / <code>text-primary-content</code></td>
+                  <td>Primary buttons, navy in light theme / cyan in dark.</td>
+                </tr>
+                <tr>
+                  <td><code>bg-accent</code> / <code>text-accent-content</code></td>
+                  <td>Conversion CTAs, accent highlights. Cyan.</td>
+                </tr>
+                <tr>
+                  <td><code>bg-&#123;success,warning,error,info&#125;</code></td>
+                  <td>Semantic states — see flash kinds and status pills.</td>
+                </tr>
+                <tr>
+                  <td><code>bg-slate-&#123;50..900&#125;</code></td>
+                  <td>Fixed neutral ramp for inline accents (not theme-aware).</td>
+                </tr>
+                <tr>
+                  <td><code>bg-cyan-&#123;50..900&#125;</code></td>
+                  <td>Fixed cyan ramp for sparklines, progress fills, etc.</td>
+                </tr>
+                <tr>
+                  <td><code>font-mono</code> + <code>tabular-nums</code></td>
+                  <td>JetBrains Mono with column-aligned digits — financial figures only.</td>
                 </tr>
               </tbody>
             </table>
           </div>
-        </div>
-        
-    <!-- Common Patterns -->
-        <div class="mb-8">
-          <h3 class="text-lg font-semibold mb-3">Common Patterns</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="rounded-lg border border-secondary-300 overflow-hidden">
-              <div class="bg-primary-700 text-primary-100 p-4">
-                <h4 class="font-bold">Dark header on Navy</h4>
-                <p class="text-sm text-primary-200">bg-primary-700 text-primary-100</p>
-              </div>
-              <div class="bg-secondary-50 p-4">
-                <p class="text-primary-800">Content area — bg-secondary-50 text-primary-800</p>
-              </div>
-            </div>
-
-            <div class="rounded-lg border border-tertiary-200 overflow-hidden">
-              <div class="bg-tertiary-50 p-4 border-b border-tertiary-200">
-                <h4 class="font-bold text-tertiary-700">Info section on Steel Blue tint</h4>
-                <p class="text-sm text-tertiary-600">bg-tertiary-50 text-tertiary-700</p>
-              </div>
-              <div class="bg-secondary-50 p-4">
-                <p class="text-secondary-800">Content — bg-secondary-50 text-secondary-800</p>
-              </div>
-            </div>
-
-            <div class="rounded-lg bg-secondary-100 p-4 border border-secondary-300">
-              <h4 class="font-bold text-primary-700">Subtle card</h4>
-              <p class="text-sm text-secondary-600">bg-secondary-100 border-secondary-300</p>
-              <button class="mt-2 px-4 py-2 bg-tertiary-400 text-white rounded-lg text-sm font-medium">
-                CTA — bg-tertiary-400
-              </button>
-            </div>
-
-            <div class="rounded-lg bg-primary-800 p-4">
-              <h4 class="font-bold text-secondary-100">Dark card</h4>
-              <p class="text-sm text-secondary-400">bg-primary-800 text-secondary-400</p>
-              <button class="mt-2 px-4 py-2 bg-tertiary-400 text-white rounded-lg text-sm font-medium">
-                CTA — bg-tertiary-400
-              </button>
-            </div>
-          </div>
-        </div>
-        
-    <!-- Quick Reference -->
-        <div class="bg-base-200 rounded-lg p-4 text-sm mb-8">
-          <h4 class="font-semibold mb-2">When to use each palette:</h4>
-          <table class="table table-sm">
-            <tbody>
-              <tr>
-                <td class="font-semibold w-32">Primary 50-200</td>
-                <td>Light backgrounds, hover tints, disabled states</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Primary 300-500</td>
-                <td>Secondary text, borders, icons</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Primary 600-900</td>
-                <td>Headings, body text, dark sections, navbar</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Secondary 50-200</td>
-                <td>Page backgrounds, card surfaces, clean space</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Secondary 300-500</td>
-                <td>Borders, dividers, input outlines, muted text</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Secondary 600-900</td>
-                <td>Dark mode text, footer backgrounds</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Tertiary 50-200</td>
-                <td>Info tints, highlight backgrounds, selected states</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Tertiary 300-500</td>
-                <td>CTA buttons, links, active indicators, badges</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Tertiary 600-900</td>
-                <td>Hover states for CTAs, dark accent sections</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </section>
       
