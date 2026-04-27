@@ -203,4 +203,53 @@ defmodule MobileCarWashWeb.MarketingComponentsTest do
       assert html =~ ">Book<"
     end
   end
+
+  describe "feature_grid/1" do
+    test "renders items with numbered badges and titles" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.feature_grid columns={3}>
+          <:item number="1" title="Step One">First body</:item>
+          <:item number="2" title="Step Two">Second body</:item>
+          <:item number="3" title="Step Three">Third body</:item>
+        </.feature_grid>
+        """)
+
+      assert html =~ "Step One"
+      assert html =~ "Step Two"
+      assert html =~ "Step Three"
+      assert html =~ "First body"
+      assert html =~ "Third body"
+      assert html =~ ">1<"
+      assert html =~ ">3<"
+    end
+
+    test "uses 3 columns by default" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.feature_grid>
+          <:item number="1" title="A">B</:item>
+        </.feature_grid>
+        """)
+
+      assert html =~ "md:grid-cols-3"
+    end
+
+    test "uses 2 columns when columns={2}" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.feature_grid columns={2}>
+          <:item number="1" title="A">B</:item>
+        </.feature_grid>
+        """)
+
+      assert html =~ "md:grid-cols-2"
+    end
+  end
 end

@@ -164,4 +164,41 @@ defmodule MobileCarWashWeb.MarketingComponents do
     </section>
     """
   end
+
+  @doc """
+  Renders a numbered grid of feature/step items.
+  """
+  attr :columns, :integer, default: 3, values: [2, 3, 4]
+  slot :item, required: true do
+    attr :number, :string
+    attr :title, :string, required: true
+  end
+
+  def feature_grid(assigns) do
+    cols_class =
+      case assigns.columns do
+        2 -> "md:grid-cols-2"
+        3 -> "md:grid-cols-3"
+        4 -> "md:grid-cols-4"
+      end
+
+    assigns = assign(assigns, :cols_class, cols_class)
+
+    ~H"""
+    <div class={["grid grid-cols-1 gap-4", @cols_class]}>
+      <div :for={item <- @item} class="bg-base-200 rounded-box p-5">
+        <div
+          :if={item[:number]}
+          class="w-7 h-7 bg-cyan-500 text-white rounded-lg flex items-center justify-center font-bold text-sm mb-2.5"
+        >{item.number}</div>
+        <div class="text-sm font-semibold text-base-content mb-1">
+          {item.title}
+        </div>
+        <div class="text-sm text-base-content/70 leading-relaxed">
+          {render_slot(item)}
+        </div>
+      </div>
+    </div>
+    """
+  end
 end
