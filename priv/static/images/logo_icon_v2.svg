@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40" fill="none">
+  <!-- Map pin body: rounded teardrop -->
+  <path d="M16 3 C9 3 4 8 4 15 C4 22 16 35 16 35 C16 35 28 22 28 15 C28 8 23 3 16 3Z" fill="#1e293b"/>
+  <!-- Water drop nested in the bulb -->
+  <path d="M16 8 C16 8 12 13 12 16 C12 18 13.7 20 16 20 C18.3 20 20 18 20 16 C20 13 16 8 16 8Z" fill="#06b6d4"/>
+</svg>
