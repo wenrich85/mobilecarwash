@@ -137,49 +137,32 @@ defmodule MobileCarWash.Notifications.Email do
     due_str =
       if task.due_date, do: Calendar.strftime(task.due_date, "%B %d, %Y"), else: "No date set"
 
-    url_line =
+    notes_html = if task.description, do: "<p><strong>Notes:</strong> #{task.description}</p>", else: ""
+    notes_text = if task.description, do: "Notes: #{task.description}", else: ""
+
+    url_html =
       if task.external_url,
-        do: "<p><a href=\"#{task.external_url}\">Go to website →</a></p>",
+        do: ~s(<p>#{Layout.link("Go to website →", task.external_url)}</p>),
         else: ""
 
-    new()
-    |> to(admin_email)
-    |> from(@from)
-    |> subject("Deadline: #{task.name} — due in #{days_before} day(s)")
-    |> html_body("""
-    <h2>Compliance Deadline Reminder</h2>
+    url_text = if task.external_url, do: "URL: #{task.external_url}", else: ""
 
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Compliance Deadline Reminder</h2>
     <p>The following task is due in <strong>#{days_before} day(s)</strong>:</p>
-
-    <table style="border-collapse: collapse; margin: 20px 0;">
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Task:</td>
-        <td style="padding: 8px;">#{task.name}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Category:</td>
-        <td style="padding: 8px;">#{category.name}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Due Date:</td>
-        <td style="padding: 8px;">#{due_str}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Priority:</td>
-        <td style="padding: 8px;">#{task.priority}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Status:</td>
-        <td style="padding: 8px;">#{task.status}</td>
-      </tr>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Task</td><td style="padding:4px 0;font-weight:600;">#{task.name}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Category</td><td style="padding:4px 0;font-weight:600;">#{category.name}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Due Date</td><td style="padding:4px 0;font-weight:600;">#{due_str}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Priority</td><td style="padding:4px 0;font-weight:600;">#{task.priority}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Status</td><td style="padding:4px 0;font-weight:600;">#{task.status}</td></tr>
     </table>
+    #{notes_html}
+    #{url_html}
+    <p style="color:#64748b;font-size:13px;">Log in to your admin dashboard to update this task.</p>
+    """
 
-    #{if task.description, do: "<p><strong>Notes:</strong> #{task.description}</p>", else: ""}
-    #{url_line}
-
-    <p>Log in to your admin dashboard to update this task.</p>
-    """)
-    |> text_body("""
+    inner_text = """
     Compliance Deadline Reminder
 
     Task: #{task.name}
@@ -187,11 +170,18 @@ defmodule MobileCarWash.Notifications.Email do
     Due Date: #{due_str}
     Priority: #{task.priority}
     Status: #{task.status}
-    #{if task.description, do: "Notes: #{task.description}", else: ""}
-    #{if task.external_url, do: "URL: #{task.external_url}", else: ""}
+    #{notes_text}
+    #{url_text}
 
     Due in #{days_before} day(s). Log in to update.
-    """)
+    """
+
+    new()
+    |> to(admin_email)
+    |> from(@from)
+    |> subject("Deadline: #{task.name} — due in #{days_before} day(s)")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
@@ -385,31 +375,39 @@ defmodule MobileCarWash.Notifications.Email do
   def subscription_created(customer, plan) do
     price = div(plan.price_cents, 100)
 
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Welcome to #{plan.name} — Subscription Active")
-    |> html_body("""
-    <h2>Welcome to your #{plan.name} plan!</h2>
+    benefits_html =
+      [
+        if(plan.basic_washes_per_month > 0,
+          do:
+            "<li>#{plan.basic_washes_per_month} basic wash#{if plan.basic_washes_per_month > 1, do: "es", else: ""} per month</li>",
+          else: nil
+        ),
+        if(plan.deep_cleans_per_month > 0,
+          do:
+            "<li>#{plan.deep_cleans_per_month} deep clean#{if plan.deep_cleans_per_month > 1, do: "s", else: ""} per month</li>",
+          else: nil
+        ),
+        if(plan.deep_clean_discount_percent > 0,
+          do: "<li>#{plan.deep_clean_discount_percent}% off deep cleans</li>",
+          else: nil
+        )
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join("\n      ")
 
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Welcome to your #{plan.name} plan!</h2>
     <p>Hi #{customer.name},</p>
-
     <p>Your <strong>#{plan.name}</strong> subscription ($#{price}/month) is now active.</p>
-
-    <p>What's included:</p>
-    <ul>
-      #{if plan.basic_washes_per_month > 0, do: "<li>#{plan.basic_washes_per_month} basic wash#{if plan.basic_washes_per_month > 1, do: "es", else: ""} per month</li>", else: ""}
-      #{if plan.deep_cleans_per_month > 0, do: "<li>#{plan.deep_cleans_per_month} deep clean#{if plan.deep_cleans_per_month > 1, do: "s", else: ""} per month</li>", else: ""}
-      #{if plan.deep_clean_discount_percent > 0, do: "<li>#{plan.deep_clean_discount_percent}% off deep cleans</li>", else: ""}
+    <p style="margin-top:16px;font-weight:600;">What's included:</p>
+    <ul style="margin:8px 0 16px;padding-left:20px;">
+      #{benefits_html}
     </ul>
+    <p style="margin:24px 0;">#{Layout.button("Book your first wash", "https://drivewaydetailcosa.com/book")}</p>
+    <p style="color:#64748b;font-size:13px;">Thank you for choosing Driveway Detail Co!</p>
+    """
 
-    <p><a href="https://drivewaydetailcosa.com/book">Book your first wash now →</a></p>
-
-    <p>Thank you for choosing Driveway Detail Co!</p>
-
-    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
+    inner_text = """
     Welcome to your #{plan.name} plan!
 
     Hi #{customer.name},
@@ -419,31 +417,29 @@ defmodule MobileCarWash.Notifications.Email do
     Book your first wash at https://drivewaydetailcosa.com/book
 
     Thank you for choosing Driveway Detail Co!
-    """)
+    """
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Welcome to #{plan.name} — Subscription Active")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
   Confirmation email when a subscription is cancelled.
   """
   def subscription_cancelled(customer, plan) do
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Your #{plan.name} Subscription Has Been Cancelled")
-    |> html_body("""
-    <h2>Your subscription has been cancelled</h2>
-
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your subscription has been cancelled</h2>
     <p>Hi #{customer.name},</p>
-
     <p>Your <strong>#{plan.name}</strong> plan has been cancelled. You'll continue to have access until the end of your current billing period.</p>
-
-    <p>You can resubscribe anytime at <a href="https://drivewaydetailcosa.com/subscribe">drivewaydetailcosa.com/subscribe</a>.</p>
-
+    <p>You can resubscribe anytime at #{Layout.link("drivewaydetailcosa.com/subscribe", "https://drivewaydetailcosa.com/subscribe")}.</p>
     <p>We'd love to have you back!</p>
+    """
 
-    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
+    inner_text = """
     Your subscription has been cancelled.
 
     Hi #{customer.name},
@@ -453,6 +449,13 @@ defmodule MobileCarWash.Notifications.Email do
     Resubscribe anytime: https://drivewaydetailcosa.com/subscribe
 
     We'd love to have you back! — Driveway Detail Co
-    """)
+    """
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Your #{plan.name} Subscription Has Been Cancelled")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 end
