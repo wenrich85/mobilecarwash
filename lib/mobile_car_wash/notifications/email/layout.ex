@@ -97,6 +97,13 @@ defmodule MobileCarWash.Notifications.Email.Layout do
     """
   end
 
+  @doc """
+  Renders an inline cyan-styled anchor for body-text links.
+  """
+  def link(label, url) when is_binary(label) and is_binary(url) do
+    ~s(<a href="#{url}" style="color:#06b6d4;text-decoration:none;">#{label}</a>)
+  end
+
   defp header_logo_svg do
     # Inline pin+drop + wordmark.
     """

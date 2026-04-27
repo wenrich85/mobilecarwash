@@ -74,4 +74,20 @@ defmodule MobileCarWash.Notifications.Email.LayoutTest do
       refute html =~ "<style"
     end
   end
+
+  describe "link/2" do
+    test "produces an inline-styled anchor in cyan" do
+      html = Layout.link("the docs", "https://example.com/docs")
+      assert html =~ ~s(href="https://example.com/docs")
+      assert html =~ "the docs"
+      assert html =~ "color:#06b6d4"
+      assert html =~ "<a "
+    end
+
+    test "no <style> tags or class attributes" do
+      html = Layout.link("x", "https://x.example")
+      refute html =~ "<style"
+      refute html =~ "class="
+    end
+  end
 end
