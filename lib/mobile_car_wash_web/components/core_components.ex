@@ -668,4 +668,59 @@ defmodule MobileCarWashWeb.CoreComponents do
     </div>
     """
   end
+
+  @doc """
+  Renders a KPI tile: label, big value, optional delta, optional subtext.
+
+  Sparkline is rendered separately (callers pass an SVG via `:trailing` slot
+  if they want one — keeps this component dependency-free).
+
+  ## Examples
+
+      <.kpi_card label="Cash on hand" value="$24,807" delta="+12.4%" delta_direction={:up} subtext="vs last month" />
+  """
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+  attr :delta, :string, default: nil
+  attr :delta_direction, :atom, values: [:up, :down, nil], default: nil
+  attr :subtext, :string, default: nil
+  attr :class, :any, default: nil
+  slot :trailing, doc: "optional element rendered to the right of the value (e.g. sparkline)"
+
+  def kpi_card(assigns) do
+    delta_color =
+      case assigns.delta_direction do
+        :up -> "text-success"
+        :down -> "text-error"
+        _ -> "text-base-content/60"
+      end
+
+    assigns = assign(assigns, :delta_color, delta_color)
+
+    ~H"""
+    <div class={["bg-base-100 border border-base-300 rounded-box p-5", @class]}>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-base-content/60">
+            {@label}
+          </div>
+          <div class="flex items-baseline gap-2 mt-1.5">
+            <div class="font-mono text-3xl font-bold tracking-tight text-base-content tabular-nums">
+              {@value}
+            </div>
+            <div :if={@delta} class={["text-xs font-semibold", @delta_color]}>
+              {@delta}
+            </div>
+          </div>
+          <div :if={@subtext} class="text-xs text-base-content/60 mt-1">
+            {@subtext}
+          </div>
+        </div>
+        <div :if={@trailing != []}>
+          {render_slot(@trailing)}
+        </div>
+      </div>
+    </div>
+    """
+  end
 end

@@ -138,19 +138,19 @@ defmodule MobileCarWashWeb.Admin.MetricsLive do
             <span>{@period_comparison.delta_pct}%</span>
           </div>
         </div>
-        <.kpi_card
+        <.stat_card
           label="Active Subscribers"
           value={to_string(@kpis.active_subscribers)}
           subtitle="all time"
           color="primary"
         />
-        <.kpi_card
+        <.stat_card
           label="Bookings"
           value={to_string(@kpis.bookings)}
           subtitle={"#{period_label(@period)}"}
           color="info"
         />
-        <.kpi_card
+        <.stat_card
           label="Conversion Rate"
           value={"#{@kpis.conversion_rate}%"}
           subtitle="visit → booking"

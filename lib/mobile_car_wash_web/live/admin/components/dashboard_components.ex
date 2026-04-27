@@ -10,7 +10,7 @@ defmodule MobileCarWashWeb.Admin.DashboardComponents do
   attr :subtitle, :string, default: nil
   attr :color, :string, default: "primary"
 
-  def kpi_card(assigns) do
+  def stat_card(assigns) do
     ~H"""
     <div class="stat bg-base-100 shadow rounded-box">
       <div class="stat-title">{@label}</div>

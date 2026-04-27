@@ -317,4 +317,34 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "<button>Add</button>"
     end
   end
+
+  describe "kpi_card/1" do
+    test "renders label and value" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.kpi_card label="Cash on hand" value="$24,807" />|)
+      assert html =~ "Cash on hand"
+      assert html =~ "$24,807"
+      assert html =~ "font-mono"
+    end
+
+    test "renders positive delta" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.kpi_card label="Cash" value="$10" delta="+12.4%" delta_direction={:up} />|)
+      assert html =~ "+12.4%"
+      assert html =~ "text-success"
+    end
+
+    test "renders negative delta" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.kpi_card label="Cash" value="$10" delta="-3.1%" delta_direction={:down} />|)
+      assert html =~ "-3.1%"
+      assert html =~ "text-error"
+    end
+
+    test "renders subtext" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.kpi_card label="Cash" value="$10" subtext="vs last month" />|)
+      assert html =~ "vs last month"
+    end
+  end
 end
