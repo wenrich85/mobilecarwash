@@ -737,8 +737,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           </table>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- BUTTON VARIANTS (Plan 1) -->
       <!-- ============================================================ -->
       <section id="button-variants" class="mb-16">
@@ -757,8 +757,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           </div>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- STATUS PILLS -->
       <!-- ============================================================ -->
       <section id="status-pills" class="mb-16">
@@ -771,8 +771,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <.status_pill status={:long_term}>Long-term</.status_pill>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- PROGRESS BARS -->
       <!-- ============================================================ -->
       <section id="progress-bars" class="mb-16">
@@ -784,13 +784,15 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <.progress_bar value={0.05} variant={:red} />
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- FLASH MESSAGES (new kinds) -->
       <!-- ============================================================ -->
       <section id="flash-messages" class="mb-16">
         <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Flash Messages</h2>
-        <p class="text-sm text-base-content/70 mb-4">All four kinds (info / success / warning / error). They normally render as toasts in the corner — here they stack inline for review.</p>
+        <p class="text-sm text-base-content/70 mb-4">
+          All four kinds (info / success / warning / error). They normally render as toasts in the corner — here they stack inline for review.
+        </p>
         <div class="space-y-2 relative">
           <.flash kind={:info}>Info — your changes were saved.</.flash>
           <.flash kind={:success}>Success — booking confirmed.</.flash>
@@ -798,8 +800,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           <.flash kind={:error}>Error — payment failed.</.flash>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- EMPTY STATE -->
       <!-- ============================================================ -->
       <section id="empty-state" class="mb-16">
@@ -816,8 +818,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           </.empty_state>
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- KPI CARD -->
       <!-- ============================================================ -->
       <section id="kpi-card" class="mb-16">
@@ -839,27 +841,63 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           />
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- BUCKET CARDS -->
       <!-- ============================================================ -->
       <section id="bucket-cards" class="mb-16">
         <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Bucket Cards</h2>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <.bucket_card label="Operating" amount="$8,420" target="of $10,000 goal" target_pct={0.84} status={:on_target} status_label="On target" />
-          <.bucket_card label="Tax reserve" amount="$3,150" target="of $5,000 goal" target_pct={0.63} status={:underfunded} status_label="Underfunded" />
-          <.bucket_card label="Savings" amount="$10,200" target="of $15,000 goal" target_pct={0.68} status={:on_target} status_label="68% goal" />
-          <.bucket_card label="Investment" amount="$0" target="no goal set" status={:long_term} status_label="Long-term" />
-          <.bucket_card label="Salary" amount="$3,037" target="paid Apr 1" target_pct={1.0} status={:paid} status_label="Paid" />
+          <.bucket_card
+            label="Operating"
+            amount="$8,420"
+            target="of $10,000 goal"
+            target_pct={0.84}
+            status={:on_target}
+            status_label="On target"
+          />
+          <.bucket_card
+            label="Tax reserve"
+            amount="$3,150"
+            target="of $5,000 goal"
+            target_pct={0.63}
+            status={:underfunded}
+            status_label="Underfunded"
+          />
+          <.bucket_card
+            label="Savings"
+            amount="$10,200"
+            target="of $15,000 goal"
+            target_pct={0.68}
+            status={:on_target}
+            status_label="68% goal"
+          />
+          <.bucket_card
+            label="Investment"
+            amount="$0"
+            target="no goal set"
+            status={:long_term}
+            status_label="Long-term"
+          />
+          <.bucket_card
+            label="Salary"
+            amount="$3,037"
+            target="paid Apr 1"
+            target_pct={1.0}
+            status={:paid}
+            status_label="Paid"
+          />
         </div>
       </section>
-
-      <!-- ============================================================ -->
+      
+    <!-- ============================================================ -->
       <!-- MODAL -->
       <!-- ============================================================ -->
       <section id="modal" class="mb-16">
         <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Modal</h2>
-        <p class="text-sm text-base-content/70 mb-4">Click to open. Backdrop click or Cancel closes.</p>
+        <p class="text-sm text-base-content/70 mb-4">
+          Click to open. Backdrop click or Cancel closes.
+        </p>
         <.button phx-click="toggle_demo_modal">Open demo modal</.button>
         <.modal id="demo-modal" show={@demo_modal_open}>
           <:title>Confirm action</:title>

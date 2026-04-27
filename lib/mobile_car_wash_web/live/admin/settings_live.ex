@@ -350,7 +350,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                   <p class="text-sm text-base-content/80">{svc.description}</p>
                   <p class="text-sm mt-1">
                     <span class="font-semibold">${div(svc.base_price_cents, 100)}</span>
-                    <span class="text-base-content/70"> ·   {svc.duration_minutes} min</span>
+                    <span class="text-base-content/70"> ·    {svc.duration_minutes} min</span>
                   </p>
                 </div>
                 <div class="flex gap-2">

@@ -315,7 +315,10 @@ defmodule MobileCarWashWeb.CoreComponents do
         <select
           id={@id}
           name={@name}
-          class={[@class || "select select-bordered w-full h-12 text-base", @errors != [] && (@error_class || "select-error")]}
+          class={[
+            @class || "select select-bordered w-full h-12 text-base",
+            @errors != [] && (@error_class || "select-error")
+          ]}
           multiple={@multiple}
           {@rest}
         >
@@ -742,7 +745,11 @@ defmodule MobileCarWashWeb.CoreComponents do
   attr :amount, :string, required: true
   attr :target, :string, required: true, doc: "subtext line e.g. \"of $10,000 goal\""
   attr :target_pct, :float, default: nil, doc: "0.0..1.0 fill ratio; nil = empty bar"
-  attr :status, :atom, required: true, values: [:on_target, :underfunded, :paid, :over, :long_term]
+
+  attr :status, :atom,
+    required: true,
+    values: [:on_target, :underfunded, :paid, :over, :long_term]
+
   attr :status_label, :string, required: true
 
   def bucket_card(assigns) do

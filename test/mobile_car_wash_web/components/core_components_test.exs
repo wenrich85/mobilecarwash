@@ -62,14 +62,23 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
 
     test "renders textarea variant" do
       assigns = %{}
-      html = rendered_to_string(~H|<.input type="textarea" name="msg" label="Message" value="" />|)
+
+      html =
+        rendered_to_string(~H|<.input type="textarea" name="msg" label="Message" value="" />|)
+
       assert html =~ "<textarea"
       assert html =~ "textarea-bordered"
     end
 
     test "renders select variant" do
       assigns = %{}
-      html = rendered_to_string(~H|<.input type="select" name="tier" label="Tier" value="basic" options={[{"Basic", "basic"}, {"Premium", "premium"}]} />|)
+      html = rendered_to_string(~H|<.input
+  type="select"
+  name="tier"
+  label="Tier"
+  value="basic"
+  options={[{"Basic", "basic"}, {"Premium", "premium"}]}
+/>|)
       assert html =~ "<select"
       assert html =~ "select-bordered"
       assert html =~ "Basic"
@@ -78,14 +87,24 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
 
     test "renders checkbox variant" do
       assigns = %{}
-      html = rendered_to_string(~H|<.input type="checkbox" name="agree" label="I agree" checked={false} />|)
+
+      html =
+        rendered_to_string(
+          ~H|<.input type="checkbox" name="agree" label="I agree" checked={false} />|
+        )
+
       assert html =~ ~s(type="checkbox")
       assert html =~ "checkbox"
     end
 
     test "shows error messages when errors present" do
       assigns = %{}
-      html = rendered_to_string(~H|<.input name="email" label="Email" value="" errors={["can't be blank"]} />|)
+
+      html =
+        rendered_to_string(
+          ~H|<.input name="email" label="Email" value="" errors={["can't be blank"]} />|
+        )
+
       assert html =~ "can&#39;t be blank"
     end
   end
@@ -222,7 +241,10 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
 
     test "renders underfunded as warning" do
       assigns = %{}
-      html = rendered_to_string(~H|<.status_pill status={:underfunded}>Underfunded</.status_pill>|)
+
+      html =
+        rendered_to_string(~H|<.status_pill status={:underfunded}>Underfunded</.status_pill>|)
+
       assert html =~ "bg-warning/15"
       assert html =~ "text-warning"
     end
@@ -294,7 +316,11 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
 
       html =
         rendered_to_string(~H"""
-        <.empty_state icon="hero-inbox" title="Nothing here yet" body="Once you book, it'll show up here." />
+        <.empty_state
+          icon="hero-inbox"
+          title="Nothing here yet"
+          body="Once you book, it'll show up here."
+        />
         """)
 
       assert html =~ "hero-inbox"
@@ -329,21 +355,34 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
 
     test "renders positive delta" do
       assigns = %{}
-      html = rendered_to_string(~H|<.kpi_card label="Cash" value="$10" delta="+12.4%" delta_direction={:up} />|)
+
+      html =
+        rendered_to_string(
+          ~H|<.kpi_card label="Cash" value="$10" delta="+12.4%" delta_direction={:up} />|
+        )
+
       assert html =~ "+12.4%"
       assert html =~ "text-success"
     end
 
     test "renders negative delta" do
       assigns = %{}
-      html = rendered_to_string(~H|<.kpi_card label="Cash" value="$10" delta="-3.1%" delta_direction={:down} />|)
+
+      html =
+        rendered_to_string(
+          ~H|<.kpi_card label="Cash" value="$10" delta="-3.1%" delta_direction={:down} />|
+        )
+
       assert html =~ "-3.1%"
       assert html =~ "text-error"
     end
 
     test "renders subtext" do
       assigns = %{}
-      html = rendered_to_string(~H|<.kpi_card label="Cash" value="$10" subtext="vs last month" />|)
+
+      html =
+        rendered_to_string(~H|<.kpi_card label="Cash" value="$10" subtext="vs last month" />|)
+
       assert html =~ "vs last month"
     end
   end
@@ -353,9 +392,14 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assigns = %{}
 
       html =
-        rendered_to_string(
-          ~H|<.bucket_card label="Operating" amount="$8,420" target="of $10,000 goal" target_pct={0.84} status={:on_target} status_label="On target" />|
-        )
+        rendered_to_string(~H|<.bucket_card
+  label="Operating"
+  amount="$8,420"
+  target="of $10,000 goal"
+  target_pct={0.84}
+  status={:on_target}
+  status_label="On target"
+/>|)
 
       assert html =~ "Operating"
       assert html =~ "$8,420"
@@ -368,9 +412,14 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assigns = %{}
 
       html =
-        rendered_to_string(
-          ~H|<.bucket_card label="Tax" amount="$3,150" target="of $5,000 goal" target_pct={0.63} status={:underfunded} status_label="Underfunded" />|
-        )
+        rendered_to_string(~H|<.bucket_card
+  label="Tax"
+  amount="$3,150"
+  target="of $5,000 goal"
+  target_pct={0.63}
+  status={:underfunded}
+  status_label="Underfunded"
+/>|)
 
       assert html =~ "bg-warning"
       assert html =~ "Underfunded"
@@ -380,9 +429,14 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assigns = %{}
 
       html =
-        rendered_to_string(
-          ~H|<.bucket_card label="Investment" amount="$0" target="no goal set" target_pct={nil} status={:long_term} status_label="Long-term" />|
-        )
+        rendered_to_string(~H|<.bucket_card
+  label="Investment"
+  amount="$0"
+  target="no goal set"
+  target_pct={nil}
+  status={:long_term}
+  status_label="Long-term"
+/>|)
 
       refute html =~ "width: 0%"
       # Empty bar has no inner width div at all
