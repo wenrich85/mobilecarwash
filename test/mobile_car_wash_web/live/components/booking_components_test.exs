@@ -26,4 +26,44 @@ defmodule MobileCarWashWeb.BookingComponentsTest do
       refute html =~ "Next:"
     end
   end
+
+  describe "service_card/1" do
+    setup do
+      service = %{
+        slug: "basic_wash",
+        name: "Basic Wash",
+        description: "Exterior hand wash and quick interior",
+        base_price_cents: 5000,
+        duration_minutes: 45
+      }
+      %{service: service}
+    end
+
+    test "renders selected state with cyan border and check badge", %{service: service} do
+      assigns = %{service: service}
+      html = rendered_to_string(~H|<.service_card service={@service} selected={true} />|)
+      assert html =~ "border-cyan-500"
+      assert html =~ "✓" or html =~ "hero-check"
+    end
+
+    test "unselected state has no check badge", %{service: service} do
+      assigns = %{service: service}
+      html = rendered_to_string(~H|<.service_card service={@service} selected={false} />|)
+      refute html =~ "border-cyan-500"
+    end
+
+    test "click emits select_service event with slug", %{service: service} do
+      assigns = %{service: service}
+      html = rendered_to_string(~H|<.service_card service={@service} />|)
+      assert html =~ ~s(phx-click="select_service")
+      assert html =~ ~s(phx-value-slug="basic_wash")
+    end
+
+    test "renders price in mono font with dollar amount", %{service: service} do
+      assigns = %{service: service}
+      html = rendered_to_string(~H|<.service_card service={@service} />|)
+      assert html =~ "$50"
+      assert html =~ "font-mono"
+    end
+  end
 end

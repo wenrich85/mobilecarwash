@@ -74,21 +74,28 @@ defmodule MobileCarWashWeb.BookingComponents do
     ~H"""
     <div
       class={[
-        "card bg-base-100 shadow-md cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5",
-        if(@selected, do: "ring-2 ring-primary border-primary", else: "hover:border-primary/40")
+        "relative bg-base-100 rounded-box p-5 cursor-pointer transition-shadow hover:shadow-md",
+        if(@selected, do: "border-2 border-cyan-500", else: "border border-base-300")
       ]}
       phx-click="select_service"
       phx-value-slug={@service.slug}
     >
-      <div class="card-body">
-        <h3 class="card-title text-xl">{@service.name}</h3>
-        <p class="text-base-content/70">{@service.description}</p>
-        <div class="mt-4">
-          <span class="text-xs text-base-content/70">starting at</span>
-          <span class="text-3xl font-bold">${div(@service.base_price_cents, 100)}</span>
-        </div>
-        <div class="badge badge-info badge-outline">{@service.duration_minutes} min</div>
+      <div
+        :if={@selected}
+        class="absolute top-3 right-3 w-6 h-6 bg-cyan-500 text-white rounded-full flex items-center justify-center text-sm font-bold"
+      >
+        ✓
       </div>
+      <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-1">
+        {@service.name}
+      </div>
+      <div class="font-mono text-3xl font-bold text-base-content tabular-nums">
+        ${div(@service.base_price_cents, 100)}
+      </div>
+      <div class="text-xs text-base-content/60 mt-0.5 mb-3">
+        {@service.duration_minutes} min
+      </div>
+      <p class="text-sm text-base-content/80">{@service.description}</p>
     </div>
     """
   end
