@@ -46,16 +46,23 @@ defmodule MobileCarWash.Notifications.Email do
   Booking confirmation email — sent after successful payment.
   """
   def booking_confirmation(appointment, service_type, customer, address) do
+    when_str = Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")
+    where_str = "#{address.street}, #{address.city}, #{address.state} #{address.zip}"
+    total_str = "$#{div(appointment.price_cents, 100)}"
+
     inner_html = """
     <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your booking is confirmed!</h2>
     <p>Hi #{customer.name},</p>
-    <p>We've received your booking for <strong>#{service_type.name}</strong>.</p>
+    <p>We've received your booking for <strong>#{service_type.name}</strong>. Here are the details:</p>
     <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
       <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Service</td><td style="padding:4px 0;font-weight:600;">#{service_type.name}</td></tr>
-      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">When</td><td style="padding:4px 0;font-weight:600;">#{appointment.scheduled_at}</td></tr>
-      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Where</td><td style="padding:4px 0;font-weight:600;">#{address}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">When</td><td style="padding:4px 0;font-weight:600;">#{when_str}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Duration</td><td style="padding:4px 0;font-weight:600;">#{appointment.duration_minutes} minutes</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Where</td><td style="padding:4px 0;font-weight:600;">#{where_str}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Total</td><td style="padding:4px 0;font-weight:600;">#{total_str}</td></tr>
     </table>
     <p style="color:#64748b;font-size:13px;">We'll text you the day before with our 15-minute arrival window.</p>
+    <p style="color:#64748b;font-size:12px;">Booking ID: <code>#{appointment.id}</code></p>
     """
 
     inner_text = """
@@ -63,11 +70,13 @@ defmodule MobileCarWash.Notifications.Email do
 
     Hi #{customer.name},
 
-    We've received your booking for #{service_type.name}.
-
     Service: #{service_type.name}
-    When: #{appointment.scheduled_at}
-    Where: #{address}
+    When: #{when_str}
+    Duration: #{appointment.duration_minutes} minutes
+    Where: #{where_str}
+    Total: #{total_str}
+
+    Booking ID: #{appointment.id}
 
     We'll text you the day before with our 15-minute arrival window.
     """
@@ -194,7 +203,12 @@ defmodule MobileCarWash.Notifications.Email do
   Payment receipt — sent after a successful charge.
   """
   def payment_receipt(customer, payment, service_name) do
-    amount_dollars = :erlang.float_to_binary(payment.amount_cents / 100, decimals: 2)
+    paid_at =
+      if payment.paid_at, do: Calendar.strftime(payment.paid_at, "%B %d, %Y"), else: "Today"
+
+    dollars = div(payment.amount_cents, 100)
+    cents = rem(payment.amount_cents, 100)
+    amount_str = "#{dollars}.#{String.pad_leading("#{cents}", 2, "0")}"
 
     inner_html = """
     <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Payment received</h2>
@@ -202,7 +216,8 @@ defmodule MobileCarWash.Notifications.Email do
     <p>Thanks for your payment. Here are the details:</p>
     <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
       <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Service</td><td style="padding:4px 0;font-weight:600;">#{service_name}</td></tr>
-      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Amount</td><td style="padding:4px 0;font-weight:600;">$#{amount_dollars}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Amount</td><td style="padding:4px 0;font-weight:600;">$#{amount_str}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Date</td><td style="padding:4px 0;font-weight:600;">#{paid_at}</td></tr>
       <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Receipt #</td><td style="padding:4px 0;font-weight:600;font-family:monospace;">#{payment.id}</td></tr>
     </table>
     """
@@ -213,14 +228,15 @@ defmodule MobileCarWash.Notifications.Email do
     Hi #{customer.name},
 
     Service: #{service_name}
-    Amount: $#{amount_dollars}
+    Amount: $#{amount_str}
+    Date: #{paid_at}
     Receipt: #{payment.id}
     """
 
     new()
     |> to({customer.name, to_string(customer.email)})
     |> from(@from)
-    |> subject("Payment Receipt — Driveway Detail Co")
+    |> subject("Payment Receipt — $#{amount_str}")
     |> html_body(Layout.wrap_html(inner_html))
     |> text_body(Layout.wrap_text(inner_text))
   end
@@ -331,10 +347,27 @@ defmodule MobileCarWash.Notifications.Email do
   Cancellation confirmation email.
   """
   def booking_cancelled(customer, appointment, service_name) do
+    when_str = Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")
+
+    reason_html =
+      case appointment.cancellation_reason do
+        nil -> ""
+        "" -> ""
+        reason -> ~s(<p><strong>Reason:</strong> #{reason}</p>)
+      end
+
+    reason_text =
+      case appointment.cancellation_reason do
+        nil -> ""
+        "" -> ""
+        reason -> "Reason: #{reason}\n"
+      end
+
     inner_html = """
     <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your booking was cancelled</h2>
     <p>Hi #{customer.name},</p>
-    <p>Your booking for <strong>#{service_name}</strong> on #{appointment.scheduled_at} has been cancelled.</p>
+    <p>Your booking for <strong>#{service_name}</strong> on #{when_str} has been cancelled.</p>
+    #{reason_html}
     <p>If this was a mistake or you'd like to rebook, you can do so anytime.</p>
     <p style="margin:24px 0;">#{Layout.button("Book again", "https://drivewaydetailcosa.com/book")}</p>
     """
@@ -344,15 +377,15 @@ defmodule MobileCarWash.Notifications.Email do
 
     Hi #{customer.name},
 
-    Your booking for #{service_name} on #{appointment.scheduled_at} has been cancelled.
-
+    Your booking for #{service_name} on #{when_str} has been cancelled.
+    #{reason_text}
     Book again: https://drivewaydetailcosa.com/book
     """
 
     new()
     |> to({customer.name, to_string(customer.email)})
     |> from(@from)
-    |> subject("Booking Cancelled — #{service_name}")
+    |> subject("Booking Cancelled - #{service_name}")
     |> html_body(Layout.wrap_html(inner_html))
     |> text_body(Layout.wrap_text(inner_text))
   end
