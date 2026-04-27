@@ -68,6 +68,7 @@ defmodule MobileCarWashWeb.LandingLive do
 
     <div>
       <%!-- =================== TOP NAV =================== --%>
+      <%!-- TODO: spec called for a "Sign in" link here. Add when /sign-in route exists (phase-2). --%>
       <nav class="bg-base-100 border-b border-base-300">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <a href="/" class="flex items-center">
@@ -147,7 +148,7 @@ defmodule MobileCarWashWeb.LandingLive do
               ]}
             >
               <:cta>
-                <.link navigate={~p"/book?service=basic_wash"} class="btn btn-outline w-full">
+                <.link navigate={~p"/book?service=#{@basic.slug}"} class="btn btn-outline w-full">
                   Book Basic
                 </.link>
               </:cta>
@@ -248,6 +249,7 @@ defmodule MobileCarWashWeb.LandingLive do
       </.cta_band>
 
       <%!-- =================== FOOTER =================== --%>
+      <%!-- TODO: spec called for "Terms" and "Sign in" links here. Add when /terms and /sign-in routes exist. --%>
       <footer class="bg-base-200 border-t border-base-300 py-6 px-4">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-base-content/60">
           <div>© 2026 Driveway Detail Co. LLC · San Antonio, TX · Veteran-owned</div>
