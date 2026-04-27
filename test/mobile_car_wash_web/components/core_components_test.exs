@@ -287,4 +287,34 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "width: 0%"
     end
   end
+
+  describe "empty_state/1" do
+    test "renders icon, title, body" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.empty_state icon="hero-inbox" title="Nothing here yet" body="Once you book, it'll show up here." />
+        """)
+
+      assert html =~ "hero-inbox"
+      assert html =~ "Nothing here yet"
+      assert html =~ "Once you book"
+    end
+
+    test "renders action slot" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.empty_state icon="hero-inbox" title="Empty" body="Add one.">
+          <:action>
+            <button>Add</button>
+          </:action>
+        </.empty_state>
+        """)
+
+      assert html =~ "<button>Add</button>"
+    end
+  end
 end

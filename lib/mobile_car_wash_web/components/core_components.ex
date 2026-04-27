@@ -641,4 +641,31 @@ defmodule MobileCarWashWeb.CoreComponents do
     </div>
     """
   end
+
+  @doc """
+  Renders an empty-state placeholder with icon, title, body, optional action.
+
+  ## Examples
+
+      <.empty_state icon="hero-calendar" title="No appointments" body="Book your first wash to get started." />
+  """
+  attr :icon, :string, required: true, doc: "hero-* icon name"
+  attr :title, :string, required: true
+  attr :body, :string, required: true
+  slot :action
+
+  def empty_state(assigns) do
+    ~H"""
+    <div class="flex flex-col items-center justify-center py-12 px-6 text-center">
+      <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center mb-4">
+        <.icon name={@icon} class="size-6 text-base-content/50" />
+      </div>
+      <h3 class="text-base font-semibold text-base-content mb-1">{@title}</h3>
+      <p class="text-sm text-base-content/70 max-w-sm">{@body}</p>
+      <div :if={@action != []} class="mt-4">
+        {render_slot(@action)}
+      </div>
+    </div>
+    """
+  end
 end
