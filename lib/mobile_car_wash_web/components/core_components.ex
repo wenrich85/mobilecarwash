@@ -112,7 +112,7 @@ defmodule MobileCarWashWeb.CoreComponents do
     <div
       id={@id}
       class={["fixed inset-0 z-50 flex items-center justify-center p-4", !@show && "hidden"]}
-      phx-mounted={@show && show("##{@id}")}
+      phx-mounted={if @show, do: show("##{@id}")}
       role="dialog"
       aria-modal="true"
     >
