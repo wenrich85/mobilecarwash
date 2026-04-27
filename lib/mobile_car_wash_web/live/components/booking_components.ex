@@ -222,58 +222,54 @@ defmodule MobileCarWashWeb.BookingComponents do
 
   def booking_summary(assigns) do
     ~H"""
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h3 class="card-title text-xl mb-4">Booking Summary</h3>
+    <div class="bg-base-100 border border-base-300 rounded-box p-5">
+      <h3 class="text-lg font-semibold text-base-content mb-4">Booking Summary</h3>
 
-        <div class="space-y-4">
-          <div>
-            <span class="font-semibold">Service:</span>
-            <span>{@service.name}</span>
-          </div>
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between gap-4">
+          <dt class="text-base-content/60">Service</dt>
+          <dd class="font-semibold text-right">{@service.name}</dd>
+        </div>
 
-          <div>
-            <span class="font-semibold">Vehicle:</span>
-            <span>{@vehicle.year} {@vehicle.make} {@vehicle.model}</span>
-            <span class="badge badge-sm badge-outline ml-2">
-              {MobileCarWash.Billing.Pricing.size_label(@vehicle.size)}
+        <div class="flex justify-between gap-4">
+          <dt class="text-base-content/60">Vehicle</dt>
+          <dd class="font-semibold text-right">
+            {@vehicle.year} {@vehicle.make} {@vehicle.model}
+            <span class="ml-1 text-xs font-normal text-base-content/60">
+              ({MobileCarWash.Billing.Pricing.size_label(@vehicle.size)})
             </span>
-            <span :if={@vehicle.size != :car} class="text-xs text-warning ml-1">
-              ({MobileCarWash.Billing.Pricing.multiplier(@vehicle.size)}x)
-            </span>
-          </div>
+          </dd>
+        </div>
 
-          <div>
-            <span class="font-semibold">Location:</span>
-            <span>{@address.street}, {@address.city}, {@address.state} {@address.zip}</span>
-          </div>
+        <div class="flex justify-between gap-4">
+          <dt class="text-base-content/60">Location</dt>
+          <dd class="font-semibold text-right">
+            {@address.street}, {@address.city}, {@address.state} {@address.zip}
+          </dd>
+        </div>
 
-          <div>
-            <span class="font-semibold">Date & Time:</span>
-            <span>{Calendar.strftime(@appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}</span>
-          </div>
+        <div class="flex justify-between gap-4">
+          <dt class="text-base-content/60">Date &amp; Time</dt>
+          <dd class="font-semibold text-right">
+            {Calendar.strftime(@appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}
+          </dd>
+        </div>
 
-          <div>
-            <span class="font-semibold">Duration:</span>
-            <span>{@service.duration_minutes} minutes</span>
-          </div>
+        <div class="flex justify-between gap-4">
+          <dt class="text-base-content/60">Duration</dt>
+          <dd class="font-semibold text-right">{@service.duration_minutes} minutes</dd>
+        </div>
+      </dl>
 
-          <div class="divider"></div>
-
-          <div class="flex justify-between text-lg">
-            <span class="font-bold">Total:</span>
-            <div>
-              <span
-                :if={@appointment.discount_cents > 0}
-                class="line-through text-base-content/70 mr-2"
-              >
-                ${div(@service.base_price_cents, 100)}
-              </span>
-              <span class="font-bold text-primary">
-                ${div(@appointment.price_cents, 100)}
-              </span>
-            </div>
-          </div>
+      <div class="border-t border-base-300 mt-4 pt-4 flex justify-between items-baseline">
+        <span class="text-sm font-semibold text-base-content">Total</span>
+        <div>
+          <span :if={@appointment.discount_cents > 0} class="line-through text-base-content/50 mr-2 text-sm">
+            ${div(@service.base_price_cents, 100)}
+          </span>
+          <span class="font-mono text-2xl font-bold text-cyan-700 tabular-nums">
+            ${div(@appointment.price_cents, 100)}
+          </span>
         </div>
       </div>
     </div>

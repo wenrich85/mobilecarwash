@@ -118,4 +118,21 @@ defmodule MobileCarWashWeb.BookingComponentsTest do
       assert html =~ "bg-cyan-500"
     end
   end
+
+  describe "booking_summary/1" do
+    test "renders all booking detail fields" do
+      assigns = %{
+        appointment: %{scheduled_at: ~U[2026-04-30 09:00:00Z], price_cents: 5000, discount_cents: 0},
+        service: %{name: "Basic Wash", base_price_cents: 5000, duration_minutes: 45},
+        vehicle: %{year: 2023, make: "Tesla", model: "Model 3", size: :car},
+        address: %{street: "123 Main St", city: "San Antonio", state: "TX", zip: "78261"}
+      }
+      html = rendered_to_string(~H|<.booking_summary appointment={@appointment} service={@service} vehicle={@vehicle} address={@address} />|)
+      assert html =~ "Basic Wash"
+      assert html =~ "2023 Tesla Model 3"
+      assert html =~ "123 Main St"
+      assert html =~ "$50"
+      assert html =~ "45 minutes"
+    end
+  end
 end
