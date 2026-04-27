@@ -109,4 +109,44 @@ defmodule MobileCarWashWeb.MarketingComponentsTest do
       refute html =~ "MOST POPULAR"
     end
   end
+
+  describe "tech_section/1" do
+    test "renders eyebrow, headline, subhead" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.tech_section
+          eyebrow="[ DIFF ]"
+          headline="On-time arrival"
+          subhead="15-min windows."
+        >
+          <:preview>SMS_PREVIEW_HERE</:preview>
+        </.tech_section>
+        """)
+
+      assert html =~ "[ DIFF ]"
+      assert html =~ "On-time arrival"
+      assert html =~ "15-min windows."
+      assert html =~ "SMS_PREVIEW_HERE"
+    end
+
+    test "renders bullets with arrow prefixes" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.tech_section
+          headline="X"
+          subhead="Y"
+          bullets={["First point", "Second point"]}
+        >
+          <:preview>P</:preview>
+        </.tech_section>
+        """)
+
+      assert html =~ "First point"
+      assert html =~ "Second point"
+    end
+  end
 end

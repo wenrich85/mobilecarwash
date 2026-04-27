@@ -82,4 +82,42 @@ defmodule MobileCarWashWeb.MarketingComponents do
     </div>
     """
   end
+
+  @doc """
+  Renders a dark "how we're different" section with cyan glow.
+
+  Two-column on desktop (type left, :preview slot right), stacks on mobile.
+  """
+  attr :eyebrow, :string, default: "[ HOW WE'RE DIFFERENT ]"
+  attr :headline, :string, required: true
+  attr :subhead, :string, required: true
+  attr :bullets, :list, default: []
+  slot :preview
+
+  def tech_section(assigns) do
+    ~H"""
+    <section class="relative bg-slate-900 py-16 px-4 overflow-hidden">
+      <div class="absolute top-1/2 -right-20 w-96 h-96 bg-cyan-500/25 rounded-full blur-3xl -translate-y-1/2"></div>
+      <div class="relative max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+        <div>
+          <div class="font-mono text-xs text-cyan-400 tracking-widest mb-2">
+            {@eyebrow}
+          </div>
+          <h2 class="text-2xl md:text-3xl font-bold text-white tracking-tight leading-[1.15] mb-3">
+            {@headline}
+          </h2>
+          <p class="text-sm md:text-base text-slate-400 leading-relaxed mb-4">
+            {@subhead}
+          </p>
+          <ul :if={@bullets != []} class="text-sm text-slate-300 space-y-2 list-none p-0">
+            <li :for={bullet <- @bullets}>{bullet}</li>
+          </ul>
+        </div>
+        <div :if={@preview != []}>
+          {render_slot(@preview)}
+        </div>
+      </div>
+    </section>
+    """
+  end
 end
