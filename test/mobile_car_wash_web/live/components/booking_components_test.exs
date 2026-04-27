@@ -135,4 +135,30 @@ defmodule MobileCarWashWeb.BookingComponentsTest do
       assert html =~ "45 minutes"
     end
   end
+
+  describe "confirmation_card/1" do
+    test "renders headline, service, formatted date, and booking ID" do
+      assigns = %{
+        appointment: %{id: "appt_test_123", scheduled_at: ~U[2026-04-30 09:00:00Z]},
+        service: %{name: "Basic Wash"}
+      }
+      html = rendered_to_string(~H|<.confirmation_card appointment={@appointment} service={@service} />|)
+      assert html =~ "Booking Confirmed"
+      assert html =~ "Basic Wash"
+      assert html =~ "appt_test_123"
+      assert html =~ "April 30"
+    end
+
+    test "renders cyan check icon" do
+      assigns = %{appointment: %{id: "x", scheduled_at: ~U[2026-04-30 09:00:00Z]}, service: %{name: "X"}}
+      html = rendered_to_string(~H|<.confirmation_card appointment={@appointment} service={@service} />|)
+      assert html =~ "hero-check-circle" or html =~ "text-cyan-500"
+    end
+
+    test "does NOT render its own CTA link (consumer renders that)" do
+      assigns = %{appointment: %{id: "x", scheduled_at: ~U[2026-04-30 09:00:00Z]}, service: %{name: "X"}}
+      html = rendered_to_string(~H|<.confirmation_card appointment={@appointment} service={@service} />|)
+      refute html =~ "Back to Home"
+    end
+  end
 end

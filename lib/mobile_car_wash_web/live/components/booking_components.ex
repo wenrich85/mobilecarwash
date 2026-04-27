@@ -4,6 +4,7 @@ defmodule MobileCarWashWeb.BookingComponents do
   """
   use Phoenix.Component
   use MobileCarWashWeb, :verified_routes
+  import MobileCarWashWeb.CoreComponents, only: [icon: 1]
 
   @steps [:select_service, :auth, :vehicle, :address, :photos, :schedule, :review, :confirmed]
 
@@ -281,31 +282,30 @@ defmodule MobileCarWashWeb.BookingComponents do
 
   def confirmation_card(assigns) do
     ~H"""
-    <div class="text-center py-8">
-      <div class="text-6xl mb-4">✓</div>
-      <h2 class="text-3xl font-bold mb-4">Booking Confirmed!</h2>
-      <p class="text-lg text-base-content/70 mb-8">
-        Your {@service.name} is scheduled for {Calendar.strftime(
+    <div class="text-center py-8 max-w-md mx-auto">
+      <div class="flex justify-center mb-4">
+        <.icon name="hero-check-circle" class="size-12 text-cyan-500" />
+      </div>
+      <h2 class="text-2xl font-bold text-base-content tracking-tight mb-2">
+        Booking Confirmed!
+      </h2>
+      <p class="text-sm text-base-content/70 mb-6">
+        Your <strong>{@service.name}</strong> is scheduled for {Calendar.strftime(
           @appointment.scheduled_at,
           "%B %d, %Y at %I:%M %p"
         )}.
       </p>
 
-      <div class="card bg-base-100 shadow-xl max-w-md mx-auto">
-        <div class="card-body">
-          <p class="text-sm text-base-content/70">Booking ID</p>
-          <p class="font-mono text-sm">{@appointment.id}</p>
-
-          <div class="mt-4">
-            <span class="badge badge-warning badge-lg">Pending Confirmation</span>
-          </div>
+      <div class="bg-base-100 border border-base-300 rounded-box p-4 text-left">
+        <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-1">
+          Booking ID
         </div>
-      </div>
-
-      <div class="mt-8">
-        <.link navigate={~p"/"} class="btn btn-primary">
-          Back to Home
-        </.link>
+        <div class="font-mono text-sm text-base-content">{@appointment.id}</div>
+        <div class="mt-3">
+          <span class="inline-flex items-center text-[10px] font-bold uppercase tracking-wide bg-warning/15 text-warning px-2 py-0.5 rounded">
+            Pending Confirmation
+          </span>
+        </div>
       </div>
     </div>
     """
