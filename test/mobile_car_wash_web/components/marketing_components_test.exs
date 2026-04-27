@@ -185,4 +185,22 @@ defmodule MobileCarWashWeb.MarketingComponentsTest do
       refute html =~ "Tesla"
     end
   end
+
+  describe "cta_band/1" do
+    test "renders headline, subhead, cta" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.cta_band headline="Ready?" subhead="No commitment.">
+          <:cta><a href="/booking">Book</a></:cta>
+        </.cta_band>
+        """)
+
+      assert html =~ "Ready?"
+      assert html =~ "No commitment."
+      assert html =~ ~s(href="/booking")
+      assert html =~ ">Book<"
+    end
+  end
 end

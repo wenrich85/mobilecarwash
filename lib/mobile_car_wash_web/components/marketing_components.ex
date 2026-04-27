@@ -142,4 +142,26 @@ defmodule MobileCarWashWeb.MarketingComponents do
     </div>
     """
   end
+
+  @doc """
+  Renders a centered CTA band — used near the bottom of marketing pages
+  to drive a final conversion.
+  """
+  attr :headline, :string, required: true
+  attr :subhead, :string, required: true
+  slot :cta, required: true
+
+  def cta_band(assigns) do
+    ~H"""
+    <section class="bg-base-100 py-12 px-4 text-center">
+      <h2 class="text-2xl font-bold text-base-content tracking-tight mb-2">
+        {@headline}
+      </h2>
+      <p class="text-sm text-base-content/60 mb-5">{@subhead}</p>
+      <div class="flex justify-center min-h-12">
+        {render_slot(@cta)}
+      </div>
+    </section>
+    """
+  end
 end
