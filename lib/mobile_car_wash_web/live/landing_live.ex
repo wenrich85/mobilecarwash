@@ -1,6 +1,7 @@
 defmodule MobileCarWashWeb.LandingLive do
   use MobileCarWashWeb, :live_view
 
+  import MobileCarWashWeb.MarketingComponents
   import MobileCarWashWeb.Live.Helpers.EventTracker
 
   alias MobileCarWash.Scheduling.ServiceType
@@ -51,207 +52,211 @@ defmodule MobileCarWashWeb.LandingLive do
   def render(assigns) do
     assigns = assign(assigns, local_business_json: local_business_schema(assigns.services))
 
+    basic = Enum.find(assigns.services, fn s -> s.slug == "basic_wash" end)
+
+    premium =
+      Enum.find(assigns.services, fn s -> s.slug == "deep_clean_detail" end) ||
+        Enum.find(assigns.services, fn s -> s.slug == "premium" end)
+
+    assigns = assign(assigns, basic: basic, premium: premium)
+
     ~H"""
-    <!-- Structured Data for Google -->
+    <%!-- Schema.org JSON-LD for Google rich results --%>
     <script type="application/ld+json" nonce={@csp_nonce}>
       <%= Phoenix.HTML.raw(@local_business_json) %>
     </script>
 
-    <!-- Hero Section — Navy gradient with Steel Blue accent -->
-    <section class="hero min-h-[70vh] bg-gradient-to-br from-primary-800 via-primary-700 to-tertiary-700 text-white relative overflow-hidden">
-      <!-- Decorative circles -->
-      <div class="absolute top-[-5rem] right-[-5rem] w-64 h-64 bg-tertiary-400/10 rounded-full"></div>
-      <div class="absolute bottom-[-3rem] left-[-3rem] w-48 h-48 bg-tertiary-400/10 rounded-full">
-      </div>
+    <div>
+      <%!-- =================== TOP NAV =================== --%>
+      <nav class="bg-base-100 border-b border-base-300">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <a href="/" class="flex items-center">
+            <img src={~p"/images/logo_light_v2.svg"} alt="Driveway Detail Co" class="h-8" />
+          </a>
+          <div class="flex items-center gap-4">
+            <.link navigate={~p"/book"} class="btn btn-primary btn-sm">
+              Book a wash
+            </.link>
+          </div>
+        </div>
+      </nav>
 
-      <div class="hero-content text-center relative z-10">
-        <div class="max-w-2xl">
-          <img
-            src="/images/logo_dark.svg"
-            alt="Driveway Detail Co"
-            width="288"
-            height="48"
-            fetchpriority="high"
-            decoding="async"
-            class="h-12 w-auto mx-auto mb-6"
-          />
-          <h1 class="text-5xl font-bold leading-tight">Professional Detailing <br />at Your Door</h1>
-          <p class="text-tertiary-200 font-medium tracking-wide uppercase text-sm mt-4">
-            Veteran-Owned &amp; Operated
-          </p>
-          <p class="py-6 text-lg text-primary-200">
-            Skip the drive. We bring the full detailing experience to your home, office, or anywhere you park.
-          </p>
-          <div class="flex gap-4 justify-center">
-            <a
-              href="#services"
-              class="btn btn-lg bg-tertiary-400 hover:bg-tertiary-500 text-white border-none"
+      <%!-- =================== HERO =================== --%>
+      <.hero
+        headline="Your car, washed where you parked it."
+        subhead="Book in 30 seconds. We come to you. Pay when it's done."
+        trust_badge="SAN ANTONIO · LICENSED & INSURED"
+      >
+        <:primary_cta>
+          <.link navigate={~p"/book"} class="btn btn-primary">
+            Book my first wash
+          </.link>
+        </:primary_cta>
+        <:secondary_cta>
+          <a href="#pricing" class="btn btn-ghost">See pricing</a>
+        </:secondary_cta>
+      </.hero>
+
+      <%!-- =================== HOW IT WORKS =================== --%>
+      <section class="bg-base-100 py-12 px-4">
+        <div class="max-w-6xl mx-auto">
+          <div class="text-center mb-8">
+            <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-1">
+              HOW IT WORKS
+            </div>
+            <h2 class="text-2xl font-bold text-base-content tracking-tight">
+              Three steps. No hose hookup.
+            </h2>
+          </div>
+          <.feature_grid columns={3}>
+            <:item number="1" title="Book online">
+              Pick a service, pick a time, enter your address. 30 seconds.
+            </:item>
+            <:item number="2" title="We come to you">
+              SMS update with our 15-minute arrival window. Self-contained van — no hose, no power needed.
+            </:item>
+            <:item number="3" title="Pay when done">
+              No deposit. Card charged after the job. Photos before and after for your records.
+            </:item>
+          </.feature_grid>
+        </div>
+      </section>
+
+      <%!-- =================== PRICING =================== --%>
+      <section id="pricing" class="bg-base-200 py-12 px-4">
+        <div class="max-w-4xl mx-auto">
+          <div class="text-center mb-8">
+            <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-1">
+              PRICING
+            </div>
+            <h2 class="text-2xl font-bold text-base-content tracking-tight">
+              Two tiers. No hidden fees.
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <.service_tier_card
+              :if={@basic}
+              name="Basic Wash"
+              price="$50"
+              duration="~45 min"
+              features={[
+                "Exterior hand wash",
+                "Wheels & tires",
+                "Window streak-free finish",
+                "Quick interior vacuum"
+              ]}
             >
-              See Services
-            </a>
-            <a
-              href="#plans"
-              class="btn btn-lg btn-outline border-white/40 text-white hover:bg-white/10 hover:border-white/60"
+              <:cta>
+                <.link navigate={~p"/book?service=basic_wash"} class="btn btn-outline w-full">
+                  Book Basic
+                </.link>
+              </:cta>
+            </.service_tier_card>
+
+            <.service_tier_card
+              :if={@premium}
+              name="Premium"
+              price="$199.99"
+              duration="~3 hours"
+              highlighted={true}
+              features={[
+                "Everything in Basic",
+                "Full interior wipe-down",
+                "Shampoo carpets & seats",
+                "Leather treatment",
+                "Tire shine + wax coat",
+                "Engine bay detail"
+              ]}
             >
-              View Plans
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Services Section -->
-    <section id="services" class="py-20 px-4 bg-base-200">
-      <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl font-bold text-center mb-3">Our Services</h2>
-        <p class="text-center text-base-content/80 mb-12">Professional results, wherever you park.</p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <div
-            :for={service <- @services}
-            class="card bg-base-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
-          >
-            <div class="card-body">
-              <h3 class="card-title text-2xl">{service.name}</h3>
-              <p class="text-base-content/70">{service.description}</p>
-
-              <div class="flex items-baseline gap-2 mt-4">
-                <span class="text-sm text-base-content/70">starting at</span>
-                <span class="text-4xl font-bold">${div(service.base_price_cents, 100)}</span>
-              </div>
-              <p class="text-xs text-base-content/70">Price varies by vehicle type</p>
-
-              <div class="badge badge-info badge-outline mt-2">
-                {service.duration_minutes} minutes
-              </div>
-
-              <div class="card-actions justify-end mt-6">
-                <.link
-                  navigate={~p"/book?service=#{service.slug}"}
-                  class="btn btn-primary btn-block"
-                >
-                  Book Now
+              <:cta>
+                <.link navigate={~p"/book?service=#{@premium.slug}"} class="btn btn-primary w-full">
+                  Book Premium
                 </.link>
-              </div>
-            </div>
+              </:cta>
+            </.service_tier_card>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- How It Works -->
-    <section class="py-20 px-4 bg-base-100">
-      <div class="max-w-4xl mx-auto">
-        <h2 class="text-3xl font-bold text-center mb-12">How It Works</h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div
-            :for={
-              {num, title, desc} <- [
-                {"1", "Choose Your Service", "Pick a basic wash or deep clean that fits your needs."},
-                {"2", "Pick a Time", "Select a date and time that works for your schedule."},
-                {"3", "We Come to You", "Relax while we wash your car right where it's parked."}
-              ]
-            }
-            class="text-center"
-          >
-            <div class="w-14 h-14 rounded-full bg-primary text-primary-content text-xl font-bold flex items-center justify-center mx-auto mb-4 shadow-md">
-              {num}
+      <%!-- =================== TECH SECTION =================== --%>
+      <.tech_section
+        headline="We tell you exactly when we'll arrive."
+        subhead="Most mobile washes give you a 4-hour window. We give you 15 minutes — and SMS the moment we're 5 minutes out."
+        bullets={[
+          "→ 15-minute arrival windows, not \"morning\" or \"afternoon\"",
+          "→ Live SMS updates as your tech approaches",
+          "→ Photos of your car before and after every wash"
+        ]}
+      >
+        <:preview>
+          <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 font-mono text-xs text-slate-300 space-y-3">
+            <div>
+              <div class="text-slate-500 mb-1">Driveway · 9:42 AM</div>
+              <div class="text-cyan-400">Driveway:</div>
+              <div>Hi Maria — Jordan is 8 minutes away. He'll text again when he's pulling up. 🚐</div>
             </div>
-            <h3 class="text-xl font-bold mb-2">{title}</h3>
-            <p class="text-base-content/70">{desc}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Subscription Plans -->
-    <section id="plans" class="py-20 px-4 bg-base-200">
-      <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl font-bold text-center mb-3">Monthly Plans</h2>
-        <p class="text-center text-base-content/80 mb-12">
-          Save with a subscription — cancel anytime.
-        </p>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div
-            :for={plan <- @plans}
-            class={[
-              "card bg-base-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200",
-              plan.slug == "standard" && "border-2 border-primary md:scale-105 shadow-xl"
-            ]}
-          >
-            <div class="card-body">
-              <div :if={plan.slug == "standard"} class="badge badge-primary mb-2">Most Popular</div>
-              <h3 class="card-title text-2xl">{plan.name}</h3>
-
-              <div class="flex items-baseline gap-1 mt-4">
-                <span class="text-4xl font-bold">${div(plan.price_cents, 100)}</span>
-                <span class="text-base-content/70">/month</span>
-              </div>
-
-              <ul class="mt-6 space-y-3">
-                <li :if={plan.basic_washes_per_month > 0} class="flex items-center gap-2">
-                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">
-                    &#10003;
-                  </span>
-                  <span>{plan.basic_washes_per_month} basic washes/month</span>
-                </li>
-                <li :if={plan.deep_cleans_per_month > 0} class="flex items-center gap-2">
-                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">
-                    &#10003;
-                  </span>
-                  <span>{plan.deep_cleans_per_month} deep clean included</span>
-                </li>
-                <li :if={plan.deep_clean_discount_percent > 0} class="flex items-center gap-2">
-                  <span class="w-5 h-5 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">
-                    &#10003;
-                  </span>
-                  <span>{plan.deep_clean_discount_percent}% off deep cleans</span>
-                </li>
-              </ul>
-
-              <div class="card-actions justify-end mt-6">
-                <.link navigate={~p"/subscribe?plan=#{plan.slug}"} class="btn btn-primary btn-block">
-                  Subscribe
-                </.link>
-              </div>
+            <div>
+              <div class="text-slate-500 mb-1">Driveway · 9:50 AM</div>
+              <div class="text-cyan-400">Driveway:</div>
+              <div>Pulling into your driveway now. Wash should take about 45 min.</div>
             </div>
           </div>
+        </:preview>
+      </.tech_section>
+
+      <%!-- =================== TESTIMONIALS =================== --%>
+      <section class="bg-base-200 py-12 px-4">
+        <div class="max-w-6xl mx-auto">
+          <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-base-content tracking-tight">
+              What customers say
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <%!-- COPY: TBD - replace with real customer quote pre-launch --%>
+            <.testimonial
+              quote="Showed up exactly on time and my car looked brand new. Worth every penny."
+              name="Maria G."
+              vehicle="2023 Tesla Model 3"
+            />
+            <%!-- COPY: TBD - replace with real customer quote pre-launch --%>
+            <.testimonial
+              quote="I work from home and didn't even have to stop my Zoom call. They just did their thing in the driveway."
+              name="Marcus T."
+              vehicle="2021 Toyota 4Runner"
+            />
+            <%!-- COPY: TBD - replace with real customer quote pre-launch --%>
+            <.testimonial
+              quote="The detail job on my truck was unreal. Carpets I'd written off look new again."
+              name="Brittany R."
+              vehicle="2018 Ford F-150"
+            />
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Veteran Badge -->
-    <section class="py-16 px-4 bg-primary-700 text-white">
-      <div class="max-w-2xl mx-auto text-center">
-        <img
-          src="/images/logo_dark.svg"
-          alt="Driveway Detail Co"
-          width="240"
-          height="40"
-          loading="lazy"
-          decoding="async"
-          class="h-10 w-auto mx-auto mb-4 opacity-80"
-        />
-        <p class="text-xl font-semibold">
-          Proudly veteran-owned and operated
-        </p>
-        <p class="text-primary-200 mt-2">
-          100% disabled veteran-owned small business serving the local community.
-        </p>
-      </div>
-    </section>
+      <%!-- =================== FINAL CTA =================== --%>
+      <.cta_band
+        headline="Ready for a clean car without the trip?"
+        subhead="First wash, no commitment. Book in 30 seconds."
+      >
+        <:cta>
+          <.link navigate={~p"/book"} class="btn btn-primary">
+            Book my first wash →
+          </.link>
+        </:cta>
+      </.cta_band>
 
-    <footer class="py-8 px-4 bg-base-200 text-base-content/70 text-sm">
-      <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div>&copy; {Date.utc_today().year} Driveway Detail Co. All rights reserved.</div>
-        <nav class="flex gap-4">
-          <.link href="/privacy" class="hover:underline">Privacy Policy</.link>
-          <a href="mailto:hello@drivewaydetailcosa.com" class="hover:underline">Contact</a>
-        </nav>
-      </div>
-    </footer>
+      <%!-- =================== FOOTER =================== --%>
+      <footer class="bg-base-200 border-t border-base-300 py-6 px-4">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-base-content/60">
+          <div>© 2026 Driveway Detail Co. LLC · San Antonio, TX · Veteran-owned</div>
+          <div class="flex items-center gap-4">
+            <a href={~p"/privacy"} class="hover:text-base-content">Privacy</a>
+          </div>
+        </div>
+      </footer>
+    </div>
     """
   end
 
