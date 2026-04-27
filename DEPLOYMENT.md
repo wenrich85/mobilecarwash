@@ -162,3 +162,32 @@ sudo tail -f /var/log/nginx/access.log
 | Spaces (5GB) | $5 |
 | Domain | ~$12/yr |
 | **Total** | **~$33/mo** |
+
+## Pre-deploy: email sender domain change (Plan 2)
+
+The email sender changed from `noreply@mobilecarwash.com` to
+`noreply@drivewaydetailcosa.com`. Before deploying:
+
+- [ ] Add SPF record to drivewaydetailcosa.com DNS:
+      `v=spf1 include:<email-provider-spf> ~all`
+      (substitute the actual provider — SendGrid, Mailgun, AWS SES, etc.)
+- [ ] Add DKIM record(s) per email provider's instructions
+      (typically a CNAME or TXT at a provider-specific selector).
+- [ ] Add DMARC record:
+      Start: `v=DMARC1; p=none; rua=mailto:dmarc@drivewaydetailcosa.com`
+      After 1–2 weeks of monitoring with no false positives, tighten to
+      `p=quarantine`, then `p=reject`.
+- [ ] Verify deliverability with a test email to a Gmail account; check
+      that DKIM and SPF show "PASS" in the message headers.
+- [ ] Keep the `mobilecarwash.com` MX/SPF/DKIM in place for 30 days
+      after launch in case any in-flight email still references the old sender.
+
+## Pre-deploy: Stripe Checkout branding (Plan 2)
+
+The visual reboot needs Stripe to match. In Stripe Dashboard
+(Settings → Branding):
+
+- [ ] Upload new icon (`logo_icon_v2.svg` exported as 128×128 PNG)
+- [ ] Set primary color to `#06b6d4` (cyan)
+- [ ] Set background color to `#ffffff`
+- [ ] Update the customer-facing business name to "Driveway Detail Co"
