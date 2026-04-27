@@ -53,7 +53,7 @@ If failures, stop and investigate before adding Plan 2 work.
 
 - [ ] **Step 3: Verify required external binaries are installed**
 
-Run: `which rsvg-convert && which convert`
+Run: `which rsvg-convert && which magick`
 Expected: both print a path (e.g. `/opt/homebrew/bin/rsvg-convert`, `/opt/homebrew/bin/convert`).
 
 If either is missing, install:
@@ -296,17 +296,17 @@ The `-b '#1e293b'` background flag puts a slate-800 backplate on the apple-touch
 The icon SVG has aspect 32×40. The above commands rasterized to non-square — apple-touch wants 180×180 square. Use ImageMagick to center the icon on a square slate-800 canvas:
 
 ```bash
-convert -size 180x180 xc:'#1e293b' \
+magick -size 180x180 xc:'#1e293b' \
   \( /tmp/apple-raw.png -resize 144x180 \) \
   -gravity center -composite \
   priv/static/images/apple-touch-icon-v2.png
 
-convert -size 192x192 xc:'#1e293b' \
+magick -size 192x192 xc:'#1e293b' \
   \( /tmp/android-192-raw.png -resize 154x192 \) \
   -gravity center -composite \
   priv/static/images/android-chrome-v2-192.png
 
-convert -size 512x512 xc:'#1e293b' \
+magick -size 512x512 xc:'#1e293b' \
   \( /tmp/android-512-raw.png -resize 410x512 \) \
   -gravity center -composite \
   priv/static/images/android-chrome-v2-512.png
@@ -317,7 +317,7 @@ convert -size 512x512 xc:'#1e293b' \
 - [ ] **Step 3: Build the multi-res .ico**
 
 ```bash
-convert priv/static/images/favicon-v2-16.png priv/static/images/favicon-v2-32.png \
+magick priv/static/images/favicon-v2-16.png priv/static/images/favicon-v2-32.png \
   priv/static/images/favicon-v2.ico
 ```
 
