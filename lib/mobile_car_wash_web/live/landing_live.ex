@@ -4,7 +4,6 @@ defmodule MobileCarWashWeb.LandingLive do
   import MobileCarWashWeb.Live.Helpers.EventTracker
 
   alias MobileCarWash.Scheduling.ServiceType
-  alias MobileCarWash.Billing.SubscriptionPlan
 
   require Ash.Query
 
@@ -16,18 +15,11 @@ defmodule MobileCarWashWeb.LandingLive do
       |> Ash.read!()
       |> Enum.sort_by(& &1.base_price_cents)
 
-    plans =
-      SubscriptionPlan
-      |> Ash.Query.filter(active == true)
-      |> Ash.read!()
-      |> Enum.sort_by(& &1.price_cents)
-
     socket =
       socket
       |> assign_session_id()
       |> assign(
         services: services,
-        plans: plans,
         page_title: "Driveway Detail Co — Mobile Detailing",
         meta_description:
           "Professional mobile car wash and auto detailing that comes to you. Veteran-owned in Texas. Basic wash from $50, deep clean & detail from $200. Monthly plans available. Book online in 2 minutes.",
@@ -53,16 +45,6 @@ defmodule MobileCarWashWeb.LandingLive do
       |> Enum.sort_by(& &1.base_price_cents)
 
     {:noreply, assign(socket, services: services)}
-  end
-
-  def handle_info(:plans_updated, socket) do
-    plans =
-      SubscriptionPlan
-      |> Ash.Query.filter(active == true)
-      |> Ash.read!()
-      |> Enum.sort_by(& &1.price_cents)
-
-    {:noreply, assign(socket, plans: plans)}
   end
 
   @impl true
