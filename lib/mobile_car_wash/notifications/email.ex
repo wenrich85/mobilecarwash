@@ -375,25 +375,31 @@ defmodule MobileCarWash.Notifications.Email do
   def subscription_created(customer, plan) do
     price = div(plan.price_cents, 100)
 
-    benefits_html =
+    benefit_items =
       [
         if(plan.basic_washes_per_month > 0,
           do:
-            "<li>#{plan.basic_washes_per_month} basic wash#{if plan.basic_washes_per_month > 1, do: "es", else: ""} per month</li>",
+            {"<li>#{plan.basic_washes_per_month} basic wash#{if plan.basic_washes_per_month > 1, do: "es", else: ""} per month</li>",
+             "  - #{plan.basic_washes_per_month} basic wash#{if plan.basic_washes_per_month > 1, do: "es", else: ""} per month"},
           else: nil
         ),
         if(plan.deep_cleans_per_month > 0,
           do:
-            "<li>#{plan.deep_cleans_per_month} deep clean#{if plan.deep_cleans_per_month > 1, do: "s", else: ""} per month</li>",
+            {"<li>#{plan.deep_cleans_per_month} deep clean#{if plan.deep_cleans_per_month > 1, do: "s", else: ""} per month</li>",
+             "  - #{plan.deep_cleans_per_month} deep clean#{if plan.deep_cleans_per_month > 1, do: "s", else: ""} per month"},
           else: nil
         ),
         if(plan.deep_clean_discount_percent > 0,
-          do: "<li>#{plan.deep_clean_discount_percent}% off deep cleans</li>",
+          do:
+            {"<li>#{plan.deep_clean_discount_percent}% off deep cleans</li>",
+             "  - #{plan.deep_clean_discount_percent}% off deep cleans"},
           else: nil
         )
       ]
       |> Enum.reject(&is_nil/1)
-      |> Enum.join("\n      ")
+
+    benefits_html = benefit_items |> Enum.map(&elem(&1, 0)) |> Enum.join("\n      ")
+    benefits_text = benefit_items |> Enum.map(&elem(&1, 1)) |> Enum.join("\n")
 
     inner_html = """
     <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Welcome to your #{plan.name} plan!</h2>
@@ -413,6 +419,9 @@ defmodule MobileCarWash.Notifications.Email do
     Hi #{customer.name},
 
     Your #{plan.name} subscription ($#{price}/month) is now active.
+
+    What's included:
+    #{benefits_text}
 
     Book your first wash at https://drivewaydetailcosa.com/book
 

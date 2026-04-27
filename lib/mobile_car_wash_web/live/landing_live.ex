@@ -296,7 +296,7 @@ defmodule MobileCarWashWeb.LandingLive do
       "description" =>
         "Professional mobile car wash and auto detailing. We come to your home or office. Veteran-owned in San Antonio, TX.",
       "url" => "https://drivewaydetailcosa.com",
-      "image" => "https://drivewaydetailcosa.com/images/og-share.png",
+      "image" => "https://drivewaydetailcosa.com/images/og-share-v2.png",
       "telephone" => "+1-512-555-0100",
       "priceRange" => "$50-$200",
       "address" => %{
