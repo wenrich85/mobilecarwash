@@ -106,4 +106,16 @@ defmodule MobileCarWashWeb.BookingComponentsTest do
       assert html =~ "No available windows"
     end
   end
+
+  describe "time_slot_picker/1" do
+    test "renders slots and highlights selected" do
+      slot1 = %{starts_at: ~U[2026-04-30 09:00:00Z]}
+      slot2 = %{starts_at: ~U[2026-04-30 10:00:00Z]}
+      assigns = %{date: ~D[2026-04-30], slots: [slot1, slot2], selected_slot: slot1.starts_at}
+      html = rendered_to_string(~H|<.time_slot_picker date={@date} slots={@slots} selected_slot={@selected_slot} />|)
+      assert html =~ "9:00"
+      assert html =~ "10:00"
+      assert html =~ "bg-cyan-500"
+    end
+  end
 end

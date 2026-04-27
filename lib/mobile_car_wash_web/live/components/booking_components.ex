@@ -190,27 +190,15 @@ defmodule MobileCarWashWeb.BookingComponents do
   def time_slot_picker(assigns) do
     ~H"""
     <div>
-      <div class="form-control mb-6">
-        <label class="label"><span class="label-text font-semibold">Select a date</span></label>
-        <input
-          type="date"
-          class="input input-bordered w-full max-w-xs"
-          value={@date}
-          min={Date.utc_today() |> Date.add(1) |> Date.to_string()}
-          phx-change="select_date"
-          name="date"
-        />
-      </div>
-
-      <div :if={@slots != []} class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div :if={@slots != []} class="grid grid-cols-2 md:grid-cols-4 gap-2">
         <button
           :for={slot <- @slots}
           type="button"
           class={[
-            "btn",
+            "px-3 py-2 rounded-lg border text-sm font-semibold transition-colors",
             if(@selected_slot && DateTime.compare(@selected_slot, slot.starts_at) == :eq,
-              do: "btn-primary",
-              else: "btn-outline"
+              do: "bg-cyan-500 text-white border-cyan-500",
+              else: "bg-base-100 border-base-300 hover:border-cyan-500"
             )
           ]}
           phx-click="select_slot"
