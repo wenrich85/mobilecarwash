@@ -33,4 +33,23 @@ defmodule MobileCarWash.Notifications.Email.LayoutTest do
       assert html =~ "San Antonio"
     end
   end
+
+  describe "wrap_text/1" do
+    test "produces header with brand name and separator" do
+      text = Layout.wrap_text("Hello.")
+      assert text =~ "Driveway Detail Co"
+      assert text =~ "================="
+    end
+
+    test "includes the body content" do
+      text = Layout.wrap_text("UNIQUE_TEXT_BODY")
+      assert text =~ "UNIQUE_TEXT_BODY"
+    end
+
+    test "footer mentions the legal name" do
+      text = Layout.wrap_text("body")
+      assert text =~ "Driveway Detail Co. LLC"
+      assert text =~ "San Antonio"
+    end
+  end
 end

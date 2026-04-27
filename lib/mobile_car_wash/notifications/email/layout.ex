@@ -59,6 +59,24 @@ defmodule MobileCarWash.Notifications.Email.Layout do
     """
   end
 
+  @doc """
+  Wraps content text with a plain-text header and footer.
+  """
+  def wrap_text(content_text) when is_binary(content_text) do
+    """
+    Driveway Detail Co
+    =================
+
+    #{content_text}
+
+    ---
+    Driveway Detail Co. LLC · San Antonio, TX · Veteran-owned
+    Privacy: https://drivewaydetailcosa.com/privacy
+    Terms:   https://drivewaydetailcosa.com/terms
+    Unsubscribe: https://drivewaydetailcosa.com/unsubscribe
+    """
+  end
+
   defp header_logo_svg do
     # Inline pin+drop + wordmark.
     """
