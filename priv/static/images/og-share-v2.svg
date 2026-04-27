@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <!-- White background -->
+  <rect width="1200" height="630" fill="#ffffff"/>
+
+  <!-- Top-left brand strip: pin icon + wordmark -->
+  <g transform="translate(80, 80)">
+    <!-- Pin icon, 48x60 -->
+    <g transform="scale(1.5)">
+      <path d="M16 3 C9 3 4 8 4 15 C4 22 16 35 16 35 C16 35 28 22 28 15 C28 8 23 3 16 3Z" fill="#1e293b"/>
+      <path d="M16 8 C16 8 12 13 12 16 C12 18 13.7 20 16 20 C18.3 20 20 18 20 16 C20 13 16 8 16 8Z" fill="#06b6d4"/>
+    </g>
+    <!-- Wordmark, 24px Inter semibold, vertically centered to icon -->
+    <text x="60" y="38"
+          font-family="Inter, system-ui, sans-serif"
+          font-size="24"
+          font-weight="600"
+          letter-spacing="-0.4"
+          fill="#0f172a">Driveway Detail Co</text>
+  </g>
+
+  <!-- Hero headline, vertically centered -->
+  <text x="80" y="320"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="64"
+        font-weight="700"
+        letter-spacing="-1.5"
+        fill="#0f172a">Your car, washed where</text>
+  <text x="80" y="395"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="64"
+        font-weight="700"
+        letter-spacing="-1.5"
+        fill="#0f172a">you parked it.</text>
+
+  <!-- Subhead -->
+  <text x="80" y="450"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="22"
+        font-weight="400"
+        fill="#64748b">Mobile detailing in San Antonio · Veteran-owned</text>
+
+  <!-- Bottom-right cyan accent -->
+  <rect x="1040" y="510" width="80" height="80" rx="16" fill="#06b6d4"/>
+</svg>
