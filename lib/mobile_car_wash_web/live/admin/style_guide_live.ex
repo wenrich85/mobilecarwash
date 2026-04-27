@@ -6,7 +6,10 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Style Guide")}
+    {:ok,
+     socket
+     |> assign(page_title: "Style Guide")
+     |> assign(demo_modal_open: false)}
   end
 
   @impl true
@@ -27,6 +30,14 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <a href="#forms" class="btn btn-sm btn-outline">Forms</a>
         <a href="#shadows" class="btn btn-sm btn-outline">Shadows</a>
         <a href="#spacing" class="btn btn-sm btn-outline">Spacing</a>
+        <a href="#button-variants" class="btn btn-sm btn-outline">Button Variants</a>
+        <a href="#status-pills" class="btn btn-sm btn-outline">Status Pills</a>
+        <a href="#progress-bars" class="btn btn-sm btn-outline">Progress Bars</a>
+        <a href="#flash-messages" class="btn btn-sm btn-outline">Flash</a>
+        <a href="#empty-state" class="btn btn-sm btn-outline">Empty State</a>
+        <a href="#kpi-card" class="btn btn-sm btn-outline">KPI Card</a>
+        <a href="#bucket-cards" class="btn btn-sm btn-outline">Bucket Cards</a>
+        <a href="#modal" class="btn btn-sm btn-outline">Modal</a>
       </div>
       
     <!-- ============================================================ -->
@@ -726,8 +737,146 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
           </table>
         </div>
       </section>
+
+      <!-- ============================================================ -->
+      <!-- BUTTON VARIANTS (Plan 1) -->
+      <!-- ============================================================ -->
+      <section id="button-variants" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Button Variants (new)</h2>
+        <div class="space-y-4">
+          <div class="flex flex-wrap gap-3 items-center">
+            <.button>Primary</.button>
+            <.button variant="secondary">Secondary</.button>
+            <.button variant="ghost">Ghost</.button>
+            <.button variant="destructive">Destructive</.button>
+          </div>
+          <div class="flex flex-wrap gap-3 items-center">
+            <.button size="sm">Small</.button>
+            <.button>Medium</.button>
+            <.button size="lg">Large</.button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- STATUS PILLS -->
+      <!-- ============================================================ -->
+      <section id="status-pills" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Status Pills</h2>
+        <div class="flex flex-wrap gap-2 items-center">
+          <.status_pill status={:on_target}>On target</.status_pill>
+          <.status_pill status={:paid}>Paid</.status_pill>
+          <.status_pill status={:underfunded}>Underfunded</.status_pill>
+          <.status_pill status={:over}>Over</.status_pill>
+          <.status_pill status={:long_term}>Long-term</.status_pill>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- PROGRESS BARS -->
+      <!-- ============================================================ -->
+      <section id="progress-bars" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Progress Bars</h2>
+        <div class="space-y-2 max-w-sm">
+          <.progress_bar value={0.84} />
+          <.progress_bar value={0.42} variant={:amber} />
+          <.progress_bar value={1.0} variant={:green} />
+          <.progress_bar value={0.05} variant={:red} />
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- FLASH MESSAGES (new kinds) -->
+      <!-- ============================================================ -->
+      <section id="flash-messages" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Flash Messages</h2>
+        <p class="text-sm text-base-content/70 mb-4">All four kinds (info / success / warning / error). They normally render as toasts in the corner — here they stack inline for review.</p>
+        <div class="space-y-2 relative">
+          <.flash kind={:info}>Info — your changes were saved.</.flash>
+          <.flash kind={:success}>Success — booking confirmed.</.flash>
+          <.flash kind={:warning}>Warning — tax reserve is underfunded.</.flash>
+          <.flash kind={:error}>Error — payment failed.</.flash>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- EMPTY STATE -->
+      <!-- ============================================================ -->
+      <section id="empty-state" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Empty State</h2>
+        <div class="bg-base-100 border border-base-300 rounded-box max-w-md">
+          <.empty_state
+            icon="hero-calendar"
+            title="No appointments yet"
+            body="Book your first wash to see it here."
+          >
+            <:action>
+              <.button>Book now</.button>
+            </:action>
+          </.empty_state>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- KPI CARD -->
+      <!-- ============================================================ -->
+      <section id="kpi-card" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">KPI Card</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+          <.kpi_card
+            label="Cash on hand"
+            value="$24,807"
+            delta="+12.4%"
+            delta_direction={:up}
+            subtext="vs $22,067 last month"
+          />
+          <.kpi_card
+            label="Active subscribers"
+            value="142"
+            delta="-3"
+            delta_direction={:down}
+            subtext="vs 145 last week"
+          />
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- BUCKET CARDS -->
+      <!-- ============================================================ -->
+      <section id="bucket-cards" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Bucket Cards</h2>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <.bucket_card label="Operating" amount="$8,420" target="of $10,000 goal" target_pct={0.84} status={:on_target} status_label="On target" />
+          <.bucket_card label="Tax reserve" amount="$3,150" target="of $5,000 goal" target_pct={0.63} status={:underfunded} status_label="Underfunded" />
+          <.bucket_card label="Savings" amount="$10,200" target="of $15,000 goal" target_pct={0.68} status={:on_target} status_label="68% goal" />
+          <.bucket_card label="Investment" amount="$0" target="no goal set" target_pct={nil} status={:long_term} status_label="Long-term" />
+          <.bucket_card label="Salary" amount="$3,037" target="paid Apr 1" target_pct={1.0} status={:paid} status_label="Paid" />
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- MODAL -->
+      <!-- ============================================================ -->
+      <section id="modal" class="mb-16">
+        <h2 class="text-2xl font-bold mb-6 border-b border-base-300 pb-2">Modal</h2>
+        <p class="text-sm text-base-content/70 mb-4">Click to open. Backdrop click or Cancel closes.</p>
+        <.button phx-click="toggle_demo_modal">Open demo modal</.button>
+        <.modal id="demo-modal" show={@demo_modal_open}>
+          <:title>Confirm action</:title>
+          This is what a modal looks like in the new design system.
+          <:footer>
+            <.button variant="ghost" phx-click="toggle_demo_modal">Cancel</.button>
+            <.button variant="primary" phx-click="toggle_demo_modal">Confirm</.button>
+          </:footer>
+        </.modal>
+      </section>
     </div>
     """
+  end
+
+  @impl true
+  def handle_event("toggle_demo_modal", _params, socket) do
+    {:noreply, update(socket, :demo_modal_open, &(!&1))}
   end
 
   # --- Components ---
