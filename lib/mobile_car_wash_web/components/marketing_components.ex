@@ -120,4 +120,26 @@ defmodule MobileCarWashWeb.MarketingComponents do
     </section>
     """
   end
+
+  @doc """
+  Renders a single customer testimonial card.
+  """
+  attr :quote, :string, required: true
+  attr :name, :string, required: true
+  attr :vehicle, :string, default: nil
+
+  def testimonial(assigns) do
+    ~H"""
+    <div class="bg-base-100 border border-base-300 rounded-box p-5">
+      <div class="text-cyan-500 text-3xl font-serif leading-none mb-2">"</div>
+      <p class="text-sm text-base-content/80 italic leading-relaxed mb-3">
+        {@quote}
+      </p>
+      <div class="text-xs">
+        <div class="font-semibold text-base-content">{@name}</div>
+        <div :if={@vehicle} class="text-base-content/60 mt-0.5">{@vehicle}</div>
+      </div>
+    </div>
+    """
+  end
 end

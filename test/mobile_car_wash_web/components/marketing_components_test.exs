@@ -149,4 +149,40 @@ defmodule MobileCarWashWeb.MarketingComponentsTest do
       assert html =~ "Second point"
     end
   end
+
+  describe "testimonial/1" do
+    test "renders quote and name" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.testimonial quote="Great service" name="Maria G." />
+        """)
+
+      assert html =~ "Great service"
+      assert html =~ "Maria G."
+    end
+
+    test "renders vehicle when provided" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.testimonial quote="X" name="Y" vehicle="2023 Tesla" />
+        """)
+
+      assert html =~ "2023 Tesla"
+    end
+
+    test "omits vehicle row when not provided" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.testimonial quote="X" name="Y" />
+        """)
+
+      refute html =~ "Tesla"
+    end
+  end
 end
