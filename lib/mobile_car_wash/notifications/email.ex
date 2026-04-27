@@ -4,6 +4,7 @@ defmodule MobileCarWash.Notifications.Email do
   Uses Swoosh for email composition.
   """
   import Swoosh.Email
+  alias MobileCarWash.Notifications.Email.Layout
 
   @from {"Driveway Detail Co", "noreply@drivewaydetailcosa.com"}
 
@@ -12,99 +13,71 @@ defmodule MobileCarWash.Notifications.Email do
   carries a one-shot JWT with the customer's subject + email baked in.
   """
   def verify_email(customer, verification_link) do
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Verify your email for Driveway Detail Co")
-    |> html_body("""
-    <h2>Welcome, #{customer.name}!</h2>
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Welcome, #{customer.name}!</h2>
     <p>Thanks for signing up with Driveway Detail Co. Please verify your
-    email address so we can send you booking confirmations, reminders,
-    and receipts.</p>
-    <p>
-      <a href="#{verification_link}"
-         style="display:inline-block;background:#3A7CA5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
-        Verify my email
-      </a>
-    </p>
-    <p style="color:#666;font-size:12px;">The link expires in 24 hours.
+    email so we can send you booking confirmations, reminders, and receipts.</p>
+    <p style="margin:24px 0;">#{Layout.button("Verify my email", verification_link)}</p>
+    <p style="color:#64748b;font-size:12px;">The link expires in 24 hours.
     If you didn't create this account, you can safely ignore this email.</p>
-    <p style="color:#666;font-size:12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
+    """
+
+    inner_text = """
     Welcome, #{customer.name}!
 
     Thanks for signing up with Driveway Detail Co. Please verify your email
     so we can send you booking confirmations, reminders, and receipts.
 
-    #{verification_link}
+    Verify: #{verification_link}
 
     The link expires in 24 hours. If you didn't create this account, you
     can safely ignore this email.
+    """
 
-    — Driveway Detail Co · San Antonio, TX · Veteran-owned
-    """)
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Verify your email for Driveway Detail Co")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
   Booking confirmation email — sent after successful payment.
   """
   def booking_confirmation(appointment, service_type, customer, address) do
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Booking Confirmed - #{service_type.name}")
-    |> html_body("""
-    <h2>Your booking is confirmed!</h2>
-
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your booking is confirmed!</h2>
     <p>Hi #{customer.name},</p>
-
-    <p>Your <strong>#{service_type.name}</strong> has been scheduled. Here are the details:</p>
-
-    <table style="border-collapse: collapse; margin: 20px 0;">
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Service:</td>
-        <td style="padding: 8px;">#{service_type.name}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Date & Time:</td>
-        <td style="padding: 8px;">#{Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Duration:</td>
-        <td style="padding: 8px;">#{appointment.duration_minutes} minutes</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Location:</td>
-        <td style="padding: 8px;">#{address.street}, #{address.city}, #{address.state} #{address.zip}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Total:</td>
-        <td style="padding: 8px;">$#{div(appointment.price_cents, 100)}</td>
-      </tr>
+    <p>We've received your booking for <strong>#{service_type.name}</strong>.</p>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Service</td><td style="padding:4px 0;font-weight:600;">#{service_type.name}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">When</td><td style="padding:4px 0;font-weight:600;">#{appointment.scheduled_at}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Where</td><td style="padding:4px 0;font-weight:600;">#{address}</td></tr>
     </table>
+    <p style="color:#64748b;font-size:13px;">We'll text you the day before with our 15-minute arrival window.</p>
+    """
 
-    <p>We'll be there on time. Please ensure your vehicle is accessible at the scheduled location.</p>
-
-    <p>Booking ID: <code>#{appointment.id}</code></p>
-
-    <p>Thank you for choosing Mobile Car Wash!</p>
-    """)
-    |> text_body("""
+    inner_text = """
     Your booking is confirmed!
 
     Hi #{customer.name},
 
+    We've received your booking for #{service_type.name}.
+
     Service: #{service_type.name}
-    Date & Time: #{Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}
-    Duration: #{appointment.duration_minutes} minutes
-    Location: #{address.street}, #{address.city}, #{address.state} #{address.zip}
-    Total: $#{div(appointment.price_cents, 100)}
+    When: #{appointment.scheduled_at}
+    Where: #{address}
 
-    Booking ID: #{appointment.id}
+    We'll text you the day before with our 15-minute arrival window.
+    """
 
-    Thank you for choosing Mobile Car Wash!
-    """)
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Booking Confirmed - #{service_type.name}")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
@@ -218,58 +191,38 @@ defmodule MobileCarWash.Notifications.Email do
   end
 
   @doc """
-  Payment receipt email — sent after each successful payment.
+  Payment receipt — sent after a successful charge.
   """
   def payment_receipt(customer, payment, service_name) do
-    paid_at =
-      if payment.paid_at, do: Calendar.strftime(payment.paid_at, "%B %d, %Y"), else: "Today"
+    amount_dollars = :erlang.float_to_binary(payment.amount_cents / 100, decimals: 2)
 
-    dollars = div(payment.amount_cents, 100)
-    cents = rem(payment.amount_cents, 100)
-    amount_str = "#{dollars}.#{String.pad_leading("#{cents}", 2, "0")}"
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Payment received</h2>
+    <p>Hi #{customer.name},</p>
+    <p>Thanks for your payment. Here are the details:</p>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Service</td><td style="padding:4px 0;font-weight:600;">#{service_name}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Amount</td><td style="padding:4px 0;font-weight:600;">$#{amount_dollars}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Receipt #</td><td style="padding:4px 0;font-weight:600;font-family:monospace;">#{payment.id}</td></tr>
+    </table>
+    """
+
+    inner_text = """
+    Payment received
+
+    Hi #{customer.name},
+
+    Service: #{service_name}
+    Amount: $#{amount_dollars}
+    Receipt: #{payment.id}
+    """
 
     new()
     |> to({customer.name, to_string(customer.email)})
     |> from(@from)
-    |> subject("Payment Receipt — $#{amount_str}")
-    |> html_body("""
-    <h2>Payment Receipt</h2>
-
-    <p>Hi #{customer.name},</p>
-
-    <table style="border-collapse: collapse; margin: 20px 0;">
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Service:</td>
-        <td style="padding: 8px;">#{service_name}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Amount:</td>
-        <td style="padding: 8px;">$#{amount_str}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Date:</td>
-        <td style="padding: 8px;">#{paid_at}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Payment ID:</td>
-        <td style="padding: 8px;"><code>#{payment.id}</code></td>
-      </tr>
-    </table>
-
-    <p>Thank you for your business!</p>
-
-    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
-    Payment Receipt
-
-    Service: #{service_name}
-    Amount: $#{amount_str}
-    Date: #{paid_at}
-    Payment ID: #{payment.id}
-
-    Thank you! — Driveway Detail Co
-    """)
+    |> subject("Payment Receipt — Driveway Detail Co")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
@@ -375,55 +328,33 @@ defmodule MobileCarWash.Notifications.Email do
   end
 
   @doc """
-  Booking cancelled — sent when an appointment is cancelled.
+  Cancellation confirmation email.
   """
   def booking_cancelled(customer, appointment, service_name) do
-    date = Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your booking was cancelled</h2>
+    <p>Hi #{customer.name},</p>
+    <p>Your booking for <strong>#{service_name}</strong> on #{appointment.scheduled_at} has been cancelled.</p>
+    <p>If this was a mistake or you'd like to rebook, you can do so anytime.</p>
+    <p style="margin:24px 0;">#{Layout.button("Book again", "https://drivewaydetailcosa.com/book")}</p>
+    """
 
-    reason_block =
-      case appointment.cancellation_reason do
-        nil -> ""
-        "" -> ""
-        reason -> "<p><strong>Reason:</strong> #{reason}</p>"
-      end
+    inner_text = """
+    Your booking was cancelled
 
-    reason_text =
-      case appointment.cancellation_reason do
-        nil -> ""
-        "" -> ""
-        reason -> "Reason: #{reason}\n"
-      end
+    Hi #{customer.name},
+
+    Your booking for #{service_name} on #{appointment.scheduled_at} has been cancelled.
+
+    Book again: https://drivewaydetailcosa.com/book
+    """
 
     new()
     |> to({customer.name, to_string(customer.email)})
     |> from(@from)
-    |> subject("Booking Cancelled - #{service_name}")
-    |> html_body("""
-    <h2>Your booking has been cancelled</h2>
-
-    <p>Hi #{customer.name},</p>
-
-    <p>Your <strong>#{service_name}</strong> scheduled for #{date} has been cancelled.</p>
-
-    #{reason_block}
-
-    <p>If you'd like to rebook, visit <a href="https://drivewaydetailcosa.com/book">drivewaydetailcosa.com/book</a>.</p>
-
-    <p>Questions? Just reply to this email.</p>
-
-    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
-    Your booking has been cancelled.
-
-    Hi #{customer.name},
-
-    Your #{service_name} scheduled for #{date} has been cancelled.
-    #{reason_text}
-    Rebook anytime: https://drivewaydetailcosa.com/book
-
-    — Driveway Detail Co
-    """)
+    |> subject("Booking Cancelled — #{service_name}")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
