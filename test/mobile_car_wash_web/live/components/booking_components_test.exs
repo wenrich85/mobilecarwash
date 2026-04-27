@@ -66,4 +66,44 @@ defmodule MobileCarWashWeb.BookingComponentsTest do
       assert html =~ "font-mono"
     end
   end
+
+  describe "block_window_picker/1" do
+    test "renders 7 date chips when available_dates not provided" do
+      assigns = %{date: Date.utc_today(), blocks: [], selected_block: nil}
+      html = rendered_to_string(~H|<.block_window_picker date={@date} blocks={@blocks} selected_block={@selected_block} />|)
+      today = Date.utc_today()
+      assert html =~ "#{today.day}"
+      future = Date.add(today, 6)
+      assert html =~ "#{future.day}"
+    end
+
+    test "highlights selected date chip with cyan" do
+      today = Date.utc_today()
+      assigns = %{date: today, blocks: [], selected_block: nil}
+      html = rendered_to_string(~H|<.block_window_picker date={@date} blocks={@blocks} selected_block={@selected_block} />|)
+      assert html =~ "bg-cyan-500"
+    end
+
+    test "renders blocks list when provided" do
+      block = %{id: "block-1", starts_at: ~U[2026-04-30 09:00:00Z], ends_at: ~U[2026-04-30 11:00:00Z], capacity: 3, appointment_count: 1}
+      assigns = %{date: ~D[2026-04-30], blocks: [block], selected_block: nil}
+      html = rendered_to_string(~H|<.block_window_picker date={@date} blocks={@blocks} selected_block={@selected_block} />|)
+      assert html =~ "9:00"
+      assert html =~ "11:00"
+      assert html =~ "2 of 3 spots left"
+    end
+
+    test "selected block has cyan-500 background" do
+      block = %{id: "block-1", starts_at: ~U[2026-04-30 09:00:00Z], ends_at: ~U[2026-04-30 11:00:00Z], capacity: 3, appointment_count: 1}
+      assigns = %{date: ~D[2026-04-30], blocks: [block], selected_block: block}
+      html = rendered_to_string(~H|<.block_window_picker date={@date} blocks={@blocks} selected_block={@selected_block} />|)
+      assert html =~ "bg-cyan-500"
+    end
+
+    test "shows warning when blocks empty for selected date" do
+      assigns = %{date: ~D[2026-04-30], blocks: [], selected_block: nil}
+      html = rendered_to_string(~H|<.block_window_picker date={@date} blocks={@blocks} selected_block={@selected_block} />|)
+      assert html =~ "No available windows"
+    end
+  end
 end

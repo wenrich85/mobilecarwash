@@ -103,23 +103,42 @@ defmodule MobileCarWashWeb.BookingComponents do
   attr :date, :any, required: true
   attr :blocks, :list, required: true
   attr :selected_block, :any, default: nil
+  attr :available_dates, :list, default: nil
 
   def block_window_picker(assigns) do
+    available_dates =
+      assigns.available_dates ||
+        Enum.map(0..6, fn offset -> Date.add(Date.utc_today(), offset) end)
+
+    assigns = assign(assigns, available_dates: available_dates)
+
     ~H"""
     <div>
-      <div class="form-control mb-6">
-        <label class="label"><span class="label-text font-semibold">Select a date</span></label>
-        <input
-          type="date"
-          class="input input-bordered w-full max-w-xs"
-          value={@date}
-          min={Date.utc_today() |> Date.add(1) |> Date.to_string()}
-          phx-change="select_date"
-          name="date"
-        />
+      <div class="mb-6">
+        <div class="text-sm font-semibold text-base-content mb-2">Pick a date</div>
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          <button
+            :for={d <- @available_dates}
+            type="button"
+            class={[
+              "flex flex-col items-center justify-center w-14 h-14 shrink-0 rounded-lg border transition-colors",
+              if(date_match?(@date, d),
+                do: "bg-cyan-500 text-white border-cyan-500",
+                else: "bg-base-100 border-base-300 text-base-content hover:border-cyan-500"
+              )
+            ]}
+            phx-click="select_date"
+            phx-value-date={Date.to_string(d)}
+          >
+            <div class="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+              {Calendar.strftime(d, "%a")}
+            </div>
+            <div class="text-lg font-bold leading-none">{d.day}</div>
+          </button>
+        </div>
       </div>
 
-      <div :if={@blocks != []} class="space-y-3">
+      <div :if={@blocks != []} class="space-y-2">
         <p class="text-sm text-base-content/70 mb-2">
           Pick a window. We'll confirm your exact arrival time by midnight the day before.
         </p>
@@ -127,20 +146,17 @@ defmodule MobileCarWashWeb.BookingComponents do
           :for={block <- @blocks}
           type="button"
           class={[
-            "btn btn-block h-auto py-3 justify-between",
+            "w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors",
             if(@selected_block && @selected_block.id == block.id,
-              do: "btn-primary",
-              else: "btn-outline"
+              do: "bg-cyan-500 text-white border-cyan-500",
+              else: "bg-base-100 border-base-300 hover:border-cyan-500"
             )
           ]}
           phx-click="select_block"
           phx-value-id={block.id}
         >
           <span class="font-semibold">
-            {Calendar.strftime(block.starts_at, "%I:%M %p")} – {Calendar.strftime(
-              block.ends_at,
-              "%I:%M %p"
-            )}
+            {Calendar.strftime(block.starts_at, "%I:%M %p")} – {Calendar.strftime(block.ends_at, "%I:%M %p")}
           </span>
           <span class="text-xs opacity-75">
             {block.capacity - block.appointment_count} of {block.capacity} spots left
@@ -154,6 +170,18 @@ defmodule MobileCarWashWeb.BookingComponents do
     </div>
     """
   end
+
+  defp date_match?(nil, _), do: false
+  defp date_match?(%Date{} = a, %Date{} = b), do: Date.compare(a, b) == :eq
+
+  defp date_match?(a, %Date{} = b) when is_binary(a) do
+    case Date.from_iso8601(a) do
+      {:ok, parsed} -> Date.compare(parsed, b) == :eq
+      _ -> false
+    end
+  end
+
+  defp date_match?(_, _), do: false
 
   attr :date, :any, required: true
   attr :slots, :list, required: true
