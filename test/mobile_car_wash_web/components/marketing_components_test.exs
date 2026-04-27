@@ -51,4 +51,62 @@ defmodule MobileCarWashWeb.MarketingComponentsTest do
       assert html =~ ~s(href="/b")
     end
   end
+
+  describe "service_tier_card/1" do
+    test "renders name, price, duration, features" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.service_tier_card
+          name="Basic Wash"
+          price="$50"
+          duration="~45 min"
+          features={["Exterior hand wash", "Wheels & tires"]}
+        >
+          <:cta><a href="/booking?tier=basic">Book Basic</a></:cta>
+        </.service_tier_card>
+        """)
+
+      assert html =~ "Basic Wash"
+      assert html =~ "$50"
+      assert html =~ "~45 min"
+      assert html =~ "Exterior hand wash"
+      assert html =~ "Wheels &amp; tires"
+      assert html =~ "Book Basic"
+    end
+
+    test "renders highlighted variant with MOST POPULAR badge" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.service_tier_card
+          name="Premium"
+          price="$199.99"
+          duration="~3 hours"
+          features={["Everything in Basic"]}
+          highlighted={true}
+        >
+          <:cta><a>Book Premium</a></:cta>
+        </.service_tier_card>
+        """)
+
+      assert html =~ "MOST POPULAR"
+      assert html =~ "border-cyan-500"
+    end
+
+    test "non-highlighted card omits MOST POPULAR badge" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.service_tier_card name="Basic" price="$50" duration="~45 min" features={[]}>
+          <:cta><a>Book</a></:cta>
+        </.service_tier_card>
+        """)
+
+      refute html =~ "MOST POPULAR"
+    end
+  end
 end
