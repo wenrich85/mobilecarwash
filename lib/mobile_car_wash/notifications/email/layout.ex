@@ -77,6 +77,26 @@ defmodule MobileCarWash.Notifications.Email.Layout do
     """
   end
 
+  @doc """
+  Renders a branded CTA button as inline-styled HTML.
+
+  Variants:
+    * `:primary` (default) — cyan background, white text
+    * `:secondary` — slate background, dark text
+  """
+  def button(label, url, variant \\ :primary)
+      when is_binary(label) and is_binary(url) and variant in [:primary, :secondary] do
+    {bg, fg} =
+      case variant do
+        :primary -> {"#06b6d4", "#ffffff"}
+        :secondary -> {"#f1f5f9", "#0f172a"}
+      end
+
+    """
+    <a href="#{url}" style="display:inline-block;background:#{bg};color:#{fg};padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-family:'Inter',sans-serif;font-size:14px;">#{label}</a>
+    """
+  end
+
   defp header_logo_svg do
     # Inline pin+drop + wordmark.
     """

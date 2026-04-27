@@ -52,4 +52,26 @@ defmodule MobileCarWash.Notifications.Email.LayoutTest do
       assert text =~ "San Antonio"
     end
   end
+
+  describe "button/3" do
+    test "defaults to :primary variant with cyan background" do
+      html = Layout.button("Click me", "https://example.com/x")
+      assert html =~ ~s(href="https://example.com/x")
+      assert html =~ "Click me"
+      assert html =~ "background:#06b6d4"
+      assert html =~ "color:#ffffff"
+    end
+
+    test ":secondary variant uses slate background" do
+      html = Layout.button("Cancel", "https://example.com/x", :secondary)
+      assert html =~ "background:#f1f5f9"
+      assert html =~ "color:#0f172a"
+    end
+
+    test "wraps as inline-styled anchor (no <style> tags)" do
+      html = Layout.button("X", "https://example.com")
+      assert html =~ "<a "
+      refute html =~ "<style"
+    end
+  end
 end
