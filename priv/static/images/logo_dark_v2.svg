@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 40" fill="none">
+  <!-- Inverted: cyan pin, slate-900 drop (cut-out effect) -->
+  <g transform="translate(0, 0) scale(1)">
+    <path d="M16 3 C9 3 4 8 4 15 C4 22 16 35 16 35 C16 35 28 22 28 15 C28 8 23 3 16 3Z" fill="#06b6d4"/>
+    <path d="M16 8 C16 8 12 13 12 16 C12 18 13.7 20 16 20 C18.3 20 20 18 20 16 C20 13 16 8 16 8Z" fill="#0f172a"/>
+  </g>
+
+  <!-- Wordmark: light text for dark backgrounds -->
+  <text x="44" y="25"
+        font-family="Inter, system-ui, -apple-system, sans-serif"
+        font-size="18"
+        font-weight="600"
+        letter-spacing="-0.4"
+        fill="#f8fafc">Driveway Detail Co</text>
+</svg>
