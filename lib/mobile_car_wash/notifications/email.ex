@@ -93,46 +93,41 @@ defmodule MobileCarWash.Notifications.Email do
   Appointment reminder email — sent 24 hours before the appointment.
   """
   def appointment_reminder(appointment, service_type, customer, address) do
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Reminder: #{service_type.name} Tomorrow")
-    |> html_body("""
-    <h2>Appointment Reminder</h2>
+    when_str = Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")
+    where_str = "#{address.street}, #{address.city}, #{address.state} #{address.zip}"
 
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Reminder: your wash is tomorrow</h2>
     <p>Hi #{customer.name},</p>
-
     <p>This is a friendly reminder that your <strong>#{service_type.name}</strong> is scheduled for tomorrow.</p>
-
-    <table style="border-collapse: collapse; margin: 20px 0;">
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Date & Time:</td>
-        <td style="padding: 8px;">#{Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px; font-weight: bold;">Location:</td>
-        <td style="padding: 8px;">#{address.street}, #{address.city}, #{address.state} #{address.zip}</td>
-      </tr>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Date &amp; Time</td><td style="padding:4px 0;font-weight:600;">#{when_str}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Location</td><td style="padding:4px 0;font-weight:600;">#{where_str}</td></tr>
     </table>
+    <p style="color:#64748b;font-size:13px;">Please make sure your vehicle is parked and accessible at the service location. See you tomorrow!</p>
+    """
 
-    <p>Please make sure your vehicle is parked and accessible at the service location.</p>
-
-    <p>See you tomorrow!</p>
-    """)
-    |> text_body("""
-    Appointment Reminder
+    inner_text = """
+    Reminder: your wash is tomorrow
 
     Hi #{customer.name},
 
     Your #{service_type.name} is scheduled for tomorrow.
 
-    Date & Time: #{Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")}
-    Location: #{address.street}, #{address.city}, #{address.state} #{address.zip}
+    Date & Time: #{when_str}
+    Location: #{where_str}
 
     Please make sure your vehicle is parked and accessible.
 
     See you tomorrow!
-    """)
+    """
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Reminder: #{service_type.name} Tomorrow")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
@@ -245,36 +240,36 @@ defmodule MobileCarWash.Notifications.Email do
   Wash completed summary email.
   """
   def wash_completed(customer, appointment, service_name) do
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Your #{service_name} is Complete!")
-    |> html_body("""
-    <h2>Your wash is complete!</h2>
+    when_str = Calendar.strftime(appointment.scheduled_at, "%B %d")
+    status_url = "https://drivewaydetailcosa.com/appointments/#{appointment.id}/status"
 
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your wash is complete!</h2>
     <p>Hi #{customer.name},</p>
-
-    <p>Your <strong>#{service_name}</strong> on #{Calendar.strftime(appointment.scheduled_at, "%B %d")} has been completed.</p>
-
+    <p>Your <strong>#{service_name}</strong> on #{when_str} has been completed.</p>
     <p>We hope you love the results! You can view details and any before/after photos in your account.</p>
+    <p style="margin:24px 0;">#{Layout.button("View details", status_url)}</p>
+    <p style="color:#64748b;font-size:13px;">Thank you for choosing Driveway Detail Co!</p>
+    """
 
-    <p><a href="https://drivewaydetailcosa.com/appointments/#{appointment.id}/status">View Details →</a></p>
-
-    <p>Thank you for choosing Driveway Detail Co!</p>
-
-    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
+    inner_text = """
     Your wash is complete!
 
     Hi #{customer.name},
 
-    Your #{service_name} on #{Calendar.strftime(appointment.scheduled_at, "%B %d")} has been completed.
+    Your #{service_name} on #{when_str} has been completed.
 
-    View details: https://drivewaydetailcosa.com/appointments/#{appointment.id}/status
+    View details: #{status_url}
 
     Thank you! — Driveway Detail Co
-    """)
+    """
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Your #{service_name} is Complete!")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
@@ -283,22 +278,14 @@ defmodule MobileCarWash.Notifications.Email do
   def tech_on_the_way(customer, appointment, service_name, technician_name) do
     time = Calendar.strftime(appointment.scheduled_at, "%I:%M %p")
 
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Your #{service_name} tech is on the way")
-    |> html_body("""
-    <h2>Your tech is on the way</h2>
-
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your tech is on the way</h2>
     <p>Hi #{customer.name},</p>
-
     <p><strong>#{technician_name}</strong> is heading over now for your #{time} #{service_name}.</p>
+    <p style="color:#64748b;font-size:13px;">We'll send another note when they arrive.</p>
+    """
 
-    <p>We'll send another note when they arrive.</p>
-
-    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
+    inner_text = """
     Your tech is on the way
 
     Hi #{customer.name},
@@ -306,31 +293,28 @@ defmodule MobileCarWash.Notifications.Email do
     #{technician_name} is heading over now for your #{time} #{service_name}.
 
     We'll send another note when they arrive.
+    """
 
-    — Driveway Detail Co
-    """)
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Your #{service_name} tech is on the way")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
   Tech arrived — sent when the technician pulls up on-site, before the wash begins.
   """
   def tech_arrived(customer, _appointment, service_name, technician_name) do
-    new()
-    |> to({customer.name, to_string(customer.email)})
-    |> from(@from)
-    |> subject("Your tech has arrived")
-    |> html_body("""
-    <h2>Your tech has arrived</h2>
-
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your tech has arrived</h2>
     <p>Hi #{customer.name},</p>
-
     <p><strong>#{technician_name}</strong> is on-site and about to start your #{service_name}.</p>
+    <p style="color:#64748b;font-size:13px;">If your vehicle is still locked or blocked in, now's a good time to step out.</p>
+    """
 
-    <p>If your vehicle is still locked or blocked in, now's a good time to step out.</p>
-
-    <p style="color: #666; font-size: 12px;">Driveway Detail Co · San Antonio, TX · Veteran-owned</p>
-    """)
-    |> text_body("""
+    inner_text = """
     Your tech has arrived
 
     Hi #{customer.name},
@@ -338,9 +322,14 @@ defmodule MobileCarWash.Notifications.Email do
     #{technician_name} is on-site and about to start your #{service_name}.
 
     If your vehicle is still locked or blocked in, now's a good time to step out.
+    """
 
-    — Driveway Detail Co
-    """)
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Your tech has arrived")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
   end
 
   @doc """
