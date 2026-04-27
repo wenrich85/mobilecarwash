@@ -347,4 +347,46 @@ defmodule MobileCarWashWeb.CoreComponentsTest do
       assert html =~ "vs last month"
     end
   end
+
+  describe "bucket_card/1" do
+    test "renders label, amount, target percent, status pill" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(
+          ~H|<.bucket_card label="Operating" amount="$8,420" target="of $10,000 goal" target_pct={0.84} status={:on_target} status_label="On target" />|
+        )
+
+      assert html =~ "Operating"
+      assert html =~ "$8,420"
+      assert html =~ "of $10,000 goal"
+      assert html =~ "On target"
+      assert html =~ "width: 84%"
+    end
+
+    test "renders underfunded status with amber bar" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(
+          ~H|<.bucket_card label="Tax" amount="$3,150" target="of $5,000 goal" target_pct={0.63} status={:underfunded} status_label="Underfunded" />|
+        )
+
+      assert html =~ "bg-warning"
+      assert html =~ "Underfunded"
+    end
+
+    test "renders empty progress bar when target_pct is nil" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(
+          ~H|<.bucket_card label="Investment" amount="$0" target="no goal set" target_pct={nil} status={:long_term} status_label="Long-term" />|
+        )
+
+      refute html =~ "width: 0%"
+      # Empty bar has no inner width div at all
+      assert html =~ "Long-term"
+    end
+  end
 end

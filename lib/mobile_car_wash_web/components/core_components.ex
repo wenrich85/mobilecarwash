@@ -723,4 +723,59 @@ defmodule MobileCarWashWeb.CoreComponents do
     </div>
     """
   end
+
+  @doc """
+  Renders a single bucket card for the cash flow page.
+
+  ## Examples
+
+      <.bucket_card
+        label="Operating"
+        amount="$8,420"
+        target="of $10,000 goal"
+        target_pct={0.84}
+        status={:on_target}
+        status_label="On target"
+      />
+  """
+  attr :label, :string, required: true
+  attr :amount, :string, required: true
+  attr :target, :string, required: true, doc: "subtext line e.g. \"of $10,000 goal\""
+  attr :target_pct, :float, default: nil, doc: "0.0..1.0 fill ratio; nil = empty bar"
+  attr :status, :atom, required: true, values: [:on_target, :underfunded, :paid, :over, :long_term]
+  attr :status_label, :string, required: true
+
+  def bucket_card(assigns) do
+    progress_variant =
+      case assigns.status do
+        :on_target -> :cyan
+        :paid -> :green
+        :underfunded -> :amber
+        :over -> :red
+        :long_term -> :cyan
+      end
+
+    assigns = assign(assigns, :progress_variant, progress_variant)
+
+    ~H"""
+    <div class="bg-base-100 border border-base-300 rounded-box p-4">
+      <div class="flex items-start justify-between mb-2">
+        <div class="text-[10px] font-semibold uppercase tracking-wide text-base-content/60">
+          {@label}
+        </div>
+        <.status_pill status={@status}>{@status_label}</.status_pill>
+      </div>
+      <div class="font-mono text-xl font-bold text-base-content tabular-nums">
+        {@amount}
+      </div>
+      <div class="text-[11px] text-base-content/60 mt-0.5">
+        {@target}
+      </div>
+      <div class="mt-3">
+        <.progress_bar :if={@target_pct} value={@target_pct} variant={@progress_variant} />
+        <div :if={!@target_pct} class="h-1 w-full bg-base-200 rounded-full" />
+      </div>
+    </div>
+    """
+  end
 end
