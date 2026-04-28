@@ -84,6 +84,17 @@ defmodule MobileCarWashWeb.BookingComponentsTest do
       assert html =~ "bg-cyan-500"
     end
 
+    test "highlights selected date when @date is an ISO string (production path)" do
+      # mount/3 in booking_live.ex stores selected_date as a string via
+      # Date.to_string/1 — this test exercises the binary-string clause of
+      # the private date_match?/2 helper, which is the actual production
+      # code path.
+      today_str = Date.to_string(Date.utc_today())
+      assigns = %{date: today_str, blocks: [], selected_block: nil}
+      html = rendered_to_string(~H|<.block_window_picker date={@date} blocks={@blocks} selected_block={@selected_block} />|)
+      assert html =~ "bg-cyan-500"
+    end
+
     test "renders blocks list when provided" do
       block = %{id: "block-1", starts_at: ~U[2026-04-30 09:00:00Z], ends_at: ~U[2026-04-30 11:00:00Z], capacity: 3, appointment_count: 1}
       assigns = %{date: ~D[2026-04-30], blocks: [block], selected_block: nil}
