@@ -92,4 +92,69 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       assert html =~ service.name
     end
   end
+
+  describe "appointment summary card content" do
+    test "renders price chip from payment when present", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      # Seed a payment row associated with this appointment.
+      # Payment.create doesn't accept relationship FKs as public inputs —
+      # use force_change_attribute (same pattern used elsewhere in this file).
+      {:ok, _payment} =
+        Payment
+        |> Ash.Changeset.for_create(:create, %{
+          amount_cents: 8_900,
+          status: :succeeded,
+          stripe_checkout_session_id: "cs_test_#{System.unique_integer([:positive])}"
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+        |> Ash.Changeset.force_change_attribute(:appointment_id, appt.id)
+        |> Ash.create()
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "$89"
+    end
+
+    test "renders price chip from service when payment is nil", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      # No payment seeded → fall back to service.base_price_cents (8_900)
+      assert html =~ "$89"
+    end
+
+    test "renders the service name as a chip", %{conn: conn} do
+      customer = register_customer()
+      {appt, service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ service.name
+    end
+
+    test "renders the full address", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ address.street
+      assert html =~ address.city
+      assert html =~ address.zip
+    end
+
+    test "renders the muted technician line when none is assigned", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert appt.technician_id == nil
+      assert html =~ "We&#39;ll let you know once a technician is assigned."
+    end
+  end
 end

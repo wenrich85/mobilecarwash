@@ -132,6 +132,9 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
     )
   end
 
+  defp price_cents(nil, service), do: service.base_price_cents
+  defp price_cents(payment, _service), do: payment.amount_cents
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -145,12 +148,35 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
           </span>
         </div>
 
-        <%!-- Appointment summary card (placeholder content; expanded in Task 2) --%>
+        <%!-- Appointment summary card --%>
         <div class="rounded-2xl border-t-4 border-cyan-500 bg-base-100 shadow-sm p-6 sm:p-8">
           <h1 class="text-2xl sm:text-3xl font-bold text-base-content">
             {Calendar.strftime(@appointment.scheduled_at, "%A, %B %-d at %-I:%M %p")}
           </h1>
-          <p class="mt-2 text-base-content/70">{@service.name}</p>
+
+          <%!-- Service + price chips --%>
+          <div class="mt-4 flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full bg-base-200 text-sm font-medium text-base-content">
+              {@service.name}
+            </span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full bg-base-200 text-sm font-mono">
+              ${div(price_cents(@payment, @service), 100)}
+            </span>
+          </div>
+
+          <%!-- Address line --%>
+          <div :if={@address} class="mt-5 flex items-start gap-2 text-base-content/80">
+            <.icon name="hero-map-pin" class="h-5 w-5 shrink-0 mt-0.5 text-cyan-500" />
+            <div class="text-sm leading-relaxed">
+              <div>{@address.street}</div>
+              <div>{@address.city}, {@address.state} {@address.zip}</div>
+            </div>
+          </div>
+
+          <%!-- Technician line (conditional) --%>
+          <p :if={@appointment.technician_id == nil} class="mt-5 text-sm text-base-content/60">
+            We'll let you know once a technician is assigned.
+          </p>
         </div>
       </div>
 
