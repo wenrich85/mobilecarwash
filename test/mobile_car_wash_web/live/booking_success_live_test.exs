@@ -157,4 +157,57 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       assert html =~ "We&#39;ll let you know once a technician is assigned."
     end
   end
+
+  describe "next steps grid" do
+    test "renders Download .ics button targeting /book/:id/calendar.ics", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "Download .ics"
+      assert html =~ "/book/#{appt.id}/calendar.ics"
+    end
+
+    test "renders Google Calendar deep link", %{conn: conn} do
+      customer = register_customer()
+      {appt, service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "calendar.google.com/calendar/render"
+      assert html =~ URI.encode_www_form(service.name)
+    end
+
+    test "renders Outlook Web deep link", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "outlook.live.com/calendar/0/deeplink/compose"
+    end
+
+    test "renders Get directions link to Google Maps with encoded address", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "maps/dir/?api=1"
+      full_address = "#{address.street}, #{address.city}, #{address.state} #{address.zip}"
+      assert html =~ URI.encode_www_form(full_address)
+    end
+
+    test "renders confirmation email status with customer email prefix", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "Sent to"
+      local_part = customer.email |> to_string() |> String.split("@") |> hd()
+      assert html =~ String.slice(local_part, 0, 2)
+    end
+  end
 end
