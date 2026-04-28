@@ -392,98 +392,69 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :address}>
-        <h2 class="text-2xl font-bold mb-6">Service Location</h2>
-
-        <div :if={@existing_addresses != []} class="space-y-4 mb-6">
-          <div
-            :for={addr <- @existing_addresses}
-            class={[
-              "card bg-base-100 shadow cursor-pointer hover:shadow-lg transition-shadow",
-              @selected_address && @selected_address.id == addr.id && "ring-2 ring-primary"
-            ]}
-            phx-click="select_address"
-            phx-value-id={addr.id}
-          >
-            <div class="card-body py-3">
-              <span class="font-semibold">{addr.street}</span>
-              <span class="text-sm text-base-content/70">{addr.city}, {addr.state} {addr.zip}</span>
-            </div>
-          </div>
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">Service location</h1>
+          <p class="text-sm text-base-content/60 mt-1">
+            Pick a saved address, or add a new one.
+          </p>
         </div>
 
+        <%!-- Saved addresses list --%>
+        <div :if={@existing_addresses != []} class="space-y-3 mb-6">
+          <.saved_record_card
+            :for={addr <- @existing_addresses}
+            title={addr.street}
+            subtitle={"#{addr.city}, #{addr.state} #{addr.zip}"}
+            selected={@selected_address && @selected_address.id == addr.id}
+            phx-click="select_address"
+            phx-value-id={addr.id}
+          />
+        </div>
+
+        <%!-- "Add New" toggle button (only when ≥1 saved records) --%>
         <button
-          :if={!@show_new_address_form}
+          :if={@existing_addresses != [] and !@show_new_address_form}
           class="btn btn-outline btn-sm mb-6"
           phx-click="show_new_address"
         >
-          + Add New Address
+          + Add new address
         </button>
 
-        <form :if={@show_new_address_form} phx-submit="save_address" class="space-y-4 mb-6">
-          <div class="form-control">
-            <label class="label"><span class="label-text">Street Address</span></label>
-            <input
-              type="text"
-              name="address[street]"
-              class="input input-bordered"
-              required
-              placeholder="123 Main St"
-            />
-          </div>
-          <div class="grid grid-cols-3 gap-4">
-            <div class="form-control">
-              <label class="label"><span class="label-text">City</span></label>
-              <input
-                type="text"
-                name="address[city]"
-                class="input input-bordered"
-                required
-                placeholder="Austin"
-              />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">State</span></label>
-              <input
-                type="text"
-                name="address[state]"
-                class="input input-bordered"
-                required
-                value="TX"
-              />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">ZIP</span></label>
-              <input
-                type="text"
-                name="address[zip]"
-                class="input input-bordered"
-                required
-                placeholder="78701"
-              />
-            </div>
-          </div>
-          <button type="submit" class="btn btn-primary">Save Address</button>
-        </form>
-        
-    <!-- Zone indicator -->
-        <div :if={@selected_address && @selected_address.zone} class="alert alert-info mt-4">
-          <span>
-            Service Zone:
-            <span class={["badge", MobileCarWash.Zones.badge_class(@selected_address.zone)]}>
-              {MobileCarWash.Zones.label(@selected_address.zone)}
-            </span>
-          </span>
-        </div>
-        <div
-          :if={@selected_address && is_nil(@selected_address.zone)}
-          class="alert alert-warning mt-4"
+        <%!-- Add-new form --%>
+        <form
+          :if={@existing_addresses == [] or @show_new_address_form}
+          phx-submit="save_address"
+          class="bg-base-100 border border-base-300 rounded-box p-5 space-y-3 mb-6"
         >
-          <span>
-            This address may be outside our current service area. We'll confirm availability.
+          <div :if={@existing_addresses == []} class="text-sm font-semibold text-base-content">
+            Where should we come?
+          </div>
+          <.input name="address[street]" type="text" label="Street address" placeholder="123 Main St" required />
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <.input name="address[city]" type="text" label="City" placeholder="San Antonio" required />
+            <.input name="address[state]" type="text" label="State" value="TX" required />
+            <.input name="address[zip]" type="text" label="ZIP" placeholder="78261" required />
+          </div>
+          <button type="submit" class="btn btn-primary w-full">Save address</button>
+        </form>
+
+        <%!-- Zone indicator (preserved) --%>
+        <div :if={@selected_address && @selected_address.zone} class="bg-info/10 border border-info/30 rounded-lg p-3 mb-4 text-sm text-info">
+          Service zone:
+          <span class={["badge badge-sm ml-1", MobileCarWash.Zones.badge_class(@selected_address.zone)]}>
+            {MobileCarWash.Zones.label(@selected_address.zone)}
           </span>
         </div>
 
-        <div :if={@selected_address} class="mt-4 text-right">
+        <%!-- Outside-service-area warning (preserved) --%>
+        <div
+          :if={@selected_address && is_nil(@selected_address.zone)}
+          class="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-warning"
+        >
+          This address may be outside our current service area. We'll confirm availability.
+        </div>
+
+        <div :if={@selected_address} class="flex justify-end">
           <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
       </div>
