@@ -172,4 +172,27 @@ defmodule MobileCarWashWeb.BookingComponentsTest do
       refute html =~ "Back to Home"
     end
   end
+
+  describe "saved_record_card/1" do
+    test "renders title and subtitle" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.saved_record_card title="2023 Tesla Model 3" subtitle="Silver · car" />|)
+      assert html =~ "2023 Tesla Model 3"
+      assert html =~ "Silver · car"
+    end
+
+    test "selected state shows cyan border and check badge" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.saved_record_card title="X" selected={true} />|)
+      assert html =~ "border-cyan-500"
+      assert html =~ "✓"
+    end
+
+    test "passes through phx-click and phx-value-id to root element" do
+      assigns = %{}
+      html = rendered_to_string(~H|<.saved_record_card title="X" phx-click="select_vehicle" phx-value-id="abc-123" />|)
+      assert html =~ ~s(phx-click="select_vehicle")
+      assert html =~ ~s(phx-value-id="abc-123")
+    end
+  end
 end

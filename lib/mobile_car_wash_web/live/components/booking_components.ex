@@ -310,4 +310,34 @@ defmodule MobileCarWashWeb.BookingComponents do
     </div>
     """
   end
+
+  @doc """
+  Renders a generic selectable card for a saved record (vehicle, address,
+  payment method, etc.).
+  """
+  attr :title, :string, required: true
+  attr :subtitle, :string, default: nil
+  attr :selected, :boolean, default: false
+  attr :rest, :global, include: ~w(phx-click phx-value-id)
+
+  def saved_record_card(assigns) do
+    ~H"""
+    <div
+      class={[
+        "relative bg-base-100 rounded-box p-4 cursor-pointer transition-shadow hover:shadow-md",
+        if(@selected, do: "border-2 border-cyan-500", else: "border border-base-300")
+      ]}
+      {@rest}
+    >
+      <div
+        :if={@selected}
+        class="absolute top-3 right-3 w-6 h-6 bg-cyan-500 text-white rounded-full flex items-center justify-center text-sm font-bold"
+      >
+        ✓
+      </div>
+      <div class="font-semibold text-base-content">{@title}</div>
+      <div :if={@subtitle} class="text-sm text-base-content/60 mt-0.5">{@subtitle}</div>
+    </div>
+    """
+  end
 end
