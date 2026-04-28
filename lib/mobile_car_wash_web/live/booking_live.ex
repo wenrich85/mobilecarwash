@@ -440,10 +440,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <%!-- Zone indicator (preserved) --%>
         <div :if={@selected_address && @selected_address.zone} class="bg-info/10 border border-info/30 rounded-lg p-3 mb-4 text-sm text-info">
-          Service zone:
-          <span class={["badge badge-sm ml-1", MobileCarWash.Zones.badge_class(@selected_address.zone)]}>
-            {MobileCarWash.Zones.label(@selected_address.zone)}
-          </span>
+          Service zone: <strong>{MobileCarWash.Zones.label(@selected_address.zone)}</strong>
         </div>
 
         <%!-- Outside-service-area warning (preserved) --%>
