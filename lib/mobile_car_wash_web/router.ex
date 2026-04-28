@@ -148,6 +148,10 @@ defmodule MobileCarWashWeb.Router do
       live "/privacy", PrivacyLive
     end
 
+    # Calendar (.ics) download for the booking-success page. Outside
+    # live_session because it's a plain Plug response, not a LiveView.
+    get "/book/:id/calendar.ics", BookingCalendarController, :show
+
     # Authentication routes — rate-limited via on_mount hook
     sign_in_route(
       auth_routes_prefix: "/auth",

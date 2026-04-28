@@ -260,7 +260,7 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
             <.icon name="hero-calendar-days" class="h-6 w-6 text-cyan-500" />
             <h3 class="mt-3 font-semibold text-base-content">Add to calendar</h3>
             <a
-              href={"/book/#{@appointment.id}/calendar.ics"}
+              href={~p"/book/#{@appointment.id}/calendar.ics"}
               class="btn btn-primary btn-sm mt-3 w-full"
             >
               Download .ics
