@@ -8,6 +8,7 @@ defmodule MobileCarWashWeb.BookingLive do
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Booking.{StateMachine, SessionCache}
   alias MobileCarWash.Billing.{Subscription, SubscriptionUsage}
+  alias MobileCarWash.Analytics
 
   require Ash.Query
 
@@ -58,6 +59,9 @@ defmodule MobileCarWashWeb.BookingLive do
         canonical_path: "/book",
         services: services,
         booking_session_id: booking_session_id,
+        # Cookie banner detection — used by :review step's mobile sticky CTA to
+        # avoid being hidden behind the cookie banner on first-visit mobile users.
+        current_consent: Analytics.consent_for_session(Map.get(session, "session_id")),
         # State machine
         current_step: validated_step,
         # Accumulated booking data (override on_mount's nil customer with cached guest)
@@ -620,9 +624,13 @@ defmodule MobileCarWashWeb.BookingLive do
           </button>
         </div>
 
-        <%!-- Mobile sticky CTA --%>
-        <div class="sm:hidden h-20"></div>
-        <div class="sm:hidden fixed bottom-0 inset-x-0 bg-base-100 border-t border-base-300 px-4 py-3 z-40">
+        <%!-- Mobile sticky CTA. When the cookie banner is showing (current_consent is nil),
+             push the bar above it with bottom-24 (96px) so both are reachable. --%>
+        <div class={["sm:hidden", if(@current_consent, do: "h-20", else: "h-44")]}></div>
+        <div class={[
+          "sm:hidden fixed inset-x-0 bg-base-100 border-t border-base-300 px-4 py-3 z-40",
+          if(@current_consent, do: "bottom-0", else: "bottom-24")
+        ]}>
           <div class="flex items-center gap-3">
             <button class="btn btn-ghost btn-sm" phx-click="prev_step">Back</button>
             <button class="btn btn-primary flex-1" phx-click="confirm_booking">
@@ -644,8 +652,8 @@ defmodule MobileCarWashWeb.BookingLive do
         </div>
       </div>
       
-    <!-- Back button (except on first and last steps) -->
-      <div :if={@current_step not in [:select_service, :confirmed]} class="mt-4">
+    <!-- Back button (except on first and last steps; :review has its own Back in desktop row + sticky CTA) -->
+      <div :if={@current_step not in [:select_service, :review, :confirmed]} class="mt-4">
         <button class="btn btn-ghost btn-sm" phx-click="prev_step">
           ← Back
         </button>
