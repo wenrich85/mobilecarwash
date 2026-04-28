@@ -327,6 +327,31 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
             See plans →
           </.link>
         </div>
+
+        <%!-- Referral card --%>
+        <div
+          :if={@customer && @customer.referral_code}
+          class="mt-4 rounded-xl bg-base-200 p-5 sm:p-6"
+        >
+          <h3 class="text-lg font-semibold text-base-content">Give a friend $10 off.</h3>
+          <p class="mt-1 text-sm text-base-content/70">
+            Share your code — they save, you save next time.
+          </p>
+          <div class="mt-4 flex items-center gap-2">
+            <code class="font-mono px-3 py-1 bg-base-100 rounded text-sm">
+              {@customer.referral_code}
+            </code>
+            <button
+              type="button"
+              phx-hook="ClipboardCopy"
+              id={"copy-referral-#{@customer.id}"}
+              data-copy-text={@customer.referral_code}
+              class="btn btn-ghost btn-xs"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
       </div>
 
       <div :if={@not_found}>

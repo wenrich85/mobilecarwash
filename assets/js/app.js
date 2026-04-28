@@ -43,12 +43,13 @@ import topbar from "../vendor/topbar"
 
 import {Sortable} from "./hooks/sortable"
 import {DispatchMap} from "./hooks/dispatch_map"
+import {ClipboardCopy} from "./hooks/clipboard_copy"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Sortable, DispatchMap},
+  hooks: {...colocatedHooks, Sortable, DispatchMap, ClipboardCopy},
 })
 
 // Show progress bar on live navigation and form submits

@@ -15,7 +15,7 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
   alias MobileCarWash.Scheduling.{Appointment, ServiceType}
 
   defp register_customer(opts \\ []) do
-    referral = Keyword.get(opts, :referral_code, nil)
+    referral_override = Keyword.get(opts, :referral_code, :unset)
 
     {:ok, customer} =
       Customer
@@ -28,12 +28,25 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       })
       |> Ash.create()
 
-    if referral do
-      customer
-      |> Ash.Changeset.for_update(:update, %{referral_code: referral})
-      |> Ash.update!()
-    else
-      customer
+    # Customer auto-generates a referral_code on register. Tests that need a
+    # specific code or no code at all override here via force_change_attribute
+    # (the public :update action accepts referral_code, but bypassing changes
+    # keeps the test deterministic regardless of validations on that attr).
+    case referral_override do
+      :unset ->
+        customer
+
+      nil ->
+        customer
+        |> Ash.Changeset.for_update(:update, %{})
+        |> Ash.Changeset.force_change_attribute(:referral_code, nil)
+        |> Ash.update!(authorize?: false)
+
+      code when is_binary(code) ->
+        customer
+        |> Ash.Changeset.for_update(:update, %{})
+        |> Ash.Changeset.force_change_attribute(:referral_code, code)
+        |> Ash.update!(authorize?: false)
     end
   end
 
@@ -255,6 +268,28 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
 
       refute html =~ "Save 15% on every wash"
+    end
+  end
+
+  describe "referral card" do
+    test "renders when customer has a referral code", %{conn: conn} do
+      customer = register_customer(referral_code: "FRIEND123")
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "Give a friend $10 off"
+      assert html =~ "FRIEND123"
+    end
+
+    test "hides when customer has no referral code", %{conn: conn} do
+      customer = register_customer(referral_code: nil)
+      {appt, _service, _address} = create_appointment(customer)
+
+      assert customer.referral_code == nil
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      refute html =~ "Give a friend $10 off"
     end
   end
 end
