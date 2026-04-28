@@ -586,14 +586,29 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :schedule}>
-        <h2 class="text-2xl font-bold mb-6">Pick an Arrival Window</h2>
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">
+            Pick a time
+          </h1>
+          <p class="text-sm text-base-content/60 mt-1">
+            We'll confirm your exact arrival time by midnight the day before.
+          </p>
+        </div>
+
         <.block_window_picker
           date={@selected_date}
           blocks={@available_blocks}
           selected_block={@selected_block}
         />
-        <div :if={@selected_block} class="mt-8 text-right">
-          <button class="btn btn-primary" phx-click="next_step">Continue</button>
+
+        <div class="flex justify-end mt-6">
+          <button
+            class="btn btn-primary"
+            phx-click="next_step"
+            disabled={is_nil(@selected_block)}
+          >
+            Continue
+          </button>
         </div>
       </div>
 
