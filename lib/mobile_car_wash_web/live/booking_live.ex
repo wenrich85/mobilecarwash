@@ -515,75 +515,85 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :review}>
-        <h2 class="text-2xl font-bold mb-6">Review Your Booking</h2>
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">
+            Review your booking
+          </h1>
+        </div>
 
-        <div :if={@active_subscription} class="alert alert-success mb-6">
-          <div>
-            <p class="font-semibold">
-              {@active_subscription.plan.name} Plan Applied
-            </p>
-            <p :if={@active_subscription.plan.basic_washes_per_month > 0} class="text-sm">
-              {Map.get(@active_subscription.usage, :basic_washes_used, 0)}/{@active_subscription.plan.basic_washes_per_month} basic washes used this period
-            </p>
-            <p :if={@active_subscription.plan.deep_clean_discount_percent > 0} class="text-sm">
-              {@active_subscription.plan.deep_clean_discount_percent}% off deep cleans
-            </p>
+        <%!-- Subscription banner --%>
+        <div :if={@active_subscription} class="bg-success/10 border border-success/30 rounded-box p-4 mb-4">
+          <div class="text-sm font-semibold text-success">
+            {@active_subscription.plan.name} plan applied
+          </div>
+          <div :if={@active_subscription.plan.basic_washes_per_month > 0} class="text-xs text-success/80 mt-1">
+            {Map.get(@active_subscription.usage, :basic_washes_used, 0)}/{@active_subscription.plan.basic_washes_per_month} basic washes used this period
+          </div>
+          <div :if={@active_subscription.plan.deep_clean_discount_percent > 0} class="text-xs text-success/80 mt-1">
+            {@active_subscription.plan.deep_clean_discount_percent}% off deep cleans
           </div>
         </div>
-        
-    <!-- Loyalty punch card redemption -->
+
+        <%!-- Loyalty (with toggle) --%>
         <% loyalty_free = MobileCarWash.Loyalty.available_free_washes(@loyalty_card) %>
         <div
           :if={loyalty_free > 0 && !@active_subscription}
-          class={["alert mb-4", (@redeem_loyalty && "alert-success") || "alert-info"]}
+          class={[
+            "rounded-box p-4 mb-4",
+            if(@redeem_loyalty,
+              do: "bg-success/10 border border-success/30",
+              else: "bg-info/10 border border-info/30"
+            )
+          ]}
         >
-          <div class="flex items-center justify-between w-full flex-wrap gap-2">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <p class="font-semibold">
+              <div class={["text-sm font-semibold", if(@redeem_loyalty, do: "text-success", else: "text-info")]}>
                 {if @redeem_loyalty,
                   do: "🎁 Free wash applied!",
                   else:
-                    "🎁 You have #{loyalty_free} free wash#{if loyalty_free != 1, do: "es"} available!"}
-              </p>
-              <p class="text-sm opacity-75">
+                    "🎁 You have #{loyalty_free} free wash#{if loyalty_free != 1, do: "es"} available"}
+              </div>
+              <div class="text-xs text-base-content/60 mt-0.5">
                 {if @redeem_loyalty,
                   do: "This booking is on us.",
                   else: "Earned from your loyalty punch card."}
-              </p>
+              </div>
             </div>
             <button
-              class={["btn btn-sm", (@redeem_loyalty && "btn-outline") || "btn-primary"]}
+              class={["btn btn-sm", if(@redeem_loyalty, do: "btn-outline", else: "btn-primary")]}
               phx-click="toggle_loyalty"
             >
-              {if @redeem_loyalty, do: "Remove", else: "Apply Free Wash"}
+              {if @redeem_loyalty, do: "Remove", else: "Apply free wash"}
             </button>
           </div>
         </div>
-        
-    <!-- Referral code -->
-        <div :if={!@redeem_loyalty && !@active_subscription} class="alert mb-4">
-          <div :if={!@referral_code} class="w-full">
+
+        <%!-- Referral --%>
+        <div :if={!@redeem_loyalty && !@active_subscription} class="bg-base-100 border border-base-300 rounded-box p-4 mb-4">
+          <div :if={!@referral_code}>
             <form phx-submit="apply_referral" class="flex items-center gap-2">
               <input
                 type="text"
                 name="code"
-                class="input input-bordered input-sm flex-1"
+                class="input input-bordered input-sm flex-1 h-10"
                 placeholder="Referral code"
                 maxlength="8"
               />
               <button type="submit" class="btn btn-sm btn-outline">Apply</button>
             </form>
-            <p :if={@referral_error} class="text-error text-sm mt-1">{@referral_error}</p>
+            <p :if={@referral_error} class="text-error text-xs mt-2">{@referral_error}</p>
           </div>
-          <div :if={@referral_code} class="flex items-center justify-between w-full">
+          <div :if={@referral_code} class="flex items-center justify-between gap-3">
             <div>
-              <p class="font-semibold text-success">$10 referral discount applied!</p>
-              <p class="text-sm opacity-75">Code: {@referral_code}</p>
+              <div class="text-sm font-semibold text-success">$10 referral discount applied</div>
+              <div class="text-xs text-base-content/60 mt-0.5">Code: {@referral_code}</div>
             </div>
             <button class="btn btn-sm btn-outline" phx-click="clear_referral">Remove</button>
           </div>
         </div>
 
+        <%!-- Booking summary --%>
         <% base_price =
           MobileCarWash.Billing.Pricing.calculate(
             @selected_service.base_price_cents,
@@ -601,11 +611,26 @@ defmodule MobileCarWashWeb.BookingLive do
           vehicle={@selected_vehicle}
           address={@selected_address}
         />
-        <div class="mt-8 flex gap-4 justify-end">
+
+        <%!-- Desktop button row --%>
+        <div class="hidden sm:flex gap-3 justify-end mt-6">
           <button class="btn btn-outline" phx-click="prev_step">Back</button>
-          <button class="btn btn-primary btn-lg" phx-click="confirm_booking">
-            {if @redeem_loyalty, do: "Confirm — Free Wash!", else: "Confirm Booking"}
+          <button class="btn btn-primary" phx-click="confirm_booking">
+            {if @redeem_loyalty, do: "Confirm — free wash!", else: "Confirm booking"}
           </button>
+        </div>
+
+        <%!-- Mobile sticky CTA --%>
+        <div class="sm:hidden h-20"></div>
+        <div class="sm:hidden fixed bottom-0 inset-x-0 bg-base-100 border-t border-base-300 px-4 py-3 z-40">
+          <div class="flex items-center gap-3">
+            <button class="btn btn-ghost btn-sm" phx-click="prev_step">Back</button>
+            <button class="btn btn-primary flex-1" phx-click="confirm_booking">
+              {if @redeem_loyalty,
+                do: "Confirm — free!",
+                else: "Confirm · $#{div(base_price - @referral_discount, 100)}"}
+            </button>
+          </div>
         </div>
       </div>
 
