@@ -144,7 +144,7 @@ defmodule MobileCarWashWeb.PhotoUploader do
     <label
       for={@upload.ref}
       phx-drop-target={@upload.ref}
-      class="block w-full h-48 rounded-2xl border-2 border-dashed border-base-300 hover:border-primary transition-colors bg-base-200/50 hover:bg-base-200 cursor-pointer flex flex-col items-center justify-center gap-2 px-4 text-center"
+      class="block w-full h-48 rounded-2xl border-2 border-dashed border-base-300 hover:border-cyan-500 transition-colors bg-base-200/50 hover:bg-base-200 cursor-pointer flex flex-col items-center justify-center gap-2 px-4 text-center"
     >
       <span class="text-4xl" aria-hidden="true">📷</span>
       <span class="font-semibold">Tap to add photo</span>
