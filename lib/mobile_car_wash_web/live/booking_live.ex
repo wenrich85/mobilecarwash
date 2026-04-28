@@ -258,80 +258,58 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :auth}>
-        <h2 class="text-2xl font-bold mb-6">How would you like to continue?</h2>
-
-        <div :if={@current_customer}>
-          <div class="alert alert-success mb-6">
-            <span>Welcome back, {@current_customer.name}!</span>
-          </div>
-          <button class="btn btn-primary" phx-click="next_step">Continue</button>
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">
+            How would you like to continue?
+          </h1>
         </div>
 
-        <div :if={!@current_customer} class="space-y-6">
-          <div class="card bg-base-100 shadow-xl border-2 border-primary">
-            <div class="card-body">
-              <h3 class="card-title">Continue as Guest</h3>
-              <p class="text-sm text-base-content/80">
-                No account needed. Just provide your contact info and we'll get you booked.
-              </p>
-
-              <div :if={@guest_error} class="alert alert-error alert-sm mt-2">
-                <span>{@guest_error}</span>
-              </div>
-
-              <form phx-submit="guest_checkout" class="mt-4 space-y-3">
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Name *</span></label>
-                  <input
-                    type="text"
-                    name="guest[name]"
-                    class="input input-bordered"
-                    required
-                    placeholder="Your full name"
-                  />
-                </div>
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Email *</span></label>
-                  <input
-                    type="email"
-                    name="guest[email]"
-                    class="input input-bordered"
-                    required
-                    placeholder="your@email.com"
-                  />
-                </div>
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Phone</span></label>
-                  <input
-                    type="tel"
-                    name="guest[phone]"
-                    class="input input-bordered"
-                    placeholder="512-555-0100"
-                  />
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">
-                  Continue as Guest
-                </button>
-              </form>
+        <%!-- Already signed in --%>
+        <div :if={@current_customer}>
+          <div class="bg-success/10 border border-success/30 rounded-box p-4 mb-6">
+            <div class="text-sm font-semibold text-success">
+              Welcome back, {@current_customer.name}!
             </div>
           </div>
+          <div class="flex justify-end">
+            <button class="btn btn-primary" phx-click="next_step">Continue</button>
+          </div>
+        </div>
 
-          <div class="divider">OR</div>
+        <%!-- Guest path (primary) + sign-in path (secondary) --%>
+        <div :if={!@current_customer} class="space-y-6">
+          <div class="bg-base-100 border border-base-300 rounded-box p-5">
+            <h2 class="text-lg font-semibold text-base-content mb-1">Continue as guest</h2>
+            <p class="text-sm text-base-content/70 mb-4">
+              No account needed. Just your contact info and we'll get you booked.
+            </p>
 
-          <div class="card bg-base-100 shadow">
-            <div class="card-body">
-              <h3 class="card-title text-base">Have an account?</h3>
-              <p class="text-sm text-base-content/80">
-                Sign in to use saved vehicles and addresses, or create an account for future bookings.
-              </p>
-              <div class="flex gap-3 mt-3">
-                <.link navigate={~p"/sign-in"} class="btn btn-outline btn-sm flex-1">
-                  Sign In
-                </.link>
-                <.link navigate={~p"/sign-in"} class="btn btn-ghost btn-sm flex-1">
-                  Create Account
-                </.link>
+            <div :if={@guest_error} class="bg-error/10 border border-error/30 rounded-lg p-3 mb-4 text-sm text-error">
+              {@guest_error}
+            </div>
+
+            <form phx-submit="guest_checkout" class="space-y-3">
+              <.input name="guest[name]" type="text" label="Name" placeholder="Your full name" required />
+              <.input name="guest[email]" type="email" label="Email" placeholder="your@email.com" required />
+              <.input name="guest[phone]" type="tel" label="Phone" placeholder="512-555-0100" />
+              <button type="submit" class="btn btn-primary w-full mt-2">
+                Continue as guest
+              </button>
+            </form>
+          </div>
+
+          <%!-- No /sign-in LiveView route exists; using disabled fallback until auth flow is built. --%>
+          <div class="bg-base-200 rounded-box p-4">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <div class="text-sm font-semibold text-base-content">Have an account?</div>
+                <div class="text-xs text-base-content/60 mt-0.5">
+                  Sign in to use saved vehicles and addresses.
+                </div>
               </div>
+              <a href="#" class="btn btn-ghost btn-sm pointer-events-none opacity-50" aria-disabled="true">
+                Sign in (coming soon)
+              </a>
             </div>
           </div>
         </div>
