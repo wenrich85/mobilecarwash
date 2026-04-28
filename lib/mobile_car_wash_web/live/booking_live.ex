@@ -229,16 +229,31 @@ defmodule MobileCarWashWeb.BookingLive do
       <.step_indicator current_step={@current_step} />
 
       <div :if={@current_step == :select_service}>
-        <h2 class="text-2xl font-bold mb-6">Choose Your Service</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="text-center mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">
+            Pick your service
+          </h1>
+          <p class="text-sm text-base-content/60 mt-1">
+            Two tiers. No hidden fees.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <.service_card
             :for={service <- @services}
             service={service}
             selected={@selected_service && @selected_service.id == service.id}
           />
         </div>
-        <div :if={@selected_service} class="mt-8 text-right">
-          <button class="btn btn-primary" phx-click="next_step">Continue</button>
+
+        <div class="flex justify-end">
+          <button
+            class="btn btn-primary"
+            phx-click="next_step"
+            disabled={is_nil(@selected_service)}
+          >
+            Continue
+          </button>
         </div>
       </div>
 
