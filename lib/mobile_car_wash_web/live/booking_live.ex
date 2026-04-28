@@ -307,9 +307,9 @@ defmodule MobileCarWashWeb.BookingLive do
                   Sign in to use saved vehicles and addresses.
                 </div>
               </div>
-              <a href="#" class="btn btn-ghost btn-sm pointer-events-none opacity-50" aria-disabled="true">
+              <button type="button" disabled class="btn btn-ghost btn-sm">
                 Sign in (coming soon)
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -365,17 +365,17 @@ defmodule MobileCarWashWeb.BookingLive do
           <div>
             <label class="text-sm font-semibold text-base-content mb-2 block">Vehicle type</label>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 transition-colors">
+              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
                 <input type="radio" name="vehicle[size]" value="car" class="sr-only" checked />
                 <div class="text-sm font-semibold">Car</div>
                 <div class="text-xs text-base-content/60">Sedan, coupe, compact</div>
               </label>
-              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 transition-colors">
+              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
                 <input type="radio" name="vehicle[size]" value="suv_van" class="sr-only" />
                 <div class="text-sm font-semibold">SUV / Van</div>
                 <div class="text-xs text-warning">+20% price</div>
               </label>
-              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 transition-colors">
+              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
                 <input type="radio" name="vehicle[size]" value="pickup" class="sr-only" />
                 <div class="text-sm font-semibold">Pickup</div>
                 <div class="text-xs text-warning">+50% price</div>
