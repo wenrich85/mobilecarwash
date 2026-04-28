@@ -316,124 +316,77 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :vehicle}>
-        <h2 class="text-2xl font-bold mb-6">Select Your Vehicle</h2>
-
-        <div :if={@existing_vehicles != []} class="space-y-4 mb-6">
-          <div
-            :for={vehicle <- @existing_vehicles}
-            class={[
-              "card bg-base-100 shadow cursor-pointer hover:shadow-lg transition-shadow",
-              @selected_vehicle && @selected_vehicle.id == vehicle.id && "ring-2 ring-primary"
-            ]}
-            phx-click="select_vehicle"
-            phx-value-id={vehicle.id}
-          >
-            <div class="card-body py-3">
-              <span class="font-semibold">{vehicle.year} {vehicle.make} {vehicle.model}</span>
-              <span class="text-sm text-base-content/70">{vehicle.color} · {vehicle.size}</span>
-            </div>
-          </div>
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">Your vehicle</h1>
+          <p class="text-sm text-base-content/60 mt-1">
+            Pick a saved vehicle, or add a new one.
+          </p>
         </div>
 
+        <%!-- Saved vehicles list --%>
+        <div :if={@existing_vehicles != []} class="space-y-3 mb-6">
+          <.saved_record_card
+            :for={vehicle <- @existing_vehicles}
+            title={"#{vehicle.year} #{vehicle.make} #{vehicle.model}"}
+            subtitle={"#{vehicle.color} · #{vehicle.size}"}
+            selected={@selected_vehicle && @selected_vehicle.id == vehicle.id}
+            phx-click="select_vehicle"
+            phx-value-id={vehicle.id}
+          />
+        </div>
+
+        <%!-- "Add New" toggle button (only when ≥1 saved records) --%>
         <button
-          :if={!@show_new_vehicle_form}
+          :if={@existing_vehicles != [] and !@show_new_vehicle_form}
           class="btn btn-outline btn-sm mb-6"
           phx-click="show_new_vehicle"
         >
-          + Add New Vehicle
+          + Add new vehicle
         </button>
 
-        <form :if={@show_new_vehicle_form} phx-submit="save_vehicle" class="space-y-4 mb-6">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label"><span class="label-text">Make</span></label>
-              <input
-                type="text"
-                name="vehicle[make]"
-                class="input input-bordered"
-                required
-                placeholder="Toyota"
-              />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Model</span></label>
-              <input
-                type="text"
-                name="vehicle[model]"
-                class="input input-bordered"
-                required
-                placeholder="Camry"
-              />
+        <%!-- Add-new form: auto-shown when no records, OR when toggle is on --%>
+        <form
+          :if={@existing_vehicles == [] or @show_new_vehicle_form}
+          phx-submit="save_vehicle"
+          class="bg-base-100 border border-base-300 rounded-box p-5 space-y-3 mb-6"
+        >
+          <div :if={@existing_vehicles == []} class="text-sm font-semibold text-base-content">
+            Add your vehicle
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <.input name="vehicle[make]" type="text" label="Make" placeholder="Toyota" required />
+            <.input name="vehicle[model]" type="text" label="Model" placeholder="Camry" required />
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <.input name="vehicle[year]" type="number" label="Year" placeholder="2024" />
+            <.input name="vehicle[color]" type="text" label="Color" placeholder="Silver" />
+          </div>
+
+          <div>
+            <label class="text-sm font-semibold text-base-content mb-2 block">Vehicle type</label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 transition-colors">
+                <input type="radio" name="vehicle[size]" value="car" class="sr-only" checked />
+                <div class="text-sm font-semibold">Car</div>
+                <div class="text-xs text-base-content/60">Sedan, coupe, compact</div>
+              </label>
+              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 transition-colors">
+                <input type="radio" name="vehicle[size]" value="suv_van" class="sr-only" />
+                <div class="text-sm font-semibold">SUV / Van</div>
+                <div class="text-xs text-warning">+20% price</div>
+              </label>
+              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 transition-colors">
+                <input type="radio" name="vehicle[size]" value="pickup" class="sr-only" />
+                <div class="text-sm font-semibold">Pickup</div>
+                <div class="text-xs text-warning">+50% price</div>
+              </label>
             </div>
           </div>
-          <div class="grid grid-cols-3 gap-4">
-            <div class="form-control">
-              <label class="label"><span class="label-text">Year</span></label>
-              <input
-                type="number"
-                name="vehicle[year]"
-                class="input input-bordered"
-                min="1990"
-                max="2027"
-                placeholder="2024"
-              />
-            </div>
-            <div class="form-control">
-              <label class="label"><span class="label-text">Color</span></label>
-              <input
-                type="text"
-                name="vehicle[color]"
-                class="input input-bordered"
-                placeholder="Silver"
-              />
-            </div>
-            <div class="form-control col-span-3">
-              <label class="label"><span class="label-text">Vehicle Type *</span></label>
-              <div class="grid grid-cols-3 gap-2">
-                <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
-                  <div>
-                    <input
-                      type="radio"
-                      name="vehicle[size]"
-                      value="car"
-                      class="radio radio-primary radio-sm"
-                      checked
-                    />
-                    <span class="ml-2 font-semibold">Car</span>
-                    <p class="text-xs text-base-content/70 ml-6">Sedan, Coupe, Compact</p>
-                  </div>
-                </label>
-                <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
-                  <div>
-                    <input
-                      type="radio"
-                      name="vehicle[size]"
-                      value="suv_van"
-                      class="radio radio-primary radio-sm"
-                    />
-                    <span class="ml-2 font-semibold">SUV / Van</span>
-                    <p class="text-xs text-warning ml-6">+20% price</p>
-                  </div>
-                </label>
-                <label class="cursor-pointer label border rounded-lg p-3 hover:border-primary transition-colors">
-                  <div>
-                    <input
-                      type="radio"
-                      name="vehicle[size]"
-                      value="pickup"
-                      class="radio radio-primary radio-sm"
-                    />
-                    <span class="ml-2 font-semibold">Pickup</span>
-                    <p class="text-xs text-warning ml-6">+50% price</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-          </div>
-          <button type="submit" class="btn btn-primary">Save Vehicle</button>
+
+          <button type="submit" class="btn btn-primary w-full">Save vehicle</button>
         </form>
 
-        <div :if={@selected_vehicle} class="mt-4 text-right">
+        <div :if={@selected_vehicle} class="flex justify-end">
           <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
       </div>
