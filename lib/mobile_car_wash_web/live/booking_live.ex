@@ -709,6 +709,12 @@ defmodule MobileCarWashWeb.BookingLive do
 
       <div :if={@current_step == :confirmed && @appointment}>
         <.confirmation_card appointment={@appointment} service={@selected_service} />
+
+        <div class="flex justify-center mt-6">
+          <.link navigate={~p"/book/success?id=#{@appointment.id}"} class="btn btn-primary">
+            Track your appointment →
+          </.link>
+        </div>
       </div>
       
     <!-- Back button (except on first and last steps) -->
