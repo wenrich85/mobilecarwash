@@ -10,6 +10,7 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
   alias MobileCarWash.Scheduling.{Appointment, ServiceType}
   alias MobileCarWash.Fleet.Address
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Operations.Technician
 
   @impl true
   def mount(%{"session_id" => session_id}, _session, socket) do
@@ -74,18 +75,26 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
         cust_id -> Ash.get!(Customer, cust_id, authorize?: false)
       end
 
+    technician =
+      case appointment.technician_id do
+        nil -> nil
+        tech_id -> Ash.get!(Technician, tech_id, authorize?: false)
+      end
+
+    # Subscription.read :active_for_customer returns subs with status in
+    # [:active, :paused, :past_due] (designed for the management UI). For
+    # the upsell gate we want strictly :active — past-due customers should
+    # see the upsell since re-subscribing is exactly what we want them to do.
     active_subscription =
       case customer do
         nil ->
           nil
 
         c ->
-          case Subscription
-               |> Ash.Query.for_read(:active_for_customer, %{customer_id: c.id})
-               |> Ash.read!(authorize?: false) do
-            [sub | _] -> sub
-            [] -> nil
-          end
+          Subscription
+          |> Ash.Query.for_read(:active_for_customer, %{customer_id: c.id})
+          |> Ash.read!(authorize?: false)
+          |> Enum.find(&(&1.status == :active))
       end
 
     {:ok,
@@ -94,6 +103,7 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
        service: service,
        address: address,
        customer: customer,
+       technician: technician,
        payment: payment,
        active_subscription: active_subscription
      }}
@@ -104,6 +114,7 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
          service: service,
          address: address,
          customer: customer,
+         technician: technician,
          payment: payment,
          active_subscription: sub
        }) do
@@ -113,6 +124,7 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
       service: service,
       address: address,
       customer: customer,
+      technician: technician,
       payment: payment,
       active_subscription: sub,
       not_found: false
@@ -126,6 +138,7 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
       service: nil,
       address: nil,
       customer: nil,
+      technician: nil,
       payment: nil,
       active_subscription: nil,
       not_found: true
@@ -248,7 +261,10 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
           </div>
 
           <%!-- Technician line (conditional) --%>
-          <p :if={@appointment.technician_id == nil} class="mt-5 text-sm text-base-content/60">
+          <p :if={@technician} class="mt-5 text-sm text-base-content/80">
+            Your technician: <span class="font-semibold">{@technician.name}</span>
+          </p>
+          <p :if={@technician == nil} class="mt-5 text-sm text-base-content/60">
             We'll let you know once a technician is assigned.
           </p>
         </div>

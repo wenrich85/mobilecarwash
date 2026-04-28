@@ -169,6 +169,29 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       assert appt.technician_id == nil
       assert html =~ "We&#39;ll let you know once a technician is assigned."
     end
+
+    test "renders the technician name when one is assigned", %{conn: conn} do
+      alias MobileCarWash.Operations.Technician
+
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, tech} =
+        Technician
+        |> Ash.Changeset.for_create(:create, %{name: "Maria Lopez"})
+        |> Ash.create()
+
+      {:ok, _appt_with_tech} =
+        appt
+        |> Ash.Changeset.for_update(:update, %{})
+        |> Ash.Changeset.force_change_attribute(:technician_id, tech.id)
+        |> Ash.update(authorize?: false)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "Your technician:"
+      assert html =~ "Maria Lopez"
+    end
   end
 
   describe "next steps grid" do
@@ -268,6 +291,43 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
 
       refute html =~ "Save 15% on every wash"
+    end
+
+    test "renders for customer with past_due subscription (re-conversion moment)", %{conn: conn} do
+      alias MobileCarWash.Billing.{Subscription, SubscriptionPlan}
+
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, plan} =
+        SubscriptionPlan
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Test Past Due",
+          slug: "test-pastdue-#{System.unique_integer([:positive])}",
+          price_cents: 4_900,
+          basic_washes_per_month: 2,
+          deep_cleans_per_month: 0,
+          deep_clean_discount_percent: 10
+        })
+        |> Ash.create()
+
+      {:ok, _sub} =
+        Subscription
+        |> Ash.Changeset.for_create(:create, %{
+          stripe_subscription_id: "sub_test_#{System.unique_integer([:positive])}",
+          status: :past_due,
+          current_period_start: Date.utc_today(),
+          current_period_end: Date.add(Date.utc_today(), 30)
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+        |> Ash.Changeset.force_change_attribute(:plan_id, plan.id)
+        |> Ash.create()
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      # past_due ≠ active for the upsell gate — these customers need
+      # the re-conversion CTA, not silence.
+      assert html =~ "Save 15% on every wash"
     end
   end
 
