@@ -210,4 +210,51 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       assert html =~ String.slice(local_part, 0, 2)
     end
   end
+
+  describe "subscription upsell card" do
+    test "renders for customer with no active subscription", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "Save 15% on every wash"
+      assert html =~ ~p"/subscribe"
+    end
+
+    test "hides for customer with active subscription", %{conn: conn} do
+      alias MobileCarWash.Billing.{Subscription, SubscriptionPlan}
+
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, plan} =
+        SubscriptionPlan
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Test Monthly",
+          slug: "test-monthly-#{System.unique_integer([:positive])}",
+          price_cents: 4_900,
+          basic_washes_per_month: 2,
+          deep_cleans_per_month: 0,
+          deep_clean_discount_percent: 10
+        })
+        |> Ash.create()
+
+      {:ok, _sub} =
+        Subscription
+        |> Ash.Changeset.for_create(:create, %{
+          stripe_subscription_id: "sub_test_#{System.unique_integer([:positive])}",
+          status: :active,
+          current_period_start: Date.utc_today(),
+          current_period_end: Date.add(Date.utc_today(), 30)
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+        |> Ash.Changeset.force_change_attribute(:plan_id, plan.id)
+        |> Ash.create()
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      refute html =~ "Save 15% on every wash"
+    end
+  end
 end

@@ -313,6 +313,20 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
             </p>
           </div>
         </div>
+
+        <%!-- Subscription upsell --%>
+        <div
+          :if={@active_subscription == nil}
+          class="mt-6 rounded-xl bg-cyan-500/5 ring-1 ring-cyan-500/20 p-5 sm:p-6"
+        >
+          <h3 class="text-lg font-semibold text-base-content">Save 15% on every wash.</h3>
+          <p class="mt-1 text-sm text-base-content/70">
+            A monthly plan covers two washes a month and locks in your spot.
+          </p>
+          <.link navigate={~p"/subscribe"} class="btn btn-primary btn-sm mt-4">
+            See plans →
+          </.link>
+        </div>
       </div>
 
       <div :if={@not_found}>
