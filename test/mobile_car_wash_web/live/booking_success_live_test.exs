@@ -292,4 +292,42 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
       refute html =~ "Give a friend $10 off"
     end
   end
+
+  describe "footer area (happy path)" do
+    test "renders review note + booking ID + back-to-home link", %{conn: conn} do
+      customer = register_customer()
+      {appt, _service, _address} = create_appointment(customer)
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{appt.id}")
+
+      assert html =~ "we&#39;ll text you a link to leave a review"
+      assert html =~ "Booking ID:"
+      assert html =~ to_string(appt.id)
+      assert html =~ "← Back to home"
+    end
+  end
+
+  describe "error state" do
+    test "renders friendly heading + contact info when params are missing", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/book/success")
+
+      assert html =~ "We couldn&#39;t find that booking."
+      assert html =~ "If you completed payment, contact us"
+      assert html =~ "mailto:hello@drivewaydetailcosa.com"
+    end
+
+    test "renders error state when id does not resolve", %{conn: conn} do
+      bogus_id = Ecto.UUID.generate()
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?id=#{bogus_id}")
+
+      assert html =~ "We couldn&#39;t find that booking."
+    end
+
+    test "renders error state when session_id does not resolve", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/book/success?session_id=cs_test_doesnotexist")
+
+      assert html =~ "We couldn&#39;t find that booking."
+    end
+  end
 end

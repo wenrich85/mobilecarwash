@@ -352,6 +352,15 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
             </button>
           </div>
         </div>
+
+        <%!-- Footer --%>
+        <div class="mt-8 space-y-2 text-sm text-base-content/60">
+          <p>After your appointment, we'll text you a link to leave a review.</p>
+          <p>Booking ID: <span class="font-mono text-xs">{@appointment.id}</span></p>
+        </div>
+        <div class="mt-6">
+          <.link navigate={~p"/"} class="btn btn-ghost btn-sm">← Back to home</.link>
+        </div>
       </div>
 
       <div :if={@not_found}>
@@ -359,7 +368,15 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
         <p class="text-base-content/70 mb-6">
           If you completed payment, contact us and we'll sort it out — we have your details.
         </p>
-        <.link navigate={~p"/"} class="btn btn-ghost">← Back to home</.link>
+        <ul class="space-y-2 mb-6 text-sm">
+          <li class="flex items-center gap-2">
+            <.icon name="hero-envelope" class="h-4 w-4 text-cyan-500" />
+            <a href="mailto:hello@drivewaydetailcosa.com" class="text-cyan-600 hover:underline">
+              hello@drivewaydetailcosa.com
+            </a>
+          </li>
+        </ul>
+        <.link navigate={~p"/"} class="btn btn-ghost btn-sm">← Back to home</.link>
       </div>
     </div>
     """
