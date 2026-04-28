@@ -457,11 +457,14 @@ defmodule MobileCarWashWeb.BookingLive do
       </div>
 
       <div :if={@current_step == :photos}>
-        <h2 class="text-2xl font-bold mb-2">Problem Area Photos</h2>
-        <p class="text-base-content/80 mb-6">
-          Anything that needs extra attention? Snap a photo so your tech
-          knows where to focus. Optional — tap Skip if you don't have any.
-        </p>
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">
+            Show us what to focus on
+          </h1>
+          <p class="text-sm text-base-content/60 mt-1">
+            Snap photos of any spots that need extra attention. Optional — tap Skip if you don't have any.
+          </p>
+        </div>
 
         <form phx-change="validate_photos" id="photo-upload-form">
           <MobileCarWashWeb.PhotoUploader.uploader
@@ -474,9 +477,9 @@ defmodule MobileCarWashWeb.BookingLive do
           />
         </form>
 
-        <div class="mt-6 flex gap-4 justify-end">
-          <button class="btn btn-ghost btn-sm" phx-click="next_step">
-            Skip — No Photos
+        <div class="flex flex-col-reverse sm:flex-row gap-2 sm:gap-4 sm:justify-end mt-6">
+          <button class="btn btn-ghost" phx-click="next_step">
+            Skip — no photos
           </button>
           <button :if={@uploaded_photos != []} class="btn btn-primary" phx-click="next_step">
             Continue
