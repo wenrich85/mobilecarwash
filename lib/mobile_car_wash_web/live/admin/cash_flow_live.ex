@@ -289,97 +289,106 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
         
     <!-- Thresholds Info -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          <div class="stat bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg rounded-xl border border-green-200 p-6">
-            <div class="stat-title text-sm font-semibold text-green-900">Expense Threshold</div>
-            <div class="stat-value text-green-600 text-2xl font-bold">
+          <div class="bg-base-100 ring-1 ring-base-300 rounded-xl p-6">
+            <div class="flex items-center gap-2 mb-3">
+              <.icon name="hero-currency-dollar" class="h-4 w-4 text-emerald-600" />
+              <span class="text-xs uppercase tracking-wide font-semibold text-base-content/70">
+                Expense threshold
+              </span>
+            </div>
+            <div class="text-2xl font-mono font-bold text-emerald-600">
               ${format_cents(@thresholds.expense)}
             </div>
-            <div class="stat-desc text-xs text-green-700">= Monthly Opex × 1.25</div>
+            <div class="text-xs text-base-content/60 mt-1">= Monthly Opex × 1.25</div>
           </div>
 
-          <div class="stat bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg rounded-xl border border-blue-200 p-6">
-            <div class="stat-title text-sm font-semibold text-blue-900">Savings Threshold</div>
-            <div class="stat-value text-blue-600 text-2xl font-bold">
+          <div class="bg-base-100 ring-1 ring-base-300 rounded-xl p-6">
+            <div class="flex items-center gap-2 mb-3">
+              <.icon name="hero-building-library" class="h-4 w-4 text-sky-600" />
+              <span class="text-xs uppercase tracking-wide font-semibold text-base-content/70">
+                Savings threshold
+              </span>
+            </div>
+            <div class="text-2xl font-mono font-bold text-sky-600">
               ${format_cents(@thresholds.business_savings)}
             </div>
-            <div class="stat-desc text-xs text-blue-700">= Expense Threshold × 4</div>
+            <div class="text-xs text-base-content/60 mt-1">= Expense Threshold × 4</div>
           </div>
 
-          <div class="stat bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg rounded-xl border border-amber-200 p-6">
-            <div class="stat-title text-sm font-semibold text-amber-900">Investment Target</div>
-            <div class="stat-value text-amber-600 text-2xl font-bold">
+          <div class="bg-base-100 ring-1 ring-base-300 rounded-xl p-6">
+            <div class="flex items-center gap-2 mb-3">
+              <.icon name="hero-chart-bar" class="h-4 w-4 text-amber-500" />
+              <span class="text-xs uppercase tracking-wide font-semibold text-base-content/70">
+                Investment target
+              </span>
+            </div>
+            <div class="text-2xl font-mono font-bold text-amber-500">
               ${format_cents(@config.investment_target_cents)}
             </div>
-            <div class="stat-desc text-xs text-amber-700">User-defined goal</div>
+            <div class="text-xs text-base-content/60 mt-1">User-defined goal</div>
           </div>
         </div>
         
     <!-- Recent Transactions -->
-        <div class="card bg-gradient-to-br from-secondary-50 to-base-100 shadow-2xl border border-secondary-200 rounded-2xl">
-          <div class="card-body">
-            <h2 class="card-title text-2xl text-primary-700 mb-4">📋 Recent Transactions</h2>
+        <div class="bg-base-100 ring-1 ring-base-300 rounded-2xl p-6">
+          <h2 class="text-2xl font-bold text-base-content mb-4">Recent Transactions</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-base-300">
+                  <th class="text-left py-2 px-3 font-semibold text-base-content/80">Type</th>
+                  <th class="text-right py-2 px-3 font-semibold text-base-content/80">Amount</th>
+                  <th class="text-left py-2 px-3 font-semibold text-base-content/80">
+                    Description
+                  </th>
+                  <th class="text-left py-2 px-3 font-semibold text-base-content/80">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  :for={txn <- @recent_txns}
+                  class="hover:bg-primary-50 border-b border-secondary-200"
+                >
+                  <td class="text-sm">
+                    <span class={["badge badge-sm font-bold", type_badge_class(txn.type)]}>
+                      {format_type(txn.type)}
+                    </span>
+                  </td>
+                  <td class="text-sm font-mono font-bold text-primary-700">
+                    ${format_cents(txn.amount_cents)}
+                  </td>
+                  <td class="text-xs text-base-content/70">{txn.description}</td>
+                  <td class="text-xs text-base-content/80">
+                    {Calendar.strftime(txn.inserted_at, "%m/%d %H:%M")}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-            <div class="overflow-x-auto">
-              <table class="table table-sm">
-                <thead class="bg-primary-100 text-primary-900">
-                  <tr>
-                    <th class="text-sm font-bold">Type</th>
-                    <th class="text-sm font-bold">Amount</th>
-                    <th class="text-sm font-bold">Description</th>
-                    <th class="text-sm font-bold">Date</th>
-                  </tr>
-                </thead>
+          <p :if={@recent_txns == []} class="text-center text-base-content/70 py-8 text-lg">
+            No transactions yet
+          </p>
 
-                <tbody>
-                  <tr
-                    :for={txn <- @recent_txns}
-                    class="hover:bg-primary-50 border-b border-secondary-200"
-                  >
-                    <td class="text-sm">
-                      <span class={["badge badge-sm font-bold", type_badge_class(txn.type)]}>
-                        {format_type(txn.type)}
-                      </span>
-                    </td>
-                    <td class="text-sm font-mono font-bold text-primary-700">
-                      ${format_cents(txn.amount_cents)}
-                    </td>
-                    <td class="text-xs text-base-content/70">{txn.description}</td>
-                    <td class="text-xs text-base-content/80">
-                      {Calendar.strftime(txn.inserted_at, "%m/%d %H:%M")}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <p :if={@recent_txns == []} class="text-center text-base-content/70 py-8 text-lg">
-              No transactions yet
-            </p>
-            
     <!-- Pagination -->
-            <div
-              :if={@total_txn_count > 0}
-              class="flex items-center justify-between mt-6 pt-4 border-t border-secondary-200"
-            >
-              <span class="text-sm text-base-content/70">
-                Page {[@page]} of {[@max_page]} ({[@total_txn_count]} total)
-              </span>
-              <div class="flex gap-2">
-                <button
-                  class="btn btn-sm btn-outline"
-                  phx-click="prev_page"
-                  disabled={@page == 1}
-                >
-                  ← Previous
-                </button>
-                <button
-                  class="btn btn-sm btn-outline"
-                  phx-click="next_page"
-                  disabled={@page >= @max_page}
-                >
-                  Next →
-                </button>
-              </div>
+          <div
+            :if={@total_txn_count > 0}
+            class="flex items-center justify-between mt-6 pt-4 border-t border-secondary-200"
+          >
+            <span class="text-sm text-base-content/70">
+              Page {[@page]} of {[@max_page]} ({[@total_txn_count]} total)
+            </span>
+            <div class="flex gap-2">
+              <button class="btn btn-sm btn-outline" phx-click="prev_page" disabled={@page == 1}>
+                ← Previous
+              </button>
+              <button
+                class="btn btn-sm btn-outline"
+                phx-click="next_page"
+                disabled={@page >= @max_page}
+              >
+                Next →
+              </button>
             </div>
           </div>
         </div>
