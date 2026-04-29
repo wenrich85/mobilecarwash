@@ -713,7 +713,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">💵 Record Income</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Record Income</h2>
           <p class="text-sm text-base-content/80 mb-4">Add funds arriving to your expense account</p>
 
           <form phx-submit="deposit" class="space-y-4">
@@ -756,16 +756,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #059669; border-color: #059669;"
-              >
+              <button type="submit" class="btn btn-success btn-sm">
                 Record Income
               </button>
             </div>
@@ -788,7 +784,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">📤 Record Expense</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Record Expense</h2>
           <p class="text-sm text-base-content/80 mb-4">Deduct funds from your expense account</p>
 
           <form phx-submit="withdraw" class="space-y-4">
@@ -831,16 +827,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #ef4444; border-color: #ef4444;"
-              >
+              <button type="submit" class="btn btn-error btn-sm">
                 Record Expense
               </button>
             </div>
@@ -863,7 +855,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">⚙️ Cash Flow Settings</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Cash Flow Settings</h2>
           <p class="text-sm text-base-content/80 mb-4">Configure thresholds and salary parameters</p>
 
           <form phx-submit="update_config" class="space-y-4">
@@ -941,16 +933,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #334155; border-color: #334155;"
-              >
+              <button type="submit" class="btn btn-neutral btn-sm">
                 Update Settings
               </button>
             </div>
@@ -973,7 +961,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">↩ Rebalance to Expense</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Rebalance to Expense</h2>
           <p class="text-sm text-base-content/80 mb-4">Pull funds back during lean months</p>
 
           <form phx-submit="transfer" class="space-y-4">
@@ -1031,16 +1019,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #E8A03C; border-color: #E8A03C;"
-              >
+              <button type="submit" class="btn btn-warning btn-sm">
                 Rebalance
               </button>
             </div>
