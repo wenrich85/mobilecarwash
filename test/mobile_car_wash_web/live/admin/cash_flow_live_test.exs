@@ -114,8 +114,15 @@ defmodule MobileCarWashWeb.Admin.CashFlowLiveTest do
       assert html =~ "Settings"
     end
 
-    # TODO(plan4-task9): assert the Projections nav link href once the
-    # brand band header is added in Task 9.
+    test "renders Projections nav link in the header band", %{conn: conn} do
+      admin = register_admin!()
+      conn = sign_in(conn, admin)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/cash-flow")
+
+      assert html =~ "Projections →"
+      assert html =~ ~p"/admin/cash-flow/projections"
+    end
   end
 
   describe "events" do

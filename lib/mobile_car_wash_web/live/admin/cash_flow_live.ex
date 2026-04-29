@@ -203,11 +203,19 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
     ~H"""
     <div class="max-w-7xl mx-auto py-8 px-4">
       <!-- Header -->
-      <div class="mb-6 bg-gradient-to-r from-primary-700 to-primary-900 text-secondary-50 rounded-2xl p-8 shadow-lg">
-        <h1 class="text-4xl font-bold mb-2">💰 Cash Flow Management</h1>
-        <p class="text-secondary-100 text-base">
-          Donald Miller's 5-bucket system: Expense → Tax, Business Savings, Investment, Personal Salary
-        </p>
+      <div class="bg-base-300 border-b border-cyan-500/30 -mx-4 mb-6 sm:mb-8">
+        <div class="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <.icon name="hero-banknotes" class="h-6 w-6 text-cyan-500" />
+            <div>
+              <h1 class="text-2xl font-bold text-base-content">Cash Flow</h1>
+              <p class="text-xs text-base-content/60">5-bucket money flow</p>
+            </div>
+          </div>
+          <.link navigate={~p"/admin/cash-flow/projections"} class="btn btn-ghost btn-sm">
+            Projections →
+          </.link>
+        </div>
       </div>
       
     <!-- ============================================================ -->

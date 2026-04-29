@@ -421,16 +421,19 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto py-8 px-4">
-      <div class="mb-6 flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold">Cash Flow Projections</h1>
-          <p class="text-base-content/70 text-sm mt-1">
-            Override income, expense, and allocation inputs to see projected end-of-period balances.
-          </p>
+      <div class="bg-base-300 border-b border-cyan-500/30 -mx-4 mb-6 sm:mb-8">
+        <div class="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <.icon name="hero-banknotes" class="h-6 w-6 text-cyan-500" />
+            <div>
+              <h1 class="text-2xl font-bold text-base-content">Projections</h1>
+              <p class="text-xs text-base-content/60">12-month forward look</p>
+            </div>
+          </div>
+          <.link navigate={~p"/admin/cash-flow"} class="btn btn-ghost btn-sm">
+            ← Back to Dashboard
+          </.link>
         </div>
-        <.link navigate={~p"/admin/cash-flow"} class="btn btn-ghost btn-sm">
-          ← Back to Dashboard
-        </.link>
       </div>
 
       <!-- Loading state (before first switch) -->
