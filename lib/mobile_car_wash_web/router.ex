@@ -251,6 +251,7 @@ defmodule MobileCarWashWeb.Router do
       live "/technicians/:id", TechnicianProfileLive
       live "/settings", SettingsLive
       live "/cash-flow", CashFlowLive
+      live "/cash-flow/projections", CashFlowProjectionsLive
       live "/vans", VansLive
       live "/supplies", SuppliesLive
       live "/blocks", BlocksLive
