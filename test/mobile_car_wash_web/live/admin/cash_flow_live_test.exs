@@ -107,13 +107,11 @@ defmodule MobileCarWashWeb.Admin.CashFlowLiveTest do
 
       {:ok, _view, html} = live(conn, ~p"/admin/cash-flow")
 
-      # Tightened to match the actual rendered labels which include
-      # leading sigils/emojis (Task 8 will strip these later).
-      assert html =~ "+ Record Income"
-      assert html =~ "- Record Expense"
-      assert html =~ "↩ Rebalance to Expense"
-      assert html =~ "💰 Pay Salary"
-      assert html =~ "⚙️ Settings"
+      assert html =~ "Record Income"
+      assert html =~ "Record Expense"
+      assert html =~ "Rebalance to Expense"
+      assert html =~ "Pay Salary"
+      assert html =~ "Settings"
     end
 
     # TODO(plan4-task9): assert the Projections nav link href once the

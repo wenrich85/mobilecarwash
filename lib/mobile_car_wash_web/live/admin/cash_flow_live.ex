@@ -241,54 +241,41 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
         </div>
         
     <!-- Action Buttons -->
-        <div class="flex gap-3 mb-8 flex-wrap">
+        <div class="flex flex-wrap gap-3 mb-8">
           <button
             type="button"
-            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-            style="background-color: #27AE60; border-color: #27AE60;"
+            class="btn btn-success btn-sm"
             phx-click="open_modal"
             phx-value-modal="deposit"
           >
-            + Record Income
+            <.icon name="hero-plus-circle" class="h-4 w-4" /> Record Income
           </button>
-
           <button
             type="button"
-            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-            style="background-color: #E74C3C; border-color: #E74C3C;"
+            class="btn btn-error btn-sm"
             phx-click="open_modal"
             phx-value-modal="withdrawal"
           >
-            - Record Expense
+            <.icon name="hero-minus-circle" class="h-4 w-4" /> Record Expense
           </button>
-
           <button
             type="button"
-            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-            style="background-color: #E8A03C; border-color: #E8A03C;"
+            class="btn btn-warning btn-sm"
             phx-click="open_modal"
             phx-value-modal="transfer"
           >
-            ↩ Rebalance to Expense
+            <.icon name="hero-arrow-path-rounded-square" class="h-4 w-4" /> Rebalance to Expense
           </button>
-
+          <button type="button" class="btn btn-info btn-sm" phx-click="pay_salary">
+            <.icon name="hero-banknotes" class="h-4 w-4" /> Pay Salary
+          </button>
           <button
             type="button"
-            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-            style="background-color: #3A7CA5; border-color: #3A7CA5;"
-            phx-click="pay_salary"
-          >
-            💰 Pay Salary
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-            style="background-color: #1E2A38; border-color: #1E2A38;"
+            class="btn btn-neutral btn-sm"
             phx-click="open_modal"
             phx-value-modal="config"
           >
-            ⚙️ Settings
+            <.icon name="hero-cog-6-tooth" class="h-4 w-4" /> Settings
           </button>
         </div>
         
