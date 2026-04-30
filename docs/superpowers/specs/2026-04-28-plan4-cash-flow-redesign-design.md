@@ -93,6 +93,8 @@ The SVG itself stays — same layout, same flow arrows, same animations. Only fi
 
 **Modernized semantic palette** (inline `style` attributes on SVG elements; SVG can't take Tailwind classes directly):
 
+> **As implemented:** the 5-distinct-color table below was narrowed during planning — the actual `cash_flow_components.ex` shares colors across buckets (3 colors + a navy fallback). See the implementation plan's `## Spec Correction: Color Mapping` section in `docs/superpowers/plans/2026-04-28-plan4-cash-flow-redesign.md` for the mapping that shipped.
+
 | Bucket | Old hex | New | Tailwind v4 token |
 |---|---|---|---|
 | Operating Income | `#27AE60` | `#059669` | `emerald-600` |

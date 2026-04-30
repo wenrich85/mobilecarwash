@@ -21,18 +21,18 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         <defs>
           <!-- Brand color gradients for buckets -->
           <linearGradient id="blueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:#3A7CA5;stop-opacity:0.9" />
-            <stop offset="100%" style="stop-color:#2E6384;stop-opacity:0.5" />
+            <stop offset="0%" style="stop-color:#0284c7;stop-opacity:0.9" />
+            <stop offset="100%" style="stop-color:#075985;stop-opacity:0.5" />
           </linearGradient>
 
           <linearGradient id="redGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:#E74C3C;stop-opacity:0.9" />
-            <stop offset="100%" style="stop-color:#C0392B;stop-opacity:0.5" />
+            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:0.9" />
+            <stop offset="100%" style="stop-color:#b91c1c;stop-opacity:0.5" />
           </linearGradient>
 
           <linearGradient id="greenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:#27AE60;stop-opacity:0.9" />
-            <stop offset="100%" style="stop-color:#229954;stop-opacity:0.5" />
+            <stop offset="0%" style="stop-color:#059669;stop-opacity:0.9" />
+            <stop offset="100%" style="stop-color:#047857;stop-opacity:0.5" />
           </linearGradient>
           
     <!-- Glow filters -->
@@ -329,7 +329,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         font-size="20"
         font-weight="bold"
         fill="white"
-        stroke="#1E2A38"
+        stroke="#334155"
         stroke-width="1"
         paint-order="stroke"
       >
@@ -344,7 +344,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           text-anchor="end"
           font-size="16"
           font-weight="bold"
-          fill="#3A7CA5"
+          fill="#0284c7"
         >
           {@label}
         </text>
@@ -355,7 +355,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           text-anchor="start"
           font-size="16"
           font-weight="bold"
-          fill="#3A7CA5"
+          fill="#0284c7"
         >
           {@label}
         </text>
@@ -371,7 +371,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           text-anchor="end"
           font-size="16"
           font-weight="bold"
-          fill="#3A7CA5"
+          fill="#0284c7"
         >
           {trunc(@fill_pct * 100)}%
         </text>
@@ -385,7 +385,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           fill="#FFFFFF"
           opacity="0.95"
           rx="3"
-          stroke="#3A7CA5"
+          stroke="#0284c7"
           stroke-width="1.5"
         />
         <text
@@ -394,7 +394,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           text-anchor="middle"
           font-size="15"
           font-weight="bold"
-          fill="#1E2A38"
+          fill="#334155"
         >
           ${format_cents(@balance_cents)}
         </text>
@@ -407,7 +407,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
           text-anchor="end"
           font-size="11"
           font-weight="600"
-          fill="#3A7CA5"
+          fill="#0284c7"
           opacity="0.8"
         >
           {@threshold_label} ${format_cents(@threshold_cents)}
@@ -421,7 +421,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             text-anchor="start"
             font-size="16"
             font-weight="bold"
-            fill="#3A7CA5"
+            fill="#0284c7"
           >
             {trunc(@fill_pct * 100)}%
           </text>
@@ -435,7 +435,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             fill="#FFFFFF"
             opacity="0.95"
             rx="3"
-            stroke="#3A7CA5"
+            stroke="#0284c7"
             stroke-width="1.5"
           />
           <text
@@ -444,7 +444,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             text-anchor="middle"
             font-size="15"
             font-weight="bold"
-            fill="#1E2A38"
+            fill="#334155"
           >
             ${format_cents(@balance_cents)}
           </text>
@@ -457,7 +457,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             text-anchor="start"
             font-size="11"
             font-weight="600"
-            fill="#3A7CA5"
+            fill="#0284c7"
             opacity="0.8"
           >
             {@threshold_label} ${format_cents(@threshold_cents)}
@@ -472,7 +472,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             fill="#FFFFFF"
             opacity="0.95"
             rx="3"
-            stroke="#3A7CA5"
+            stroke="#0284c7"
             stroke-width="1.5"
           />
           <text
@@ -481,7 +481,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             text-anchor="middle"
             font-size="15"
             font-weight="bold"
-            fill="#1E2A38"
+            fill="#334155"
           >
             ${format_cents(@balance_cents)}
           </text>
@@ -561,7 +561,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         d={
           "M #{@x1} #{@y1} Q #{div(@x1 + @x2, 2)} #{div(@y1 + @y2, 2) - 30} #{@x2} #{@y2}"
         }
-        stroke="#3A7CA5"
+        stroke="#0284c7"
         stroke-width="3"
         fill="none"
         stroke-linecap="round"
@@ -575,7 +575,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         points={
           "#{@x2},#{@y2} #{@x2 - 8},#{@y2 - 12} #{@x2 + 8},#{@y2 - 12}"
         }
-        fill="#3A7CA5"
+        fill="#0284c7"
         class={["transition-opacity", @active && "arrow-active"]}
         opacity={if @active, do: "1", else: "0.4"}
       />
@@ -612,7 +612,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         text-anchor="middle"
         font-size="14"
         font-weight="bold"
-        fill="#1E2A38"
+        fill="#334155"
       >
         {@label}
       </text>
@@ -635,7 +635,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         d={
           "M #{@x1} #{@y1} Q #{div(@x1 + @x2, 2)} #{div(@y1 + @y2, 2) + 30} #{@x2} #{@y2}"
         }
-        stroke="#E8A03C"
+        stroke="#f59e0b"
         stroke-width="3"
         fill="none"
         stroke-linecap="round"
@@ -650,7 +650,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         points={
           "#{@x2},#{@y2} #{@x2 + 8},#{@y2 + 12} #{@x2 - 8},#{@y2 + 12}"
         }
-        fill="#E8A03C"
+        fill="#f59e0b"
         class={["transition-opacity", @active && "arrow-active"]}
         opacity={if @active, do: "1", else: "0.4"}
       />
@@ -687,7 +687,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         text-anchor="middle"
         font-size="14"
         font-weight="bold"
-        fill="#1E2A38"
+        fill="#334155"
       >
         {@label}
       </text>
@@ -713,7 +713,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">💵 Record Income</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Record Income</h2>
           <p class="text-sm text-base-content/80 mb-4">Add funds arriving to your expense account</p>
 
           <form phx-submit="deposit" class="space-y-4">
@@ -756,16 +756,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #27AE60; border-color: #27AE60;"
-              >
+              <button type="submit" class="btn btn-success btn-sm">
                 Record Income
               </button>
             </div>
@@ -788,7 +784,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">📤 Record Expense</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Record Expense</h2>
           <p class="text-sm text-base-content/80 mb-4">Deduct funds from your expense account</p>
 
           <form phx-submit="withdraw" class="space-y-4">
@@ -831,16 +827,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #E74C3C; border-color: #E74C3C;"
-              >
+              <button type="submit" class="btn btn-error btn-sm">
                 Record Expense
               </button>
             </div>
@@ -863,7 +855,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">⚙️ Cash Flow Settings</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Cash Flow Settings</h2>
           <p class="text-sm text-base-content/80 mb-4">Configure thresholds and salary parameters</p>
 
           <form phx-submit="update_config" class="space-y-4">
@@ -941,16 +933,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #1E2A38; border-color: #1E2A38;"
-              >
+              <button type="submit" class="btn btn-neutral btn-sm">
                 Update Settings
               </button>
             </div>
@@ -973,7 +961,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         phx-click=""
       >
         <div class="card-body">
-          <h2 class="card-title text-2xl mb-2 text-primary-700">↩ Rebalance to Expense</h2>
+          <h2 class="card-title text-2xl mb-2 text-primary-700">Rebalance to Expense</h2>
           <p class="text-sm text-base-content/80 mb-4">Pull funds back during lean months</p>
 
           <form phx-submit="transfer" class="space-y-4">
@@ -1031,16 +1019,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
             <div class="card-actions justify-end gap-2 pt-4 border-t border-secondary-200">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm hover:bg-secondary-200"
+                class="btn btn-ghost btn-sm"
                 phx-click="close_modal"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                class="btn btn-sm text-white"
-                style="background-color: #E8A03C; border-color: #E8A03C;"
-              >
+              <button type="submit" class="btn btn-warning btn-sm">
                 Rebalance
               </button>
             </div>
@@ -1053,10 +1037,12 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
 
   # ===== HELPERS =====
 
-  defp color_to_stroke("blue"), do: "#3A7CA5"
-  defp color_to_stroke("red"), do: "#E74C3C"
-  defp color_to_stroke("green"), do: "#27AE60"
-  defp color_to_stroke(_), do: "#1E2A38"
+  # Modernized semantic palette:
+  # blue → sky-600, red → red-500, green → emerald-600, default → slate-700
+  defp color_to_stroke("blue"), do: "#0284c7"
+  defp color_to_stroke("red"), do: "#ef4444"
+  defp color_to_stroke("green"), do: "#059669"
+  defp color_to_stroke(_), do: "#334155"
 
   defp format_cents(cents) when is_integer(cents) do
     dollars = div(cents, 100)
