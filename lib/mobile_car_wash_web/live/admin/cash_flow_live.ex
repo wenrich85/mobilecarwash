@@ -369,7 +369,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowLive do
           <p :if={@recent_txns == []} class="text-center text-base-content/70 py-8 text-lg">
             No transactions yet
           </p>
-
+          
     <!-- Pagination -->
           <div
             :if={@total_txn_count > 0}

@@ -210,7 +210,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
     ~H"""
     <tr class="border-b border-base-200 last:border-0">
       <td class="py-3 font-semibold text-sm">{@plan.name}</td>
-
+      
     <!-- Subscriber count -->
       <td class="py-3 text-right">
         <span
@@ -247,7 +247,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">×</td>
-
+      
     <!-- Price per month -->
       <td class="py-3">
         <span
@@ -285,7 +285,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">=</td>
-
+      
     <!-- Monthly MRR contribution -->
       <td class="py-3 text-right font-mono text-sm font-semibold">
         <span class={[
@@ -295,7 +295,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
           ${format_cents(@plan.subscriber_count * @plan.price_cents)}
         </span>
       </td>
-
+      
     <!-- actual note -->
       <td class="py-3 pl-4 text-xs text-base-content/30 whitespace-nowrap">
         <span :if={
@@ -317,7 +317,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
     ~H"""
     <tr class="border-b border-base-200 last:border-0">
       <td class="py-3 font-semibold text-sm">{@service.name}</td>
-
+      
     <!-- Count/month -->
       <td class="py-3 text-right">
         <span
@@ -354,7 +354,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">×</td>
-
+      
     <!-- Price per wash -->
       <td class="py-3">
         <span
@@ -391,7 +391,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
       </td>
 
       <td class="py-3 text-center text-base-content/30 text-sm px-1">=</td>
-
+      
     <!-- Monthly revenue contribution -->
       <td class="py-3 text-right font-mono text-sm font-semibold">
         <span class={[
@@ -401,7 +401,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
           ${format_cents(round(@service.avg_monthly_count * @service.price_cents))}
         </span>
       </td>
-
+      
     <!-- "actual" note if modified -->
       <td class="py-3 pl-4 text-xs text-base-content/30 whitespace-nowrap">
         <span :if={
@@ -435,8 +435,8 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
           </.link>
         </div>
       </div>
-
-      <!-- Loading state (before first switch) -->
+      
+    <!-- Loading state (before first switch) -->
       <div :if={is_nil(@proj_inputs)} class="text-center py-12 text-base-content/70">
         Loading projections…
       </div>
@@ -501,7 +501,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
             </div>
           </div>
         </form>
-
+        
     <!-- Key Metrics — click editable values to change them -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <.proj_stat
@@ -553,7 +553,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
             editable={false}
           />
         </div>
-
+        
     <!-- Subscription Plan Breakdown — click subscriber count or price to edit -->
         <div class="card bg-base-100 shadow mb-6">
           <div class="card-body p-5">
@@ -597,7 +597,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
             </table>
           </div>
         </div>
-
+        
     <!-- Service Breakdown — click count or price to edit -->
         <div class="card bg-base-100 shadow mb-6">
           <div class="card-body p-5">
@@ -641,7 +641,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
             </table>
           </div>
         </div>
-
+        
     <!-- Break-Even Card -->
         <div class="card bg-base-100 shadow mb-6">
           <div class="card-body p-5">
@@ -682,7 +682,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowProjectionsLive do
             </div>
           </div>
         </div>
-
+        
     <!-- Month-by-Month Projection Table -->
         <div class="card bg-base-100 shadow">
           <div class="card-body p-0">
