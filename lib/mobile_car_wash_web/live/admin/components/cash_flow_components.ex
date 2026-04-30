@@ -635,7 +635,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         d={
           "M #{@x1} #{@y1} Q #{div(@x1 + @x2, 2)} #{div(@y1 + @y2, 2) + 30} #{@x2} #{@y2}"
         }
-        stroke="#E8A03C"
+        stroke="#f59e0b"
         stroke-width="3"
         fill="none"
         stroke-linecap="round"
@@ -650,7 +650,7 @@ defmodule MobileCarWashWeb.Admin.CashFlowComponents do
         points={
           "#{@x2},#{@y2} #{@x2 + 8},#{@y2 + 12} #{@x2 - 8},#{@y2 + 12}"
         }
-        fill="#E8A03C"
+        fill="#f59e0b"
         class={["transition-opacity", @active && "arrow-active"]}
         opacity={if @active, do: "1", else: "0.4"}
       />
