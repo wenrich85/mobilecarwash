@@ -157,7 +157,10 @@ defmodule MobileCarWashWeb.BookingComponents do
           phx-value-id={block.id}
         >
           <span class="font-semibold">
-            {Calendar.strftime(block.starts_at, "%I:%M %p")} – {Calendar.strftime(block.ends_at, "%I:%M %p")}
+            {Calendar.strftime(block.starts_at, "%I:%M %p")} – {Calendar.strftime(
+              block.ends_at,
+              "%I:%M %p"
+            )}
           </span>
           <span class="text-xs opacity-75">
             {block.capacity - block.appointment_count} of {block.capacity} spots left
@@ -265,7 +268,10 @@ defmodule MobileCarWashWeb.BookingComponents do
       <div class="border-t border-base-300 mt-4 pt-4 flex justify-between items-baseline">
         <span class="text-sm font-semibold text-base-content">Total</span>
         <div>
-          <span :if={@appointment.discount_cents > 0} class="line-through text-base-content/50 mr-2 text-sm">
+          <span
+            :if={@appointment.discount_cents > 0}
+            class="line-through text-base-content/50 mr-2 text-sm"
+          >
             ${div(@service.base_price_cents, 100)}
           </span>
           <span class="font-mono text-2xl font-bold text-cyan-700 tabular-nums">
@@ -290,7 +296,8 @@ defmodule MobileCarWashWeb.BookingComponents do
         Booking Confirmed!
       </h2>
       <p class="text-sm text-base-content/70 mb-6">
-        Your <strong>{@service.name}</strong> is scheduled for {Calendar.strftime(
+        Your <strong>{@service.name}</strong>
+        is scheduled for {Calendar.strftime(
           @appointment.scheduled_at,
           "%B %d, %Y at %I:%M %p"
         )}.

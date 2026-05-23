@@ -137,7 +137,9 @@ defmodule MobileCarWash.Notifications.Email do
     due_str =
       if task.due_date, do: Calendar.strftime(task.due_date, "%B %d, %Y"), else: "No date set"
 
-    notes_html = if task.description, do: "<p><strong>Notes:</strong> #{task.description}</p>", else: ""
+    notes_html =
+      if task.description, do: "<p><strong>Notes:</strong> #{task.description}</p>", else: ""
+
     notes_text = if task.description, do: "Notes: #{task.description}", else: ""
 
     url_html =

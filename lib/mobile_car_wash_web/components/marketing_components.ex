@@ -97,7 +97,8 @@ defmodule MobileCarWashWeb.MarketingComponents do
   def tech_section(assigns) do
     ~H"""
     <section class="relative bg-slate-900 py-16 px-4 overflow-hidden">
-      <div class="absolute top-1/2 -right-20 w-96 h-96 bg-cyan-500/25 rounded-full blur-3xl -translate-y-1/2"></div>
+      <div class="absolute top-1/2 -right-20 w-96 h-96 bg-cyan-500/25 rounded-full blur-3xl -translate-y-1/2">
+      </div>
       <div class="relative max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
         <div>
           <div class="font-mono text-xs text-cyan-400 tracking-widest mb-2">
@@ -169,6 +170,7 @@ defmodule MobileCarWashWeb.MarketingComponents do
   Renders a numbered grid of feature/step items.
   """
   attr :columns, :integer, default: 3, values: [2, 3, 4]
+
   slot :item, required: true do
     attr :number, :string
     attr :title, :string, required: true
@@ -190,7 +192,9 @@ defmodule MobileCarWashWeb.MarketingComponents do
         <div
           :if={item[:number]}
           class="w-7 h-7 bg-cyan-500 text-white rounded-lg flex items-center justify-center font-bold text-sm mb-2.5"
-        >{item.number}</div>
+        >
+          {item.number}
+        </div>
         <div class="text-sm font-semibold text-base-content mb-1">
           {item.title}
         </div>

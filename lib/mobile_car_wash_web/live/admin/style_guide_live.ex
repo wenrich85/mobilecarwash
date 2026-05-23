@@ -50,7 +50,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Slate — Neutral ramp</h3>
           <p class="text-sm text-base-content/80 mb-3">
-            Base: <code>#64748b</code> (500). Text, borders, surfaces. Use as <code>bg-slate-&#123;50..900&#125;</code>, <code>text-slate-&#123;50..900&#125;</code>.
+            Base: <code>#64748b</code>
+            (500). Text, borders, surfaces. Use as <code>bg-slate-&#123;50..900&#125;</code>, <code>text-slate-&#123;50..900&#125;</code>.
           </p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#f8fafc" label="50" dark={false} border={true} />
@@ -70,7 +71,8 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Cyan — Accent ramp</h3>
           <p class="text-sm text-base-content/80 mb-3">
-            Base: <code>#06b6d4</code> (500). Conversion CTAs, highlights, sparklines, "tech" sections. Use as <code>bg-cyan-&#123;50..900&#125;</code>.
+            Base: <code>#06b6d4</code>
+            (500). Conversion CTAs, highlights, sparklines, "tech" sections. Use as <code>bg-cyan-&#123;50..900&#125;</code>.
           </p>
           <div class="grid grid-cols-5 md:grid-cols-10 gap-1">
             <.swatch hex="#ecfeff" label="50" dark={false} border={true} />
@@ -132,9 +134,11 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-3">Tailwind Class Reference</h3>
           <p class="text-sm text-base-content/80 mb-4">
-            Use these class families in templates. The <code>base-*</code> and brand semantic
-            utilities adapt to light/dark theme automatically; the <code>slate-*</code> and
-            <code>cyan-*</code> ramps are fixed colors usable for inline accents.
+            Use these class families in templates. The <code>base-*</code>
+            and brand semantic
+            utilities adapt to light/dark theme automatically; the <code>slate-*</code>
+            and <code>cyan-*</code>
+            ramps are fixed colors usable for inline accents.
           </p>
           <div class="overflow-x-auto">
             <table class="table table-zebra text-sm">
