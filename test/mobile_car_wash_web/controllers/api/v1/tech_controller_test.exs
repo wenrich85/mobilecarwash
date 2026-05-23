@@ -16,7 +16,7 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
   use MobileCarWashWeb.ApiCase
 
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Operations.Technician
+  alias MobileCarWash.Operations.{AppointmentChecklist, Photo, Procedure, Technician}
   alias MobileCarWash.Scheduling.Appointment
 
   defp register_and_sign_in_tech(conn) do
@@ -104,6 +104,40 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
     |> Ash.Changeset.force_change_attribute(:technician_id, tech_id)
     |> Ash.Changeset.force_change_attribute(:status, status)
     |> Ash.update!(authorize?: false)
+  end
+
+  defp create_required_after_photos(appointment) do
+    Enum.each(Photo.key_car_parts(), fn car_part ->
+      Photo
+      |> Ash.Changeset.for_create(:upload, %{
+        file_path: "/tmp/#{appointment.id}-#{car_part}.jpg",
+        original_filename: "#{car_part}.jpg",
+        content_type: "image/jpeg",
+        photo_type: :after,
+        uploaded_by: :technician,
+        car_part: car_part
+      })
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.create!(authorize?: false)
+    end)
+  end
+
+  defp create_completed_checklist(appointment) do
+    {:ok, procedure} =
+      Procedure
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Completion SOP",
+        slug: "completion-sop-#{System.unique_integer([:positive])}"
+      })
+      |> Ash.Changeset.force_change_attribute(:service_type_id, appointment.service_type_id)
+      |> Ash.Changeset.force_change_attribute(:active, true)
+      |> Ash.create()
+
+    AppointmentChecklist
+    |> Ash.Changeset.for_create(:create, %{status: :completed})
+    |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+    |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+    |> Ash.create!()
   end
 
   describe "auth gating" do
@@ -279,6 +313,8 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
     test "transitions :in_progress -> :completed", %{conn: conn} do
       {authed, _user, tech, _} = register_and_sign_in_tech(conn)
       appt = create_customer_appointment(tech.id, :in_progress)
+      create_completed_checklist(appt)
+      create_required_after_photos(appt)
 
       conn = post(authed, ~p"/api/v1/tech/appointments/#{appt.id}/complete")
       body = json_response(conn, 200)

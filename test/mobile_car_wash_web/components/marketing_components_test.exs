@@ -222,8 +222,8 @@ defmodule MobileCarWashWeb.MarketingComponentsTest do
       assert html =~ "Step Three"
       assert html =~ "First body"
       assert html =~ "Third body"
-      assert html =~ ">1<"
-      assert html =~ ">3<"
+      assert html =~ ~r/>\s*1\s*</
+      assert html =~ ~r/>\s*3\s*</
     end
 
     test "uses 3 columns by default" do

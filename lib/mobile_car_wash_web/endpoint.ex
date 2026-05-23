@@ -19,6 +19,10 @@ defmodule MobileCarWashWeb.Endpoint do
     websocket: [connect_info: [:peer_data, session: @session_options]],
     longpoll: [connect_info: [:peer_data, session: @session_options]]
 
+  socket "/socket", MobileCarWashWeb.UserSocket,
+    websocket: [connect_info: [:peer_data, :user_agent], timeout: 45_000],
+    longpoll: false
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),

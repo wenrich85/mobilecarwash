@@ -28,6 +28,8 @@ defmodule MobileCarWash.Operations.Photo do
     domain: MobileCarWash.Operations,
     data_layer: AshPostgres.DataLayer
 
+  @key_car_parts [:front, :rear, :driver_side, :passenger_side, :interior, :wheels]
+
   postgres do
     table("photos")
     repo(MobileCarWash.Repo)
@@ -109,6 +111,14 @@ defmodule MobileCarWash.Operations.Photo do
     end
 
     create_timestamp(:inserted_at)
+
+    attribute :idempotency_key, :string do
+      public?(true)
+    end
+
+    attribute :deleted_at, :utc_datetime_usec do
+      public?(true)
+    end
   end
 
   relationships do
@@ -132,8 +142,13 @@ defmodule MobileCarWash.Operations.Photo do
         :photo_type,
         :caption,
         :uploaded_by,
-        :car_part
+        :car_part,
+        :idempotency_key
       ])
+    end
+
+    update :soft_delete do
+      change(set_attribute(:deleted_at, &DateTime.utc_now/0))
     end
 
     update :apply_ai_tags do
@@ -156,4 +171,6 @@ defmodule MobileCarWash.Operations.Photo do
       filter(expr(appointment_id == ^arg(:appointment_id) and photo_type in [:before, :after]))
     end
   end
+
+  def key_car_parts, do: @key_car_parts
 end

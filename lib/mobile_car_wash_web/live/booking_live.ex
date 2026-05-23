@@ -288,13 +288,28 @@ defmodule MobileCarWashWeb.BookingLive do
               No account needed. Just your contact info and we'll get you booked.
             </p>
 
-            <div :if={@guest_error} class="bg-error/10 border border-error/30 rounded-lg p-3 mb-4 text-sm text-error">
+            <div
+              :if={@guest_error}
+              class="bg-error/10 border border-error/30 rounded-lg p-3 mb-4 text-sm text-error"
+            >
               {@guest_error}
             </div>
 
             <form phx-submit="guest_checkout" class="space-y-3">
-              <.input name="guest[name]" type="text" label="Name" placeholder="Your full name" required />
-              <.input name="guest[email]" type="email" label="Email" placeholder="your@email.com" required />
+              <.input
+                name="guest[name]"
+                type="text"
+                label="Name"
+                placeholder="Your full name"
+                required
+              />
+              <.input
+                name="guest[email]"
+                type="email"
+                label="Email"
+                placeholder="your@email.com"
+                required
+              />
               <.input name="guest[phone]" type="tel" label="Phone" placeholder="512-555-0100" />
               <button type="submit" class="btn btn-primary w-full mt-2">
                 Continue as guest
@@ -433,7 +448,13 @@ defmodule MobileCarWashWeb.BookingLive do
           <div :if={@existing_addresses == []} class="text-sm font-semibold text-base-content">
             Where should we come?
           </div>
-          <.input name="address[street]" type="text" label="Street address" placeholder="123 Main St" required />
+          <.input
+            name="address[street]"
+            type="text"
+            label="Street address"
+            placeholder="123 Main St"
+            required
+          />
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <.input name="address[city]" type="text" label="City" placeholder="San Antonio" required />
             <.input name="address[state]" type="text" label="State" value="TX" required />
@@ -443,7 +464,10 @@ defmodule MobileCarWashWeb.BookingLive do
         </form>
 
         <%!-- Zone indicator (preserved) --%>
-        <div :if={@selected_address && @selected_address.zone} class="bg-info/10 border border-info/30 rounded-lg p-3 mb-4 text-sm text-info">
+        <div
+          :if={@selected_address && @selected_address.zone}
+          class="bg-info/10 border border-info/30 rounded-lg p-3 mb-4 text-sm text-info"
+        >
           Service zone: <strong>{MobileCarWash.Zones.label(@selected_address.zone)}</strong>
         </div>
 
@@ -526,14 +550,23 @@ defmodule MobileCarWashWeb.BookingLive do
         </div>
 
         <%!-- Subscription banner --%>
-        <div :if={@active_subscription} class="bg-success/10 border border-success/30 rounded-box p-4 mb-4">
+        <div
+          :if={@active_subscription}
+          class="bg-success/10 border border-success/30 rounded-box p-4 mb-4"
+        >
           <div class="text-sm font-semibold text-success">
             {@active_subscription.plan.name} plan applied
           </div>
-          <div :if={@active_subscription.plan.basic_washes_per_month > 0} class="text-xs text-success/80 mt-1">
+          <div
+            :if={@active_subscription.plan.basic_washes_per_month > 0}
+            class="text-xs text-success/80 mt-1"
+          >
             {Map.get(@active_subscription.usage, :basic_washes_used, 0)}/{@active_subscription.plan.basic_washes_per_month} basic washes used this period
           </div>
-          <div :if={@active_subscription.plan.deep_clean_discount_percent > 0} class="text-xs text-success/80 mt-1">
+          <div
+            :if={@active_subscription.plan.deep_clean_discount_percent > 0}
+            class="text-xs text-success/80 mt-1"
+          >
             {@active_subscription.plan.deep_clean_discount_percent}% off deep cleans
           </div>
         </div>
@@ -552,7 +585,10 @@ defmodule MobileCarWashWeb.BookingLive do
         >
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <div class={["text-sm font-semibold", if(@redeem_loyalty, do: "text-success", else: "text-info")]}>
+              <div class={[
+                "text-sm font-semibold",
+                if(@redeem_loyalty, do: "text-success", else: "text-info")
+              ]}>
                 {if @redeem_loyalty,
                   do: "🎁 Free wash applied!",
                   else:
@@ -574,7 +610,10 @@ defmodule MobileCarWashWeb.BookingLive do
         </div>
 
         <%!-- Referral --%>
-        <div :if={!@redeem_loyalty && !@active_subscription} class="bg-base-100 border border-base-300 rounded-box p-4 mb-4">
+        <div
+          :if={!@redeem_loyalty && !@active_subscription}
+          class="bg-base-100 border border-base-300 rounded-box p-4 mb-4"
+        >
           <div :if={!@referral_code}>
             <form phx-submit="apply_referral" class="flex items-center gap-2">
               <input

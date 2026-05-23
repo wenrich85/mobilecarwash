@@ -52,7 +52,33 @@ defmodule MobileCarWashWeb.Api.V1.TechAppointmentsController do
 
   def depart(conn, params), do: transition(conn, params, :depart, @depart_from)
   def arrive(conn, params), do: transition(conn, params, :arrive, @arrive_from)
-  def complete(conn, params), do: transition(conn, params, :complete, @complete_from)
+
+  def complete(conn, %{"id" => id}) do
+    with {:ok, appt} <- fetch_own_appointment(current_user(conn), id),
+         true <- appt.status in @complete_from,
+         {:ok, updated} <- WashOrchestrator.complete_wash(appt.id) do
+      maps = preload_maps([updated])
+      json(conn, %{data: appointment_json(updated, maps)})
+    else
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "not_found"})
+
+      false ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "not_transitionable"})
+
+      {:error, {:photos_incomplete, missing}} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "photos_incomplete", missing: Enum.map(missing, &to_string/1)})
+
+      {:error, _} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "not_transitionable"})
+    end
+  end
 
   def start(conn, %{"id" => id}) do
     with {:ok, appt} <- fetch_own_appointment(current_user(conn), id),

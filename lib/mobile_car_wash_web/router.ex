@@ -310,6 +310,13 @@ defmodule MobileCarWashWeb.Router do
     post "/tech/appointments/:id/arrive", TechAppointmentsController, :arrive
     post "/tech/appointments/:id/start", TechAppointmentsController, :start
     post "/tech/appointments/:id/complete", TechAppointmentsController, :complete
+
+    # Native technician checklist/photo flow
+    get "/checklists/:id", ChecklistsController, :show
+    post "/checklists/:id/items/:item_id/start", ChecklistsController, :start_item
+    post "/checklists/:id/items/:item_id/complete", ChecklistsController, :complete_item
+    post "/appointments/:id/photos", AppointmentPhotosController, :create
+    delete "/appointments/:id/photos/:photo_id", AppointmentPhotosController, :delete
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

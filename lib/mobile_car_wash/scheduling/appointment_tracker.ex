@@ -137,7 +137,7 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     )
   end
 
-  def broadcast_photo(appointment_id, photo_type) do
+  def broadcast_photo(appointment_id, photo_type, car_part \\ nil, photo \\ nil) do
     PubSub.broadcast(
       @pubsub,
       topic(appointment_id),
@@ -146,7 +146,9 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
          appointment_id: appointment_id,
          status: :in_progress,
          event: :photo_uploaded,
-         photo_type: photo_type
+         photo_type: photo_type,
+         car_part: car_part,
+         photo: photo
        }}
     )
   end

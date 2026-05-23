@@ -8,7 +8,14 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
   alias MobileCarWash.Repo
   alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Scheduling.Appointment
-  alias MobileCarWash.Operations.{Procedure, ProcedureStep, AppointmentChecklist, ChecklistItem}
+
+  alias MobileCarWash.Operations.{
+    Procedure,
+    ProcedureStep,
+    AppointmentChecklist,
+    ChecklistItem,
+    Photo
+  }
 
   require Ash.Query
 
@@ -38,7 +45,8 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
          {:ok, checklist} <- find_checklist(appointment_id),
          true <-
            WashStateMachine.can_complete_wash?(appointment, checklist.status) ||
-             {:error, :cannot_complete} do
+             {:error, :cannot_complete},
+         :ok <- after_photos_complete?(appointment_id) do
       # Mark appointment complete (broadcasts via after_action)
       appointment
       |> Ash.Changeset.for_update(:complete, %{})
@@ -126,6 +134,27 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
     case checklists do
       [checklist | _] -> {:ok, checklist}
       [] -> {:error, :no_checklist}
+    end
+  end
+
+  defp after_photos_complete?(appointment_id) do
+    required = Photo.key_car_parts()
+
+    present =
+      Photo
+      |> Ash.Query.filter(
+        appointment_id == ^appointment_id and photo_type == :after and is_nil(deleted_at)
+      )
+      |> Ash.read!(authorize?: false)
+      |> Enum.map(& &1.car_part)
+      |> Enum.uniq()
+
+    missing = required -- present
+
+    if missing == [] do
+      :ok
+    else
+      {:error, {:photos_incomplete, missing}}
     end
   end
 end

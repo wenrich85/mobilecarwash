@@ -14,6 +14,8 @@ defmodule MobileCarWash.Operations.PhotoUpload do
 
   alias MobileCarWash.Operations.Photo
 
+  require Ash.Query
+
   # Outside priv/static/ so Plug.Static does NOT serve these paths.
   # Reads go through PhotoController, which checks ownership before
   # serving bytes or redirecting to a presigned S3 URL.
@@ -35,6 +37,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     caption = Keyword.get(opts, :caption)
     checklist_item_id = Keyword.get(opts, :checklist_item_id)
     car_part = Keyword.get(opts, :car_part)
+    idempotency_key = Keyword.get(opts, :idempotency_key)
     client_id = Keyword.get(opts, :client_id, "default")
 
     ext = Path.extname(original_filename) |> String.downcase()
@@ -46,6 +49,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
         caption: caption,
         checklist_item_id: checklist_item_id,
         car_part: car_part,
+        idempotency_key: idempotency_key,
         client_id: client_id
       )
     end
@@ -76,6 +80,43 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     caption = Keyword.get(opts, :caption)
     checklist_item_id = Keyword.get(opts, :checklist_item_id)
     car_part = Keyword.get(opts, :car_part)
+    idempotency_key = Keyword.get(opts, :idempotency_key)
+    client_id = Keyword.get(opts, :client_id, "default")
+
+    with {:idempotent, nil} <- {:idempotent, get_idempotent_photo(idempotency_key)},
+         :ok <- soft_delete_existing_slot(appointment_id, photo_type, car_part) do
+      do_save_file_validated(
+        appointment_id,
+        source_path,
+        original_filename,
+        ext,
+        photo_type,
+        uploaded_by: uploaded_by,
+        caption: caption,
+        checklist_item_id: checklist_item_id,
+        car_part: car_part,
+        idempotency_key: idempotency_key,
+        client_id: client_id
+      )
+    else
+      {:idempotent, photo} -> {:ok, photo}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp do_save_file_validated(
+         appointment_id,
+         source_path,
+         original_filename,
+         ext,
+         photo_type,
+         opts
+       ) do
+    uploaded_by = Keyword.get(opts, :uploaded_by, :technician)
+    caption = Keyword.get(opts, :caption)
+    checklist_item_id = Keyword.get(opts, :checklist_item_id)
+    car_part = Keyword.get(opts, :car_part)
+    idempotency_key = Keyword.get(opts, :idempotency_key)
     client_id = Keyword.get(opts, :client_id, "default")
 
     filename = "#{photo_type}_#{Ash.UUID.generate()}#{ext}"
@@ -104,6 +145,11 @@ defmodule MobileCarWash.Operations.PhotoUpload do
         changeset_attrs =
           if car_part, do: Map.put(changeset_attrs, :car_part, car_part), else: changeset_attrs
 
+        changeset_attrs =
+          if idempotency_key,
+            do: Map.put(changeset_attrs, :idempotency_key, idempotency_key),
+            else: changeset_attrs
+
         case Photo
              |> Ash.Changeset.for_create(:upload, changeset_attrs)
              |> Ash.Changeset.force_change_attribute(:appointment_id, appointment_id)
@@ -126,6 +172,34 @@ defmodule MobileCarWash.Operations.PhotoUpload do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp get_idempotent_photo(nil), do: nil
+
+  defp get_idempotent_photo(idempotency_key) do
+    Photo
+    |> Ash.Query.filter(idempotency_key == ^idempotency_key)
+    |> Ash.Query.filter(is_nil(deleted_at))
+    |> Ash.read!(authorize?: false)
+    |> List.first()
+  end
+
+  defp soft_delete_existing_slot(_appointment_id, _photo_type, nil), do: :ok
+
+  defp soft_delete_existing_slot(appointment_id, photo_type, car_part) do
+    Photo
+    |> Ash.Query.filter(
+      appointment_id == ^appointment_id and photo_type == ^photo_type and car_part == ^car_part and
+        is_nil(deleted_at)
+    )
+    |> Ash.read!(authorize?: false)
+    |> Enum.each(fn photo ->
+      photo
+      |> Ash.Changeset.for_update(:soft_delete, %{})
+      |> Ash.update!(authorize?: false)
+    end)
+
+    :ok
   end
 
   # Only :problem_area photos uploaded by the customer trigger the
@@ -171,6 +245,15 @@ defmodule MobileCarWash.Operations.PhotoUpload do
       :s3 -> presign_url(path)
       _ -> path
     end
+  end
+
+  def signed_url_for(photo, expires_in \\ 21_600) do
+    expires_at = DateTime.utc_now() |> DateTime.add(expires_in, :second)
+
+    %{
+      url: url_for(photo),
+      url_expires_at: expires_at
+    }
   end
 
   @doc "Returns the photo with `file_path` replaced by its display URL. Useful for Enum.map."

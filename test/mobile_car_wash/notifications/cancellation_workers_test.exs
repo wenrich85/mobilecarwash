@@ -68,7 +68,10 @@ defmodule MobileCarWash.Notifications.CancellationWorkersTest do
       |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
       |> Ash.create()
 
-    {:ok, scheduled_at} = DateTime.new(~D[2026-05-20], ~T[14:00:00])
+    scheduled_at =
+      DateTime.utc_now()
+      |> DateTime.add(7, :day)
+      |> DateTime.truncate(:second)
 
     {:ok, appointment} =
       Appointment
