@@ -99,6 +99,7 @@ defmodule MobileCarWash.Marketing.Tag do
 
     destroy :destroy do
       primary?(true)
+      require_atomic?(false)
 
       # Protected tags cannot be deleted — soft-archive via :active=false
       # instead.

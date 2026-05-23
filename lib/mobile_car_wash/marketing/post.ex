@@ -89,6 +89,7 @@ defmodule MobileCarWash.Marketing.Post do
     end
 
     update :update do
+      require_atomic?(false)
       accept([:title, :body, :image_url, :channels, :persona_ids])
     end
 
