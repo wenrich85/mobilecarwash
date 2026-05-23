@@ -66,8 +66,7 @@ defmodule MobileCarWashWeb.Admin.StyleGuideLive do
             <.swatch hex="#0f172a" label="900" dark={true} />
           </div>
         </div>
-
-    <!-- Cyan (accent ramp) -->
+        <!-- Cyan (accent ramp) -->
         <div class="mb-8">
           <h3 class="text-lg font-semibold mb-1">Cyan — Accent ramp</h3>
           <p class="text-sm text-base-content/80 mb-3">
