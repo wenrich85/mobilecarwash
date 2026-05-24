@@ -1,0 +1,351 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1560" viewBox="0 0 1900 1560">
+  <defs>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef4f8"/>
+      <stop offset="1" stop-color="#f7f3ee"/>
+    </linearGradient>
+    <linearGradient id="brandBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f7aea"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="inkPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="darkPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#0b1120"/>
+    </linearGradient>
+    <linearGradient id="warmProof" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff7ed"/>
+      <stop offset="1" stop-color="#eff6ff"/>
+    </linearGradient>
+    <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#0f172a" flood-opacity="0.22"/>
+    </filter>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#cbd5e1" stroke-width="1" opacity="0.28"/>
+    </pattern>
+    <style>
+      .title { font: 800 42px Arial, sans-serif; fill: #0f172a; letter-spacing: 0; }
+      .subtitle { font: 500 18px Arial, sans-serif; fill: #475569; letter-spacing: 0; }
+      .mode { font: 800 24px Arial, sans-serif; fill: #334155; letter-spacing: 0; }
+      .h1 { font: 800 31px Arial, sans-serif; letter-spacing: 0; }
+      .h2 { font: 800 21px Arial, sans-serif; letter-spacing: 0; }
+      .h3 { font: 700 17px Arial, sans-serif; letter-spacing: 0; }
+      .body { font: 500 15px Arial, sans-serif; letter-spacing: 0; }
+      .small { font: 700 12px Arial, sans-serif; letter-spacing: 0; }
+      .tiny { font: 700 10px Arial, sans-serif; letter-spacing: 0; }
+      .phone { rx: 44; filter: url(#phoneShadow); }
+      .card { rx: 22; filter: url(#softShadow); }
+      .soft { rx: 16; }
+      .pill { rx: 999; }
+    </style>
+  </defs>
+
+  <rect width="1900" height="1560" fill="url(#pageBg)"/>
+  <rect width="1900" height="1560" fill="url(#grid)"/>
+  <text x="70" y="74" class="title">Live Service Console - More Premium Direction</text>
+  <text x="70" y="108" class="subtitle">More personality without turning the app into marketing: branded motion cues, proof-first photo UI, and calm customer transparency.</text>
+  <text x="96" y="168" class="mode">Light mode</text>
+  <text x="96" y="858" class="mode">Dark mode</text>
+
+  <!-- LIGHT TECH JOB DETAIL -->
+  <g transform="translate(80 200)">
+    <rect class="phone" width="520" height="610" fill="#f8fafc"/>
+    <rect width="520" height="610" rx="44" fill="none" stroke="#e2e8f0"/>
+    <rect x="0" y="0" width="520" height="178" rx="44" fill="url(#inkPanel)"/>
+    <path d="M36 140 C118 72 188 190 270 112 S420 64 488 126" fill="none" stroke="#38bdf8" stroke-width="4" opacity="0.42"/>
+    <path d="M40 146 C122 82 188 196 276 120 S420 78 490 136" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.42"/>
+    <text x="38" y="60" class="small" fill="#93c5fd">TECH CONSOLE</text>
+    <text x="38" y="96" class="h1" fill="#ffffff">Admin Owner</text>
+    <text x="38" y="124" class="body" fill="#cbd5e1">Honda Civic - Premium Wash</text>
+    <rect x="362" y="42" width="112" height="34" class="pill" fill="#064e3b"/>
+    <circle cx="386" cy="59" r="5" fill="#34d399"/>
+    <text x="400" y="63" class="small" fill="#bbf7d0">ON SITE</text>
+
+    <rect x="34" y="142" width="452" height="92" class="card" fill="#ffffff"/>
+    <g transform="translate(58 162)">
+      <circle cx="31" cy="31" r="30" fill="#eff6ff" stroke="#bfdbfe"/>
+      <path d="M18 34h26M24 24h18l8 10H14z" fill="none" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/>
+      <text x="82" y="24" class="h2" fill="#0f172a">Start Wash</text>
+      <text x="82" y="50" class="body" fill="#64748b">Creates checklist and opens proof capture</text>
+      <rect x="316" y="13" width="78" height="38" class="pill" fill="url(#brandBlue)"/>
+      <path d="M348 24l12 8-12 8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <g transform="translate(34 260)">
+      <rect width="452" height="112" class="card" fill="#ffffff"/>
+      <text x="24" y="34" class="h2" fill="#0f172a">Service pulse</text>
+      <text x="24" y="61" class="body" fill="#64748b">Current state and proof readiness</text>
+      <rect x="24" y="82" width="404" height="10" rx="5" fill="#e2e8f0"/>
+      <rect x="24" y="82" width="176" height="10" rx="5" fill="#2563eb"/>
+      <circle cx="24" cy="87" r="9" fill="#22c55e"/>
+      <circle cx="200" cy="87" r="9" fill="#2563eb"/>
+      <circle cx="428" cy="87" r="9" fill="#cbd5e1"/>
+      <text x="300" y="36" class="h2" fill="#f97316">34 min</text>
+      <text x="300" y="61" class="small" fill="#64748b">ETA REMAINING</text>
+    </g>
+
+    <g transform="translate(34 398)">
+      <text x="0" y="0" class="h2" fill="#0f172a">Evidence board</text>
+      <rect y="18" width="452" height="150" class="card" fill="url(#warmProof)"/>
+      <g transform="translate(22 42)">
+        <rect width="118" height="82" rx="16" fill="#ffffff" stroke="#bbf7d0"/>
+        <text x="18" y="28" class="h2" fill="#16a34a">6/6</text>
+        <text x="18" y="54" class="small" fill="#475569">BEFORE</text>
+        <rect x="154" width="118" height="82" rx="16" fill="#ffffff" stroke="#bfdbfe"/>
+        <text x="172" y="28" class="h2" fill="#2563eb">2</text>
+        <text x="172" y="54" class="small" fill="#475569">DURING</text>
+        <rect x="308" width="118" height="82" rx="16" fill="#ffffff" stroke="#fed7aa"/>
+        <text x="326" y="28" class="h2" fill="#f97316">0/6</text>
+        <text x="326" y="54" class="small" fill="#475569">AFTER</text>
+      </g>
+      <rect x="22" y="134" width="408" height="12" rx="6" fill="#e2e8f0"/>
+      <rect x="22" y="134" width="226" height="12" rx="6" fill="#22c55e"/>
+    </g>
+
+    <g transform="translate(34 588)">
+      <rect width="138" height="4" rx="2" fill="#94a3b8" opacity="0.45"/>
+      <rect x="156" width="138" height="4" rx="2" fill="#94a3b8" opacity="0.18"/>
+      <rect x="312" width="138" height="4" rx="2" fill="#94a3b8" opacity="0.18"/>
+    </g>
+  </g>
+
+  <!-- LIGHT CHECKLIST PHOTOS -->
+  <g transform="translate(690 200)">
+    <rect class="phone" width="520" height="610" fill="#f8fafc"/>
+    <rect width="520" height="610" rx="44" fill="none" stroke="#e2e8f0"/>
+    <text x="38" y="60" class="h1" fill="#0f172a">Checklist</text>
+    <text x="38" y="90" class="body" fill="#64748b">A guided workflow with photo proof baked in</text>
+
+    <g transform="translate(34 116)">
+      <rect width="452" height="150" class="card" fill="#0f172a"/>
+      <path d="M28 114 C106 36 180 154 252 80 S370 42 424 92" fill="none" stroke="#38bdf8" stroke-width="3" opacity="0.42"/>
+      <text x="24" y="34" class="small" fill="#93c5fd">ACTIVE STEP</text>
+      <text x="24" y="70" class="h2" fill="#ffffff">Clean wheels and dress tires</text>
+      <text x="24" y="98" class="body" fill="#cbd5e1">Progress photo recommended before completion</text>
+      <circle cx="382" cy="72" r="40" fill="#172554" stroke="#60a5fa" stroke-width="8"/>
+      <text x="366" y="79" class="h2" fill="#ffffff">2/6</text>
+      <rect x="24" y="118" width="130" height="42" class="pill" fill="#2563eb"/>
+      <text x="51" y="143" class="small" fill="#ffffff">Complete</text>
+      <rect x="168" y="118" width="138" height="42" class="pill" fill="#ffffff" opacity="0.13"/>
+      <text x="192" y="143" class="small" fill="#e0f2fe">Add Photo</text>
+    </g>
+
+    <g transform="translate(34 296)">
+      <text x="0" y="0" class="h2" fill="#0f172a">Photo channels</text>
+      <rect y="20" width="452" height="58" rx="29" fill="#e2e8f0"/>
+      <rect x="116" y="26" width="104" height="46" rx="23" fill="#ffffff"/>
+      <text x="27" y="56" class="small" fill="#64748b">Before</text>
+      <text x="143" y="56" class="small" fill="#0f172a">During</text>
+      <text x="262" y="56" class="small" fill="#64748b">After</text>
+      <text x="358" y="56" class="small" fill="#64748b">Customer</text>
+    </g>
+
+    <g transform="translate(34 394)">
+      <rect width="452" height="150" class="card" fill="#ffffff"/>
+      <text x="24" y="34" class="h2" fill="#0f172a">During service filmstrip</text>
+      <text x="24" y="58" class="body" fill="#64748b">Photos attach to the active step automatically</text>
+      <rect x="24" y="82" width="86" height="52" rx="14" fill="#dbeafe" stroke="#bfdbfe"/>
+      <path d="M55 108h24M67 96v24" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+      <rect x="126" y="82" width="86" height="52" rx="14" fill="#60a5fa"/>
+      <rect x="228" y="82" width="86" height="52" rx="14" fill="#93c5fd"/>
+      <rect x="330" y="82" width="86" height="52" rx="14" fill="#e2e8f0"/>
+      <text x="24" y="132" class="tiny" fill="#2563eb">ADD</text>
+      <text x="126" y="132" class="tiny" fill="#1e3a8a">2 MIN AGO</text>
+      <text x="228" y="132" class="tiny" fill="#1e3a8a">SYNCED</text>
+      <text x="330" y="132" class="tiny" fill="#64748b">QUEUED</text>
+    </g>
+
+    <g transform="translate(54 568)">
+      <circle cx="10" cy="10" r="7" fill="#22c55e"/>
+      <path d="M10 17v30" stroke="#cbd5e1" stroke-width="2"/>
+      <circle cx="10" cy="52" r="7" fill="#2563eb"/>
+      <text x="32" y="16" class="small" fill="#334155">Pre-rinse complete</text>
+      <text x="32" y="58" class="small" fill="#334155">Wheels active now</text>
+    </g>
+  </g>
+
+  <!-- LIGHT CUSTOMER -->
+  <g transform="translate(1300 200)">
+    <rect class="phone" width="520" height="610" fill="#ffffff"/>
+    <rect width="520" height="610" rx="44" fill="none" stroke="#e2e8f0"/>
+    <rect x="0" y="0" width="520" height="248" rx="44" fill="url(#brandBlue)"/>
+    <path d="M50 190 C120 86 222 220 304 130 S428 82 486 158" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.28"/>
+    <text x="38" y="62" class="small" fill="#dbeafe">LIVE APPOINTMENT</text>
+    <text x="38" y="104" class="h1" fill="#ffffff">Your detail is in progress</text>
+    <text x="38" y="134" class="body" fill="#e0f2fe">We will keep this screen updated as the work moves.</text>
+    <g transform="translate(38 166)">
+      <rect width="204" height="58" rx="18" fill="#ffffff" opacity="0.18"/>
+      <text x="20" y="25" class="h2" fill="#ffffff">32 min</text>
+      <text x="20" y="46" class="tiny" fill="#dbeafe">ESTIMATED REMAINING</text>
+      <rect x="224" width="204" height="58" rx="18" fill="#ffffff" opacity="0.18"/>
+      <text x="244" y="25" class="h2" fill="#ffffff">On site</text>
+      <text x="244" y="46" class="tiny" fill="#dbeafe">TECHNICIAN STATUS</text>
+    </g>
+
+    <g transform="translate(34 276)">
+      <rect width="452" height="128" class="card" fill="#ffffff"/>
+      <text x="24" y="34" class="h2" fill="#0f172a">What is happening now</text>
+      <text x="24" y="62" class="body" fill="#64748b">Wheels and tires are being cleaned and dressed.</text>
+      <rect x="24" y="86" width="404" height="12" rx="6" fill="#e0f2fe"/>
+      <rect x="24" y="86" width="168" height="12" rx="6" fill="#2563eb"/>
+      <text x="24" y="116" class="small" fill="#2563eb">Step 2 of 6</text>
+    </g>
+
+    <g transform="translate(34 432)">
+      <text x="0" y="0" class="h2" fill="#0f172a">Latest proof</text>
+      <rect y="20" width="452" height="104" class="card" fill="#f8fafc"/>
+      <rect x="24" y="44" width="86" height="58" rx="16" fill="#93c5fd"/>
+      <text x="132" y="60" class="h3" fill="#0f172a">Progress photo added</text>
+      <text x="132" y="85" class="body" fill="#64748b">The technician added a wheel-care photo.</text>
+      <rect x="132" y="102" width="92" height="24" class="pill" fill="#dbeafe"/>
+      <text x="152" y="118" class="tiny" fill="#2563eb">2 MIN AGO</text>
+    </g>
+  </g>
+
+  <!-- DARK TECH JOB DETAIL -->
+  <g transform="translate(80 890)">
+    <rect class="phone" width="520" height="610" fill="#050914"/>
+    <rect width="520" height="610" rx="44" fill="none" stroke="#1e293b"/>
+    <rect x="0" y="0" width="520" height="178" rx="44" fill="url(#darkPanel)"/>
+    <path d="M36 140 C118 72 188 190 270 112 S420 64 488 126" fill="none" stroke="#38bdf8" stroke-width="4" opacity="0.42"/>
+    <path d="M40 146 C122 82 188 196 276 120 S420 78 490 136" fill="none" stroke="#f59e0b" stroke-width="2" opacity="0.50"/>
+    <text x="38" y="60" class="small" fill="#93c5fd">TECH CONSOLE</text>
+    <text x="38" y="96" class="h1" fill="#f8fafc">Admin Owner</text>
+    <text x="38" y="124" class="body" fill="#94a3b8">Honda Civic - Premium Wash</text>
+    <rect x="362" y="42" width="112" height="34" class="pill" fill="#052e24"/>
+    <circle cx="386" cy="59" r="5" fill="#34d399"/>
+    <text x="400" y="63" class="small" fill="#bbf7d0">ON SITE</text>
+
+    <rect x="34" y="142" width="452" height="92" class="card" fill="#111827"/>
+    <g transform="translate(58 162)">
+      <circle cx="31" cy="31" r="30" fill="#0f2f4a" stroke="#075985"/>
+      <path d="M18 34h26M24 24h18l8 10H14z" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linejoin="round"/>
+      <text x="82" y="24" class="h2" fill="#f8fafc">Open Checklist</text>
+      <text x="82" y="50" class="body" fill="#94a3b8">Continue guided proof capture</text>
+      <rect x="316" y="13" width="78" height="38" class="pill" fill="#2563eb"/>
+      <path d="M348 24l12 8-12 8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <g transform="translate(34 260)">
+      <rect width="452" height="112" class="card" fill="#111827"/>
+      <text x="24" y="34" class="h2" fill="#f8fafc">Service pulse</text>
+      <text x="24" y="61" class="body" fill="#94a3b8">Current state and proof readiness</text>
+      <rect x="24" y="82" width="404" height="10" rx="5" fill="#1e293b"/>
+      <rect x="24" y="82" width="176" height="10" rx="5" fill="#38bdf8"/>
+      <circle cx="24" cy="87" r="9" fill="#22c55e"/>
+      <circle cx="200" cy="87" r="9" fill="#38bdf8"/>
+      <circle cx="428" cy="87" r="9" fill="#334155"/>
+      <text x="300" y="36" class="h2" fill="#fb923c">34 min</text>
+      <text x="300" y="61" class="small" fill="#94a3b8">ETA REMAINING</text>
+    </g>
+
+    <g transform="translate(34 398)">
+      <text x="0" y="0" class="h2" fill="#f8fafc">Evidence board</text>
+      <rect y="18" width="452" height="150" class="card" fill="#111827"/>
+      <g transform="translate(22 42)">
+        <rect width="118" height="82" rx="16" fill="#10251d" stroke="#14532d"/>
+        <text x="18" y="28" class="h2" fill="#4ade80">6/6</text>
+        <text x="18" y="54" class="small" fill="#94a3b8">BEFORE</text>
+        <rect x="154" width="118" height="82" rx="16" fill="#0f1f33" stroke="#1d4ed8"/>
+        <text x="172" y="28" class="h2" fill="#60a5fa">2</text>
+        <text x="172" y="54" class="small" fill="#94a3b8">DURING</text>
+        <rect x="308" width="118" height="82" rx="16" fill="#2b1d0c" stroke="#9a3412"/>
+        <text x="326" y="28" class="h2" fill="#fb923c">0/6</text>
+        <text x="326" y="54" class="small" fill="#94a3b8">AFTER</text>
+      </g>
+      <rect x="22" y="134" width="408" height="12" rx="6" fill="#1e293b"/>
+      <rect x="22" y="134" width="226" height="12" rx="6" fill="#22c55e"/>
+    </g>
+  </g>
+
+  <!-- DARK CHECKLIST -->
+  <g transform="translate(690 890)">
+    <rect class="phone" width="520" height="610" fill="#050914"/>
+    <rect width="520" height="610" rx="44" fill="none" stroke="#1e293b"/>
+    <text x="38" y="60" class="h1" fill="#f8fafc">Checklist</text>
+    <text x="38" y="90" class="body" fill="#94a3b8">A guided workflow with photo proof baked in</text>
+
+    <g transform="translate(34 116)">
+      <rect width="452" height="150" class="card" fill="#111827"/>
+      <path d="M28 114 C106 36 180 154 252 80 S370 42 424 92" fill="none" stroke="#38bdf8" stroke-width="3" opacity="0.45"/>
+      <text x="24" y="34" class="small" fill="#93c5fd">ACTIVE STEP</text>
+      <text x="24" y="70" class="h2" fill="#f8fafc">Clean wheels and dress tires</text>
+      <text x="24" y="98" class="body" fill="#94a3b8">Progress photo recommended before completion</text>
+      <circle cx="382" cy="72" r="40" fill="#0f172a" stroke="#38bdf8" stroke-width="8"/>
+      <text x="366" y="79" class="h2" fill="#f8fafc">2/6</text>
+      <rect x="24" y="118" width="130" height="42" class="pill" fill="#2563eb"/>
+      <text x="51" y="143" class="small" fill="#ffffff">Complete</text>
+      <rect x="168" y="118" width="138" height="42" class="pill" fill="#1e293b"/>
+      <text x="192" y="143" class="small" fill="#e0f2fe">Add Photo</text>
+    </g>
+
+    <g transform="translate(34 296)">
+      <text x="0" y="0" class="h2" fill="#f8fafc">Photo channels</text>
+      <rect y="20" width="452" height="58" rx="29" fill="#111827" stroke="#263244"/>
+      <rect x="116" y="26" width="104" height="46" rx="23" fill="#1f2937"/>
+      <text x="27" y="56" class="small" fill="#94a3b8">Before</text>
+      <text x="143" y="56" class="small" fill="#f8fafc">During</text>
+      <text x="262" y="56" class="small" fill="#94a3b8">After</text>
+      <text x="358" y="56" class="small" fill="#94a3b8">Customer</text>
+    </g>
+
+    <g transform="translate(34 394)">
+      <rect width="452" height="150" class="card" fill="#111827"/>
+      <text x="24" y="34" class="h2" fill="#f8fafc">During service filmstrip</text>
+      <text x="24" y="58" class="body" fill="#94a3b8">Photos attach to the active step automatically</text>
+      <rect x="24" y="82" width="86" height="52" rx="14" fill="#172554" stroke="#1d4ed8"/>
+      <path d="M55 108h24M67 96v24" stroke="#93c5fd" stroke-width="3" stroke-linecap="round"/>
+      <rect x="126" y="82" width="86" height="52" rx="14" fill="#2563eb"/>
+      <rect x="228" y="82" width="86" height="52" rx="14" fill="#1d4ed8"/>
+      <rect x="330" y="82" width="86" height="52" rx="14" fill="#334155"/>
+      <text x="24" y="132" class="tiny" fill="#93c5fd">ADD</text>
+      <text x="126" y="132" class="tiny" fill="#bfdbfe">2 MIN AGO</text>
+      <text x="228" y="132" class="tiny" fill="#bfdbfe">SYNCED</text>
+      <text x="330" y="132" class="tiny" fill="#94a3b8">QUEUED</text>
+    </g>
+  </g>
+
+  <!-- DARK CUSTOMER -->
+  <g transform="translate(1300 890)">
+    <rect class="phone" width="520" height="610" fill="#050914"/>
+    <rect width="520" height="610" rx="44" fill="none" stroke="#1e293b"/>
+    <rect x="0" y="0" width="520" height="248" rx="44" fill="#111827"/>
+    <path d="M50 190 C120 86 222 220 304 130 S428 82 486 158" fill="none" stroke="#38bdf8" stroke-width="4" opacity="0.34"/>
+    <text x="38" y="62" class="small" fill="#93c5fd">LIVE APPOINTMENT</text>
+    <text x="38" y="104" class="h1" fill="#f8fafc">Your detail is in progress</text>
+    <text x="38" y="134" class="body" fill="#94a3b8">We will keep this screen updated as the work moves.</text>
+    <g transform="translate(38 166)">
+      <rect width="204" height="58" rx="18" fill="#1e293b"/>
+      <text x="20" y="25" class="h2" fill="#f8fafc">32 min</text>
+      <text x="20" y="46" class="tiny" fill="#94a3b8">ESTIMATED REMAINING</text>
+      <rect x="224" width="204" height="58" rx="18" fill="#1e293b"/>
+      <text x="244" y="25" class="h2" fill="#f8fafc">On site</text>
+      <text x="244" y="46" class="tiny" fill="#94a3b8">TECHNICIAN STATUS</text>
+    </g>
+
+    <g transform="translate(34 276)">
+      <rect width="452" height="128" class="card" fill="#111827"/>
+      <text x="24" y="34" class="h2" fill="#f8fafc">What is happening now</text>
+      <text x="24" y="62" class="body" fill="#94a3b8">Wheels and tires are being cleaned and dressed.</text>
+      <rect x="24" y="86" width="404" height="12" rx="6" fill="#1e293b"/>
+      <rect x="24" y="86" width="168" height="12" rx="6" fill="#38bdf8"/>
+      <text x="24" y="116" class="small" fill="#93c5fd">Step 2 of 6</text>
+    </g>
+
+    <g transform="translate(34 432)">
+      <text x="0" y="0" class="h2" fill="#f8fafc">Latest proof</text>
+      <rect y="20" width="452" height="104" class="card" fill="#111827"/>
+      <rect x="24" y="44" width="86" height="58" rx="16" fill="#1d4ed8"/>
+      <text x="132" y="60" class="h3" fill="#f8fafc">Progress photo added</text>
+      <text x="132" y="85" class="body" fill="#94a3b8">The technician added a wheel-care photo.</text>
+      <rect x="132" y="102" width="92" height="24" class="pill" fill="#172554"/>
+      <text x="152" y="118" class="tiny" fill="#93c5fd">2 MIN AGO</text>
+    </g>
+  </g>
+</svg>
