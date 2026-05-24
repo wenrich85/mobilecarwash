@@ -245,6 +245,60 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
     end
   end
 
+  describe "GET /api/v1/tech/earnings" do
+    test "returns pay-period earnings for completed washes owned by the signed-in tech",
+         %{conn: conn} do
+      {authed, _user, tech, _} = register_and_sign_in_tech(conn)
+
+      today =
+        Date.utc_today()
+        |> DateTime.new!(~T[10:00:00], "Etc/UTC")
+        |> DateTime.truncate(:second)
+
+      completed = create_customer_appointment(tech.id, :completed, scheduled_at: today)
+
+      conn = get(authed, ~p"/api/v1/tech/earnings?period=week")
+      body = json_response(conn, 200)
+
+      assert body["data"]["period"] == "week"
+      assert body["data"]["washes_count"] == 1
+      assert body["data"]["total_cents"] == 2_500
+      assert body["data"]["rate_cents"] == 2_500
+
+      [wash] = body["data"]["washes"]
+      assert wash["id"] == completed.id
+      assert wash["service_name"] == "Basic Wash"
+      assert wash["customer_name"] == "API Customer"
+      assert wash["earned_cents"] == 2_500
+    end
+  end
+
+  describe "GET /api/v1/tech/history" do
+    test "returns recent completed washes and earned totals for the signed-in tech",
+         %{conn: conn} do
+      {authed, _user, tech, _} = register_and_sign_in_tech(conn)
+
+      completed_at =
+        Date.utc_today()
+        |> Date.add(-1)
+        |> DateTime.new!(~T[14:30:00], "Etc/UTC")
+        |> DateTime.truncate(:second)
+
+      completed = create_customer_appointment(tech.id, :completed, scheduled_at: completed_at)
+
+      conn = get(authed, ~p"/api/v1/tech/history?limit=10")
+      body = json_response(conn, 200)
+
+      assert body["data"]["completed_count"] == 1
+      assert body["data"]["total_earned_cents"] == 2_500
+
+      [wash] = body["data"]["washes"]
+      assert wash["id"] == completed.id
+      assert wash["scheduled_at"] == DateTime.to_iso8601(completed_at)
+      assert wash["earned_cents"] == 2_500
+    end
+  end
+
   describe "POST /api/v1/tech/appointments/:id/depart" do
     test "transitions :confirmed -> :en_route and returns the updated appointment",
          %{conn: conn} do

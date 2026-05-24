@@ -305,6 +305,8 @@ defmodule MobileCarWashWeb.Router do
     # controller via the RequireTechAuth plug.
     get "/tech/me", TechController, :me
     patch "/tech/me/status", TechController, :update_status
+    get "/tech/earnings", TechController, :earnings
+    get "/tech/history", TechController, :history
     get "/tech/appointments", TechAppointmentsController, :index
     post "/tech/appointments/:id/depart", TechAppointmentsController, :depart
     post "/tech/appointments/:id/arrive", TechAppointmentsController, :arrive
