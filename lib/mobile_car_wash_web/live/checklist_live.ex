@@ -211,6 +211,14 @@ defmodule MobileCarWashWeb.ChecklistLive do
         items =
           Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
 
+        AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+          current_step: updated.title,
+          current_step_number: updated.step_number,
+          steps_done: Enum.count(items, & &1.completed),
+          steps_total: socket.assigns.total,
+          items: items
+        })
+
         {:noreply, assign(socket, items: items, active_item_id: item_id)}
       else
         {:noreply,
@@ -240,11 +248,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
           do: Float.round(done / socket.assigns.total * 100, 0),
           else: 0
 
+      current = current_progress_item(items)
       next = WashStateMachine.next_step(items)
-      next_name = if next, do: next.title, else: "Finishing up"
+      current_name = if current, do: current.title, else: "Finishing up"
 
       AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
-        current_step: next_name,
+        current_step: current_name,
+        current_step_number: current && current.step_number,
         steps_done: done,
         steps_total: socket.assigns.total,
         items: items
@@ -353,11 +363,12 @@ defmodule MobileCarWashWeb.ChecklistLive do
           do: Float.round(done / socket.assigns.total * 100, 0),
           else: 0
 
-      next = WashStateMachine.next_step(items)
-      next_name = if next, do: next.title, else: "Finishing up"
+      current = current_progress_item(items)
+      current_name = if current, do: current.title, else: "Finishing up"
 
       AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
-        current_step: next_name,
+        current_step: current_name,
+        current_step_number: current && current.step_number,
         steps_done: done,
         steps_total: socket.assigns.total,
         items: items
@@ -863,6 +874,14 @@ defmodule MobileCarWashWeb.ChecklistLive do
       :yellow -> "text-warning"
       :red -> "text-error"
     end
+  end
+
+  defp current_progress_item(items) do
+    active = Enum.find(items, &(&1.started_at && !&1.completed))
+    last_completed = items |> Enum.filter(& &1.completed) |> List.last()
+    next_pending = Enum.find(items, &(not &1.completed))
+
+    active || last_completed || next_pending
   end
 
   defp timer_progress_color(item, now) do

@@ -9,21 +9,38 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentPhotosController do
   plug MobileCarWashWeb.Plugs.RequireTechAuth
   action_fallback MobileCarWashWeb.Api.V1.FallbackController
 
-  @photo_types ~w(before after problem_area)
+  @photo_types ~w(before after step_completion)
+  @required_car_part_photo_types ~w(before after)
   @max_bytes 10_000_000
+
+  def index(conn, %{"id" => appointment_id}) do
+    with {:ok, appointment} <- fetch_appointment(conn, appointment_id) do
+      photos =
+        Photo
+        |> Ash.Query.filter(appointment_id == ^appointment.id and is_nil(deleted_at))
+        |> Ash.Query.sort(inserted_at: :desc)
+        |> Ash.read!(authorize?: false)
+        |> Enum.map(&photo_json/1)
+
+      json(conn, %{data: photos})
+    else
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "not_found"})
+    end
+  end
 
   def create(conn, %{"id" => appointment_id, "file" => %Plug.Upload{} = upload} = params) do
     with {:ok, appointment} <- fetch_appointment(conn, appointment_id),
          {:ok, photo_type} <- atom_param(params["photo_type"], @photo_types),
-         {:ok, car_part} <-
-           atom_param(params["car_part"], Enum.map(Photo.key_car_parts(), &to_string/1)),
+         {:ok, car_part} <- car_part_param(params["car_part"], params["photo_type"]),
          {:ok, idempotency_key} <- required_string(params["idempotency_key"]),
          :ok <- validate_size(upload.path),
          {:ok, photo} <-
            PhotoUpload.save_file(appointment.id, upload.path, upload.filename, photo_type,
              uploaded_by: :technician,
              car_part: car_part,
-             idempotency_key: idempotency_key
+             idempotency_key: idempotency_key,
+             checklist_item_id: params["checklist_item_id"]
            ) do
       photo_payload = photo_json(photo)
 
@@ -95,6 +112,18 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentPhotosController do
 
   defp atom_param(_value, _allowed), do: {:error, :invalid_param}
 
+  defp car_part_param(value, photo_type) when photo_type in @required_car_part_photo_types do
+    atom_param(value, Enum.map(Photo.key_car_parts(), &to_string/1))
+  end
+
+  defp car_part_param(nil, "step_completion"), do: {:ok, nil}
+
+  defp car_part_param(value, "step_completion") do
+    atom_param(value, Enum.map(Photo.key_car_parts(), &to_string/1))
+  end
+
+  defp car_part_param(_value, _photo_type), do: {:error, :invalid_param}
+
   defp required_string(value) when is_binary(value) and value != "", do: {:ok, value}
   defp required_string(_), do: {:error, :invalid_param}
 
@@ -113,10 +142,13 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentPhotosController do
       id: photo.id,
       appointment_id: photo.appointment_id,
       photo_type: to_string(photo.photo_type),
-      car_part: to_string(photo.car_part),
+      car_part: photo.car_part && to_string(photo.car_part),
       url: url,
       uploaded_at: photo.inserted_at,
-      url_expires_at: expires_at
+      url_expires_at: expires_at,
+      caption: photo.caption,
+      uploaded_by: to_string(photo.uploaded_by),
+      checklist_item_id: photo.checklist_item_id
     }
   end
 

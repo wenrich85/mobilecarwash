@@ -425,8 +425,9 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           |> Enum.reduce(0, fn i, acc -> acc + (i.estimated_minutes || 5) end)
 
         active = Enum.find(items, &(&1.started_at && !&1.completed))
+        last_completed = items |> Enum.filter(& &1.completed) |> List.last()
         next_pending = Enum.find(items, &(!&1.completed))
-        current = active || next_pending
+        current = active || last_completed || next_pending
         current_name = if current, do: current.title, else: nil
 
         {items, done, total, eta, current_name}

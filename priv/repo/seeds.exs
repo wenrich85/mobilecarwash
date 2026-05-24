@@ -912,15 +912,9 @@ old_address_ids =
   MobileCarWash.Repo.all(from a in "addresses", where: a.city == "Austin", select: a.id)
 
 if old_address_ids != [] do
-  {appts_deleted, _} =
-    MobileCarWash.Repo.delete_all(
-      from a in "appointments", where: a.address_id in ^old_address_ids
-    )
-
-  {addrs_deleted, _} =
-    MobileCarWash.Repo.delete_all(from a in "addresses", where: a.id in ^old_address_ids)
-
-  IO.puts("  ✓ Removed #{appts_deleted} appointment(s) and #{addrs_deleted} Austin address(es)")
+  IO.puts(
+    "  - Found #{length(old_address_ids)} Austin address(es); leaving them in place to preserve appointment history"
+  )
 else
   IO.puts("  - No outdated addresses found")
 end
@@ -1104,6 +1098,156 @@ if owner_tech do
   IO.puts("  ✓ Blocks generated (Mon–Sat, 8am + 1pm per service)")
 else
   IO.puts("  ⚠ No Owner technician found — skipping block generation")
+end
+
+# --- iOS Demo Appointment ---
+
+alias MobileCarWash.Scheduling.AppointmentBlock
+
+IO.puts("\nSeeding iOS demo appointment...")
+
+demo_customer =
+  Customer
+  |> Ash.Query.filter(email == "customer@demo.com")
+  |> Ash.read!(authorize?: false)
+  |> List.first()
+
+demo_service =
+  ServiceType
+  |> Ash.Query.filter(slug == "basic_wash")
+  |> Ash.read!()
+  |> List.first()
+
+owner_tech =
+  Technician
+  |> Ash.Query.filter(name == "Owner")
+  |> Ash.read!()
+  |> List.first()
+
+if demo_customer && demo_service && owner_tech do
+  demo_vehicle_attrs = %{
+    make: "Tesla",
+    model: "Model Y",
+    year: 2024,
+    color: "Pearl White",
+    size: :suv_van
+  }
+
+  demo_vehicle =
+    case Vehicle
+         |> Ash.Query.filter(
+           customer_id == ^demo_customer.id and make == ^demo_vehicle_attrs.make and
+             model == ^demo_vehicle_attrs.model
+         )
+         |> Ash.read!(authorize?: false) do
+      [] ->
+        Vehicle
+        |> Ash.Changeset.for_create(:create, demo_vehicle_attrs)
+        |> Ash.Changeset.force_change_attribute(:customer_id, demo_customer.id)
+        |> Ash.create!()
+
+      [vehicle] ->
+        vehicle
+    end
+
+  demo_address_attrs = %{
+    street: "18503 Statesman Dr",
+    city: "San Antonio",
+    zip: "78259",
+    state: "TX",
+    is_default: true
+  }
+
+  demo_address =
+    case Address
+         |> Ash.Query.filter(
+           customer_id == ^demo_customer.id and street == ^demo_address_attrs.street
+         )
+         |> Ash.read!(authorize?: false) do
+      [] ->
+        Address
+        |> Ash.Changeset.for_create(:create, demo_address_attrs)
+        |> Ash.Changeset.force_change_attribute(:customer_id, demo_customer.id)
+        |> Ash.create!()
+
+      [address] ->
+        address
+    end
+
+  scheduled_at =
+    DateTime.utc_now()
+    |> DateTime.add(45 * 60, :second)
+    |> DateTime.truncate(:second)
+
+  existing_demo_appointment =
+    Appointment
+    |> Ash.Query.filter(
+      customer_id == ^demo_customer.id and vehicle_id == ^demo_vehicle.id and
+        status in [:pending, :confirmed, :en_route, :on_site, :in_progress] and
+        scheduled_at > ^DateTime.utc_now()
+    )
+    |> Ash.Query.sort(scheduled_at: :asc)
+    |> Ash.read!(authorize?: false)
+    |> List.first()
+
+  case existing_demo_appointment do
+    nil ->
+      block_starts_at =
+        DateTime.utc_now()
+        |> DateTime.add(30 * 60, :second)
+        |> DateTime.truncate(:second)
+
+      block_ends_at =
+        DateTime.add(block_starts_at, max(demo_service.window_minutes || 195, 90) * 60, :second)
+
+      block =
+        case AppointmentBlock
+             |> Ash.Query.filter(
+               service_type_id == ^demo_service.id and technician_id == ^owner_tech.id and
+                 starts_at == ^block_starts_at
+             )
+             |> Ash.read!(authorize?: false) do
+          [] ->
+            AppointmentBlock
+            |> Ash.Changeset.for_create(:create, %{
+              service_type_id: demo_service.id,
+              technician_id: owner_tech.id,
+              starts_at: block_starts_at,
+              ends_at: block_ends_at,
+              closes_at: DateTime.add(DateTime.utc_now(), 15 * 60, :second),
+              capacity: 3,
+              status: :scheduled
+            })
+            |> Ash.create!()
+
+          [existing_block] ->
+            existing_block
+        end
+
+      Appointment
+      |> Ash.Changeset.for_create(:create, %{
+        scheduled_at: scheduled_at,
+        duration_minutes: demo_service.duration_minutes,
+        price_cents: demo_service.base_price_cents,
+        discount_cents: 0,
+        notes: "iOS demo appointment for realtime tech-to-customer testing"
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, demo_customer.id)
+      |> Ash.Changeset.force_change_attribute(:vehicle_id, demo_vehicle.id)
+      |> Ash.Changeset.force_change_attribute(:address_id, demo_address.id)
+      |> Ash.Changeset.force_change_attribute(:service_type_id, demo_service.id)
+      |> Ash.Changeset.force_change_attribute(:technician_id, owner_tech.id)
+      |> Ash.Changeset.force_change_attribute(:appointment_block_id, block.id)
+      |> Ash.Changeset.force_change_attribute(:status, :confirmed)
+      |> Ash.create!(authorize?: false)
+
+      IO.puts("  ✓ Created customer@demo.com appointment assigned to Owner")
+
+    appointment ->
+      IO.puts("  - Demo appointment already exists: #{appointment.id}")
+  end
+else
+  IO.puts("  ⚠ Missing demo customer, service, or Owner technician — skipping")
 end
 
 IO.puts("Seeding customer tags...")

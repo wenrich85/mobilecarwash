@@ -6,6 +6,7 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentsController do
   """
   use MobileCarWashWeb, :controller
 
+  alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem}
   alias MobileCarWash.Scheduling.Appointment
 
   require Ash.Query
@@ -16,13 +17,14 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentsController do
   def index(conn, _params) do
     customer = current_customer(conn)
     now = DateTime.utc_now()
+    live_cutoff = DateTime.add(now, -12 * 3600, :second)
 
     appointments =
       Appointment
       |> Ash.Query.filter(
         customer_id == ^customer.id and
-          status in [:pending, :confirmed, :en_route, :on_site, :in_progress] and
-          scheduled_at > ^now
+          ((status in [:pending, :confirmed] and scheduled_at > ^now) or
+             (status in [:en_route, :on_site, :in_progress] and scheduled_at > ^live_cutoff))
       )
       |> Ash.Query.sort(scheduled_at: :asc)
       |> Ash.read!(actor: customer)
@@ -94,8 +96,55 @@ defmodule MobileCarWashWeb.Api.V1.AppointmentsController do
       service_type_id: a.service_type_id,
       vehicle_id: a.vehicle_id,
       address_id: a.address_id,
-      route_position: a.route_position
+      route_position: a.route_position,
+      live_progress: live_progress_json(a)
     }
+  end
+
+  defp live_progress_json(%{status: status} = appointment)
+       when status in [:on_site, :in_progress] do
+    checklist =
+      AppointmentChecklist
+      |> Ash.Query.filter(appointment_id == ^appointment.id)
+      |> Ash.Query.sort(inserted_at: :desc)
+      |> Ash.read!(authorize?: false)
+      |> List.first()
+
+    if checklist do
+      items =
+        ChecklistItem
+        |> Ash.Query.filter(checklist_id == ^checklist.id)
+        |> Ash.Query.sort(step_number: :asc)
+        |> Ash.read!(authorize?: false)
+
+      total = length(items)
+      done = Enum.count(items, & &1.completed)
+      current = current_progress_item(items)
+
+      eta_minutes =
+        items
+        |> Enum.reject(& &1.completed)
+        |> Enum.reduce(0, fn item, acc -> acc + (item.estimated_minutes || 5) end)
+
+      %{
+        current_step: current && current.title,
+        current_step_number: current && current.step_number,
+        steps_done: done,
+        completed_steps: done,
+        steps_total: total,
+        eta_minutes: eta_minutes
+      }
+    end
+  end
+
+  defp live_progress_json(_appointment), do: nil
+
+  defp current_progress_item(items) do
+    active = Enum.find(items, &(&1.started_at && !&1.completed))
+    last_completed = items |> Enum.filter(& &1.completed) |> List.last()
+    next_pending = Enum.find(items, &(not &1.completed))
+
+    active || last_completed || next_pending
   end
 
   defp current_customer(conn) do

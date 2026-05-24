@@ -117,7 +117,12 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
   `items` should be the full list of checklist items with their current state.
   """
   def broadcast_step_progress(appointment_id, %{} = data) do
-    remaining_minutes = calculate_remaining_minutes(data[:items] || [])
+    items = data[:items] || []
+    remaining_minutes = calculate_remaining_minutes(items)
+    current_step = data[:current_step] || "Finishing up"
+
+    current_step_number =
+      current_step_number(items, current_step) || data[:current_step_number] || data[:steps_done]
 
     PubSub.broadcast(
       @pubsub,
@@ -127,12 +132,14 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
          appointment_id: appointment_id,
          status: :in_progress,
          event: :step_update,
-         current_step: data[:current_step],
+         current_step: current_step,
+         current_step_number: current_step_number,
          steps_done: data[:steps_done],
+         completed_steps: data[:steps_done],
          steps_total: data[:steps_total],
          eta_minutes: remaining_minutes,
-         items: sanitize_items(data[:items] || []),
-         message: "Step #{data[:steps_done]}/#{data[:steps_total]}: #{data[:current_step]}"
+         items: sanitize_items(items),
+         message: "Step #{current_step_number}/#{data[:steps_total]}: #{current_step}"
        }}
     )
   end
@@ -174,6 +181,15 @@ defmodule MobileCarWash.Scheduling.AppointmentTracker do
     items
     |> Enum.reject(& &1.completed)
     |> Enum.reduce(0, fn item, acc -> acc + (item.estimated_minutes || 5) end)
+  end
+
+  defp current_step_number(items, current_step) do
+    items
+    |> Enum.find(&(&1.title == current_step))
+    |> case do
+      nil -> nil
+      item -> item.step_number
+    end
   end
 
   # Strip items to only what the customer needs (no internal IDs)

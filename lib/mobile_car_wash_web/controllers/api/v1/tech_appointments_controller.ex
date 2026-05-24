@@ -9,7 +9,7 @@ defmodule MobileCarWashWeb.Api.V1.TechAppointmentsController do
 
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.{Address, Vehicle}
-  alias MobileCarWash.Operations.Technician
+  alias MobileCarWash.Operations.{AppointmentChecklist, Technician}
   alias MobileCarWash.Scheduling.{Appointment, ServiceType, WashOrchestrator}
 
   require Ash.Query
@@ -25,14 +25,16 @@ defmodule MobileCarWashWeb.Api.V1.TechAppointmentsController do
       tech ->
         now = DateTime.utc_now()
         day_end = DateTime.add(now, 24 * 3600, :second)
+        live_cutoff = DateTime.add(now, -12 * 3600, :second)
 
         appts =
           Appointment
           |> Ash.Query.filter(
             technician_id == ^tech.id and
               status != :cancelled and
-              scheduled_at >= ^now and
-              scheduled_at < ^day_end
+              scheduled_at < ^day_end and
+              ((status in [:en_route, :on_site, :in_progress] and scheduled_at >= ^live_cutoff) or
+                 (status not in [:en_route, :on_site, :in_progress] and scheduled_at >= ^now))
           )
           |> Ash.Query.sort(scheduled_at: :asc)
           |> Ash.read!(authorize?: false)
@@ -69,9 +71,15 @@ defmodule MobileCarWashWeb.Api.V1.TechAppointmentsController do
         |> json(%{error: "not_transitionable"})
 
       {:error, {:photos_incomplete, missing}} ->
+        missing_parts = Enum.map(missing, &to_string/1)
+
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "photos_incomplete", missing: Enum.map(missing, &to_string/1)})
+        |> json(%{
+          error: "photos_incomplete",
+          details: ["Missing after photos: #{Enum.join(missing_parts, ", ")}"],
+          missing: missing_parts
+        })
 
       {:error, _} ->
         conn
@@ -153,12 +161,14 @@ defmodule MobileCarWashWeb.Api.V1.TechAppointmentsController do
     address_ids = Enum.map(appts, & &1.address_id) |> Enum.uniq()
     vehicle_ids = Enum.map(appts, & &1.vehicle_id) |> Enum.uniq()
     service_ids = Enum.map(appts, & &1.service_type_id) |> Enum.uniq()
+    appointment_ids = Enum.map(appts, & &1.id) |> Enum.uniq()
 
     %{
       customers: load_map(Customer, customer_ids),
       addresses: load_map(Address, address_ids),
       vehicles: load_map(Vehicle, vehicle_ids),
-      services: load_map(ServiceType, service_ids)
+      services: load_map(ServiceType, service_ids),
+      checklists: load_checklist_map(appointment_ids)
     }
   end
 
@@ -171,15 +181,29 @@ defmodule MobileCarWashWeb.Api.V1.TechAppointmentsController do
     |> Map.new(&{&1.id, &1})
   end
 
+  defp load_checklist_map([]), do: %{}
+
+  defp load_checklist_map(appointment_ids) do
+    AppointmentChecklist
+    |> Ash.Query.filter(appointment_id in ^appointment_ids)
+    |> Ash.Query.sort(inserted_at: :desc)
+    |> Ash.read!(authorize?: false)
+    |> Enum.reduce(%{}, fn checklist, acc ->
+      Map.put_new(acc, checklist.appointment_id, checklist.id)
+    end)
+  end
+
   defp appointment_json(a, maps) do
     customer = Map.get(maps.customers, a.customer_id)
     address = Map.get(maps.addresses, a.address_id)
     vehicle = Map.get(maps.vehicles, a.vehicle_id)
     service = Map.get(maps.services, a.service_type_id)
+    checklist_id = Map.get(maps.checklists, a.id)
 
     %{
       id: a.id,
       status: to_string(a.status),
+      checklist_id: checklist_id,
       scheduled_at: a.scheduled_at,
       duration_minutes: a.duration_minutes,
       price_cents: a.price_cents,

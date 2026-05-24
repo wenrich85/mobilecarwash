@@ -46,7 +46,7 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
     {authed, user, tech, token}
   end
 
-  defp create_customer_appointment(tech_id, status) do
+  defp create_customer_appointment(tech_id, status, opts \\ []) do
     {:ok, customer} =
       Customer
       |> Ash.Changeset.for_create(:register_with_password, %{
@@ -103,7 +103,14 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
     |> Ash.Changeset.for_update(:update, %{})
     |> Ash.Changeset.force_change_attribute(:technician_id, tech_id)
     |> Ash.Changeset.force_change_attribute(:status, status)
+    |> maybe_force_scheduled_at(opts[:scheduled_at])
     |> Ash.update!(authorize?: false)
+  end
+
+  defp maybe_force_scheduled_at(changeset, nil), do: changeset
+
+  defp maybe_force_scheduled_at(changeset, scheduled_at) do
+    Ash.Changeset.force_change_attribute(changeset, :scheduled_at, scheduled_at)
   end
 
   defp create_required_after_photos(appointment) do
@@ -219,6 +226,22 @@ defmodule MobileCarWashWeb.Api.V1.TechControllerTest do
       conn = get(authed, ~p"/api/v1/tech/appointments")
       body = json_response(conn, 200)
       assert body["data"] == []
+    end
+
+    test "keeps live appointments visible after their scheduled time",
+         %{conn: conn} do
+      {authed, _user, tech, _} = register_and_sign_in_tech(conn)
+
+      appt =
+        create_customer_appointment(tech.id, :in_progress,
+          scheduled_at:
+            DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+        )
+
+      conn = get(authed, ~p"/api/v1/tech/appointments")
+      body = json_response(conn, 200)
+
+      assert Enum.any?(body["data"], &(&1["id"] == appt.id))
     end
   end
 

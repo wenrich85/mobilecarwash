@@ -315,6 +315,7 @@ defmodule MobileCarWashWeb.Router do
     get "/checklists/:id", ChecklistsController, :show
     post "/checklists/:id/items/:item_id/start", ChecklistsController, :start_item
     post "/checklists/:id/items/:item_id/complete", ChecklistsController, :complete_item
+    get "/appointments/:id/photos", AppointmentPhotosController, :index
     post "/appointments/:id/photos", AppointmentPhotosController, :create
     delete "/appointments/:id/photos/:photo_id", AppointmentPhotosController, :delete
   end

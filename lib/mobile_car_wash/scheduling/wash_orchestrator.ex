@@ -24,12 +24,17 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
   Returns {:ok, checklist} or {:error, reason}.
   """
   def start_wash(appointment_id) do
-    with {:ok, appointment} <- Ash.get(Appointment, appointment_id),
-         true <- WashStateMachine.can_start_wash?(appointment) || {:error, :cannot_start_wash},
-         {:ok, procedure} <- find_procedure(appointment.service_type_id),
-         {:ok, checklist} <- create_checklist(appointment, procedure),
-         {:ok, _appointment} <- transition_appointment_to_in_progress(appointment) do
-      {:ok, checklist}
+    with {:ok, appointment} <- Ash.get(Appointment, appointment_id) do
+      case find_checklist(appointment_id) do
+        {:ok, checklist} when appointment.status == :in_progress ->
+          {:ok, checklist}
+
+        {:error, :no_checklist} when appointment.status == :in_progress ->
+          create_checklist_for_in_progress(appointment)
+
+        _ ->
+          start_new_wash(appointment)
+      end
     else
       {:error, reason} -> {:error, reason}
       false -> {:error, :cannot_start_wash}
@@ -58,6 +63,22 @@ defmodule MobileCarWash.Scheduling.WashOrchestrator do
   end
 
   # --- Private ---
+
+  defp start_new_wash(appointment) do
+    with true <- WashStateMachine.can_start_wash?(appointment) || {:error, :cannot_start_wash},
+         {:ok, procedure} <- find_procedure(appointment.service_type_id),
+         {:ok, checklist} <- create_checklist(appointment, procedure),
+         {:ok, _appointment} <- transition_appointment_to_in_progress(appointment) do
+      {:ok, checklist}
+    end
+  end
+
+  defp create_checklist_for_in_progress(appointment) do
+    with {:ok, procedure} <- find_procedure(appointment.service_type_id),
+         {:ok, checklist} <- create_checklist(appointment, procedure) do
+      {:ok, checklist}
+    end
+  end
 
   defp find_procedure(service_type_id) do
     procedures =

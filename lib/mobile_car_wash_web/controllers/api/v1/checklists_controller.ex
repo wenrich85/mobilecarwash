@@ -21,12 +21,9 @@ defmodule MobileCarWashWeb.Api.V1.ChecklistsController do
   end
 
   def start_item(conn, %{"id" => id, "item_id" => item_id}) do
-    update_item(conn, id, item_id, :start_step)
-  end
-
-  def complete_item(conn, %{"id" => id, "item_id" => item_id}) do
-    with {:ok, item} <- update_item_record(conn, id, item_id, :check),
-         {:ok, checklist} <- Ash.get(AppointmentChecklist, id, authorize?: false) do
+    with {:ok, item} <- update_item_record(conn, id, item_id, :start_step),
+         {:ok, checklist} <- Ash.get(AppointmentChecklist, id, authorize?: false),
+         {:ok, checklist} <- maybe_start_checklist(checklist) do
       broadcast_step_update(checklist)
       json(conn, %{data: item_json(item)})
     else
@@ -38,11 +35,13 @@ defmodule MobileCarWashWeb.Api.V1.ChecklistsController do
     end
   end
 
-  defp update_item(conn, id, item_id, action) do
-    case update_item_record(conn, id, item_id, action) do
-      {:ok, item} ->
-        json(conn, %{data: item_json(item)})
-
+  def complete_item(conn, %{"id" => id, "item_id" => item_id}) do
+    with {:ok, item} <- update_item_record(conn, id, item_id, :check),
+         {:ok, checklist} <- Ash.get(AppointmentChecklist, id, authorize?: false),
+         {:ok, checklist} <- maybe_complete_checklist(checklist) do
+      broadcast_step_update(checklist)
+      json(conn, %{data: item_json(item)})
+    else
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "not_found"})
 
@@ -118,6 +117,28 @@ defmodule MobileCarWashWeb.Api.V1.ChecklistsController do
     |> Ash.read!(authorize?: false)
   end
 
+  defp maybe_start_checklist(%{status: :not_started} = checklist) do
+    checklist
+    |> Ash.Changeset.for_update(:start_checklist, %{})
+    |> Ash.update(authorize?: false)
+  end
+
+  defp maybe_start_checklist(checklist), do: {:ok, checklist}
+
+  defp maybe_complete_checklist(%{status: :completed} = checklist), do: {:ok, checklist}
+
+  defp maybe_complete_checklist(checklist) do
+    items = checklist_items(checklist.id)
+
+    if Enum.filter(items, & &1.required) |> Enum.all?(& &1.completed) do
+      checklist
+      |> Ash.Changeset.for_update(:complete_checklist, %{})
+      |> Ash.update(authorize?: false)
+    else
+      {:ok, checklist}
+    end
+  end
+
   defp item_json(item) do
     %{
       id: item.id,
@@ -156,14 +177,23 @@ defmodule MobileCarWashWeb.Api.V1.ChecklistsController do
   defp broadcast_step_update(checklist) do
     items = checklist_items(checklist.id)
     done = Enum.count(items, & &1.completed)
-    current = Enum.find(items, &(not &1.completed))
+    current = current_progress_item(items)
 
     AppointmentTracker.broadcast_step_progress(checklist.appointment_id, %{
       current_step: current && current.title,
+      current_step_number: current && current.step_number,
       steps_done: done,
       steps_total: length(items),
       items: items
     })
+  end
+
+  defp current_progress_item(items) do
+    active = Enum.find(items, &(&1.started_at && !&1.completed))
+    last_completed = items |> Enum.filter(& &1.completed) |> List.last()
+    next_pending = Enum.find(items, &(not &1.completed))
+
+    active || last_completed || next_pending
   end
 
   defp find_tech(user) do
