@@ -131,6 +131,8 @@ defmodule MobileCarWashWeb.Router do
   scope "/", MobileCarWashWeb do
     pipe_through :browser
 
+    get "/terms", PageController, :terms
+
     # LiveView pages with optional auth
     live_session :public,
       on_mount: [
