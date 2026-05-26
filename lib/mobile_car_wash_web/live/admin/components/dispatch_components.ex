@@ -173,8 +173,10 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
           <div class="flex items-center justify-between gap-3">
             <div>
               <p class="font-bold">{tech.name}</p>
+              <% activity = workload_activity_text(tech.current) %>
+              <p :if={activity} class="text-xs font-medium text-primary">{activity}</p>
               <p class="text-xs text-base-content/70">
-                {format_status(tech.status)} · {tech.assigned_count} assigned
+                {duty_status_label(tech.status)} · {tech.assigned_count} assigned
               </p>
             </div>
             <span class={["badge badge-sm", workload_badge(tech.pressure)]}>{tech.pressure}</span>
@@ -432,6 +434,26 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
 
   defp display_date(nil), do: "all scheduled jobs"
   defp display_date(%Date{} = date), do: Calendar.strftime(date, "%b %d, %Y")
+
+  defp duty_status_label(:available), do: "Available"
+  defp duty_status_label(:on_break), do: "On break"
+  defp duty_status_label(:off_duty), do: "Off duty"
+  defp duty_status_label(status), do: format_status(status)
+
+  defp workload_activity_text(nil), do: nil
+
+  defp workload_activity_text(%{status: status, customer_name: name, scheduled_at: at}) do
+    time = Calendar.strftime(at, "%-I:%M %p")
+
+    case status do
+      :en_route -> "En route to #{name} · #{time}"
+      :on_site -> "On site with #{name}"
+      :in_progress -> "Washing #{name}'s car"
+      _ -> nil
+    end
+  end
+
+  defp workload_activity_text(_), do: nil
 
   defp workload_badge(:high), do: "badge-warning"
   defp workload_badge(:medium), do: "badge-info"

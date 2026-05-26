@@ -268,10 +268,12 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   # the tech strip reflects the new value.
   def handle_info({:technician_status, _payload}, socket) do
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        technicians: active_technicians(),
        current_appointment_by_tech: current_appointments_by_tech()
-     )}
+     )
+     |> load_appointments()}
   end
 
   def handle_info({:tech_request, request}, socket) do
@@ -307,153 +309,158 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-full mx-auto py-8 px-4 bg-base-200 min-h-screen">
-      <!-- Header -->
-      <div class="max-w-7xl mx-auto mb-6">
-        <div class="flex justify-between items-center">
-          <div>
-            <h1 class="text-3xl font-bold">Dispatch Center</h1>
-            <p class="text-base-content/80">Kanban-style appointment management</p>
-          </div>
+    <div class="min-h-screen bg-base-200 px-4 py-6">
+      <div class="mx-auto flex max-w-7xl flex-col gap-5">
+        <div class="flex justify-end">
           <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
         </div>
-      </div>
-      
-    <!-- Filters -->
-      <div class="max-w-7xl mx-auto mb-6">
+
+        <.command_bar metrics={@dispatch_metrics} filter_date={@filter_date} />
+
+        <.metric_cards metrics={@dispatch_metrics} />
+
         <form
+          id="dispatch-filters"
           phx-change="filter"
-          class="flex flex-wrap gap-2 items-end bg-base-100 p-4 rounded-lg shadow-sm"
+          class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm"
         >
-          <div class="form-control">
-            <label class="label label-text text-xs">Date</label>
-            <input
-              type="date"
-              name="date"
-              class="input input-bordered input-sm"
-              value={@filter_date && Date.to_string(@filter_date)}
+          <div class="flex flex-wrap items-end gap-3">
+            <div class="form-control">
+              <label class="label label-text text-xs">Date</label>
+              <input
+                type="date"
+                name="date"
+                class="input input-bordered input-sm"
+                value={@filter_date && Date.to_string(@filter_date)}
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label label-text text-xs">Status</label>
+              <select name="status" class="select select-bordered select-sm">
+                <option value="" selected={is_nil(@filter_status)}>All Statuses</option>
+                <option value="pending" selected={@filter_status == "pending"}>Pending</option>
+                <option value="confirmed" selected={@filter_status == "confirmed"}>Confirmed</option>
+                <option value="in_progress" selected={@filter_status == "in_progress"}>In Progress</option>
+                <option value="completed" selected={@filter_status == "completed"}>Completed</option>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label label-text text-xs">Technician</label>
+              <select name="tech" class="select select-bordered select-sm">
+                <option value="" selected={is_nil(@filter_tech)}>All Techs</option>
+                <option value="unassigned" selected={@filter_tech == "unassigned"}>Unassigned</option>
+                <option
+                  :for={tech <- @technicians}
+                  value={tech.id}
+                  selected={@filter_tech == tech.id}
+                >
+                  {tech.name}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label label-text text-xs">Zone</label>
+              <select name="zone" class="select select-bordered select-sm">
+                <option value="" selected={is_nil(@filter_zone)}>All Zones</option>
+                <option :for={z <- Zones.all()} value={z} selected={@filter_zone == to_string(z)}>
+                  {Zones.short_label(z)}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-2">
+                <input
+                  type="checkbox"
+                  name="requested"
+                  value="true"
+                  checked={@filter_requested}
+                  class="checkbox checkbox-sm checkbox-primary"
+                />
+                <span class="label-text text-sm">
+                  Requested
+                  <span :if={map_size(@tech_requests) > 0} class="badge badge-warning badge-xs ml-1">
+                    {map_size(@tech_requests)}
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
+          </div>
+        </form>
+
+        <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div class="flex flex-col gap-5">
+            <section
+              id="dispatch-active-services"
+              class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm"
+            >
+              <div class="mb-4 flex items-center justify-between">
+                <h2 class="text-xl font-black">Live Service Board</h2>
+                <span class="badge badge-success">{length(@active)}</span>
+              </div>
+              <div :if={@active == []} class="rounded-lg bg-base-200 p-4 text-sm text-base-content/70">
+                No active services right now.
+              </div>
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <.active_wash_card
+                  :for={{appt, progress} <- @active}
+                  appointment={appt}
+                  customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
+                  service_name={Map.get(@service_map, appt.service_type_id, "Service")}
+                  tech_name={tech_name(appt.technician_id, @technicians)}
+                  progress={progress}
+                />
+              </div>
+            </section>
+
+            <.assignment_queue
+              appointments={@assignment_queue}
+              customer_map={@customer_map}
+              service_map={@service_map}
+              technicians={@technicians}
+              address_map={@address_map}
+              vehicle_map={@vehicle_map}
+              tech_requests={@tech_requests}
+              flagged_customer_ids={@flagged_customer_ids}
             />
           </div>
 
-          <div class="form-control">
-            <label class="label label-text text-xs">Technician</label>
-            <select name="tech" class="select select-bordered select-sm">
-              <option value="" selected={is_nil(@filter_tech)}>All Techs</option>
-              <option value="unassigned" selected={@filter_tech == "unassigned"}>Unassigned</option>
-              <option
-                :for={tech <- @technicians}
-                value={tech.id}
-                selected={@filter_tech == tech.id}
-              >
-                {tech.name}
-              </option>
-            </select>
-          </div>
+          <aside class="flex flex-col gap-5">
+            <.exception_panel
+              exceptions={@dispatch_exceptions}
+              customer_map={@customer_map}
+              service_map={@service_map}
+              appointments_by_id={Map.new(@all_appointments, &{&1.id, &1})}
+            />
 
-          <div class="form-control">
-            <label class="label label-text text-xs">Zone</label>
-            <select name="zone" class="select select-bordered select-sm">
-              <option value="" selected={is_nil(@filter_zone)}>All Zones</option>
-              <option :for={z <- Zones.all()} value={z} selected={@filter_zone == to_string(z)}>
-                {Zones.short_label(z)}
-              </option>
-            </select>
-          </div>
+            <.technician_workload_rail workloads={@technician_workload} />
 
-          <div class="form-control">
-            <label class="label cursor-pointer gap-2 justify-start">
-              <input
-                type="checkbox"
-                name="requested"
-                value="true"
-                checked={@filter_requested}
-                class="checkbox checkbox-sm checkbox-primary"
+            <section
+              id="dispatch-map-panel"
+              class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm"
+            >
+              <h2 class="mb-3 text-lg font-black">Map Context</h2>
+              <div
+                id="dispatch-map"
+                phx-hook="DispatchMap"
+                phx-update="ignore"
+                class="h-80 w-full rounded-lg border border-base-300 z-0"
               />
-              <span class="label-text text-sm">
-                Requested
-                <span :if={map_size(@tech_requests) > 0} class="badge badge-warning badge-xs ml-1">
-                  {map_size(@tech_requests)}
-                </span>
-              </span>
-            </label>
-          </div>
+            </section>
+          </aside>
+        </div>
 
-          <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
-        </form>
-      </div>
-      
-    <!-- Techs on shift — live duty-status strip. Updates via
-           TechnicianTracker's firehose topic as techs tap Break /
-           Back on duty / Off from their dashboard. -->
-      <div :if={@technicians != []} class="max-w-7xl mx-auto mb-6">
-        <h2 class="text-lg font-bold mb-3">Techs on shift</h2>
-        <div class="flex flex-wrap gap-2">
-          <div
-            :for={tech <- @technicians}
-            class="card bg-base-100 shadow-sm px-3 py-2 flex-row items-center gap-2 min-w-[14rem]"
-          >
-            <span class={["w-2.5 h-2.5 rounded-full", duty_status_dot(tech.status)]} />
-            <div class="flex flex-col">
-              <span class="font-semibold text-sm">{tech.name}</span>
-              <% activity = current_activity_text(Map.get(@current_appointment_by_tech, tech.id)) %>
-              <span :if={activity} class="text-xs text-primary font-medium">
-                {activity}
-              </span>
-              <span :if={!activity} class="text-xs text-base-content/70">
-                {duty_status_label(tech.status)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-    <!-- Map -->
-      <div class="max-w-7xl mx-auto mb-8 bg-base-100 p-4 rounded-lg shadow">
-        <h2 class="text-lg font-bold mb-3">Map</h2>
-        <div
-          id="dispatch-map"
-          phx-hook="DispatchMap"
-          phx-update="ignore"
-          class="w-full h-80 rounded-lg border border-base-300 z-0"
-        />
-      </div>
-      
-    <!-- Active Washes (always show if any) -->
-      <div :if={@active != []} class="max-w-7xl mx-auto mb-8">
-        <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-          <span class="badge badge-success badge-lg">{length(@active)}</span> Active Washes
-        </h2>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <.active_wash_card
-            :for={{appt, progress} <- @active}
-            appointment={appt}
-            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
-            service_name={Map.get(@service_map, appt.service_type_id, "Service")}
-            tech_name={tech_name(appt.technician_id, @technicians)}
-            progress={progress}
-          />
-        </div>
-      </div>
-      
-    <!-- Kanban Board -->
-      <div class="min-h-screen">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-7xl mx-auto pb-8">
-          <!-- PENDING COLUMN -->
-          <.kanban_column
-            title="Pending"
-            status={:pending}
-            appointments={
-              filter_appointments_by_status(
-                @all_appointments,
-                :pending,
-                @filter_date,
-                @filter_tech,
-                @filter_zone,
-                @address_map
-              )
-            }
-            count={
-              length(
+        <section id="dispatch-status-board" class="pb-8">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <.kanban_column
+              title="Pending"
+              status={:pending}
+              appointments={
                 filter_appointments_by_status(
                   @all_appointments,
                   :pending,
@@ -462,34 +469,33 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
                   @filter_zone,
                   @address_map
                 )
-              )
-            }
-            badge_color="badge-warning"
-            technicians={@technicians}
-            customer_map={@customer_map}
-            service_map={@service_map}
-            address_map={@address_map}
-            vehicle_map={@vehicle_map}
-            tech_requests={@tech_requests}
-            flagged_customer_ids={@flagged_customer_ids}
-          />
-          
-    <!-- CONFIRMED COLUMN -->
-          <.kanban_column
-            title="Confirmed"
-            status={:confirmed}
-            appointments={
-              filter_appointments_by_status(
-                @all_appointments,
-                :confirmed,
-                @filter_date,
-                @filter_tech,
-                @filter_zone,
-                @address_map
-              )
-            }
-            count={
-              length(
+              }
+              count={
+                length(
+                  filter_appointments_by_status(
+                    @all_appointments,
+                    :pending,
+                    @filter_date,
+                    @filter_tech,
+                    @filter_zone,
+                    @address_map
+                  )
+                )
+              }
+              badge_color="badge-warning"
+              technicians={@technicians}
+              customer_map={@customer_map}
+              service_map={@service_map}
+              address_map={@address_map}
+              vehicle_map={@vehicle_map}
+              tech_requests={@tech_requests}
+              flagged_customer_ids={@flagged_customer_ids}
+            />
+
+            <.kanban_column
+              title="Confirmed"
+              status={:confirmed}
+              appointments={
                 filter_appointments_by_status(
                   @all_appointments,
                   :confirmed,
@@ -498,34 +504,33 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
                   @filter_zone,
                   @address_map
                 )
-              )
-            }
-            badge_color="badge-info"
-            technicians={@technicians}
-            customer_map={@customer_map}
-            service_map={@service_map}
-            address_map={@address_map}
-            vehicle_map={@vehicle_map}
-            tech_requests={@tech_requests}
-            flagged_customer_ids={@flagged_customer_ids}
-          />
-          
-    <!-- IN PROGRESS COLUMN -->
-          <.kanban_column
-            title="In Progress"
-            status={:in_progress}
-            appointments={
-              filter_appointments_by_status(
-                @all_appointments,
-                :in_progress,
-                @filter_date,
-                @filter_tech,
-                @filter_zone,
-                @address_map
-              )
-            }
-            count={
-              length(
+              }
+              count={
+                length(
+                  filter_appointments_by_status(
+                    @all_appointments,
+                    :confirmed,
+                    @filter_date,
+                    @filter_tech,
+                    @filter_zone,
+                    @address_map
+                  )
+                )
+              }
+              badge_color="badge-info"
+              technicians={@technicians}
+              customer_map={@customer_map}
+              service_map={@service_map}
+              address_map={@address_map}
+              vehicle_map={@vehicle_map}
+              tech_requests={@tech_requests}
+              flagged_customer_ids={@flagged_customer_ids}
+            />
+
+            <.kanban_column
+              title="In Progress"
+              status={:in_progress}
+              appointments={
                 filter_appointments_by_status(
                   @all_appointments,
                   :in_progress,
@@ -534,34 +539,33 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
                   @filter_zone,
                   @address_map
                 )
-              )
-            }
-            badge_color="badge-success"
-            technicians={@technicians}
-            customer_map={@customer_map}
-            service_map={@service_map}
-            address_map={@address_map}
-            vehicle_map={@vehicle_map}
-            tech_requests={@tech_requests}
-            flagged_customer_ids={@flagged_customer_ids}
-          />
-          
-    <!-- COMPLETED COLUMN -->
-          <.kanban_column
-            title="Completed"
-            status={:completed}
-            appointments={
-              filter_appointments_by_status(
-                @all_appointments,
-                :completed,
-                @filter_date,
-                @filter_tech,
-                @filter_zone,
-                @address_map
-              )
-            }
-            count={
-              length(
+              }
+              count={
+                length(
+                  filter_appointments_by_status(
+                    @all_appointments,
+                    :in_progress,
+                    @filter_date,
+                    @filter_tech,
+                    @filter_zone,
+                    @address_map
+                  )
+                )
+              }
+              badge_color="badge-success"
+              technicians={@technicians}
+              customer_map={@customer_map}
+              service_map={@service_map}
+              address_map={@address_map}
+              vehicle_map={@vehicle_map}
+              tech_requests={@tech_requests}
+              flagged_customer_ids={@flagged_customer_ids}
+            />
+
+            <.kanban_column
+              title="Completed"
+              status={:completed}
+              appointments={
                 filter_appointments_by_status(
                   @all_appointments,
                   :completed,
@@ -570,124 +574,135 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
                   @filter_zone,
                   @address_map
                 )
-              )
-            }
-            badge_color="badge-ghost"
-            technicians={@technicians}
-            customer_map={@customer_map}
-            service_map={@service_map}
-            address_map={@address_map}
-            vehicle_map={@vehicle_map}
-            tech_requests={@tech_requests}
-            flagged_customer_ids={@flagged_customer_ids}
-          />
-        </div>
-      </div>
-      
-    <!-- Manage Technicians -->
-      <div class="mb-8">
-        <button class="btn btn-ghost btn-sm mb-4" phx-click="toggle_manage_techs">
-          {if @show_manage_techs, do: "Hide", else: "Manage"} Technicians
-        </button>
+              }
+              count={
+                length(
+                  filter_appointments_by_status(
+                    @all_appointments,
+                    :completed,
+                    @filter_date,
+                    @filter_tech,
+                    @filter_zone,
+                    @address_map
+                  )
+                )
+              }
+              badge_color="badge-ghost"
+              technicians={@technicians}
+              customer_map={@customer_map}
+              service_map={@service_map}
+              address_map={@address_map}
+              vehicle_map={@vehicle_map}
+              tech_requests={@tech_requests}
+              flagged_customer_ids={@flagged_customer_ids}
+            />
+          </div>
+        </section>
 
-        <div :if={@show_manage_techs}>
-          <div class="card bg-base-100 shadow mb-4">
-            <div class="card-body p-4">
-              <h3 class="font-bold mb-2">Add Technician</h3>
-              <form phx-submit="add_technician" class="flex gap-2 items-end">
-                <div class="form-control flex-1">
-                  <label class="label label-text text-xs">Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    class="input input-bordered input-sm"
-                    required
-                    placeholder="Tech name"
-                  />
-                </div>
-                <div class="form-control flex-1">
-                  <label class="label label-text text-xs">Phone</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    class="input input-bordered input-sm"
-                    placeholder="555-0000"
-                  />
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm">Add</button>
-              </form>
+        <section id="dispatch-technician-management" class="pb-8">
+          <button class="btn btn-ghost btn-sm mb-4" phx-click="toggle_manage_techs">
+            {if @show_manage_techs, do: "Hide", else: "Manage"} Technicians
+          </button>
+
+          <div :if={@show_manage_techs}>
+            <div class="card bg-base-100 shadow mb-4">
+              <div class="card-body p-4">
+                <h3 class="font-bold mb-2">Add Technician</h3>
+                <form phx-submit="add_technician" class="flex gap-2 items-end">
+                  <div class="form-control flex-1">
+                    <label class="label label-text text-xs">Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      class="input input-bordered input-sm"
+                      required
+                      placeholder="Tech name"
+                    />
+                  </div>
+                  <div class="form-control flex-1">
+                    <label class="label label-text text-xs">Phone</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      class="input input-bordered input-sm"
+                      placeholder="555-0000"
+                    />
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm">Add</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Zone</th>
+                    <th>Linked Account</th>
+                    <th>Pay Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={tech <- @technicians}>
+                    <td class="font-semibold">
+                      <.link navigate={~p"/admin/technicians/#{tech.id}"} class="link link-hover">
+                        {tech.name}
+                      </.link>
+                    </td>
+                    <td>
+                      <select
+                        class="select select-bordered select-xs"
+                        phx-change="assign_tech_zone"
+                        phx-value-tech-id={tech.id}
+                        name="zone"
+                      >
+                        <option value="" selected={is_nil(tech.zone)}>Floater</option>
+                        <option :for={z <- Zones.all()} value={z} selected={tech.zone == z}>
+                          {Zones.short_label(z)}
+                        </option>
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        class="select select-bordered select-xs w-full max-w-xs"
+                        phx-change="link_tech_account"
+                        phx-value-tech-id={tech.id}
+                        name="user_id"
+                      >
+                        <option value="">No account</option>
+                        <option
+                          :for={u <- @tech_users}
+                          value={u.id}
+                          selected={tech.user_account_id == u.id}
+                        >
+                          {u.name} ({u.email})
+                        </option>
+                      </select>
+                    </td>
+                    <td>
+                      <form
+                        phx-submit="update_tech_rate"
+                        phx-value-tech-id={tech.id}
+                        class="flex gap-1 items-center"
+                      >
+                        <span class="text-xs">$</span>
+                        <input
+                          type="number"
+                          name="rate"
+                          class="input input-bordered input-xs w-20"
+                          value={div(tech.pay_rate_cents || 2500, 100)}
+                          min="0"
+                        />
+                        <button type="submit" class="btn btn-ghost btn-xs">Save</button>
+                      </form>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Zone</th>
-                  <th>Linked Account</th>
-                  <th>Pay Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={tech <- @technicians}>
-                  <td class="font-semibold">
-                    <.link navigate={~p"/admin/technicians/#{tech.id}"} class="link link-hover">
-                      {tech.name}
-                    </.link>
-                  </td>
-                  <td>
-                    <select
-                      class="select select-bordered select-xs"
-                      phx-change="assign_tech_zone"
-                      phx-value-tech-id={tech.id}
-                      name="zone"
-                    >
-                      <option value="" selected={is_nil(tech.zone)}>Floater</option>
-                      <option :for={z <- Zones.all()} value={z} selected={tech.zone == z}>
-                        {Zones.short_label(z)}
-                      </option>
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      class="select select-bordered select-xs w-full max-w-xs"
-                      phx-change="link_tech_account"
-                      phx-value-tech-id={tech.id}
-                      name="user_id"
-                    >
-                      <option value="">— No account —</option>
-                      <option
-                        :for={u <- @tech_users}
-                        value={u.id}
-                        selected={tech.user_account_id == u.id}
-                      >
-                        {u.name} ({u.email})
-                      </option>
-                    </select>
-                  </td>
-                  <td>
-                    <form
-                      phx-submit="update_tech_rate"
-                      phx-value-tech-id={tech.id}
-                      class="flex gap-1 items-center"
-                    >
-                      <span class="text-xs">$</span>
-                      <input
-                        type="number"
-                        name="rate"
-                        class="input input-bordered input-xs w-20"
-                        value={div(tech.pay_rate_cents || 2500, 100)}
-                        min="0"
-                      />
-                      <button type="submit" class="btn btn-ghost btn-xs">Save</button>
-                    </form>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </section>
       </div>
     </div>
     """
@@ -1039,29 +1054,6 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   defp state_order(:on_site), do: 1
   defp state_order(:in_progress), do: 2
   defp state_order(_), do: 99
-
-  defp current_activity_text(nil), do: nil
-
-  defp current_activity_text(%{status: status, customer_name: name, scheduled_at: at}) do
-    time = Calendar.strftime(at, "%-I:%M %p")
-
-    case status do
-      :en_route -> "En route to #{name} · #{time}"
-      :on_site -> "On site with #{name}"
-      :in_progress -> "Washing #{name}'s car"
-      _ -> nil
-    end
-  end
-
-  defp duty_status_label(:available), do: "Available"
-  defp duty_status_label(:on_break), do: "On break"
-  defp duty_status_label(:off_duty), do: "Off duty"
-  defp duty_status_label(_), do: "Unknown"
-
-  defp duty_status_dot(:available), do: "bg-success"
-  defp duty_status_dot(:on_break), do: "bg-warning"
-  defp duty_status_dot(:off_duty), do: "bg-base-300"
-  defp duty_status_dot(_), do: "bg-base-300"
 
   defp tech_name(nil, _techs), do: "Unassigned"
 
