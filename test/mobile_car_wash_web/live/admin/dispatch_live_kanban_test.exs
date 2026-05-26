@@ -24,6 +24,16 @@ defmodule MobileCarWashWeb.Admin.DispatchLiveKanbanTest do
       refute is_nil(functions), "appointment_card component should be defined"
     end
 
+    test "command center components are available" do
+      functions = MobileCarWashWeb.Admin.DispatchComponents.__info__(:functions)
+
+      assert {:command_bar, 1} in functions
+      assert {:metric_cards, 1} in functions
+      assert {:exception_panel, 1} in functions
+      assert {:assignment_queue, 1} in functions
+      assert {:technician_workload_rail, 1} in functions
+    end
+
     test "dispatch page requires authentication", %{conn: conn} do
       conn = get(conn, "/admin/dispatch")
       assert redirected_to(conn) == "/sign-in"
