@@ -57,7 +57,9 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
 
   def technician_workload(technicians, appointments, current_appointment_by_tech) do
     Enum.map(technicians, fn tech ->
-      assigned = Enum.filter(appointments, &(&1.technician_id == tech.id and &1.status != :completed))
+      assigned =
+        Enum.filter(appointments, &(&1.technician_id == tech.id and &1.status != :completed))
+
       current = Map.get(current_appointment_by_tech, tech.id)
 
       %{
@@ -94,10 +96,19 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
 
   defp maybe_add_unassigned(exceptions, _appointment), do: exceptions
 
-  defp maybe_add_unconfirmed(exceptions, %{status: :pending, technician_id: tech_id} = appointment)
+  defp maybe_add_unconfirmed(
+         exceptions,
+         %{status: :pending, technician_id: tech_id} = appointment
+       )
        when not is_nil(tech_id) do
     [
-      exception(appointment, :unconfirmed, :medium, "Assigned but not confirmed", "Confirm appointment")
+      exception(
+        appointment,
+        :unconfirmed,
+        :medium,
+        "Assigned but not confirmed",
+        "Confirm appointment"
+      )
       | exceptions
     ]
   end
@@ -107,7 +118,13 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
   defp maybe_add_booking_flag(exceptions, appointment, flagged_customer_ids) do
     if MapSet.member?(flagged_customer_ids, appointment.customer_id) do
       [
-        exception(appointment, :booking_flag, :high, "Customer booking flag", "Review customer record")
+        exception(
+          appointment,
+          :booking_flag,
+          :high,
+          "Customer booking flag",
+          "Review customer record"
+        )
         | exceptions
       ]
     else
@@ -118,7 +135,13 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
   defp maybe_add_tech_request(exceptions, appointment, tech_requests) do
     if Map.has_key?(tech_requests, appointment.id) do
       [
-        exception(appointment, :tech_request, :medium, "Technician requested this job", "Review request")
+        exception(
+          appointment,
+          :tech_request,
+          :medium,
+          "Technician requested this job",
+          "Review request"
+        )
         | exceptions
       ]
     else
@@ -126,12 +149,22 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
     end
   end
 
-  defp maybe_add_stalled_checklist(exceptions, %{status: :in_progress} = appointment, progress_by_appointment) do
+  defp maybe_add_stalled_checklist(
+         exceptions,
+         %{status: :in_progress} = appointment,
+         progress_by_appointment
+       ) do
     progress = Map.get(progress_by_appointment, appointment.id)
 
     if progress && progress.steps_total > 0 && progress.steps_done == 0 do
       [
-        exception(appointment, :stalled_checklist, :medium, "Checklist has not advanced", "Check service progress")
+        exception(
+          appointment,
+          :stalled_checklist,
+          :medium,
+          "Checklist has not advanced",
+          "Check service progress"
+        )
         | exceptions
       ]
     else
@@ -139,7 +172,8 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
     end
   end
 
-  defp maybe_add_stalled_checklist(exceptions, _appointment, _progress_by_appointment), do: exceptions
+  defp maybe_add_stalled_checklist(exceptions, _appointment, _progress_by_appointment),
+    do: exceptions
 
   defp maybe_add_missing_required_photos(
          exceptions,
@@ -150,7 +184,13 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
 
     if Map.get(counts, :before, 0) == 0 do
       [
-        exception(appointment, :missing_before_photos, :medium, "Before photos missing", "Ask tech to upload proof")
+        exception(
+          appointment,
+          :missing_before_photos,
+          :medium,
+          "Before photos missing",
+          "Ask tech to upload proof"
+        )
         | exceptions
       ]
     else
@@ -158,7 +198,8 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenter do
     end
   end
 
-  defp maybe_add_missing_required_photos(exceptions, _appointment, _photo_counts_by_appointment), do: exceptions
+  defp maybe_add_missing_required_photos(exceptions, _appointment, _photo_counts_by_appointment),
+    do: exceptions
 
   defp exception(appointment, kind, severity, reason, action) do
     %{

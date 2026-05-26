@@ -86,7 +86,10 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
 
   def exception_panel(assigns) do
     ~H"""
-    <section id="dispatch-exceptions" class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm">
+    <section
+      id="dispatch-exceptions"
+      class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm"
+    >
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-lg font-black">Needs Action</h2>
         <span class="badge badge-warning">{length(@exceptions)}</span>

@@ -341,7 +341,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
                 <option value="" selected={is_nil(@filter_status)}>All Statuses</option>
                 <option value="pending" selected={@filter_status == "pending"}>Pending</option>
                 <option value="confirmed" selected={@filter_status == "confirmed"}>Confirmed</option>
-                <option value="in_progress" selected={@filter_status == "in_progress"}>In Progress</option>
+                <option value="in_progress" selected={@filter_status == "in_progress"}>
+                  In Progress
+                </option>
                 <option value="completed" selected={@filter_status == "completed"}>Completed</option>
               </select>
             </div>
@@ -389,7 +391,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
               </label>
             </div>
 
-            <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">Clear</button>
+            <button type="button" class="btn btn-ghost btn-sm" phx-click="clear_filters">
+              Clear
+            </button>
           </div>
         </form>
 

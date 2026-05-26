@@ -58,7 +58,12 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenterTest do
     unassigned = appointment(%{id: "unassigned", status: :pending, technician_id: nil})
 
     flagged =
-      appointment(%{id: "flagged", status: :confirmed, technician_id: "tech-1", customer_id: "cust-flag"})
+      appointment(%{
+        id: "flagged",
+        status: :confirmed,
+        technician_id: "tech-1",
+        customer_id: "cust-flag"
+      })
 
     exceptions =
       DispatchPresenter.exceptions([unassigned, flagged],
@@ -85,7 +90,9 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenterTest do
     ]
 
     workloads =
-      DispatchPresenter.technician_workload(techs, appointments, %{"tech-1" => %{status: :in_progress}})
+      DispatchPresenter.technician_workload(techs, appointments, %{
+        "tech-1" => %{status: :in_progress}
+      })
 
     assert [%{id: "tech-1", assigned_count: 2, active?: true}, %{id: "tech-2", assigned_count: 1}] =
              workloads
