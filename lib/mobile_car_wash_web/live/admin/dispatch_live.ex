@@ -8,12 +8,13 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
   import MobileCarWashWeb.Admin.DispatchComponents
 
   alias MobileCarWash.Scheduling.{Dispatch, AppointmentTracker, Appointment}
-  alias MobileCarWash.Operations.Technician
+  alias MobileCarWash.Operations.{Photo, Technician}
   alias MobileCarWash.Scheduling.ServiceType
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.Address
   alias MobileCarWash.Repo
   alias MobileCarWash.Zones
+  alias MobileCarWashWeb.Admin.DispatchPresenter
 
   import Ecto.Query, only: [from: 2]
 
@@ -798,6 +799,29 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         {appt, Dispatch.checklist_progress(appt.id)}
       end)
 
+    progress_by_appointment = DispatchPresenter.progress_by_appointment(active)
+    photo_counts_by_appointment = load_photo_counts_by_appointment(Enum.map(all, & &1.id))
+
+    exceptions =
+      DispatchPresenter.exceptions(filtered,
+        flagged_customer_ids: flagged_customer_ids,
+        tech_requests: socket.assigns.tech_requests,
+        progress_by_appointment: progress_by_appointment,
+        photo_counts_by_appointment: photo_counts_by_appointment
+      )
+
+    technicians = socket.assigns.technicians
+    metrics = DispatchPresenter.metrics(filtered, technicians, exceptions)
+    assignment_queue = DispatchPresenter.assignment_queue(filtered)
+    active_service_appointments = DispatchPresenter.active_appointments(all)
+
+    technician_workload =
+      DispatchPresenter.technician_workload(
+        technicians,
+        all,
+        socket.assigns.current_appointment_by_tech
+      )
+
     # Subscribe to ALL loaded appointment topics so any status change updates immediately.
     # Track already-subscribed IDs to avoid redundant subscribe calls.
     socket =
@@ -849,7 +873,14 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
         address_map: address_map,
         vehicle_map: vehicle_map,
         map_pins: map_pins,
-        flagged_customer_ids: flagged_customer_ids
+        flagged_customer_ids: flagged_customer_ids,
+        dispatch_metrics: metrics,
+        dispatch_exceptions: exceptions,
+        assignment_queue: assignment_queue,
+        active_service_appointments: active_service_appointments,
+        technician_workload: technician_workload,
+        photo_counts_by_appointment: photo_counts_by_appointment,
+        progress_by_appointment: progress_by_appointment
       )
 
     # Push pin data to the map hook on filter changes
@@ -893,7 +924,9 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
             socket
           end
 
-        assign(socket, all_appointments: all, active: active)
+        socket
+        |> assign(all_appointments: all, active: active)
+        |> load_appointments()
 
       _ ->
         socket
@@ -902,6 +935,30 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
 
   defp load_service_map do
     Ash.read!(ServiceType) |> Map.new(&{&1.id, &1.name})
+  end
+
+  defp load_photo_counts_by_appointment([]), do: %{}
+
+  defp load_photo_counts_by_appointment(appointment_ids) do
+    Photo
+    |> Ash.Query.filter(appointment_id in ^appointment_ids and is_nil(deleted_at))
+    |> Ash.read!(authorize?: false)
+    |> Enum.group_by(& &1.appointment_id)
+    |> Map.new(fn {appointment_id, photos} ->
+      counts =
+        photos
+        |> Enum.group_by(& &1.photo_type)
+        |> Map.new(fn {type, typed_photos} -> {type, length(typed_photos)} end)
+
+      {appointment_id,
+       %{
+         before: Map.get(counts, :before, 0),
+         after: Map.get(counts, :after, 0),
+         problem_area: Map.get(counts, :problem_area, 0),
+         step_completion: Map.get(counts, :step_completion, 0),
+         total: length(photos)
+       }}
+    end)
   end
 
   defp active_technicians do
