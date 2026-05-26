@@ -2,6 +2,189 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
   @moduledoc "Function components for the dispatch dashboard."
   use Phoenix.Component
 
+  import MobileCarWashWeb.CoreComponents, only: [icon: 1]
+
+  attr :metrics, :map, required: true
+  attr :filter_date, :any, default: nil
+
+  def command_bar(assigns) do
+    assigns = assign(assigns, :display_date, display_date(assigns.filter_date))
+
+    ~H"""
+    <section id="dispatch-command-bar" class="rounded-lg border border-base-300 bg-base-100 shadow-sm">
+      <div class="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-widest text-primary">Today / Live Ops</p>
+          <h1 class="text-3xl font-black text-base-content md:text-4xl">Dispatch Center</h1>
+          <p class="text-sm text-base-content/70">
+            Live service monitoring and assignment control for {@display_date}
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="badge badge-info gap-1 px-3 py-3">
+            <.icon name="hero-signal" class="size-4" /> Live
+          </span>
+          <span class="badge badge-success px-3 py-3">{@metrics.on_duty} on duty</span>
+          <span class={[
+            "badge px-3 py-3",
+            if(@metrics.exceptions > 0, do: "badge-warning", else: "badge-ghost")
+          ]}>
+            {@metrics.exceptions} need action
+          </span>
+          <MobileCarWashWeb.Layouts.theme_toggle />
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  attr :metrics, :map, required: true
+
+  def metric_cards(assigns) do
+    ~H"""
+    <section id="dispatch-metrics" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <.metric_card label="In progress" value={@metrics.in_progress} tone="bg-sky-500 text-white" />
+      <.metric_card
+        label="Ready to assign"
+        value={@metrics.ready_to_assign}
+        tone="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200"
+      />
+      <.metric_card
+        label="Completed"
+        value={@metrics.completed}
+        tone="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
+      />
+      <.metric_card
+        label="Exceptions"
+        value={@metrics.exceptions}
+        tone="bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-200"
+      />
+    </section>
+    """
+  end
+
+  attr :label, :string, required: true
+  attr :value, :integer, required: true
+  attr :tone, :string, required: true
+
+  defp metric_card(assigns) do
+    ~H"""
+    <div class={[
+      "rounded-lg border border-base-300 p-4 shadow-sm transition hover:-translate-y-0.5",
+      @tone
+    ]}>
+      <p class="text-xs font-bold uppercase tracking-widest opacity-75">{@label}</p>
+      <p class="mt-2 text-4xl font-black">{@value}</p>
+    </div>
+    """
+  end
+
+  attr :exceptions, :list, required: true
+  attr :customer_map, :map, required: true
+  attr :service_map, :map, required: true
+  attr :appointments_by_id, :map, required: true
+
+  def exception_panel(assigns) do
+    ~H"""
+    <section id="dispatch-exceptions" class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-lg font-black">Needs Action</h2>
+        <span class="badge badge-warning">{length(@exceptions)}</span>
+      </div>
+      <div :if={@exceptions == []} class="rounded-lg bg-base-200 p-4 text-sm text-base-content/70">
+        No dispatch exceptions right now.
+      </div>
+      <div class="space-y-3">
+        <div
+          :for={item <- @exceptions}
+          id={"dispatch-exception-#{item.appointment_id}-#{item.kind}"}
+          class="rounded-lg border border-warning/30 bg-warning/10 p-3"
+        >
+          <% appt = Map.get(@appointments_by_id, item.appointment_id) %>
+          <p class="text-sm font-bold">{item.reason}</p>
+          <p class="text-xs text-base-content/70">
+            {appt && Map.get(@service_map, appt.service_type_id, "Service")} · {Map.get(
+              @customer_map,
+              item.customer_id,
+              "Customer"
+            )}
+          </p>
+          <p class="mt-2 text-xs font-semibold text-warning">{item.action}</p>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  attr :appointments, :list, required: true
+  attr :customer_map, :map, required: true
+  attr :service_map, :map, required: true
+  attr :technicians, :list, required: true
+  attr :address_map, :map, required: true
+  attr :vehicle_map, :map, required: true
+  attr :tech_requests, :map, required: true
+  attr :flagged_customer_ids, :any, required: true
+
+  def assignment_queue(assigns) do
+    ~H"""
+    <section
+      id="dispatch-assignment-queue"
+      class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm"
+    >
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-xl font-black">Assignment Queue</h2>
+        <span class="badge badge-info">{length(@appointments)}</span>
+      </div>
+      <div :if={@appointments == []} class="rounded-lg bg-base-200 p-4 text-sm text-base-content/70">
+        No jobs waiting for assignment.
+      </div>
+      <div class="grid gap-3">
+        <.appointment_card
+          :for={appt <- @appointments}
+          appointment={appt}
+          customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
+          service_name={Map.get(@service_map, appt.service_type_id, "Service")}
+          technicians={@technicians}
+          address_zone={get_address_zone(appt, @address_map)}
+          vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+          requested_by={Map.get(@tech_requests, appt.id)}
+          booking_flagged?={MapSet.member?(@flagged_customer_ids, appt.customer_id)}
+        />
+      </div>
+    </section>
+    """
+  end
+
+  attr :workloads, :list, required: true
+
+  def technician_workload_rail(assigns) do
+    ~H"""
+    <section
+      id="dispatch-technician-workload"
+      class="rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm"
+    >
+      <h2 class="mb-4 text-lg font-black">Technician Workload</h2>
+      <div class="space-y-3">
+        <div
+          :for={tech <- @workloads}
+          id={"dispatch-tech-workload-#{tech.id}"}
+          class="rounded-lg border border-base-300 bg-base-200/60 p-3"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="font-bold">{tech.name}</p>
+              <p class="text-xs text-base-content/70">
+                {format_status(tech.status)} · {tech.assigned_count} assigned
+              </p>
+            </div>
+            <span class={["badge badge-sm", workload_badge(tech.pressure)]}>{tech.pressure}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
   attr :appointment, :map, required: true
   attr :customer_name, :string, required: true
   attr :service_name, :string, required: true
@@ -246,6 +429,13 @@ defmodule MobileCarWashWeb.Admin.DispatchComponents do
       _ -> nil
     end
   end
+
+  defp display_date(nil), do: "all scheduled jobs"
+  defp display_date(%Date{} = date), do: Calendar.strftime(date, "%b %d, %Y")
+
+  defp workload_badge(:high), do: "badge-warning"
+  defp workload_badge(:medium), do: "badge-info"
+  defp workload_badge(_), do: "badge-ghost"
 
   defp vehicle_label(%{make: make, model: model, size: size}) do
     type =
