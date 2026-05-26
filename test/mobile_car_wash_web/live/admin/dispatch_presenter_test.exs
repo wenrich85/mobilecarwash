@@ -53,4 +53,41 @@ defmodule MobileCarWashWeb.Admin.DispatchPresenterTest do
     assert [%{id: "sooner"}, %{id: "later"}] =
              DispatchPresenter.assignment_queue([later, sooner, complete])
   end
+
+  test "exceptions include unassigned pending jobs and flagged customers" do
+    unassigned = appointment(%{id: "unassigned", status: :pending, technician_id: nil})
+
+    flagged =
+      appointment(%{id: "flagged", status: :confirmed, technician_id: "tech-1", customer_id: "cust-flag"})
+
+    exceptions =
+      DispatchPresenter.exceptions([unassigned, flagged],
+        flagged_customer_ids: MapSet.new(["cust-flag"]),
+        tech_requests: %{},
+        progress_by_appointment: %{},
+        photo_counts_by_appointment: %{}
+      )
+
+    assert Enum.any?(exceptions, &(&1.appointment_id == "unassigned" and &1.kind == :unassigned))
+    assert Enum.any?(exceptions, &(&1.appointment_id == "flagged" and &1.kind == :booking_flag))
+  end
+
+  test "technician_workload marks current activity and assignment counts" do
+    techs = [
+      %{id: "tech-1", name: "Ava", active: true, status: :available, zone: :north},
+      %{id: "tech-2", name: "Noah", active: true, status: :on_break, zone: nil}
+    ]
+
+    appointments = [
+      appointment(%{id: "a1", status: :confirmed, technician_id: "tech-1"}),
+      appointment(%{id: "a2", status: :in_progress, technician_id: "tech-1"}),
+      appointment(%{id: "a3", status: :confirmed, technician_id: "tech-2"})
+    ]
+
+    workloads =
+      DispatchPresenter.technician_workload(techs, appointments, %{"tech-1" => %{status: :in_progress}})
+
+    assert [%{id: "tech-1", assigned_count: 2, active?: true}, %{id: "tech-2", assigned_count: 1}] =
+             workloads
+  end
 end
