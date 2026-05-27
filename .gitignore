@@ -68,4 +68,7 @@ npm-debug.log
 # Superpowers brainstorming session artifacts (mockups, events, server pids).
 .superpowers/
 
+# Local git worktrees for isolated feature work.
+.worktrees/
+
 DEPLOYMENT.md
