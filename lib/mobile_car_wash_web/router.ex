@@ -307,6 +307,10 @@ defmodule MobileCarWashWeb.Router do
     post "/admin/subscription_plans", AdminCatalogController, :create_subscription_plan
     patch "/admin/subscription_plans/:id", AdminCatalogController, :update_subscription_plan
     post "/admin/subscription_plans/:id/toggle", AdminCatalogController, :toggle_subscription_plan
+    get "/admin/settings", AdminSettingsController, :show
+    patch "/admin/settings/scheduling", AdminSettingsController, :update_scheduling
+    post "/admin/settings/blocked_dates", AdminSettingsController, :create_blocked_date
+    delete "/admin/settings/blocked_dates/:id", AdminSettingsController, :delete_blocked_date
 
     # Subscriptions
     get "/subscriptions", SubscriptionsController, :index
