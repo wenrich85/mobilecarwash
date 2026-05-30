@@ -289,6 +289,10 @@ defmodule MobileCarWashWeb.Router do
     get "/appointments/:id", AppointmentsController, :show
     delete "/appointments/:id", AppointmentsController, :delete
 
+    # Admin native command center
+    get "/admin/appointments", AdminAppointmentsController, :index
+    get "/admin/appointments/:id", AdminAppointmentsController, :show
+
     # Subscriptions
     get "/subscriptions", SubscriptionsController, :index
     post "/subscriptions/:id/pause", SubscriptionsController, :pause
