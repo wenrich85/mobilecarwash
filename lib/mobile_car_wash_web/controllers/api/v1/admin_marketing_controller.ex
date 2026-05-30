@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.Api.V1.AdminMarketingController do
   """
   use MobileCarWashWeb, :controller
 
-  alias MobileCarWash.Marketing.{CAC, Referrals}
+  alias MobileCarWash.Marketing.{CAC, MarketingSpend, Referrals}
 
   plug MobileCarWashWeb.Plugs.RequireApiAuth
   plug :require_admin
@@ -12,18 +12,20 @@ defmodule MobileCarWashWeb.Api.V1.AdminMarketingController do
 
   def show(conn, params) do
     period = period(params["period"])
-    {from, to} = period_range(period)
 
-    data = %{
-      period: Atom.to_string(period),
-      from: Date.to_iso8601(from),
-      to: Date.to_iso8601(to),
-      summary: CAC.summary(from, to),
-      channels: Enum.map(CAC.per_channel(from, to), &channel_json/1),
-      leaderboard: Referrals.leaderboard(10)
-    }
+    json(conn, %{data: marketing_json(period)})
+  end
 
-    json(conn, %{data: data})
+  def record_spend(conn, params) do
+    with {:ok, attrs} <- spend_attrs(params),
+         {:ok, _spend} <-
+           MarketingSpend
+           |> Ash.Changeset.for_create(:record, attrs)
+           |> Ash.create(authorize?: false) do
+      conn
+      |> put_status(:created)
+      |> json(%{data: marketing_json(:last_30)})
+    end
   end
 
   defp require_admin(conn, _opts) do
@@ -58,6 +60,52 @@ defmodule MobileCarWashWeb.Api.V1.AdminMarketingController do
     {Date.add(today, -days + 1), today}
   end
 
+  defp spend_attrs(params) do
+    with {:ok, spent_on} <- parse_date(params["spent_on"]),
+         {:ok, amount_cents} <- parse_amount_cents(params["amount_cents"]) do
+      {:ok,
+       %{
+         channel_id: params["channel_id"],
+         spent_on: spent_on,
+         amount_cents: amount_cents,
+         notes: blank_to_nil(params["notes"])
+       }}
+    end
+  end
+
+  defp parse_date(value) when is_binary(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} -> {:ok, date}
+      {:error, _reason} -> {:error, :invalid_date}
+    end
+  end
+
+  defp parse_date(_value), do: {:error, :invalid_date}
+
+  defp parse_amount_cents(value) when is_integer(value) and value >= 0, do: {:ok, value}
+  defp parse_amount_cents(value) when is_binary(value), do: parse_integer(value)
+  defp parse_amount_cents(_value), do: {:error, :invalid_amount_cents}
+
+  defp parse_integer(value) do
+    case Integer.parse(value) do
+      {amount, ""} when amount >= 0 -> {:ok, amount}
+      _ -> {:error, :invalid_amount_cents}
+    end
+  end
+
+  defp marketing_json(period) do
+    {from, to} = period_range(period)
+
+    %{
+      period: Atom.to_string(period),
+      from: Date.to_iso8601(from),
+      to: Date.to_iso8601(to),
+      summary: CAC.summary(from, to),
+      channels: Enum.map(CAC.per_channel(from, to), &channel_json/1),
+      leaderboard: Referrals.leaderboard(10)
+    }
+  end
+
   defp channel_json(row) do
     %{
       channel_id: row.channel_id,
@@ -72,6 +120,10 @@ defmodule MobileCarWashWeb.Api.V1.AdminMarketingController do
       roi_pct: row.roi_pct
     }
   end
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(nil), do: nil
+  defp blank_to_nil(value), do: value
 
   defp current_user(conn), do: conn.assigns[:current_user] || conn.assigns[:current_customer]
 end
