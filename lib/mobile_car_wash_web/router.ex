@@ -300,7 +300,13 @@ defmodule MobileCarWashWeb.Router do
     get "/admin/marketing", AdminMarketingController, :show
     get "/admin/technicians", AdminTechniciansController, :index
     get "/admin/services", AdminCatalogController, :services
+    post "/admin/services", AdminCatalogController, :create_service
+    patch "/admin/services/:id", AdminCatalogController, :update_service
+    post "/admin/services/:id/toggle", AdminCatalogController, :toggle_service
     get "/admin/subscription_plans", AdminCatalogController, :subscription_plans
+    post "/admin/subscription_plans", AdminCatalogController, :create_subscription_plan
+    patch "/admin/subscription_plans/:id", AdminCatalogController, :update_subscription_plan
+    post "/admin/subscription_plans/:id/toggle", AdminCatalogController, :toggle_subscription_plan
 
     # Subscriptions
     get "/subscriptions", SubscriptionsController, :index

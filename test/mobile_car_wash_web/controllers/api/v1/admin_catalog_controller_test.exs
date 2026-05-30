@@ -32,6 +32,70 @@ defmodule MobileCarWashWeb.Api.V1.AdminCatalogControllerTest do
     end
   end
 
+  describe "POST /api/v1/admin/services" do
+    test "creates a service for native admin catalog management", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+
+      conn =
+        post(authed, ~p"/api/v1/admin/services", %{
+          "name" => "Native Express",
+          "description" => "Quick native app wash",
+          "base_price_cents" => 7_500,
+          "duration_minutes" => 60,
+          "block_capacity" => 4
+        })
+
+      body = json_response(conn, 201)
+
+      assert body["data"]["name"] == "Native Express"
+      assert body["data"]["slug"] == "native-express"
+      assert body["data"]["base_price_cents"] == 7_500
+      assert body["data"]["duration_minutes"] == 60
+      assert body["data"]["active"] == true
+      assert body["data"]["block_capacity"] == 4
+    end
+  end
+
+  describe "PATCH /api/v1/admin/services/:id" do
+    test "updates a service", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      service = create_service()
+
+      conn =
+        patch(authed, ~p"/api/v1/admin/services/#{service.id}", %{
+          "name" => "Native Ceramic Plus",
+          "description" => "Updated from iOS",
+          "base_price_cents" => 21_000,
+          "duration_minutes" => 165,
+          "block_capacity" => 3
+        })
+
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == service.id
+      assert body["data"]["name"] == "Native Ceramic Plus"
+      assert body["data"]["slug"] == "native-ceramic-plus"
+      assert body["data"]["description"] == "Updated from iOS"
+      assert body["data"]["base_price_cents"] == 21_000
+      assert body["data"]["duration_minutes"] == 165
+      assert body["data"]["block_capacity"] == 3
+    end
+  end
+
+  describe "POST /api/v1/admin/services/:id/toggle" do
+    test "toggles a service active state", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      service = create_service()
+
+      conn = post(authed, ~p"/api/v1/admin/services/#{service.id}/toggle")
+
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == service.id
+      assert body["data"]["active"] == true
+    end
+  end
+
   describe "GET /api/v1/admin/subscription_plans" do
     test "returns native admin subscription plans including inactive plans", %{conn: conn} do
       {authed, _admin, _token} = register_and_sign_in_admin(conn)
@@ -49,6 +113,74 @@ defmodule MobileCarWashWeb.Api.V1.AdminCatalogControllerTest do
       assert returned["deep_cleans_per_month"] == plan.deep_cleans_per_month
       assert returned["deep_clean_discount_percent"] == plan.deep_clean_discount_percent
       assert returned["active"] == false
+    end
+  end
+
+  describe "POST /api/v1/admin/subscription_plans" do
+    test "creates a subscription plan for native admin catalog management", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+
+      conn =
+        post(authed, ~p"/api/v1/admin/subscription_plans", %{
+          "name" => "Native Plus",
+          "description" => "Native app plan",
+          "price_cents" => 16_500,
+          "basic_washes_per_month" => 4,
+          "deep_cleans_per_month" => 1,
+          "deep_clean_discount_percent" => 35
+        })
+
+      body = json_response(conn, 201)
+
+      assert body["data"]["name"] == "Native Plus"
+      assert body["data"]["slug"] == "native-plus"
+      assert body["data"]["price_cents"] == 16_500
+      assert body["data"]["basic_washes_per_month"] == 4
+      assert body["data"]["deep_cleans_per_month"] == 1
+      assert body["data"]["deep_clean_discount_percent"] == 35
+      assert body["data"]["active"] == true
+    end
+  end
+
+  describe "PATCH /api/v1/admin/subscription_plans/:id" do
+    test "updates a subscription plan", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      plan = create_plan()
+
+      conn =
+        patch(authed, ~p"/api/v1/admin/subscription_plans/#{plan.id}", %{
+          "name" => "Native Fleet Pro",
+          "description" => "Updated native plan",
+          "price_cents" => 49_000,
+          "basic_washes_per_month" => 10,
+          "deep_cleans_per_month" => 3,
+          "deep_clean_discount_percent" => 45
+        })
+
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == plan.id
+      assert body["data"]["name"] == "Native Fleet Pro"
+      assert body["data"]["slug"] == "native-fleet-pro"
+      assert body["data"]["description"] == "Updated native plan"
+      assert body["data"]["price_cents"] == 49_000
+      assert body["data"]["basic_washes_per_month"] == 10
+      assert body["data"]["deep_cleans_per_month"] == 3
+      assert body["data"]["deep_clean_discount_percent"] == 45
+    end
+  end
+
+  describe "POST /api/v1/admin/subscription_plans/:id/toggle" do
+    test "toggles a subscription plan active state", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      plan = create_plan()
+
+      conn = post(authed, ~p"/api/v1/admin/subscription_plans/#{plan.id}/toggle")
+
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == plan.id
+      assert body["data"]["active"] == true
     end
   end
 
