@@ -304,6 +304,10 @@ defmodule MobileCarWashWeb.Router do
     post "/admin/blocks/:id/optimize", AdminBlocksController, :optimize
     post "/admin/blocks/:id/cancel", AdminBlocksController, :cancel
     patch "/admin/blocks/:id/close", AdminBlocksController, :close
+    get "/admin/schedule_templates", AdminScheduleTemplatesController, :index
+    post "/admin/schedule_templates", AdminScheduleTemplatesController, :create
+    post "/admin/schedule_templates/:id/toggle", AdminScheduleTemplatesController, :toggle
+    delete "/admin/schedule_templates/:id", AdminScheduleTemplatesController, :delete
     get "/admin/services", AdminCatalogController, :services
     post "/admin/services", AdminCatalogController, :create_service
     patch "/admin/services/:id", AdminCatalogController, :update_service
