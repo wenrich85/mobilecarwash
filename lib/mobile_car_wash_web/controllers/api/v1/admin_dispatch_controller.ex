@@ -42,7 +42,7 @@ defmodule MobileCarWashWeb.Api.V1.AdminDispatchController do
       current_appointment_by_tech = current_appointments_by_tech(technicians, maps.customers)
 
       data = %{
-        generated_at: DateTime.utc_now(),
+        generated_at: DateTime.utc_now(:second),
         date: Date.to_iso8601(date),
         metrics: DispatchPresenter.metrics(appointments, technicians, exceptions),
         active_services:

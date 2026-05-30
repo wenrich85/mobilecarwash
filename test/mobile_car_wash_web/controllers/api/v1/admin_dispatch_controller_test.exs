@@ -15,6 +15,7 @@ defmodule MobileCarWashWeb.Api.V1.AdminDispatchControllerTest do
       body = json_response(conn, 200)
 
       assert body["data"]["date"] == "2031-02-03"
+      assert body["data"]["generated_at"] =~ ~r/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/
       assert body["data"]["metrics"]["total"] == 1
       assert body["data"]["metrics"]["ready_to_assign"] == 1
       assert body["data"]["metrics"]["exceptions"] == 1
