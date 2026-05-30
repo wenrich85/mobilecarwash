@@ -312,6 +312,11 @@ defmodule MobileCarWashWeb.Router do
     post "/admin/vans", AdminVansController, :create
     patch "/admin/vans/:id", AdminVansController, :update
     post "/admin/vans/:id/toggle", AdminVansController, :toggle
+    get "/admin/supplies", AdminSuppliesController, :index
+    post "/admin/supplies", AdminSuppliesController, :create
+    patch "/admin/supplies/:id", AdminSuppliesController, :update
+    post "/admin/supplies/:id/restock", AdminSuppliesController, :restock
+    post "/admin/supplies/:id/use", AdminSuppliesController, :use_supply
     get "/admin/services", AdminCatalogController, :services
     post "/admin/services", AdminCatalogController, :create_service
     patch "/admin/services/:id", AdminCatalogController, :update_service
