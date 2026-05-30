@@ -290,6 +290,9 @@ defmodule MobileCarWashWeb.Router do
     delete "/appointments/:id", AppointmentsController, :delete
 
     # Admin native command center
+    get "/admin/dispatch", AdminDispatchController, :index
+    post "/admin/dispatch/appointments/:appointment_id/assign", AdminDispatchController, :assign
+    post "/admin/dispatch/appointments/:appointment_id/confirm", AdminDispatchController, :confirm
     get "/admin/appointments", AdminAppointmentsController, :index
     get "/admin/appointments/:id", AdminAppointmentsController, :show
 
