@@ -308,6 +308,10 @@ defmodule MobileCarWashWeb.Router do
     post "/admin/schedule_templates", AdminScheduleTemplatesController, :create
     post "/admin/schedule_templates/:id/toggle", AdminScheduleTemplatesController, :toggle
     delete "/admin/schedule_templates/:id", AdminScheduleTemplatesController, :delete
+    get "/admin/vans", AdminVansController, :index
+    post "/admin/vans", AdminVansController, :create
+    patch "/admin/vans/:id", AdminVansController, :update
+    post "/admin/vans/:id/toggle", AdminVansController, :toggle
     get "/admin/services", AdminCatalogController, :services
     post "/admin/services", AdminCatalogController, :create_service
     patch "/admin/services/:id", AdminCatalogController, :update_service
