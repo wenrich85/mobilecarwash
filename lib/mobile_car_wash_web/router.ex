@@ -295,6 +295,9 @@ defmodule MobileCarWashWeb.Router do
     post "/admin/dispatch/appointments/:appointment_id/confirm", AdminDispatchController, :confirm
     get "/admin/appointments", AdminAppointmentsController, :index
     get "/admin/appointments/:id", AdminAppointmentsController, :show
+    get "/admin/customers", AdminCustomersController, :index
+    get "/admin/tags", AdminTagsController, :index
+    get "/admin/marketing", AdminMarketingController, :show
 
     # Subscriptions
     get "/subscriptions", SubscriptionsController, :index
