@@ -36,6 +36,76 @@ defmodule MobileCarWashWeb.Api.V1.AdminBlocksControllerTest do
     end
   end
 
+  describe "POST /api/v1/admin/blocks/generate" do
+    test "generates upcoming blocks for a technician", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      service = create_service()
+      technician = create_technician()
+
+      conn =
+        post(authed, ~p"/api/v1/admin/blocks/generate", %{
+          "technician_id" => technician.id
+        })
+
+      body = json_response(conn, 200)
+
+      assert Enum.any?(body["data"], fn block ->
+               block["service_type_id"] == service.id and
+                 block["technician_id"] == technician.id
+             end)
+    end
+  end
+
+  describe "POST /api/v1/admin/blocks/:id/optimize" do
+    test "closes and optimizes a block", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      service = create_service()
+      technician = create_technician()
+      block = create_block(service, technician, 2)
+
+      conn = post(authed, ~p"/api/v1/admin/blocks/#{block.id}/optimize")
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == block.id
+      assert body["data"]["status"] == "scheduled"
+    end
+  end
+
+  describe "POST /api/v1/admin/blocks/:id/cancel" do
+    test "cancels a block", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      service = create_service()
+      technician = create_technician()
+      block = create_block(service, technician, 2)
+
+      conn = post(authed, ~p"/api/v1/admin/blocks/#{block.id}/cancel")
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == block.id
+      assert body["data"]["status"] == "cancelled"
+    end
+  end
+
+  describe "PATCH /api/v1/admin/blocks/:id/close" do
+    test "updates the block close time", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      service = create_service()
+      technician = create_technician()
+      block = create_block(service, technician, 2)
+      closes_at = DateTime.add(block.starts_at, -2, :hour)
+
+      conn =
+        patch(authed, ~p"/api/v1/admin/blocks/#{block.id}/close", %{
+          "closes_at" => DateTime.to_iso8601(closes_at)
+        })
+
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == block.id
+      assert body["data"]["closes_at"] == DateTime.to_iso8601(closes_at)
+    end
+  end
+
   defp register_and_sign_in_admin(conn) do
     {authed, customer, token} = register_and_sign_in(conn)
 

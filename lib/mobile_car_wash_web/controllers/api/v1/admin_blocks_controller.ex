@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.Api.V1.AdminBlocksController do
   """
   use MobileCarWashWeb, :controller
 
-  alias MobileCarWash.Scheduling.AppointmentBlock
+  alias MobileCarWash.Scheduling.{AppointmentBlock, BlockGenerator, BlockOptimizer}
 
   require Ash.Query
 
@@ -14,6 +14,45 @@ defmodule MobileCarWashWeb.Api.V1.AdminBlocksController do
 
   def index(conn, _params) do
     json(conn, %{data: Enum.map(upcoming_blocks(), &block_json/1)})
+  end
+
+  def generate(conn, %{"technician_id" => technician_id}) do
+    :ok = BlockGenerator.generate_ahead(14, technician_id: technician_id)
+
+    json(conn, %{data: Enum.map(upcoming_blocks(), &block_json/1)})
+  end
+
+  def optimize(conn, %{"id" => id}) do
+    with {:ok, _block} <- BlockOptimizer.close_and_optimize(id),
+         {:ok, block} <- loaded_block(id) do
+      json(conn, %{data: block_json(block)})
+    else
+      {:error, :block_not_found} -> {:error, :not_found}
+      other -> other
+    end
+  end
+
+  def cancel(conn, %{"id" => id}) do
+    with {:ok, block} <- Ash.get(AppointmentBlock, id, authorize?: false),
+         {:ok, updated} <-
+           block
+           |> Ash.Changeset.for_update(:update, %{status: :cancelled})
+           |> Ash.update(authorize?: false),
+         {:ok, loaded} <- Ash.load(updated, [:service_type, :technician, :appointment_count]) do
+      json(conn, %{data: block_json(loaded)})
+    end
+  end
+
+  def close(conn, %{"id" => id, "closes_at" => closes_at}) do
+    with {:ok, parsed_closes_at} <- parse_datetime(closes_at),
+         {:ok, block} <- Ash.get(AppointmentBlock, id, authorize?: false),
+         {:ok, updated} <-
+           block
+           |> Ash.Changeset.for_update(:update, %{closes_at: parsed_closes_at})
+           |> Ash.update(authorize?: false),
+         {:ok, loaded} <- Ash.load(updated, [:service_type, :technician, :appointment_count]) do
+      json(conn, %{data: block_json(loaded)})
+    end
   end
 
   defp require_admin(conn, _opts) do
@@ -39,6 +78,18 @@ defmodule MobileCarWashWeb.Api.V1.AdminBlocksController do
     |> Ash.Query.sort(starts_at: :asc)
     |> Ash.Query.load([:service_type, :technician, :appointment_count])
     |> Ash.read!(authorize?: false)
+  end
+
+  defp loaded_block(id) do
+    AppointmentBlock
+    |> Ash.get(id, load: [:service_type, :technician, :appointment_count], authorize?: false)
+  end
+
+  defp parse_datetime(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> {:ok, datetime}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp block_json(block) do

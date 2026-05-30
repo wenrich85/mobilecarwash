@@ -300,6 +300,10 @@ defmodule MobileCarWashWeb.Router do
     get "/admin/marketing", AdminMarketingController, :show
     get "/admin/technicians", AdminTechniciansController, :index
     get "/admin/blocks", AdminBlocksController, :index
+    post "/admin/blocks/generate", AdminBlocksController, :generate
+    post "/admin/blocks/:id/optimize", AdminBlocksController, :optimize
+    post "/admin/blocks/:id/cancel", AdminBlocksController, :cancel
+    patch "/admin/blocks/:id/close", AdminBlocksController, :close
     get "/admin/services", AdminCatalogController, :services
     post "/admin/services", AdminCatalogController, :create_service
     patch "/admin/services/:id", AdminCatalogController, :update_service
