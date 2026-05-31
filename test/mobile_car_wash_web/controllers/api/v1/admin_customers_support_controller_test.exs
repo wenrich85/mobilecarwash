@@ -37,6 +37,84 @@ defmodule MobileCarWashWeb.Api.V1.AdminCustomersSupportControllerTest do
     end
   end
 
+  describe "GET /api/v1/admin/customers/:id" do
+    test "returns native customer detail payload", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      channel = create_channel()
+      tag = create_tag()
+      customer = create_customer(channel)
+
+      conn = get(authed, ~p"/api/v1/admin/customers/#{customer.id}")
+      body = json_response(conn, 200)
+
+      assert body["data"]["id"] == customer.id
+      assert body["data"]["email"] == to_string(customer.email)
+      assert body["data"]["acquired_channel_name"] == "Native Referral"
+      assert body["data"]["note_count"] == 0
+      assert body["data"]["notes"] == []
+      assert body["data"]["tags"] == []
+      assert Enum.any?(body["data"]["available_tags"], &(&1["id"] == tag.id))
+      assert Enum.any?(body["data"]["available_channels"], &(&1["id"] == channel.id))
+      assert is_list(body["data"]["available_personas"])
+      assert is_list(body["data"]["recent_appointments"])
+    end
+  end
+
+  describe "native customer detail mutations" do
+    test "adds toggles and deletes notes", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      customer = create_customer(create_channel())
+
+      conn =
+        post(authed, ~p"/api/v1/admin/customers/#{customer.id}/notes", %{
+          "body" => "Smoke test note",
+          "pinned" => true
+        })
+
+      body = json_response(conn, 200)
+      assert [note] = body["data"]["notes"]
+      assert note["body"] == "Smoke test note"
+      assert note["pinned"] == true
+
+      conn =
+        post(
+          authed,
+          ~p"/api/v1/admin/customers/#{customer.id}/notes/#{note["id"]}/toggle_pin"
+        )
+
+      assert [toggled] = json_response(conn, 200)["data"]["notes"]
+      assert toggled["pinned"] == false
+
+      conn =
+        delete(
+          authed,
+          ~p"/api/v1/admin/customers/#{customer.id}/notes/#{note["id"]}"
+        )
+
+      assert json_response(conn, 200)["data"]["notes"] == []
+    end
+
+    test "applies and removes customer tags", %{conn: conn} do
+      {authed, _admin, _token} = register_and_sign_in_admin(conn)
+      customer = create_customer(create_channel())
+      tag = create_tag()
+
+      conn =
+        post(authed, ~p"/api/v1/admin/customers/#{customer.id}/tags", %{
+          "tag_id" => tag.id,
+          "reason" => "Smoke tag"
+        })
+
+      assert [applied] = json_response(conn, 200)["data"]["tags"]
+      assert applied["id"] == tag.id
+      assert applied["reason"] == "Smoke tag"
+
+      conn = delete(authed, ~p"/api/v1/admin/customers/#{customer.id}/tags/#{tag.id}")
+
+      assert json_response(conn, 200)["data"]["tags"] == []
+    end
+  end
+
   describe "GET /api/v1/admin/tags" do
     test "returns admin tag options", %{conn: conn} do
       {authed, _admin, _token} = register_and_sign_in_admin(conn)

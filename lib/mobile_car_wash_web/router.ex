@@ -296,6 +296,32 @@ defmodule MobileCarWashWeb.Router do
     get "/admin/appointments", AdminAppointmentsController, :index
     get "/admin/appointments/:id", AdminAppointmentsController, :show
     get "/admin/customers", AdminCustomersController, :index
+    get "/admin/customers/:id", AdminCustomersController, :show
+    post "/admin/customers/:id/disable", AdminCustomersController, :disable
+    post "/admin/customers/:id/reenable", AdminCustomersController, :reenable
+    post "/admin/customers/:id/credits", AdminCustomersController, :credit
+    post "/admin/customers/:id/notes", AdminCustomersController, :add_note
+
+    post "/admin/customers/:customer_id/notes/:note_id/toggle_pin",
+         AdminCustomersController,
+         :toggle_note
+
+    delete "/admin/customers/:customer_id/notes/:note_id", AdminCustomersController, :delete_note
+    post "/admin/customers/:id/tags", AdminCustomersController, :tag
+    delete "/admin/customers/:customer_id/tags/:tag_id", AdminCustomersController, :untag
+    post "/admin/customers/:id/channel", AdminCustomersController, :channel
+
+    post "/admin/customers/:id/resend_verification",
+         AdminCustomersController,
+         :resend_verification
+
+    post "/admin/customers/:id/personas", AdminCustomersController, :assign_persona
+
+    delete "/admin/customers/:customer_id/personas/:membership_id",
+           AdminCustomersController,
+           :remove_persona
+
+    post "/admin/customers/:id/personas/recompute", AdminCustomersController, :recompute_personas
     get "/admin/tags", AdminTagsController, :index
     get "/admin/marketing", AdminMarketingController, :show
     post "/admin/marketing/spends", AdminMarketingController, :record_spend
