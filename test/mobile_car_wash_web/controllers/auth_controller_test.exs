@@ -129,4 +129,83 @@ defmodule MobileCarWashWeb.AuthControllerTest do
       assert redirected_to(conn) == "/"
     end
   end
+
+  describe "GET /book/sign-in" do
+    test "stashes the booking return path in the session and redirects to sign-in",
+         %{conn: conn} do
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> get("/book/sign-in")
+
+      assert redirected_to(conn) == "/sign-in"
+      assert get_session(conn, "return_to") == "/book"
+    end
+  end
+
+  describe "sign-in success redirect honors return_to" do
+    test "redirects a customer to a local return_to path after sign in", %{conn: conn} do
+      customer = register_customer()
+
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{"return_to" => "/book"})
+        |> post("/auth/customer/password/sign_in", %{
+          "customer" => %{
+            "email" => to_string(customer.email),
+            "password" => "Password123!"
+          }
+        })
+
+      assert redirected_to(conn) == "/book"
+    end
+
+    test "ignores an absolute-URL return_to and falls back to /", %{conn: conn} do
+      customer = register_customer()
+
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{"return_to" => "https://evil.example/x"})
+        |> post("/auth/customer/password/sign_in", %{
+          "customer" => %{
+            "email" => to_string(customer.email),
+            "password" => "Password123!"
+          }
+        })
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "ignores a protocol-relative return_to and falls back to /", %{conn: conn} do
+      customer = register_customer()
+
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{"return_to" => "//evil.example/x"})
+        |> post("/auth/customer/password/sign_in", %{
+          "customer" => %{
+            "email" => to_string(customer.email),
+            "password" => "Password123!"
+          }
+        })
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "redirects to / when no return_to is set", %{conn: conn} do
+      customer = register_customer()
+
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> post("/auth/customer/password/sign_in", %{
+          "customer" => %{
+            "email" => to_string(customer.email),
+            "password" => "Password123!"
+          }
+        })
+
+      assert redirected_to(conn) == "/"
+    end
+  end
 end

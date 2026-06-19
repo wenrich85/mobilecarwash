@@ -154,6 +154,12 @@ defmodule MobileCarWashWeb.Router do
     # live_session because it's a plain Plug response, not a LiveView.
     get "/book/:id/calendar.ics", BookingCalendarController, :show
 
+    # Booking sign-in entry point. Stashes a return path in the session
+    # then hands off to the sign-in page, so a returning customer can
+    # authenticate mid-booking and resume exactly where they left off
+    # (booking state is restored from SessionCache on the way back).
+    get "/book/sign-in", AuthController, :booking_sign_in
+
     # Authentication routes — rate-limited via on_mount hook
     sign_in_route(
       auth_routes_prefix: "/auth",

@@ -292,7 +292,10 @@ defmodule MobileCarWashWeb.BookingLive do
               :if={@guest_error}
               class="bg-error/10 border border-error/30 rounded-lg p-3 mb-4 text-sm text-error"
             >
-              {@guest_error}
+              <p>{@guest_error}</p>
+              <.link href={~p"/book/sign-in"} class="link link-error font-semibold mt-1 inline-block">
+                Sign in instead →
+              </.link>
             </div>
 
             <form phx-submit="guest_checkout" class="space-y-3">
@@ -300,6 +303,7 @@ defmodule MobileCarWashWeb.BookingLive do
                 name="guest[name]"
                 type="text"
                 label="Name"
+                value=""
                 placeholder="Your full name"
                 required
               />
@@ -307,17 +311,25 @@ defmodule MobileCarWashWeb.BookingLive do
                 name="guest[email]"
                 type="email"
                 label="Email"
+                value=""
                 placeholder="your@email.com"
                 required
               />
-              <.input name="guest[phone]" type="tel" label="Phone" placeholder="512-555-0100" />
+              <.input
+                name="guest[phone]"
+                type="tel"
+                label="Phone"
+                value=""
+                placeholder="512-555-0100"
+              />
               <button type="submit" class="btn btn-primary w-full mt-2">
                 Continue as guest
               </button>
             </form>
           </div>
 
-          <%!-- No /sign-in LiveView route exists; using disabled fallback until auth flow is built. --%>
+          <%!-- Returning customers sign in (and keep their booking in
+               progress — state is restored on the way back). --%>
           <div class="bg-base-200 rounded-box p-4">
             <div class="flex items-center justify-between gap-4">
               <div>
@@ -326,9 +338,9 @@ defmodule MobileCarWashWeb.BookingLive do
                   Sign in to use saved vehicles and addresses.
                 </div>
               </div>
-              <button type="button" disabled class="btn btn-ghost btn-sm">
-                Sign in (coming soon)
-              </button>
+              <.link href={~p"/book/sign-in"} class="btn btn-ghost btn-sm">
+                Sign in
+              </.link>
             </div>
           </div>
         </div>
