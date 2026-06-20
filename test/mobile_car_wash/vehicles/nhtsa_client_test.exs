@@ -21,7 +21,10 @@ defmodule MobileCarWash.Vehicles.NhtsaClientTest do
     end
 
     test "maps SUVs, vans, minivans and wagons to :suv_van" do
-      assert NhtsaClient.body_class_to_size("Sport Utility Vehicle (SUV)/Multi-Purpose Vehicle (MPV)") == :suv_van
+      assert NhtsaClient.body_class_to_size(
+               "Sport Utility Vehicle (SUV)/Multi-Purpose Vehicle (MPV)"
+             ) == :suv_van
+
       assert NhtsaClient.body_class_to_size("Minivan") == :suv_van
       assert NhtsaClient.body_class_to_size("Van") == :suv_van
       assert NhtsaClient.body_class_to_size("Wagon") == :suv_van
@@ -42,7 +45,11 @@ defmodule MobileCarWash.Vehicles.NhtsaClientTest do
     end
 
     test "decode_vin routes to the mock and returns its canned result" do
-      NhtsaClientMock.put_vin("1HGCM82633A004352", {:ok, %{make: "Honda", model: "Accord", year: 2003, body_class: "Sedan/Saloon", size: :car}})
+      NhtsaClientMock.put_vin(
+        "1HGCM82633A004352",
+        {:ok,
+         %{make: "Honda", model: "Accord", year: 2003, body_class: "Sedan/Saloon", size: :car}}
+      )
 
       assert {:ok, %{make: "Honda", size: :car}} = NhtsaClient.decode_vin("1HGCM82633A004352")
     end
@@ -51,10 +58,28 @@ defmodule MobileCarWash.Vehicles.NhtsaClientTest do
       assert {:error, :vin_not_decoded} = NhtsaClient.decode_vin("BADVIN")
     end
 
-    test "models_for_make_year routes to the mock" do
-      NhtsaClientMock.put_models("Toyota", 2021, ["Camry", "Corolla", "RAV4"])
+    test "models_for_make_year routes to the mock and returns size-tagged models" do
+      NhtsaClientMock.put_models("Toyota", 2021, [
+        %{name: "Camry", size: :car},
+        %{name: "RAV4", size: :suv_van}
+      ])
 
-      assert {:ok, ["Camry", "Corolla", "RAV4"]} = NhtsaClient.models_for_make_year("Toyota", 2021)
+      assert {:ok, [%{name: "Camry", size: :car}, %{name: "RAV4", size: :suv_van}]} =
+               NhtsaClient.models_for_make_year("Toyota", 2021)
+    end
+  end
+
+  describe "vehicle_type_to_size/1" do
+    test "maps NHTSA vehicle-type tokens to size atoms" do
+      assert NhtsaClient.vehicle_type_to_size("car") == :car
+      assert NhtsaClient.vehicle_type_to_size("truck") == :pickup
+      assert NhtsaClient.vehicle_type_to_size("mpv") == :suv_van
+    end
+
+    test "is case-insensitive and defaults unknown types to :car" do
+      assert NhtsaClient.vehicle_type_to_size("MPV") == :suv_van
+      assert NhtsaClient.vehicle_type_to_size("Truck") == :pickup
+      assert NhtsaClient.vehicle_type_to_size("bus") == :car
     end
   end
 end
