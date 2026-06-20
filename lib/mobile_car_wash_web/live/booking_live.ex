@@ -303,7 +303,6 @@ defmodule MobileCarWashWeb.BookingLive do
                 name="guest[name]"
                 type="text"
                 label="Name"
-                value=""
                 placeholder="Your full name"
                 required
               />
@@ -311,17 +310,10 @@ defmodule MobileCarWashWeb.BookingLive do
                 name="guest[email]"
                 type="email"
                 label="Email"
-                value=""
                 placeholder="your@email.com"
                 required
               />
-              <.input
-                name="guest[phone]"
-                type="tel"
-                label="Phone"
-                value=""
-                placeholder="512-555-0100"
-              />
+              <.input name="guest[phone]" type="tel" label="Phone" placeholder="512-555-0100" />
               <button type="submit" class="btn btn-primary w-full mt-2">
                 Continue as guest
               </button>

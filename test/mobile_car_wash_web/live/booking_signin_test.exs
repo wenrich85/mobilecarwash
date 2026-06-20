@@ -35,6 +35,24 @@ defmodule MobileCarWashWeb.BookingSignInTest do
     render_click(view, "next_step", %{})
   end
 
+  test "successful guest checkout advances to the vehicle step without crashing",
+       %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/book")
+    advance_to_auth(view)
+
+    html =
+      view
+      |> form("form[phx-submit=guest_checkout]",
+        guest: %{name: "New Guest", email: "newguest@example.com", phone: "512-555-0100"}
+      )
+      |> render_submit()
+
+    # We should land on the vehicle step, not crash or stay stuck on the
+    # guest form. (The vehicle-step inputs previously crashed on render.)
+    assert html =~ "Make"
+    refute html =~ "Continue as guest"
+  end
+
   test "auth step offers a working sign-in link, not a disabled stub", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/book")
     html = advance_to_auth(view)
