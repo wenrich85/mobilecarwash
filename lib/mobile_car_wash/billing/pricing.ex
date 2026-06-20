@@ -74,6 +74,6 @@ defmodule MobileCarWash.Billing.Pricing do
 
   @doc "Formats integer cents as a dollar string, e.g. 6050 -> \"$60.50\"."
   def format_cents(cents) when is_integer(cents) do
-    "$#{:erlang.float_to_binary(cents / 100, decimals: 2)}"
+    "$#{div(cents, 100)}.#{String.pad_leading(Integer.to_string(rem(cents, 100)), 2, "0")}"
   end
 end

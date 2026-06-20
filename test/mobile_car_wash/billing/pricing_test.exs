@@ -56,6 +56,7 @@ defmodule MobileCarWash.Billing.PricingTest do
       assert b.size_delta_cents == 0
       assert b.addons_total_cents == 0
       assert b.discount_cents == 0
+      assert b.subtotal_cents == 5000
       assert b.total_cents == 5000
     end
 
@@ -84,13 +85,22 @@ defmodule MobileCarWash.Billing.PricingTest do
 
     test "discount subtracts and floors at zero" do
       b = Pricing.breakdown(%{base_price_cents: 5000, discount_cents: 9000})
+      assert b.subtotal_cents == 5000
       assert b.total_cents == 0
     end
+  end
 
+  describe "format_cents/1" do
     test "format_cents renders dollars" do
       assert Pricing.format_cents(6000) == "$60.00"
       assert Pricing.format_cents(7550) == "$75.50"
       assert Pricing.format_cents(0) == "$0.00"
+    end
+
+    test "format_cents handles awkward cent values" do
+      assert Pricing.format_cents(999) == "$9.99"
+      assert Pricing.format_cents(101) == "$1.01"
+      assert Pricing.format_cents(5) == "$0.05"
     end
   end
 end
