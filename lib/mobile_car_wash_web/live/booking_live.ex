@@ -930,7 +930,8 @@ defmodule MobileCarWashWeb.BookingLive do
       |> Map.take(~w(street city state zip))
       |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
 
-    address = struct(Address, Map.put(attrs, :zone, MobileCarWash.Zones.zone_for_zip(attrs[:zip])))
+    address =
+      struct(Address, Map.put(attrs, :zone, MobileCarWash.Zones.zone_for_zip(attrs[:zip])))
 
     {:noreply,
      socket

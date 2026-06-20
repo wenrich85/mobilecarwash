@@ -119,14 +119,22 @@ defmodule MobileCarWashWeb.BookingSignInTest do
 
     render_submit(view, "save_vehicle", %{
       "vehicle" => %{
-        "make" => "Toyota", "model" => "Camry", "year" => "2022",
-        "color" => "Silver", "size" => "car", "vin" => "", "body_class" => ""
+        "make" => "Toyota",
+        "model" => "Camry",
+        "year" => "2022",
+        "color" => "Silver",
+        "size" => "car",
+        "vin" => "",
+        "body_class" => ""
       }
     })
 
     render_submit(view, "save_address", %{
       "address" => %{
-        "street" => "123 Main St", "city" => "San Antonio", "state" => "TX", "zip" => "78261"
+        "street" => "123 Main St",
+        "city" => "San Antonio",
+        "state" => "TX",
+        "zip" => "78261"
       }
     })
 

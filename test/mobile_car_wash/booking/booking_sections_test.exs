@@ -80,10 +80,13 @@ defmodule MobileCarWash.Booking.BookingSectionsTest do
   end
 
   test "payable? for a guest requires a non-blank email and all required sections" do
-    complete = ctx(%{
-      selected_service: %{id: "s"}, selected_vehicle: %{id: "v"},
-      selected_address: %{id: "a"}, selected_slot: %{id: "slot"}
-    })
+    complete =
+      ctx(%{
+        selected_service: %{id: "s"},
+        selected_vehicle: %{id: "v"},
+        selected_address: %{id: "a"},
+        selected_slot: %{id: "slot"}
+      })
 
     # Guest with a real email + all sections complete → payable
     assert BookingSections.payable?(Map.put(complete, :guest_form, %{"email" => "g@example.com"}))
@@ -93,6 +96,9 @@ defmodule MobileCarWash.Booking.BookingSectionsTest do
     refute BookingSections.payable?(complete)
     # Guest email present but a required section missing (no slot) → not payable
     incomplete = %{complete | selected_slot: nil}
-    refute BookingSections.payable?(Map.put(incomplete, :guest_form, %{"email" => "g@example.com"}))
+
+    refute BookingSections.payable?(
+             Map.put(incomplete, :guest_form, %{"email" => "g@example.com"})
+           )
   end
 end
