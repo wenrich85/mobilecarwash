@@ -30,14 +30,14 @@ defmodule MobileCarWash.Booking.StateMachineTest do
   # === Forward Transitions ===
 
   describe "transition(:forward, :select_service, ctx)" do
-    test "advances to :auth when service selected and no customer" do
+    test "advances to :add_ons when service selected and no customer" do
       ctx = context_with(%{selected_service: service()})
-      assert {:ok, :auth} = StateMachine.transition(:forward, :select_service, ctx)
+      assert {:ok, :add_ons} = StateMachine.transition(:forward, :select_service, ctx)
     end
 
-    test "skips :auth → :vehicle when service selected and customer present" do
+    test "advances to :add_ons when service selected (then skip logic applies at add_ons → auth → vehicle)" do
       ctx = context_with(%{selected_service: service(), current_customer: customer()})
-      assert {:ok, :vehicle} = StateMachine.transition(:forward, :select_service, ctx)
+      assert {:ok, :add_ons} = StateMachine.transition(:forward, :select_service, ctx)
     end
 
     test "fails when no service selected" do
@@ -175,9 +175,9 @@ defmodule MobileCarWash.Booking.StateMachineTest do
       assert {:ok, :auth} = StateMachine.transition(:back, :vehicle, ctx)
     end
 
-    test "vehicle → select_service (skips auth when customer present)" do
+    test "vehicle → add_ons (skips auth when customer present)" do
       ctx = context_with(%{selected_service: service(), current_customer: customer()})
-      assert {:ok, :select_service} = StateMachine.transition(:back, :vehicle, ctx)
+      assert {:ok, :add_ons} = StateMachine.transition(:back, :vehicle, ctx)
     end
 
     test "address → vehicle" do
@@ -204,6 +204,40 @@ defmodule MobileCarWash.Booking.StateMachineTest do
     test "confirmed cannot go back" do
       assert {:error, :cannot_go_back} =
                StateMachine.transition(:back, :confirmed, empty_context())
+    end
+  end
+
+  # === transition with :add_ons step ===
+
+  describe "transition with :add_ons step" do
+    test "select_service advances to :add_ons" do
+      ctx = context_with(%{selected_service: service()})
+      assert {:ok, :add_ons} = StateMachine.transition(:forward, :select_service, ctx)
+    end
+
+    test ":add_ons advances to :auth when no customer" do
+      ctx = context_with(%{selected_service: service()})
+      assert {:ok, :auth} = StateMachine.transition(:forward, :add_ons, ctx)
+    end
+
+    test ":add_ons skips :auth straight to :vehicle when customer present" do
+      ctx = context_with(%{selected_service: service(), current_customer: customer()})
+      assert {:ok, :vehicle} = StateMachine.transition(:forward, :add_ons, ctx)
+    end
+
+    test ":add_ons is optional — forward always allowed with a service" do
+      ctx = context_with(%{selected_service: service()})
+      assert {:ok, :auth} = StateMachine.transition(:forward, :add_ons, ctx)
+    end
+
+    test "back from :auth returns to :add_ons" do
+      ctx = context_with(%{selected_service: service()})
+      assert {:ok, :add_ons} = StateMachine.transition(:back, :auth, ctx)
+    end
+
+    test "back from :vehicle returns to :add_ons when customer present (auth skipped)" do
+      ctx = context_with(%{selected_service: service(), current_customer: customer()})
+      assert {:ok, :add_ons} = StateMachine.transition(:back, :vehicle, ctx)
     end
   end
 

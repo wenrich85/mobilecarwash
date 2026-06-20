@@ -34,6 +34,7 @@ defmodule MobileCarWash.Scheduling.Booking do
           optional(:appointment_block_id) => String.t(),
           optional(:notes) => String.t() | nil,
           optional(:subscription_id) => String.t() | nil,
+          optional(:add_on_ids) => [String.t()],
           customer_id: String.t(),
           service_type_id: String.t(),
           vehicle_id: String.t(),
@@ -62,8 +63,12 @@ defmodule MobileCarWash.Scheduling.Booking do
              :ok <- maybe_redeem_loyalty(params[:loyalty_redeem], params.customer_id),
              {price_cents, discount_cents} =
                maybe_apply_referral(price_cents, discount_cents, params[:referral_code]),
+             add_ons = load_add_ons(params[:add_on_ids]),
+             price_cents =
+               price_cents + MobileCarWash.Billing.Pricing.addons_total_cents(add_ons),
              {:ok, appointment} <-
                create_appointment(params, service_type, price_cents, discount_cents),
+             :ok <- create_appointment_add_ons(appointment, add_ons),
              :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
              {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
           result
@@ -465,10 +470,10 @@ defmodule MobileCarWash.Scheduling.Booking do
 
         SubscriptionUsage
         |> Ash.Changeset.for_create(:create, %{
-          subscription_id: subscription.id,
           period_start: period_start,
           period_end: period_end
         })
+        |> Ash.Changeset.force_change_attribute(:subscription_id, subscription.id)
         |> Ash.create!()
     end
   end
@@ -670,6 +675,31 @@ defmodule MobileCarWash.Scheduling.Booking do
     %{payment_id: payment.id}
     |> MobileCarWash.Accounting.SyncWorker.new(queue: :billing)
     |> Oban.insert()
+  end
+
+  defp load_add_ons(nil), do: []
+  defp load_add_ons([]), do: []
+
+  defp load_add_ons(ids) do
+    MobileCarWash.Scheduling.AddOn
+    |> Ash.Query.filter(id in ^ids and active == true)
+    |> Ash.read!()
+  end
+
+  defp create_appointment_add_ons(_appointment, []), do: :ok
+
+  defp create_appointment_add_ons(appointment, add_ons) do
+    Enum.each(add_ons, fn add_on ->
+      MobileCarWash.Scheduling.AppointmentAddOn
+      |> Ash.Changeset.for_create(:create, %{
+        appointment_id: appointment.id,
+        add_on_id: add_on.id,
+        price_cents: add_on.price_cents
+      })
+      |> Ash.create!()
+    end)
+
+    :ok
   end
 
   defp update_usage_counts(usage, service_type) do

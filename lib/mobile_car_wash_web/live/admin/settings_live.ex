@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Scheduling.{ServiceType, BlockedDate}
+  alias MobileCarWash.Scheduling.{ServiceType, BlockedDate, AddOn}
   alias MobileCarWash.Billing.SubscriptionPlan
   alias MobileCarWash.CatalogBroadcaster
 
@@ -18,6 +18,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
        tab: :services,
        services: load_services(),
        plans: load_plans(),
+       add_ons: load_add_ons(),
        editing_service: nil,
        editing_plan: nil,
        blocked_dates: load_blocked_dates(),
@@ -194,6 +195,43 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
     end
   end
 
+  # === Add-Ons ===
+
+  def handle_event("add_add_on", %{"add_on" => params}, socket) do
+    attrs = %{
+      name: params["name"],
+      slug: params["slug"],
+      price_cents: dollars_to_cents(params["price"]),
+      icon: params["icon"],
+      active: true
+    }
+
+    case AddOn |> Ash.Changeset.for_create(:create, attrs) |> Ash.create() do
+      {:ok, _} ->
+        CatalogBroadcaster.broadcast_add_ons_updated()
+
+        {:noreply, socket |> assign(add_ons: load_add_ons()) |> put_flash(:info, "Add-on added")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not add add-on")}
+    end
+  end
+
+  def handle_event("toggle_add_on", %{"id" => id}, socket) do
+    case Ash.get(AddOn, id) do
+      {:ok, add_on} ->
+        add_on
+        |> Ash.Changeset.for_update(:update, %{active: !add_on.active})
+        |> Ash.update()
+
+        CatalogBroadcaster.broadcast_add_ons_updated()
+        {:noreply, assign(socket, add_ons: load_add_ons())}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   # === Blocked Dates ===
 
   def handle_event("add_blocked_date", %{"blocked" => params}, socket) do
@@ -275,6 +313,13 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
           phx-value-tab="accounting"
         >
           Accounting
+        </button>
+        <button
+          class={["tab", @tab == :add_ons && "tab-active"]}
+          phx-click="switch_tab"
+          phx-value-tab="add_ons"
+        >
+          Add-Ons
         </button>
       </div>
       
@@ -737,6 +782,102 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
         </div>
       </div>
       
+    <!-- Add-Ons Tab -->
+      <div :if={@tab == :add_ons}>
+        <!-- Add Add-On -->
+        <div class="card bg-base-100 shadow mb-6">
+          <div class="card-body p-4">
+            <h3 class="font-bold mb-3">Add Add-On</h3>
+            <form
+              id="add-on-form"
+              phx-submit="add_add_on"
+              class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
+            >
+              <div class="form-control">
+                <label class="label label-text text-xs">Name</label>
+                <input
+                  type="text"
+                  name="add_on[name]"
+                  class="input input-bordered input-sm"
+                  required
+                  placeholder="Clay Bar"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label label-text text-xs">Slug</label>
+                <input
+                  type="text"
+                  name="add_on[slug]"
+                  class="input input-bordered input-sm"
+                  required
+                  placeholder="clay_bar"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label label-text text-xs">Price ($)</label>
+                <input
+                  type="number"
+                  name="add_on[price]"
+                  class="input input-bordered input-sm"
+                  required
+                  placeholder="20"
+                  step="1"
+                  min="1"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label label-text text-xs">Icon</label>
+                <input
+                  type="text"
+                  name="add_on[icon]"
+                  class="input input-bordered input-sm"
+                  placeholder="sparkles"
+                />
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Add</button>
+            </form>
+          </div>
+        </div>
+        
+    <!-- Add-On List -->
+        <div class="space-y-3">
+          <div
+            :for={add_on <- @add_ons}
+            class={["card bg-base-100 shadow-sm", !add_on.active && "opacity-50"]}
+          >
+            <div class="card-body p-4">
+              <div class="flex justify-between items-center">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-bold">{add_on.name}</h4>
+                    <span class="badge badge-sm badge-ghost">{add_on.slug}</span>
+                    <span :if={!add_on.active} class="badge badge-sm badge-error">Inactive</span>
+                  </div>
+                  <p :if={add_on.description} class="text-sm text-base-content/80">
+                    {add_on.description}
+                  </p>
+                  <p class="text-sm mt-1">
+                    <span class="font-semibold">
+                      {MobileCarWash.Billing.Pricing.format_cents(add_on.price_cents)}
+                    </span>
+                    <span :if={add_on.icon} class="text-base-content/70 ml-2">
+                      <.icon name={"hero-#{add_on.icon}"} class="size-4 inline" />
+                    </span>
+                  </p>
+                </div>
+                <button
+                  class={["btn btn-xs", if(add_on.active, do: "btn-warning", else: "btn-success")]}
+                  phx-click="toggle_add_on"
+                  phx-value-id={add_on.id}
+                >
+                  {if add_on.active, do: "Deactivate", else: "Activate"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
     <!-- Accounting Tab -->
       <div :if={@tab == :accounting}>
         <div class="card bg-base-100 shadow">
@@ -823,6 +964,10 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
 
   defp load_services do
     ServiceType |> Ash.Query.sort(base_price_cents: :asc) |> Ash.read!()
+  end
+
+  defp load_add_ons do
+    AddOn |> Ash.Query.sort(sort_order: :asc, name: :asc) |> Ash.read!()
   end
 
   defp load_plans do

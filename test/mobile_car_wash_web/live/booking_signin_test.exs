@@ -32,6 +32,9 @@ defmodule MobileCarWashWeb.BookingSignInTest do
 
   defp advance_to_auth(view) do
     render_click(view, "select_service", %{"slug" => "basic_wash"})
+    # :select_service → :add_ons
+    render_click(view, "next_step", %{})
+    # :add_ons → :auth
     render_click(view, "next_step", %{})
   end
 

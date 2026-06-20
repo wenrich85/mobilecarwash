@@ -72,6 +72,16 @@ defmodule MobileCarWash.Billing.Pricing do
     }
   end
 
+  @doc "Flat sum of add-on prices in cents (no size multiplier, no discount)."
+  def addons_total_cents(add_ons) do
+    Enum.sum(Enum.map(add_ons, & &1.price_cents))
+  end
+
+  @doc "Maps add-ons to receipt line items for the price breakdown."
+  def addon_lines(add_ons) do
+    Enum.map(add_ons, &%{label: &1.name, amount_cents: &1.price_cents})
+  end
+
   @doc "Formats integer cents as a dollar string, e.g. 6050 -> \"$60.50\"."
   def format_cents(cents) when is_integer(cents) do
     "$#{div(cents, 100)}.#{String.pad_leading(Integer.to_string(rem(cents, 100)), 2, "0")}"
