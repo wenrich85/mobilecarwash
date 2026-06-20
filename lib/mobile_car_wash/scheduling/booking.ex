@@ -64,7 +64,8 @@ defmodule MobileCarWash.Scheduling.Booking do
              {price_cents, discount_cents} =
                maybe_apply_referral(price_cents, discount_cents, params[:referral_code]),
              add_ons = load_add_ons(params[:add_on_ids]),
-             price_cents = price_cents + MobileCarWash.Billing.Pricing.addons_total_cents(add_ons),
+             price_cents =
+               price_cents + MobileCarWash.Billing.Pricing.addons_total_cents(add_ons),
              {:ok, appointment} <-
                create_appointment(params, service_type, price_cents, discount_cents),
              :ok <- create_appointment_add_ons(appointment, add_ons),
@@ -681,7 +682,7 @@ defmodule MobileCarWash.Scheduling.Booking do
 
   defp load_add_ons(ids) do
     MobileCarWash.Scheduling.AddOn
-    |> Ash.Query.filter(id in ^ids)
+    |> Ash.Query.filter(id in ^ids and active == true)
     |> Ash.read!()
   end
 

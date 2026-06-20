@@ -314,10 +314,14 @@ defmodule MobileCarWashWeb.BookingLive do
               <.icon name="hero-sparkles" class="size-5 text-base-content/60" />
               <span>
                 <span class="block font-semibold text-base-content">{addon.name}</span>
-                <span :if={addon.description} class="block text-xs text-base-content/60">{addon.description}</span>
+                <span :if={addon.description} class="block text-xs text-base-content/60">
+                  {addon.description}
+                </span>
               </span>
             </span>
-            <span class="font-semibold text-base-content">+{Pricing.format_cents(addon.price_cents)}</span>
+            <span class="font-semibold text-base-content">
+              +{Pricing.format_cents(addon.price_cents)}
+            </span>
           </button>
         </div>
 
@@ -1322,7 +1326,7 @@ defmodule MobileCarWashWeb.BookingLive do
     add_ons =
       (cached[:addon_ids] || [])
       |> Enum.map(&safe_get(MobileCarWash.Scheduling.AddOn, &1))
-      |> Enum.reject(&is_nil/1)
+      |> Enum.reject(fn a -> is_nil(a) or not a.active end)
 
     assigns = %{
       selected_service: service,

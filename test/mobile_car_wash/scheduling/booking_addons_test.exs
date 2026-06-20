@@ -160,6 +160,35 @@ defmodule MobileCarWash.Scheduling.BookingAddOnsTest do
       assert appt.appointment_add_ons == []
     end
 
+    test "inactive add-on id is never loaded, charged, or persisted", ctx do
+      active = add_on("active_addon", 1_500)
+
+      inactive =
+        MobileCarWash.Scheduling.AddOn
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Inactive AddOn",
+          slug: "inactive_addon_#{:rand.uniform(100_000)}",
+          price_cents: 2_000,
+          active: true,
+          sort_order: 1
+        })
+        |> Ash.create!()
+        |> Ash.Changeset.for_update(:update, %{active: false})
+        |> Ash.update!()
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(
+          base_params(ctx) |> Map.put(:add_on_ids, [active.id, inactive.id])
+        )
+
+      # Only the active add-on ($15) should be added to the base ($50)
+      assert appt.price_cents == 6_500
+
+      appt = Ash.load!(appt, :appointment_add_ons)
+      assert length(appt.appointment_add_ons) == 1
+      assert hd(appt.appointment_add_ons).price_cents == 1_500
+    end
+
     test "active subscription covers base service but add-ons are still charged and routed to checkout",
          ctx do
       # Service must use slug "basic_wash" so Pricing.subscription_discount_cents/3 recognises it

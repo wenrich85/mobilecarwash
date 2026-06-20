@@ -201,7 +201,6 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
     attrs = %{
       name: params["name"],
       slug: params["slug"],
-      description: params["description"],
       price_cents: dollars_to_cents(params["price"]),
       icon: params["icon"],
       active: true
@@ -858,7 +857,7 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                     {add_on.description}
                   </p>
                   <p class="text-sm mt-1">
-                    <span class="font-semibold">${div(add_on.price_cents, 100)}</span>
+                    <span class="font-semibold">{MobileCarWash.Billing.Pricing.format_cents(add_on.price_cents)}</span>
                     <span :if={add_on.icon} class="text-base-content/70 ml-2">
                       <.icon name={"hero-#{add_on.icon}"} class="size-4 inline" />
                     </span>
