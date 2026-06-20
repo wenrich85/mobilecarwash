@@ -1,12 +1,13 @@
 defmodule MobileCarWashWeb.BookingSignInTest do
   @moduledoc """
-  Covers the booking wizard's :auth step recovery paths:
+  Covers the single-page booking flow's account/guest recovery paths:
 
-  - An anonymous customer must be offered a *working* sign-in route
-    (previously a disabled "coming soon" stub), so returning customers
-    can reach their saved vehicles/addresses without abandoning the flow.
-  - A guest who enters an email that already belongs to a registered
-    account is offered a sign-in path instead of a dead-end error.
+  - An anonymous customer is always offered a *working* sign-in route, so
+    returning customers can reach their saved vehicles/addresses.
+  - A guest provides contact info inline at Review & Pay; the customer is
+    created at payment time.
+  - A guest whose email already belongs to a registered account is offered a
+    sign-in path (via an inline error) instead of a dead-end on pay.
   """
   use MobileCarWashWeb.ConnCase, async: true
 
@@ -30,44 +31,41 @@ defmodule MobileCarWashWeb.BookingSignInTest do
     %{service: service}
   end
 
-  defp advance_to_auth(view) do
-    render_click(view, "select_service", %{"slug" => "basic_wash"})
-    # :select_service → :add_ons
-    render_click(view, "next_step", %{})
-    # :add_ons → :auth
-    render_click(view, "next_step", %{})
-  end
+  test "the page offers a working sign-in link, not a disabled stub", %{conn: conn} do
+    {:ok, _view, html} = live(conn, "/book")
 
-  test "successful guest checkout advances to the vehicle step without crashing",
-       %{conn: conn} do
-    {:ok, view, _html} = live(conn, "/book")
-    advance_to_auth(view)
-
-    html =
-      view
-      |> form("form[phx-submit=guest_checkout]",
-        guest: %{name: "New Guest", email: "newguest@example.com", phone: "512-555-0100"}
-      )
-      |> render_submit()
-
-    # We should land on the vehicle step, not crash or stay stuck on the
-    # guest form. (The vehicle-step inputs previously crashed on render.)
-    assert html =~ "Make"
-    refute html =~ "Continue as guest"
-  end
-
-  test "auth step offers a working sign-in link, not a disabled stub", %{conn: conn} do
-    {:ok, view, _html} = live(conn, "/book")
-    html = advance_to_auth(view)
-
-    # The real fix: a navigable link to the booking sign-in entry point.
+    # A navigable link to the booking sign-in entry point.
     assert html =~ ~s(href="/book/sign-in")
-    # And the dead "coming soon" stub is gone.
+    # And no dead "coming soon" stub.
     refute html =~ "coming soon"
   end
 
-  test "guest checkout with a registered email offers sign-in instead of a dead-end",
-       %{conn: conn} do
+  test "a guest sees the inline contact form in Review & Pay", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/book")
+    html = render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    # The guest contact form lives in the review section for anonymous users.
+    assert html =~ ~s(phx-change="guest_form_change")
+    assert html =~ ~s(name="guest[email]")
+  end
+
+  test "guest_form_change keeps the typed contact info in the form", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/book")
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    html =
+      render_change(view, "guest_form_change", %{
+        "guest" => %{
+          "name" => "New Guest",
+          "email" => "newguest@example.com",
+          "phone" => "5125550100"
+        }
+      })
+
+    assert html =~ "newguest@example.com"
+  end
+
+  test "paying with a registered email surfaces a sign-in recovery message", %{conn: conn} do
     {:ok, _registered} =
       Customer
       |> Ash.Changeset.for_create(:register_with_password, %{
@@ -80,20 +78,20 @@ defmodule MobileCarWashWeb.BookingSignInTest do
       |> Ash.create()
 
     {:ok, view, _html} = live(conn, "/book")
-    advance_to_auth(view)
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
 
-    html =
-      view
-      |> form("form[phx-submit=guest_checkout]",
-        guest: %{
-          name: "Returning Customer",
-          email: "returning@example.com",
-          phone: "512-555-0100"
-        }
-      )
-      |> render_submit()
+    render_change(view, "guest_form_change", %{
+      "guest" => %{
+        "name" => "Returning Customer",
+        "email" => "returning@example.com",
+        "phone" => "512-555-0100"
+      }
+    })
 
-    # Recovery, not a wall: the collision message links to sign-in.
+    # confirm_booking runs ensure_customer first; the registered-email collision
+    # halts before any booking and surfaces a recovery message + sign-in link.
+    html = render_click(view, "confirm_booking", %{})
+
     assert html =~ "already"
     assert html =~ ~s(href="/book/sign-in")
   end

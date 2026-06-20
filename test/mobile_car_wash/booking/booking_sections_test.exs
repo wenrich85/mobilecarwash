@@ -3,10 +3,19 @@ defmodule MobileCarWash.Booking.BookingSectionsTest do
 
   alias MobileCarWash.Booking.BookingSections
 
-  defp ctx(overrides), do: Map.merge(%{
-    selected_service: nil, selected_add_ons: [], selected_vehicle: nil,
-    selected_address: nil, selected_slot: nil, current_customer: nil
-  }, overrides)
+  defp ctx(overrides),
+    do:
+      Map.merge(
+        %{
+          selected_service: nil,
+          selected_add_ons: [],
+          selected_vehicle: nil,
+          selected_address: nil,
+          selected_slot: nil,
+          current_customer: nil
+        },
+        overrides
+      )
 
   test "section order is service → add_ons → vehicle → address → schedule → review" do
     assert BookingSections.sections() ==
@@ -38,10 +47,13 @@ defmodule MobileCarWash.Booking.BookingSectionsTest do
   end
 
   test "address then schedule unlock in order; review unlocks after a slot" do
-    c = ctx(%{
-      selected_service: %{id: "s"}, selected_vehicle: %{id: "v"},
-      selected_address: %{id: "a"}
-    })
+    c =
+      ctx(%{
+        selected_service: %{id: "s"},
+        selected_vehicle: %{id: "v"},
+        selected_address: %{id: "a"}
+      })
+
     assert BookingSections.status(:address, c) == :complete
     assert BookingSections.status(:schedule, c) == :active
     assert BookingSections.status(:review, c) == :locked
@@ -52,10 +64,14 @@ defmodule MobileCarWash.Booking.BookingSectionsTest do
   end
 
   test "payable? only when all required sections complete AND a customer is present" do
-    full = ctx(%{
-      selected_service: %{id: "s"}, selected_vehicle: %{id: "v"},
-      selected_address: %{id: "a"}, selected_slot: %{id: "slot"}
-    })
+    full =
+      ctx(%{
+        selected_service: %{id: "s"},
+        selected_vehicle: %{id: "v"},
+        selected_address: %{id: "a"},
+        selected_slot: %{id: "slot"}
+      })
+
     # No customer yet (guest hasn't entered contact) → not payable
     refute BookingSections.payable?(full)
     assert BookingSections.payable?(Map.put(full, :current_customer, %{id: "c"}))

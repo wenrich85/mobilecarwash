@@ -87,8 +87,7 @@ defmodule MobileCarWashWeb.BookingSubscriptionPriceTest do
     {:ok, view, _html} = live(conn, "/book")
 
     render_click(view, "select_service", %{"slug" => "basic_wash"})
-    # Signed in → next_step skips the auth step and lands on :vehicle.
-    render_click(view, "next_step", %{})
+    # Single page: the vehicle section is already unlocked; pick the saved car.
     html = render_click(view, "select_vehicle", %{"id" => car.id})
 
     # Covered basic wash on a car: full $50 base is discounted away → $0.00,

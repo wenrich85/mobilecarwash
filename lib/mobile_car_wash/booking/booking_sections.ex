@@ -19,7 +19,8 @@ defmodule MobileCarWash.Booking.BookingSections do
 
   @doc "Status of a section given the current selections."
   @spec status(section(), context()) :: status()
-  def status(:service, ctx), do: if(present?(ctx, :selected_service), do: :complete, else: :active)
+  def status(:service, ctx),
+    do: if(present?(ctx, :selected_service), do: :complete, else: :active)
 
   def status(:add_ons, ctx) do
     # Optional: never blocks. Active once a service is chosen; complete when
