@@ -50,7 +50,9 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
   defp to_vehicle_step(view) do
     render_click(view, "select_service", %{"slug" => "basic_wash"})
     render_click(view, "next_step", %{})
-    render_click(view, "next_step", %{})
+    html = render_click(view, "next_step", %{})
+    assert html =~ "Autofill from VIN"
+    html
   end
 
   test "vehicle step renders the make dropdown with curated makes", %{conn: conn} do
@@ -65,6 +67,7 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
 
   test "choosing make + year loads models from NHTSA into the model dropdown", %{conn: conn} do
     NhtsaClientMock.put_models("Toyota", 2021, ["Camry", "Corolla", "RAV4"])
+    NhtsaClientMock.put_models("Honda", 2021, ["Accord", "Civic"])
 
     {:ok, view, _} = live(conn, "/book")
     to_vehicle_step(view)
@@ -81,6 +84,15 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
 
     assert html =~ "Camry"
     assert html =~ "RAV4"
+
+    # Changing the make resets and reloads the model list
+    html =
+      render_change(view, "vehicle_form_change", %{
+        "vehicle" => %{"make" => "Honda", "year" => "2021", "model" => "", "color" => "Silver", "size" => "car"}
+      })
+
+    assert html =~ "Accord"
+    assert html =~ "Civic"
   end
 
   test "VIN autofill populates the form and auto-selects size from body class", %{conn: conn} do

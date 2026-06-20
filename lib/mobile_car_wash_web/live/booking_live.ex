@@ -1047,43 +1047,47 @@ defmodule MobileCarWashWeb.BookingLive do
         {form, socket.assigns.vehicle_models}
       end
 
-    {:noreply, assign(socket, vehicle_form: form, vehicle_models: models)}
+    {:noreply, assign(socket, vehicle_form: form, vehicle_models: models, vin_error: nil)}
   end
 
   def handle_event("decode_vin", %{"vin" => vin}, socket) do
     vin = vin |> String.trim() |> String.upcase()
 
-    case NhtsaClient.decode_vin(vin) do
-      {:ok, decoded} ->
-        models =
-          case NhtsaClient.models_for_make_year(decoded.make, decoded.year) do
-            {:ok, m} -> m
-            _ -> []
-          end
+    if vin == "" do
+      {:noreply, socket}
+    else
+      case NhtsaClient.decode_vin(vin) do
+        {:ok, decoded} ->
+          models =
+            case NhtsaClient.models_for_make_year(decoded.make, decoded.year) do
+              {:ok, m} -> m
+              _ -> []
+            end
 
-        # Ensure the decoded model is selectable even if it isn't in the list
-        models =
-          if decoded.model && decoded.model != "" && decoded.model not in models,
-            do: [decoded.model | models],
-            else: models
+          # Ensure the decoded model is selectable even if it isn't in the list
+          models =
+            if decoded.model && decoded.model != "" && decoded.model not in models,
+              do: [decoded.model | models],
+              else: models
 
-        form = %{
-          "make" => decoded.make,
-          "year" => to_string(decoded.year),
-          "model" => decoded.model || "",
-          "color" => socket.assigns.vehicle_form["color"],
-          "size" => to_string(decoded.size),
-          "vin" => vin,
-          "body_class" => decoded.body_class || ""
-        }
+          form = %{
+            "make" => decoded.make,
+            "year" => to_string(decoded.year),
+            "model" => decoded.model || "",
+            "color" => socket.assigns.vehicle_form["color"],
+            "size" => to_string(decoded.size),
+            "vin" => vin,
+            "body_class" => decoded.body_class || ""
+          }
 
-        {:noreply, assign(socket, vehicle_form: form, vehicle_models: models, vin_error: nil)}
+          {:noreply, assign(socket, vehicle_form: form, vehicle_models: models, vin_error: nil)}
 
-      {:error, _reason} ->
-        {:noreply,
-         assign(socket,
-           vin_error: "Couldn't read that VIN — enter your vehicle below."
-         )}
+        {:error, _reason} ->
+          {:noreply,
+           assign(socket,
+             vin_error: "Couldn't read that VIN — enter your vehicle below."
+           )}
+      end
     end
   end
 
