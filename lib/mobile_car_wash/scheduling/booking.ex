@@ -469,10 +469,10 @@ defmodule MobileCarWash.Scheduling.Booking do
 
         SubscriptionUsage
         |> Ash.Changeset.for_create(:create, %{
-          subscription_id: subscription.id,
           period_start: period_start,
           period_end: period_end
         })
+        |> Ash.Changeset.force_change_attribute(:subscription_id, subscription.id)
         |> Ash.create!()
     end
   end
