@@ -18,11 +18,12 @@ defmodule MobileCarWash.Billing.StripeClientTest do
         slug: "basic_wash"
       }
 
-      # The function will fail because we don't have valid Stripe keys,
-      # but it should return an error tuple, not crash
+      # Stripe Checkout is globally mocked in test (config/test.exs), like the
+      # other Stripe modules, so the client builds its params and returns a
+      # checkout session (id + url) rather than erroring on missing keys.
       result = StripeClient.create_checkout_session(appointment, service_type, "test@example.com")
 
-      assert match?({:error, _}, result)
+      assert {:ok, %{url: "https://checkout.stripe.com/" <> _}} = result
     end
   end
 end
