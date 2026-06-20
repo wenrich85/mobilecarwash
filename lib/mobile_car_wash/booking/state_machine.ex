@@ -5,10 +5,11 @@ defmodule MobileCarWash.Booking.StateMachine do
   Operates on a context map and returns results.
   """
 
-  @steps [:select_service, :auth, :vehicle, :address, :photos, :schedule, :review, :confirmed]
+  @steps [:select_service, :add_ons, :auth, :vehicle, :address, :photos, :schedule, :review, :confirmed]
 
   @type step ::
           :select_service
+          | :add_ons
           | :auth
           | :vehicle
           | :address
@@ -48,6 +49,7 @@ defmodule MobileCarWash.Booking.StateMachine do
   @doc "Check if a user can validly be on a given step."
   @spec can_be_on?(step(), context()) :: boolean()
   def can_be_on?(:select_service, _ctx), do: true
+  def can_be_on?(:add_ons, ctx), do: present?(ctx, :selected_service)
   def can_be_on?(:auth, ctx), do: present?(ctx, :selected_service)
 
   def can_be_on?(:vehicle, ctx),
@@ -90,6 +92,7 @@ defmodule MobileCarWash.Booking.StateMachine do
   # --- Forward guards: what must be true to LEAVE the step ---
 
   defp validate_forward_guard(:select_service, ctx), do: require_present(ctx, :selected_service)
+  defp validate_forward_guard(:add_ons, _ctx), do: :ok
   defp validate_forward_guard(:auth, ctx), do: require_present(ctx, :current_customer)
   defp validate_forward_guard(:vehicle, ctx), do: require_present(ctx, :selected_vehicle)
   defp validate_forward_guard(:address, ctx), do: require_present(ctx, :selected_address)
@@ -102,12 +105,13 @@ defmodule MobileCarWash.Booking.StateMachine do
   # --- Skip logic: auth is skipped when customer already present ---
 
   defp maybe_skip(:auth, :forward, ctx) when ctx.current_customer != nil, do: {:ok, :vehicle}
-  defp maybe_skip(:auth, :back, ctx) when ctx.current_customer != nil, do: {:ok, :select_service}
+  defp maybe_skip(:auth, :back, ctx) when ctx.current_customer != nil, do: {:ok, :add_ons}
   defp maybe_skip(step, _direction, _ctx), do: {:ok, step}
 
   # --- Raw next/prev (no skipping) ---
 
-  defp raw_next(:select_service), do: {:ok, :auth}
+  defp raw_next(:select_service), do: {:ok, :add_ons}
+  defp raw_next(:add_ons), do: {:ok, :auth}
   defp raw_next(:auth), do: {:ok, :vehicle}
   defp raw_next(:vehicle), do: {:ok, :address}
   defp raw_next(:address), do: {:ok, :photos}
@@ -117,7 +121,8 @@ defmodule MobileCarWash.Booking.StateMachine do
   defp raw_next(:confirmed), do: {:error, :no_next_step}
 
   defp raw_prev(:select_service), do: {:error, :no_prev_step}
-  defp raw_prev(:auth), do: {:ok, :select_service}
+  defp raw_prev(:add_ons), do: {:ok, :select_service}
+  defp raw_prev(:auth), do: {:ok, :add_ons}
   defp raw_prev(:vehicle), do: {:ok, :auth}
   defp raw_prev(:address), do: {:ok, :vehicle}
   defp raw_prev(:photos), do: {:ok, :address}
