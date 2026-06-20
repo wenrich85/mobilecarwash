@@ -280,6 +280,19 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     assert vehicle.size == :pickup
   end
 
+  test "color swatches carry size + shape + color inline so they render regardless of CSS", %{
+    conn: conn
+  } do
+    {:ok, view, _} = live(conn, "/book")
+    html = to_vehicle_step(view)
+
+    # Each swatch's dimensions and color are inline (not dependent on a Tailwind
+    # sizing utility being present in the served/cached stylesheet), so the dot
+    # can never collapse to zero size and vanish.
+    assert html =~ "Red"
+    assert html =~ ~r/background-color: #c0392b;[^"]*width: 2rem;[^"]*height: 2rem/
+  end
+
   test "an async model-fetch error clears loading and degrades to manual entry", %{conn: conn} do
     NhtsaClientMock.put_models_error("Ford", 2023, :nhtsa_down)
 

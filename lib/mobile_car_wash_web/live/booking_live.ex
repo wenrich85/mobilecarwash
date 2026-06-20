@@ -554,8 +554,8 @@ defmodule MobileCarWashWeb.BookingLive do
                   checked={@vehicle_form["color"] == name}
                 />
                 <span
-                  class="block size-8 rounded-full border-2 border-base-300 peer-checked:border-cyan-500 peer-checked:ring-2 peer-checked:ring-cyan-500 transition"
-                  style={"background-color: #{hex}"}
+                  class="block border-2 border-base-300 peer-checked:border-cyan-500 peer-checked:ring-2 peer-checked:ring-cyan-500 transition"
+                  style={"background-color: #{hex}; width: 2rem; height: 2rem; border-radius: 9999px;"}
                 >
                 </span>
               </label>
