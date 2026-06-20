@@ -467,7 +467,9 @@ defmodule MobileCarWashWeb.BookingLive do
               class="input input-bordered flex-1 uppercase"
               autocomplete="off"
             />
-            <button type="submit" class="btn btn-secondary" phx-disable-with="Decoding…">Autofill</button>
+            <button type="submit" class="btn btn-secondary" phx-disable-with="Decoding…">
+              Autofill
+            </button>
           </div>
           <p :if={@vin_error} class="text-xs text-error">{@vin_error}</p>
         </form>
@@ -531,7 +533,10 @@ defmodule MobileCarWashWeb.BookingLive do
                   {md.name}
                 </option>
               </select>
-              <span :if={@loading_models} class="text-xs text-base-content/60 mt-1 flex items-center gap-1">
+              <span
+                :if={@loading_models}
+                class="text-xs text-base-content/60 mt-1 flex items-center gap-1"
+              >
                 <span class="loading loading-spinner loading-xs"></span> Loading models…
               </span>
             </label>
@@ -562,6 +567,8 @@ defmodule MobileCarWashWeb.BookingLive do
             <div
               :if={@vehicle_form["model"] != "" or @vehicle_form["vin"] != ""}
               class="inline-flex items-center gap-2 rounded-lg border border-base-300 bg-base-200 px-3 py-2"
+              role="status"
+              aria-label={"Detected vehicle type: #{size_badge(@vehicle_form["size"]).label} #{size_badge(@vehicle_form["size"]).modifier}"}
             >
               <span class="text-lg">{size_badge(@vehicle_form["size"]).icon}</span>
               <span class="text-sm font-semibold">{size_badge(@vehicle_form["size"]).label}</span>
@@ -1104,7 +1111,15 @@ defmodule MobileCarWashWeb.BookingLive do
             "body_class" => decoded.body_class || ""
           }
 
-          {:noreply, assign(socket, vehicle_form: form, vehicle_models: models, vin_error: nil)}
+          {:noreply,
+           socket
+           |> cancel_async(:load_models)
+           |> assign(
+             vehicle_form: form,
+             vehicle_models: models,
+             loading_models: false,
+             vin_error: nil
+           )}
 
         {:error, _reason} ->
           {:noreply,

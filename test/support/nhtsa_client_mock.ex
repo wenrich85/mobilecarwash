@@ -16,6 +16,7 @@ defmodule MobileCarWash.Vehicles.NhtsaClientMock do
 
   def put_vin(vin, result), do: insert({:vin, vin}, result)
   def put_models(make, year, models), do: insert({:models, make, to_string(year)}, models)
+  def put_models_error(make, year, reason), do: insert({:models, make, to_string(year)}, {:error, reason})
 
   def decode_vin(vin) do
     case lookup({:vin, vin}) do
@@ -26,6 +27,7 @@ defmodule MobileCarWash.Vehicles.NhtsaClientMock do
 
   def models_for_make_year(make, year) do
     case lookup({:models, make, to_string(year)}) do
+      {:ok, {:error, _} = err} -> err
       {:ok, models} -> {:ok, models}
       :miss -> {:ok, []}
     end

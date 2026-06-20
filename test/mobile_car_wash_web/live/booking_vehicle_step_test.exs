@@ -230,7 +230,10 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     refute html =~ "Loading models"
   end
 
-  test "saving still persists the auto-detected size via the hidden field", %{conn: conn, customer: customer} do
+  test "saving still persists the auto-detected size via the hidden field", %{
+    conn: conn,
+    customer: customer
+  } do
     NhtsaClientMock.put_models("Ford", 2023, [%{name: "F-150", size: :pickup}])
 
     {:ok, view, _} = live(conn, "/book")
@@ -245,7 +248,12 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     # Select the pickup model → size auto-detected to pickup in form state
     html =
       render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "Silver"}
+        "vehicle" => %{
+          "make" => "Ford",
+          "year" => "2023",
+          "model" => "F-150",
+          "color" => "Silver"
+        }
       })
 
     assert html =~ ~r/type="hidden" name="vehicle\[size\]" value="pickup"/
@@ -270,5 +278,22 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
       |> hd()
 
     assert vehicle.size == :pickup
+  end
+
+  test "an async model-fetch error clears loading and degrades to manual entry", %{conn: conn} do
+    NhtsaClientMock.put_models_error("Ford", 2023, :nhtsa_down)
+
+    {:ok, view, _} = live(conn, "/book")
+    to_vehicle_step(view)
+
+    render_change(view, "vehicle_form_change", %{
+      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "", "color" => ""}
+    })
+
+    html = render_async(view)
+
+    # No crash; loading cleared; model dropdown falls back to the empty state.
+    refute html =~ "Loading models"
+    assert html =~ "Pick make &amp; year first"
   end
 end
