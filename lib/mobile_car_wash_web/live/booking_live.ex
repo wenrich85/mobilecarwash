@@ -126,6 +126,10 @@ defmodule MobileCarWashWeb.BookingLive do
         auto_upload: true,
         progress: &handle_photo_progress/3
       )
+      # Compute the price hero from any restored service/vehicle so a session
+      # resumed at a later step (e.g. :review) never renders with a nil
+      # breakdown (which would crash the review template's total access).
+      |> assign_price_breakdown()
       |> load_step_data(validated_step)
 
     if connected?(socket), do: MobileCarWash.CatalogBroadcaster.subscribe()
@@ -871,7 +875,12 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("select_vehicle", %{"id" => id}, socket) do
     vehicle = Enum.find(socket.assigns.existing_vehicles, &(&1.id == id))
     track_event(socket, "booking.vehicle_added", %{"vehicle_id" => id, "is_new" => false})
-    {:noreply, socket |> assign(selected_vehicle: vehicle) |> assign_price_breakdown() |> persist_booking_state()}
+
+    {:noreply,
+     socket
+     |> assign(selected_vehicle: vehicle)
+     |> assign_price_breakdown()
+     |> persist_booking_state()}
   end
 
   def handle_event("save_address", %{"address" => address_params}, socket) do

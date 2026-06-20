@@ -11,7 +11,9 @@ defmodule MobileCarWashWeb.PriceHeaderTest do
   end
 
   test "shows the total prominently" do
-    bd = MobileCarWash.Billing.Pricing.breakdown(%{base_price_cents: 5000, vehicle_size: :suv_van})
+    bd =
+      MobileCarWash.Billing.Pricing.breakdown(%{base_price_cents: 5000, vehicle_size: :suv_van})
+
     html = render_price_header(%{breakdown: bd})
     assert html =~ "$60.00"
     assert html =~ "data-cents=\"6000\""

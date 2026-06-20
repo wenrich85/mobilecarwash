@@ -15,7 +15,10 @@ defmodule MobileCarWashWeb.PriceHeader do
   def price_header(assigns) do
     ~H"""
     <div class="sticky top-0 z-30 -mx-4 px-4 pt-3 pb-2 bg-base-100/95 backdrop-blur">
-      <div :if={is_nil(@breakdown)} class="rounded-2xl bg-base-200 px-4 py-3 text-center text-sm text-base-content/60">
+      <div
+        :if={is_nil(@breakdown)}
+        class="rounded-2xl bg-base-200 px-4 py-3 text-center text-sm text-base-content/60"
+      >
         Select a service to see your price
       </div>
 
@@ -42,11 +45,22 @@ defmodule MobileCarWashWeb.PriceHeader do
           </div>
         </button>
 
-        <div :if={@expanded} class="mt-2 rounded-xl border border-base-300 bg-base-100 px-4 py-3 text-sm">
+        <div
+          :if={@expanded}
+          class="mt-2 rounded-xl border border-base-300 bg-base-100 px-4 py-3 text-sm"
+        >
           <.line label="Base" amount={@breakdown.base_cents} />
-          <.line :if={@breakdown.size_label && @breakdown.size_delta_cents != 0} label={@breakdown.size_label} amount={@breakdown.size_delta_cents} />
+          <.line
+            :if={@breakdown.size_label && @breakdown.size_delta_cents != 0}
+            label={@breakdown.size_label}
+            amount={@breakdown.size_delta_cents}
+          />
           <.line :for={l <- @breakdown.addon_lines} label={l.label} amount={l.amount_cents} />
-          <.line :if={@breakdown.discount_cents > 0} label="Discount" amount={-@breakdown.discount_cents} />
+          <.line
+            :if={@breakdown.discount_cents > 0}
+            label="Discount"
+            amount={-@breakdown.discount_cents}
+          />
           <div class="flex justify-between font-extrabold text-success border-t border-base-300 mt-2 pt-2">
             <span>Total</span>
             <span>{Pricing.format_cents(@breakdown.total_cents)}</span>
