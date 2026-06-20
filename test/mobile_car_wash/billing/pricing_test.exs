@@ -103,4 +103,26 @@ defmodule MobileCarWash.Billing.PricingTest do
       assert Pricing.format_cents(5) == "$0.05"
     end
   end
+
+  describe "subscription_discount_cents/3" do
+    test "covered basic wash discounts the full base price" do
+      plan = %{basic_washes_per_month: 4, deep_clean_discount_percent: 0}
+      assert Pricing.subscription_discount_cents(5000, "basic_wash", plan) == 5000
+    end
+
+    test "deep clean discounts by the plan percentage of base" do
+      plan = %{basic_washes_per_month: 0, deep_clean_discount_percent: 50}
+      assert Pricing.subscription_discount_cents(20000, "deep_clean", plan) == 10000
+    end
+
+    test "no discount when the plan does not cover the service" do
+      plan = %{basic_washes_per_month: 0, deep_clean_discount_percent: 0}
+      assert Pricing.subscription_discount_cents(5000, "basic_wash", plan) == 0
+      assert Pricing.subscription_discount_cents(20000, "deep_clean", plan) == 0
+    end
+
+    test "no discount when there is no plan" do
+      assert Pricing.subscription_discount_cents(5000, "basic_wash", nil) == 0
+    end
+  end
 end

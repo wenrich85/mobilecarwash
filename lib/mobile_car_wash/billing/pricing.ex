@@ -76,4 +76,28 @@ defmodule MobileCarWash.Billing.Pricing do
   def format_cents(cents) when is_integer(cents) do
     "$#{div(cents, 100)}.#{String.pad_leading(Integer.to_string(rem(cents, 100)), 2, "0")}"
   end
+
+  @doc """
+  Subscription discount (in cents) for a service under a plan. Mirrors the
+  charge logic so the live price hero matches what is actually billed:
+  a covered basic wash is free (full base price off), a deep clean gets the
+  plan's percentage off the base. Returns 0 with no plan / no coverage.
+
+  Note: the discount is computed off the *base* price, so a larger vehicle's
+  size upcharge is still owed by a subscriber — matching the server.
+  """
+  def subscription_discount_cents(_base_price_cents, _service_slug, nil), do: 0
+
+  def subscription_discount_cents(base_price_cents, service_slug, plan) do
+    cond do
+      service_slug == "basic_wash" and plan.basic_washes_per_month > 0 ->
+        base_price_cents
+
+      service_slug == "deep_clean" and plan.deep_clean_discount_percent > 0 ->
+        div(base_price_cents * plan.deep_clean_discount_percent, 100)
+
+      true ->
+        0
+    end
+  end
 end

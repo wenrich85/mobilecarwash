@@ -1370,14 +1370,22 @@ defmodule MobileCarWashWeb.BookingLive do
 
   defp compute_price_breakdown(assigns) do
     base = assigns.selected_service.base_price_cents
+    slug = assigns.selected_service.slug
     size = assigns.selected_vehicle && assigns.selected_vehicle.size
 
     sized = if size, do: Pricing.calculate(base, size), else: base
 
+    # Mirror the server's discount stacking so the hero total equals the
+    # charge: subscription first (off the base), then loyalty (zeroes the
+    # remainder) or referral (capped at the post-subscription price).
+    plan = assigns[:active_subscription] && assigns.active_subscription.plan
+    sub_discount = Pricing.subscription_discount_cents(base, slug, plan)
+    after_sub = max(sized - sub_discount, 0)
+
     discount =
       cond do
         assigns[:redeem_loyalty] -> sized
-        true -> assigns[:referral_discount] || 0
+        true -> sub_discount + min(assigns[:referral_discount] || 0, after_sub)
       end
 
     Pricing.breakdown(%{
