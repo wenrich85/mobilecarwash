@@ -100,7 +100,7 @@ defmodule MobileCarWash.Vehicles.NhtsaClient do
         {:ok, models}
 
       :miss ->
-        url = "#{@base}/GetModelsForMakeYear/make/#{URI.encode_www_form(make)}/modelyear/#{year}?format=json"
+        url = "#{@base}/GetModelsForMakeYear/make/#{URI.encode(make, &URI.char_unreserved?/1)}/modelyear/#{year}?format=json"
 
         case Req.get(url) do
           {:ok, %{status: 200, body: %{"Results" => results}}} when is_list(results) ->
