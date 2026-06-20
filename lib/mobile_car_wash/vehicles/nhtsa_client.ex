@@ -13,11 +13,36 @@ defmodule MobileCarWash.Vehicles.NhtsaClient do
 
   # Curated list of popular makes shown first in the dropdown (alphabetical).
   @popular_makes [
-    "Acura", "Audi", "BMW", "Buick", "Cadillac", "Chevrolet", "Chrysler",
-    "Dodge", "Ford", "GMC", "Honda", "Hyundai", "Infiniti", "Jeep", "Kia",
-    "Land Rover", "Lexus", "Lincoln", "Mazda", "Mercedes-Benz", "Mini",
-    "Mitsubishi", "Nissan", "Porsche", "Ram", "Subaru", "Tesla", "Toyota",
-    "Volkswagen", "Volvo"
+    "Acura",
+    "Audi",
+    "BMW",
+    "Buick",
+    "Cadillac",
+    "Chevrolet",
+    "Chrysler",
+    "Dodge",
+    "Ford",
+    "GMC",
+    "Honda",
+    "Hyundai",
+    "Infiniti",
+    "Jeep",
+    "Kia",
+    "Land Rover",
+    "Lexus",
+    "Lincoln",
+    "Mazda",
+    "Mercedes-Benz",
+    "Mini",
+    "Mitsubishi",
+    "Nissan",
+    "Porsche",
+    "Ram",
+    "Subaru",
+    "Tesla",
+    "Toyota",
+    "Volkswagen",
+    "Volvo"
   ]
 
   @doc "Curated list of popular makes shown first in the dropdown."
@@ -61,7 +86,7 @@ defmodule MobileCarWash.Vehicles.NhtsaClient do
   # --- Real HTTP implementations ---
 
   defp do_decode_vin(vin) do
-    url = "#{@base}/DecodeVinValues/#{vin}?format=json"
+    url = "#{@base}/DecodeVinValues/#{URI.encode(vin, &URI.char_unreserved?/1)}?format=json"
 
     case Req.get(url) do
       {:ok, %{status: 200, body: %{"Results" => [row | _]}}} ->
@@ -100,7 +125,8 @@ defmodule MobileCarWash.Vehicles.NhtsaClient do
         {:ok, models}
 
       :miss ->
-        url = "#{@base}/GetModelsForMakeYear/make/#{URI.encode(make, &URI.char_unreserved?/1)}/modelyear/#{year}?format=json"
+        url =
+          "#{@base}/GetModelsForMakeYear/make/#{URI.encode(make, &URI.char_unreserved?/1)}/modelyear/#{year}?format=json"
 
         case Req.get(url) do
           {:ok, %{status: 200, body: %{"Results" => results}}} when is_list(results) ->
