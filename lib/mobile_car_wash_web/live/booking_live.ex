@@ -321,8 +321,7 @@ defmodule MobileCarWashWeb.BookingLive do
           </button>
         </div>
 
-        <div class="flex justify-between mt-6">
-          <button class="btn btn-ghost" phx-click="prev_step">Back</button>
+        <div class="flex justify-end mt-6">
           <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
       </div>
@@ -783,20 +782,24 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("toggle_add_on", %{"id" => id}, socket) do
     add_on = Enum.find(socket.assigns.available_add_ons, &(&1.id == id))
 
-    selected =
-      if Enum.any?(socket.assigns.selected_add_ons, &(&1.id == id)) do
-        Enum.reject(socket.assigns.selected_add_ons, &(&1.id == id))
-      else
-        socket.assigns.selected_add_ons ++ [add_on]
-      end
+    if is_nil(add_on) do
+      {:noreply, socket}
+    else
+      selected =
+        if Enum.any?(socket.assigns.selected_add_ons, &(&1.id == id)) do
+          Enum.reject(socket.assigns.selected_add_ons, &(&1.id == id))
+        else
+          socket.assigns.selected_add_ons ++ [add_on]
+        end
 
-    socket =
-      socket
-      |> assign(selected_add_ons: selected)
-      |> assign_price_breakdown()
-      |> persist_booking_state()
+      socket =
+        socket
+        |> assign(selected_add_ons: selected)
+        |> assign_price_breakdown()
+        |> persist_booking_state()
 
-    {:noreply, socket}
+      {:noreply, socket}
+    end
   end
 
   def handle_event("next_step", _params, socket) do
