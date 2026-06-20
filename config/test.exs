@@ -37,6 +37,10 @@ config :mobile_car_wash,
 # Use mock Twilio client in tests
 config :mobile_car_wash, :twilio_client, MobileCarWash.Notifications.TwilioClientMock
 
+# Use the ETS-backed mock NHTSA client in tests so no vehicle lookups
+# ever hit the network.
+config :mobile_car_wash, :nhtsa_client, MobileCarWash.Vehicles.NhtsaClientMock
+
 # Use mock APNs client in tests
 config :mobile_car_wash, :apns_client, MobileCarWash.Notifications.ApnsClientMock
 
