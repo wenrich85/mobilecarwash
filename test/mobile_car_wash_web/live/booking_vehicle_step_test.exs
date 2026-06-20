@@ -118,6 +118,7 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     assert html =~ "Accord"
     # Read-only badge shows the detected type (no radio to check anymore)
     assert html =~ "Car"
+    assert html =~ "· auto-detected"
     refute html =~ ~s(type="radio" name="vehicle[size]")
   end
 
@@ -242,9 +243,12 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     render_async(view)
 
     # Select the pickup model → size auto-detected to pickup in form state
-    render_change(view, "vehicle_form_change", %{
-      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "Silver"}
-    })
+    html =
+      render_change(view, "vehicle_form_change", %{
+        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "Silver"}
+      })
+
+    assert html =~ ~r/type="hidden" name="vehicle\[size\]" value="pickup"/
 
     # Submit only the fields the form now carries (size flows via the hidden input)
     render_submit(view, "save_vehicle", %{
