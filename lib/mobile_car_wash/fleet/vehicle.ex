@@ -33,6 +33,16 @@ defmodule MobileCarWash.Fleet.Vehicle do
       public?(true)
     end
 
+    attribute :vin, :string do
+      public?(true)
+      description("VIN as provided by the customer; provenance only, not a pricing input")
+    end
+
+    attribute :body_class, :string do
+      public?(true)
+      description("NHTSA BodyClass from VIN decode; provenance for the auto-selected size")
+    end
+
     attribute :size, :atom do
       constraints(one_of: [:car, :suv_van, :pickup])
       default(:car)
