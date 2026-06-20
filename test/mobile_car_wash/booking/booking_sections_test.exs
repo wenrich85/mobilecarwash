@@ -78,4 +78,21 @@ defmodule MobileCarWash.Booking.BookingSectionsTest do
     # Missing a slot → not payable even with a customer
     refute BookingSections.payable?(%{full | selected_slot: nil, current_customer: %{id: "c"}})
   end
+
+  test "payable? for a guest requires a non-blank email and all required sections" do
+    complete = ctx(%{
+      selected_service: %{id: "s"}, selected_vehicle: %{id: "v"},
+      selected_address: %{id: "a"}, selected_slot: %{id: "slot"}
+    })
+
+    # Guest with a real email + all sections complete → payable
+    assert BookingSections.payable?(Map.put(complete, :guest_form, %{"email" => "g@example.com"}))
+    # Guest with a blank/whitespace email → not payable
+    refute BookingSections.payable?(Map.put(complete, :guest_form, %{"email" => "   "}))
+    # No customer and no guest_form at all → not payable
+    refute BookingSections.payable?(complete)
+    # Guest email present but a required section missing (no slot) → not payable
+    incomplete = %{complete | selected_slot: nil}
+    refute BookingSections.payable?(Map.put(incomplete, :guest_form, %{"email" => "g@example.com"}))
+  end
 end

@@ -94,6 +94,17 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert html =~ ~r/phx-click="confirm_booking"[^>]*disabled/
   end
 
+  test "confirm_booking with nothing selected is a safe no-op (server-side payable? guard)",
+       %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/book")
+    # Fire confirm_booking with no selections at all — must not crash
+    html = render_click(view, "confirm_booking", %{})
+    # Page still renders (no crash / no redirect)
+    assert html =~ "Book a Wash" or html =~ "Service"
+    # Error flash shown, not a server crash
+    assert html =~ "Please complete all sections before paying."
+  end
+
   test "the page no longer renders the step wizard controls", %{conn: conn} do
     {:ok, _view, html} = live(conn, "/book")
     refute html =~ ~s(phx-click="next_step")

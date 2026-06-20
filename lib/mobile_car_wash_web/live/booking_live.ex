@@ -930,7 +930,7 @@ defmodule MobileCarWashWeb.BookingLive do
       |> Map.take(~w(street city state zip))
       |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
 
-    address = struct(Address, attrs)
+    address = struct(Address, Map.put(attrs, :zone, MobileCarWash.Zones.zone_for_zip(attrs[:zip])))
 
     {:noreply,
      socket
@@ -1098,11 +1098,15 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("confirm_booking", _params, socket) do
-    with {:ok, socket} <- ensure_customer(socket),
-         {:ok, socket} <- persist_pending_records(socket) do
-      do_confirm_booking(socket)
+    if BookingSections.payable?(build_context(socket.assigns)) do
+      with {:ok, socket} <- ensure_customer(socket),
+           {:ok, socket} <- persist_pending_records(socket) do
+        do_confirm_booking(socket)
+      else
+        {:error, message} -> {:noreply, assign(socket, guest_error: message)}
+      end
     else
-      {:error, message} -> {:noreply, assign(socket, guest_error: message)}
+      {:noreply, put_flash(socket, :error, "Please complete all sections before paying.")}
     end
   end
 

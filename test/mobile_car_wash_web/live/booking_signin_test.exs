@@ -9,12 +9,15 @@ defmodule MobileCarWashWeb.BookingSignInTest do
   - A guest whose email already belongs to a registered account is offered a
     sign-in path (via an inline error) instead of a dead-end on pay.
   """
-  use MobileCarWashWeb.ConnCase, async: true
+  use MobileCarWashWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
 
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Scheduling.ServiceType
+  alias MobileCarWash.Scheduling.{ServiceType, AppointmentBlock}
+  alias MobileCarWash.Operations.Technician
+
+  require Ash.Query
 
   setup do
     service =
@@ -29,6 +32,35 @@ defmodule MobileCarWashWeb.BookingSignInTest do
       |> Ash.create!()
 
     %{service: service}
+  end
+
+  defp create_open_block(service) do
+    tech =
+      Technician
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Test Tech #{System.unique_integer([:positive])}"
+      })
+      |> Ash.create!()
+
+    starts_at =
+      DateTime.utc_now()
+      |> DateTime.add(2 * 86_400, :second)
+      |> DateTime.truncate(:second)
+
+    ends_at = DateTime.add(starts_at, 3 * 3600, :second)
+    closes_at = DateTime.add(starts_at, -3600, :second)
+
+    AppointmentBlock
+    |> Ash.Changeset.for_create(:create, %{
+      service_type_id: service.id,
+      technician_id: tech.id,
+      starts_at: starts_at,
+      ends_at: ends_at,
+      closes_at: closes_at,
+      capacity: 5,
+      status: :open
+    })
+    |> Ash.create!()
   end
 
   test "the page offers a working sign-in link, not a disabled stub", %{conn: conn} do
@@ -65,7 +97,8 @@ defmodule MobileCarWashWeb.BookingSignInTest do
     assert html =~ "newguest@example.com"
   end
 
-  test "paying with a registered email surfaces a sign-in recovery message", %{conn: conn} do
+  test "paying with a registered email surfaces a sign-in recovery message",
+       %{conn: conn, service: service} do
     {:ok, _registered} =
       Customer
       |> Ash.Changeset.for_create(:register_with_password, %{
@@ -77,8 +110,29 @@ defmodule MobileCarWashWeb.BookingSignInTest do
       })
       |> Ash.create()
 
+    block = create_open_block(service)
+
     {:ok, view, _html} = live(conn, "/book")
+
+    # Complete all required sections so the payable? guard passes
     render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Toyota", "model" => "Camry", "year" => "2022",
+        "color" => "Silver", "size" => "car", "vin" => "", "body_class" => ""
+      }
+    })
+
+    render_submit(view, "save_address", %{
+      "address" => %{
+        "street" => "123 Main St", "city" => "San Antonio", "state" => "TX", "zip" => "78261"
+      }
+    })
+
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(view, "select_date", %{"date" => block_date})
+    render_click(view, "select_block", %{"id" => block.id})
 
     render_change(view, "guest_form_change", %{
       "guest" => %{
@@ -88,8 +142,9 @@ defmodule MobileCarWashWeb.BookingSignInTest do
       }
     })
 
-    # confirm_booking runs ensure_customer first; the registered-email collision
-    # halts before any booking and surfaces a recovery message + sign-in link.
+    # confirm_booking runs payable? guard (passes), then ensure_customer;
+    # the registered-email collision halts before any booking and surfaces
+    # a recovery message + sign-in link.
     html = render_click(view, "confirm_booking", %{})
 
     assert html =~ "already"
