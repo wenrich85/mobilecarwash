@@ -94,6 +94,7 @@ defmodule MobileCarWashWeb.BookingLive do
         # NHTSA dropdown data
         vehicle_makes: NhtsaClient.popular_makes(),
         vehicle_models: [],
+        loading_models: false,
         vin_error: nil,
         # Forms
         vehicle_form: %{
@@ -466,7 +467,7 @@ defmodule MobileCarWashWeb.BookingLive do
               class="input input-bordered flex-1 uppercase"
               autocomplete="off"
             />
-            <button type="submit" class="btn btn-secondary">Autofill</button>
+            <button type="submit" class="btn btn-secondary" phx-disable-with="Decoding…">Autofill</button>
           </div>
           <p :if={@vin_error} class="text-xs text-error">{@vin_error}</p>
         </form>
@@ -513,10 +514,14 @@ defmodule MobileCarWashWeb.BookingLive do
                 name="vehicle[model]"
                 class="select select-bordered w-full"
                 required
-                disabled={@vehicle_models == []}
+                disabled={@loading_models or @vehicle_models == []}
               >
                 <option value="" disabled selected={@vehicle_form["model"] == ""}>
-                  {if @vehicle_models == [], do: "Pick make & year first", else: "Select model"}
+                  {cond do
+                    @loading_models -> "Loading models…"
+                    @vehicle_models == [] -> "Pick make & year first"
+                    true -> "Select model"
+                  end}
                 </option>
                 <option
                   :for={md <- @vehicle_models}
@@ -526,6 +531,9 @@ defmodule MobileCarWashWeb.BookingLive do
                   {md.name}
                 </option>
               </select>
+              <span :if={@loading_models} class="text-xs text-base-content/60 mt-1 flex items-center gap-1">
+                <span class="loading loading-spinner loading-xs"></span> Loading models…
+              </span>
             </label>
           </div>
 
@@ -551,43 +559,24 @@ defmodule MobileCarWashWeb.BookingLive do
 
           <div>
             <label class="text-sm font-semibold text-base-content mb-2 block">Vehicle type</label>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
-                <input
-                  type="radio"
-                  name="vehicle[size]"
-                  value="car"
-                  class="sr-only"
-                  checked={@vehicle_form["size"] == "car"}
-                />
-                <div class="text-sm font-semibold">Car</div>
-                <div class="text-xs text-base-content/60">Sedan, coupe, compact</div>
-              </label>
-              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
-                <input
-                  type="radio"
-                  name="vehicle[size]"
-                  value="suv_van"
-                  class="sr-only"
-                  checked={@vehicle_form["size"] == "suv_van"}
-                />
-                <div class="text-sm font-semibold">SUV / Van</div>
-                <div class="text-xs text-warning">+20% price</div>
-              </label>
-              <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
-                <input
-                  type="radio"
-                  name="vehicle[size]"
-                  value="pickup"
-                  class="sr-only"
-                  checked={@vehicle_form["size"] == "pickup"}
-                />
-                <div class="text-sm font-semibold">Pickup</div>
-                <div class="text-xs text-warning">+50% price</div>
-              </label>
+            <div
+              :if={@vehicle_form["model"] != "" or @vehicle_form["vin"] != ""}
+              class="inline-flex items-center gap-2 rounded-lg border border-base-300 bg-base-200 px-3 py-2"
+            >
+              <span class="text-lg">{size_badge(@vehicle_form["size"]).icon}</span>
+              <span class="text-sm font-semibold">{size_badge(@vehicle_form["size"]).label}</span>
+              <span class="text-xs text-warning">{size_badge(@vehicle_form["size"]).modifier}</span>
+              <span class="text-xs text-base-content/50">· auto-detected</span>
             </div>
+            <p
+              :if={@vehicle_form["model"] == "" and @vehicle_form["vin"] == ""}
+              class="text-sm text-base-content/50"
+            >
+              Pick your model and we'll detect the type.
+            </p>
           </div>
 
+          <input type="hidden" name="vehicle[size]" value={@vehicle_form["size"]} />
           <input type="hidden" name="vehicle[vin]" value={@vehicle_form["vin"]} />
           <input type="hidden" name="vehicle[body_class]" value={@vehicle_form["body_class"]} />
 
@@ -1032,34 +1021,56 @@ defmodule MobileCarWashWeb.BookingLive do
 
   def handle_event("vehicle_form_change", %{"vehicle" => params}, socket) do
     prev = socket.assigns.vehicle_form
-    incoming = Map.take(params, ~w(make year model color size))
+    incoming = Map.take(params, ~w(make year model color))
     form = Map.merge(prev, incoming)
 
     make_year_changed? = {form["make"], form["year"]} != {prev["make"], prev["year"]}
 
-    {form, models} =
-      if make_year_changed? and form["make"] != "" and form["year"] != "" do
-        case NhtsaClient.models_for_make_year(form["make"], form["year"]) do
-          {:ok, models} -> {Map.put(form, "model", ""), models}
-          {:error, _} -> {Map.put(form, "model", ""), []}
-        end
-      else
-        {form, socket.assigns.vehicle_models}
-      end
+    cond do
+      # Make+year both chosen and changed → fetch models asynchronously.
+      make_year_changed? and form["make"] != "" and form["year"] != "" ->
+        make = form["make"]
+        year = form["year"]
+        form = Map.put(form, "model", "")
 
-    # Auto-fill size from the chosen model (editable: a later size click wins,
-    # since that event leaves the model unchanged and skips this branch).
-    form =
-      if not make_year_changed? and form["model"] != "" and form["model"] != prev["model"] do
-        case Enum.find(models, &(&1.name == form["model"])) do
-          %{size: size} -> Map.put(form, "size", to_string(size))
-          nil -> form
-        end
-      else
-        form
-      end
+        socket =
+          socket
+          |> assign(
+            vehicle_form: form,
+            vehicle_models: [],
+            loading_models: true,
+            vin_error: nil
+          )
+          |> start_async(:load_models, fn ->
+            NhtsaClient.models_for_make_year(make, year)
+          end)
 
-    {:noreply, assign(socket, vehicle_form: form, vehicle_models: models, vin_error: nil)}
+        {:noreply, socket}
+
+      # Make or year cleared → nothing to fetch.
+      make_year_changed? ->
+        {:noreply,
+         assign(socket,
+           vehicle_form: Map.put(form, "model", ""),
+           vehicle_models: [],
+           loading_models: false,
+           vin_error: nil
+         )}
+
+      # Model (or color) changed → auto-detect size from the selected model.
+      true ->
+        form =
+          if form["model"] != "" and form["model"] != prev["model"] do
+            case Enum.find(socket.assigns.vehicle_models, &(&1.name == form["model"])) do
+              %{size: size} -> Map.put(form, "size", to_string(size))
+              nil -> form
+            end
+          else
+            form
+          end
+
+        {:noreply, assign(socket, vehicle_form: form, vin_error: nil)}
+    end
   end
 
   def handle_event("decode_vin", %{"vin" => vin}, socket) do
@@ -1410,6 +1421,21 @@ defmodule MobileCarWashWeb.BookingLive do
     end
   end
 
+  # === ASYNC CALLBACKS ===
+
+  @impl true
+  def handle_async(:load_models, {:ok, {:ok, models}}, socket) do
+    {:noreply, assign(socket, vehicle_models: models, loading_models: false)}
+  end
+
+  def handle_async(:load_models, {:ok, {:error, _reason}}, socket) do
+    {:noreply, assign(socket, vehicle_models: [], loading_models: false)}
+  end
+
+  def handle_async(:load_models, {:exit, _reason}, socket) do
+    {:noreply, assign(socket, vehicle_models: [], loading_models: false)}
+  end
+
   # === PRIVATE HELPERS ===
 
   defp upload_name_for("camera"), do: :problem_photo_camera
@@ -1681,6 +1707,10 @@ defmodule MobileCarWashWeb.BookingLive do
     current = Date.utc_today().year + 1
     Enum.to_list(current..1990//-1)
   end
+
+  defp size_badge("suv_van"), do: %{icon: "🚙", label: "SUV / Van", modifier: "+20%"}
+  defp size_badge("pickup"), do: %{icon: "🚛", label: "Pickup", modifier: "+50%"}
+  defp size_badge(_), do: %{icon: "🚗", label: "Car", modifier: "+0"}
 
   defp vehicle_colors do
     [

@@ -85,32 +85,19 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     # form/3 + render_change would error. We send the event directly via
     # render_change/2 to bypass DOM pre-validation — same event, same params,
     # same server behavior and assertions; only the harness path differs.
-    html =
-      render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{
-          "make" => "Toyota",
-          "year" => "2021",
-          "model" => "",
-          "color" => "Silver",
-          "size" => "car"
-        }
-      })
+    render_change(view, "vehicle_form_change", %{
+      "vehicle" => %{"make" => "Toyota", "year" => "2021", "model" => "", "color" => ""}
+    })
 
+    html = render_async(view)
     assert html =~ "Camry"
     assert html =~ "RAV4"
 
-    # Changing the make resets and reloads the model list
-    html =
-      render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{
-          "make" => "Honda",
-          "year" => "2021",
-          "model" => "",
-          "color" => "Silver",
-          "size" => "car"
-        }
-      })
+    render_change(view, "vehicle_form_change", %{
+      "vehicle" => %{"make" => "Honda", "year" => "2021", "model" => "", "color" => ""}
+    })
 
+    html = render_async(view)
     assert html =~ "Accord"
     assert html =~ "Civic"
   end
@@ -129,8 +116,9 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     # Decoded make/model rendered as selected options
     assert html =~ "Honda"
     assert html =~ "Accord"
-    # size=car radio is checked
-    assert html =~ ~r/name="vehicle\[size\]" value="car"[^>]*checked/
+    # Read-only badge shows the detected type (no radio to check anymore)
+    assert html =~ "Car"
+    refute html =~ ~s(type="radio" name="vehicle[size]")
   end
 
   test "an undecodable VIN shows an inline error and never blocks manual entry", %{conn: conn} do
@@ -177,7 +165,7 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     assert is_nil(vehicle.vin)
   end
 
-  test "selecting a model auto-fills the size from its NHTSA vehicle type", %{conn: conn} do
+  test "selecting a model shows the auto-detected type read-only", %{conn: conn} do
     NhtsaClientMock.put_models("Ford", 2023, [
       %{name: "F-150", size: :pickup},
       %{name: "Focus", size: :car},
@@ -187,49 +175,96 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     {:ok, view, _} = live(conn, "/book")
     to_vehicle_step(view)
 
-    # Load models for Ford 2023
     render_change(view, "vehicle_form_change", %{
-      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "", "color" => "", "size" => "car"}
+      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "", "color" => ""}
     })
 
-    # Pick a pickup → size auto-selects pickup (even though the radio sent "car")
+    render_async(view)
+
+    # Pick a pickup → badge shows Pickup +50%
     html =
       render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "", "size" => "car"}
+        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => ""}
       })
 
-    assert html =~ ~r/name="vehicle\[size\]" value="pickup"[^>]*checked/
+    assert html =~ "Pickup"
+    assert html =~ "+50%"
+    refute html =~ ~s(type="radio" name="vehicle[size]")
 
-    # Pick an SUV → size auto-selects suv_van
+    # Pick an SUV → badge shows SUV / Van +20%
     html =
       render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "Escape", "color" => "", "size" => "pickup"}
+        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "Escape", "color" => ""}
       })
 
-    assert html =~ ~r/name="vehicle\[size\]" value="suv_van"[^>]*checked/
+    assert html =~ "SUV / Van"
+    assert html =~ "+20%"
   end
 
-  test "an auto-filled size remains user-editable", %{conn: conn} do
+  test "before a model or VIN is chosen, a hint shows and no type badge", %{conn: conn} do
+    {:ok, view, _} = live(conn, "/book")
+    html = to_vehicle_step(view)
+
+    assert html =~ "Pick your model and we&#39;ll detect the type"
+    refute html =~ ~s(type="radio" name="vehicle[size]")
+  end
+
+  test "the model field shows a loading state while the fetch is in flight", %{conn: conn} do
+    NhtsaClientMock.put_models("Toyota", 2021, [%{name: "Camry", size: :car}])
+
+    {:ok, view, _} = live(conn, "/book")
+    to_vehicle_step(view)
+
+    # The change handler sets loading before the async result arrives
+    html =
+      render_change(view, "vehicle_form_change", %{
+        "vehicle" => %{"make" => "Toyota", "year" => "2021", "model" => "", "color" => ""}
+      })
+
+    assert html =~ "Loading models"
+
+    # After the async fetch completes, models render and loading clears
+    html = render_async(view)
+    assert html =~ "Camry"
+    refute html =~ "Loading models"
+  end
+
+  test "saving still persists the auto-detected size via the hidden field", %{conn: conn, customer: customer} do
     NhtsaClientMock.put_models("Ford", 2023, [%{name: "F-150", size: :pickup}])
 
     {:ok, view, _} = live(conn, "/book")
     to_vehicle_step(view)
 
     render_change(view, "vehicle_form_change", %{
-      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "", "color" => "", "size" => "car"}
+      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "", "color" => ""}
     })
 
-    # Model picks pickup automatically...
+    render_async(view)
+
+    # Select the pickup model → size auto-detected to pickup in form state
     render_change(view, "vehicle_form_change", %{
-      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "", "size" => "car"}
+      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "Silver"}
     })
 
-    # ...then the user overrides to car (model unchanged) — override sticks.
-    html =
-      render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "", "size" => "car"}
-      })
+    # Submit only the fields the form now carries (size flows via the hidden input)
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Ford",
+        "model" => "F-150",
+        "year" => "2023",
+        "color" => "Silver",
+        "size" => "pickup",
+        "vin" => "",
+        "body_class" => ""
+      }
+    })
 
-    assert html =~ ~r/name="vehicle\[size\]" value="car"[^>]*checked/
+    vehicle =
+      Vehicle
+      |> Ash.Query.filter(customer_id == ^customer.id)
+      |> Ash.read!()
+      |> hd()
+
+    assert vehicle.size == :pickup
   end
 end
