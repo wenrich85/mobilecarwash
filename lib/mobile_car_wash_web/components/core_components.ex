@@ -235,7 +235,9 @@ defmodule MobileCarWashWeb.CoreComponents do
   attr :id, :any, default: nil
   attr :name, :any
   attr :label, :string, default: nil
-  attr :value, :any
+  # Defaulting to nil lets non-form inputs (bare `name=`, no `field`)
+  # omit `value` without crashing; normalize_value/2 turns nil into "".
+  attr :value, :any, default: nil
 
   attr :type, :string,
     default: "text",

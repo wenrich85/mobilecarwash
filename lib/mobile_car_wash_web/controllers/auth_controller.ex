@@ -3,12 +3,7 @@ defmodule MobileCarWashWeb.AuthController do
   use AshAuthentication.Phoenix.Controller, otp_app: :mobile_car_wash
 
   def success(conn, _activity, user, _token) do
-    redirect_path =
-      case user.role do
-        :admin -> ~p"/admin"
-        :technician -> ~p"/tech"
-        _ -> ~p"/"
-      end
+    redirect_path = post_sign_in_path(conn, user)
 
     # Store the token in the token table so load_from_session can verify it.
     # Without this, the load_from_session plug deletes the session key because
@@ -22,10 +17,47 @@ defmodule MobileCarWashWeb.AuthController do
     end
 
     conn
+    |> delete_session("return_to")
     |> store_in_session(user)
     |> assign(:current_user, user)
     |> redirect(to: redirect_path)
   end
+
+  @doc """
+  Booking sign-in entry point. A returning customer who reaches the
+  booking wizard's auth step lands here; we remember where to send them
+  back (the booking flow restores its own state from SessionCache) and
+  hand off to the sign-in page.
+  """
+  def booking_sign_in(conn, _params) do
+    conn
+    |> put_session("return_to", "/book")
+    |> redirect(to: ~p"/sign-in")
+  end
+
+  # Admins and technicians always land on their own home. Customers may
+  # carry a `return_to` (e.g. from mid-booking sign-in) — honored only
+  # when it's a safe local path, never an attacker-supplied URL.
+  defp post_sign_in_path(_conn, %{role: :admin}), do: ~p"/admin"
+  defp post_sign_in_path(_conn, %{role: :technician}), do: ~p"/tech"
+
+  defp post_sign_in_path(conn, _user) do
+    case get_session(conn, "return_to") do
+      path when is_binary(path) -> safe_local_path(path)
+      _ -> ~p"/"
+    end
+  end
+
+  # A safe local path starts with a single "/" and carries no host or
+  # scheme. Rejects "//evil.com" (protocol-relative) and absolute URLs.
+  defp safe_local_path("//" <> _), do: "/"
+
+  defp safe_local_path("/" <> _ = path) do
+    uri = URI.parse(path)
+    if is_nil(uri.host) and is_nil(uri.scheme), do: path, else: "/"
+  end
+
+  defp safe_local_path(_), do: "/"
 
   @doc """
   Handles the sign_in_with_token callback as a regular controller action.

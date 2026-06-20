@@ -383,20 +383,14 @@ defmodule MobileCarWash.Scheduling.Booking do
     end
   end
 
+  # Delegates to the pure pricing module so the live booking hero and the
+  # actual charge compute the subscription discount from the same source.
   defp calculate_subscription_discount(service_type, plan) do
-    cond do
-      # Basic wash covered by subscription
-      service_type.slug == "basic_wash" and plan.basic_washes_per_month > 0 ->
-        # Covered washes are free (check usage happens in maybe_update_subscription_usage)
-        service_type.base_price_cents
-
-      # Deep clean discount
-      service_type.slug == "deep_clean" and plan.deep_clean_discount_percent > 0 ->
-        div(service_type.base_price_cents * plan.deep_clean_discount_percent, 100)
-
-      true ->
-        0
-    end
+    MobileCarWash.Billing.Pricing.subscription_discount_cents(
+      service_type.base_price_cents,
+      service_type.slug,
+      plan
+    )
   end
 
   defp maybe_apply_referral(price_cents, discount_cents, nil), do: {price_cents, discount_cents}
