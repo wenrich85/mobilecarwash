@@ -3,6 +3,9 @@ defmodule MobileCarWash.Vehicles.NhtsaClientMock do
   Test mock for `NhtsaClient`. Tests stage canned responses with
   `put_vin/2` and `put_models/3`; the client delegates here in test env so
   no NHTSA network call is ever made. Backed by a named ETS table.
+
+  Note: This mock uses its own ETS table keyed by original-case make+year,
+  independent of `NhtsaCache`'s downcased-make cache scheme.
   """
   @table :nhtsa_mock
 
