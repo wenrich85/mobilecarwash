@@ -108,11 +108,46 @@ end
 IO.puts("\nSeeding add-ons...")
 
 for attrs <- [
-      %{name: "Wax & Shine", slug: "wax_shine", price_cents: 1_500, icon: "sparkles", sort_order: 1, description: "Hand wax for a deep, protective shine."},
-      %{name: "Interior Shampoo", slug: "interior_shampoo", price_cents: 2_500, icon: "sparkles", sort_order: 2, description: "Deep-clean carpets and upholstery."},
-      %{name: "Pet Hair Removal", slug: "pet_hair_removal", price_cents: 1_000, icon: "sparkles", sort_order: 3, description: "Thorough removal of embedded pet hair."},
-      %{name: "Engine Bay Clean", slug: "engine_bay_clean", price_cents: 2_000, icon: "sparkles", sort_order: 4, description: "Degrease and detail the engine bay."},
-      %{name: "Headlight Restoration", slug: "headlight_restoration", price_cents: 3_000, icon: "sparkles", sort_order: 5, description: "Restore clouded headlights to clear."}
+      %{
+        name: "Wax & Shine",
+        slug: "wax_shine",
+        price_cents: 1_500,
+        icon: "sparkles",
+        sort_order: 1,
+        description: "Hand wax for a deep, protective shine."
+      },
+      %{
+        name: "Interior Shampoo",
+        slug: "interior_shampoo",
+        price_cents: 2_500,
+        icon: "sparkles",
+        sort_order: 2,
+        description: "Deep-clean carpets and upholstery."
+      },
+      %{
+        name: "Pet Hair Removal",
+        slug: "pet_hair_removal",
+        price_cents: 1_000,
+        icon: "sparkles",
+        sort_order: 3,
+        description: "Thorough removal of embedded pet hair."
+      },
+      %{
+        name: "Engine Bay Clean",
+        slug: "engine_bay_clean",
+        price_cents: 2_000,
+        icon: "sparkles",
+        sort_order: 4,
+        description: "Degrease and detail the engine bay."
+      },
+      %{
+        name: "Headlight Restoration",
+        slug: "headlight_restoration",
+        price_cents: 3_000,
+        icon: "sparkles",
+        sort_order: 5,
+        description: "Restore clouded headlights to clear."
+      }
     ] do
   existing = AddOn |> Ash.Query.filter(slug == ^attrs.slug) |> Ash.read!()
 

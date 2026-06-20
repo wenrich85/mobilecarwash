@@ -5,7 +5,17 @@ defmodule MobileCarWash.Booking.StateMachine do
   Operates on a context map and returns results.
   """
 
-  @steps [:select_service, :add_ons, :auth, :vehicle, :address, :photos, :schedule, :review, :confirmed]
+  @steps [
+    :select_service,
+    :add_ons,
+    :auth,
+    :vehicle,
+    :address,
+    :photos,
+    :schedule,
+    :review,
+    :confirmed
+  ]
 
   @type step ::
           :select_service

@@ -7,14 +7,20 @@ defmodule MobileCarWashWeb.BookingAddonsTest do
   setup do
     ServiceType
     |> Ash.Changeset.for_create(:create, %{
-      name: "Basic Wash", slug: "basic_wash", description: "x",
-      base_price_cents: 5_000, duration_minutes: 45
+      name: "Basic Wash",
+      slug: "basic_wash",
+      description: "x",
+      base_price_cents: 5_000,
+      duration_minutes: 45
     })
     |> Ash.create!()
 
     AddOn
     |> Ash.Changeset.for_create(:create, %{
-      name: "Wax & Shine", slug: "wax_shine", price_cents: 1_500, icon: "sparkles"
+      name: "Wax & Shine",
+      slug: "wax_shine",
+      price_cents: 1_500,
+      icon: "sparkles"
     })
     |> Ash.create!()
 
@@ -37,7 +43,9 @@ defmodule MobileCarWashWeb.BookingAddonsTest do
     assert html =~ "$65.00"
   end
 
-  test "add-ons step renders exactly one Back button (global back, no inline duplicate)", %{conn: conn} do
+  test "add-ons step renders exactly one Back button (global back, no inline duplicate)", %{
+    conn: conn
+  } do
     {:ok, view, _} = live(conn, "/book")
     render_click(view, "select_service", %{"slug" => "basic_wash"})
     html = render_click(view, "next_step", %{})
@@ -52,7 +60,8 @@ defmodule MobileCarWashWeb.BookingAddonsTest do
     render_click(view, "select_service", %{"slug" => "basic_wash"})
     html_before = render_click(view, "next_step", %{})
 
-    html_after = render_click(view, "toggle_add_on", %{"id" => "00000000-0000-0000-0000-000000000000"})
+    html_after =
+      render_click(view, "toggle_add_on", %{"id" => "00000000-0000-0000-0000-000000000000"})
 
     # Price unchanged — no nil add-on appended
     assert html_after =~ "$50.00"

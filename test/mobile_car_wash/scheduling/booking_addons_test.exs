@@ -177,9 +177,7 @@ defmodule MobileCarWash.Scheduling.BookingAddOnsTest do
         |> Ash.update!()
 
       {:ok, %{appointment: appt}} =
-        Booking.create_booking(
-          base_params(ctx) |> Map.put(:add_on_ids, [active.id, inactive.id])
-        )
+        Booking.create_booking(base_params(ctx) |> Map.put(:add_on_ids, [active.id, inactive.id]))
 
       # Only the active add-on ($15) should be added to the base ($50)
       assert appt.price_cents == 6_500

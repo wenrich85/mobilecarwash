@@ -857,7 +857,9 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                     {add_on.description}
                   </p>
                   <p class="text-sm mt-1">
-                    <span class="font-semibold">{MobileCarWash.Billing.Pricing.format_cents(add_on.price_cents)}</span>
+                    <span class="font-semibold">
+                      {MobileCarWash.Billing.Pricing.format_cents(add_on.price_cents)}
+                    </span>
                     <span :if={add_on.icon} class="text-base-content/70 ml-2">
                       <.icon name={"hero-#{add_on.icon}"} class="size-4 inline" />
                     </span>
