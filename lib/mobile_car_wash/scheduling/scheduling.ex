@@ -7,6 +7,7 @@ defmodule MobileCarWash.Scheduling do
   resources do
     resource(MobileCarWash.Scheduling.ServiceType)
     resource(MobileCarWash.Scheduling.AddOn)
+    resource(MobileCarWash.Scheduling.AppointmentAddOn)
     resource(MobileCarWash.Scheduling.Appointment)
     resource(MobileCarWash.Scheduling.AppointmentBlock)
     resource(MobileCarWash.Scheduling.BlockTemplate)

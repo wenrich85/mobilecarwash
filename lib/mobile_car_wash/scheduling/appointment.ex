@@ -110,6 +110,8 @@ defmodule MobileCarWash.Scheduling.Appointment do
     belongs_to :recurring_schedule, MobileCarWash.Scheduling.RecurringSchedule do
       allow_nil?(true)
     end
+
+    has_many :appointment_add_ons, MobileCarWash.Scheduling.AppointmentAddOn
   end
 
   actions do

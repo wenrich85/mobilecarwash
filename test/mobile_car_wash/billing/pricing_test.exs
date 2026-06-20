@@ -104,6 +104,19 @@ defmodule MobileCarWash.Billing.PricingTest do
     end
   end
 
+  describe "add-on helpers" do
+    test "addons_total_cents sums flat add-on prices" do
+      addons = [%{name: "Wax", price_cents: 1500}, %{name: "Pet", price_cents: 1000}]
+      assert Pricing.addons_total_cents(addons) == 2500
+      assert Pricing.addons_total_cents([]) == 0
+    end
+
+    test "addon_lines maps add-ons to label/amount line items" do
+      addons = [%{name: "Wax", price_cents: 1500}]
+      assert Pricing.addon_lines(addons) == [%{label: "Wax", amount_cents: 1500}]
+    end
+  end
+
   describe "subscription_discount_cents/3" do
     test "covered basic wash discounts the full base price" do
       plan = %{basic_washes_per_month: 4, deep_clean_discount_percent: 0}
