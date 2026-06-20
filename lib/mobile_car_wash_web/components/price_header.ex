@@ -14,7 +14,7 @@ defmodule MobileCarWashWeb.PriceHeader do
 
   def price_header(assigns) do
     ~H"""
-    <div class="sticky top-0 z-30 -mx-4 px-4 pt-3 pb-2 bg-base-100/95 backdrop-blur">
+    <div class="sticky top-16 z-30 -mx-4 px-4 pt-3 pb-2 bg-base-100/95 backdrop-blur">
       <div
         :if={is_nil(@breakdown)}
         class="rounded-2xl bg-base-200 px-4 py-3 text-center text-sm text-base-content/60"

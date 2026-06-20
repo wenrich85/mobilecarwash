@@ -408,11 +408,16 @@ defmodule MobileCarWashWeb.SecurityOWASPTest do
     end
 
     test "file uploads are validated for type and size" do
-      booking_code = File.read!("lib/mobile_car_wash_web/live/booking_live.ex")
+      # Customer photo uploads live on the appointments LiveView (the booking
+      # flow no longer uploads photos).
+      upload_code = File.read!("lib/mobile_car_wash_web/live/appointments_live.ex")
 
       # Should have allow_upload with constraints
-      assert booking_code =~ "allow_upload",
+      assert upload_code =~ "allow_upload",
              "File upload should have size/type constraints"
+
+      assert upload_code =~ "max_file_size", "File upload should constrain size"
+      assert upload_code =~ "accept:", "File upload should constrain type"
     end
 
     test "uploaded file magic bytes are verified" do

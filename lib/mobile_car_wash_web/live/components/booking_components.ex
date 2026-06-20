@@ -319,6 +319,44 @@ defmodule MobileCarWashWeb.BookingComponents do
   end
 
   @doc """
+  Renders a titled, status-gated section card for the single-page booking
+  flow. When `status == :locked` the card is dimmed and its content is
+  disabled via a `fieldset[disabled]`; the inner content is the default slot.
+  """
+  attr :title, :string, required: true
+  attr :index, :integer, required: true
+  attr :status, :atom, required: true, doc: ":locked | :active | :complete"
+  attr :id, :string, required: true
+  slot :inner_block, required: true
+
+  def booking_section(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class={[
+        "rounded-box border p-5 mb-4 transition-opacity",
+        @status == :locked && "border-base-300 bg-base-200/40 opacity-50",
+        @status != :locked && "border-base-300 bg-base-100"
+      ]}
+    >
+      <div class="flex items-center gap-2 mb-4">
+        <span class={[
+          "flex items-center justify-center size-6 rounded-full text-xs font-bold",
+          @status == :complete && "bg-success text-success-content",
+          @status != :complete && "bg-base-300 text-base-content/70"
+        ]}>
+          {if @status == :complete, do: "✓", else: @index}
+        </span>
+        <h2 class="text-lg font-semibold text-base-content">{@title}</h2>
+      </div>
+      <fieldset disabled={@status == :locked}>
+        {render_slot(@inner_block)}
+      </fieldset>
+    </section>
+    """
+  end
+
+  @doc """
   Renders a generic selectable card for a saved record (vehicle, address,
   payment method, etc.).
   """

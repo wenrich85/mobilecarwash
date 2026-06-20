@@ -46,11 +46,9 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     %{conn: conn, customer: customer}
   end
 
-  # Signed-in: select_service → next_step (:add_ons) → next_step (auth skipped → :vehicle)
+  # Single page: selecting a service immediately unlocks the vehicle section.
   defp to_vehicle_step(view) do
-    render_click(view, "select_service", %{"slug" => "basic_wash"})
-    render_click(view, "next_step", %{})
-    html = render_click(view, "next_step", %{})
+    html = render_click(view, "select_service", %{"slug" => "basic_wash"})
     assert html =~ "Autofill from VIN"
     html
   end

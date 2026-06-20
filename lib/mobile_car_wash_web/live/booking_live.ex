@@ -6,7 +6,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
   alias MobileCarWash.Scheduling.{ServiceType, BlockAvailability, Booking}
   alias MobileCarWash.Fleet.{Vehicle, Address}
-  alias MobileCarWash.Booking.{StateMachine, SessionCache}
+  alias MobileCarWash.Booking.{BookingSections, SessionCache}
   alias MobileCarWash.Billing.{Subscription, SubscriptionUsage, Pricing}
   alias MobileCarWash.Analytics
   alias MobileCarWash.Vehicles.NhtsaClient
@@ -32,28 +32,14 @@ defmodule MobileCarWashWeb.BookingLive do
     booking_session_id = derive_session_id(session)
 
     # Restore from cache if reconnecting
-    {restored_step, restored_assigns} =
+    restored_assigns =
       case SessionCache.get(booking_session_id) do
-        nil -> {:select_service, %{}}
+        nil -> %{}
         cached -> restore_from_cache(cached)
       end
 
     # Build context — prefer session customer, fall back to cached customer (for guests)
     customer = socket.assigns[:current_customer] || restored_assigns[:current_customer]
-
-    base_assigns = %{
-      selected_service: restored_assigns[:selected_service],
-      current_customer: customer,
-      guest_mode: restored_assigns[:guest_mode] || false,
-      selected_vehicle: restored_assigns[:selected_vehicle],
-      selected_address: restored_assigns[:selected_address],
-      selected_slot: restored_assigns[:selected_slot],
-      selected_block: restored_assigns[:selected_block],
-      selected_add_ons: restored_assigns[:selected_add_ons] || [],
-      appointment: nil
-    }
-
-    validated_step = StateMachine.resolve_step(restored_step, base_assigns)
 
     socket =
       socket
@@ -67,23 +53,23 @@ defmodule MobileCarWashWeb.BookingLive do
         canonical_path: "/book",
         services: services,
         available_add_ons: add_ons,
-        selected_add_ons: base_assigns.selected_add_ons,
+        selected_add_ons: restored_assigns[:selected_add_ons] || [],
         booking_session_id: booking_session_id,
-        # Cookie banner detection — used by :review step's mobile sticky CTA to
-        # avoid being hidden behind the cookie banner on first-visit mobile users.
+        # Cookie banner detection — used by the review section's mobile sticky CTA
+        # to avoid being hidden behind the cookie banner on first-visit mobile users.
         current_consent: Analytics.consent_for_session(Map.get(session, "session_id")),
-        # State machine
-        current_step: validated_step,
         # Accumulated booking data (override on_mount's nil customer with cached guest)
         current_customer: customer,
-        selected_service: base_assigns.selected_service,
-        selected_vehicle: base_assigns.selected_vehicle,
-        selected_address: base_assigns.selected_address,
-        selected_slot: base_assigns.selected_slot,
-        selected_block: base_assigns.selected_block,
+        selected_service: restored_assigns[:selected_service],
+        selected_vehicle: restored_assigns[:selected_vehicle],
+        selected_address: restored_assigns[:selected_address],
+        selected_slot: restored_assigns[:selected_slot],
+        selected_block: restored_assigns[:selected_block],
         appointment: nil,
-        guest_mode: base_assigns.guest_mode,
+        guest_mode: restored_assigns[:guest_mode] || false,
         guest_error: nil,
+        # Guest contact form (shown at Review & Pay for non-signed-in users)
+        guest_form: %{"name" => "", "email" => "", "phone" => ""},
         # UI state
         selected_date: Date.utc_today() |> Date.add(1) |> Date.to_string(),
         available_blocks: [],
@@ -107,14 +93,6 @@ defmodule MobileCarWashWeb.BookingLive do
           "body_class" => ""
         },
         address_form: nil,
-        # Photos
-        uploaded_photos: [],
-        # Photo uploader state — caption + selected tag persist between
-        # auto-uploads so the customer can pick a tag once, then snap
-        # multiple photos under it.
-        photo_caption: nil,
-        selected_car_part: nil,
-        show_all_parts: false,
         # Subscription
         active_subscription: load_active_subscription(customer),
         # Loyalty punch card
@@ -128,32 +106,16 @@ defmodule MobileCarWashWeb.BookingLive do
         receipt_expanded: false,
         price_breakdown: nil,
         # Timing
-        step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
       )
-      # Two upload configs so mobile users can tap a "Take Photo" button
-      # that opens their camera directly (capture="environment") AND a
-      # separate "Upload" button that opens their photo library. The web
-      # drag-and-drop target uses :problem_photo_library.
-      |> allow_upload(:problem_photo_camera,
-        accept: ~w(.jpg .jpeg .png .webp),
-        max_entries: 5,
-        max_file_size: 10_000_000,
-        auto_upload: true,
-        progress: &handle_photo_progress/3
-      )
-      |> allow_upload(:problem_photo_library,
-        accept: ~w(.jpg .jpeg .png .webp),
-        max_entries: 5,
-        max_file_size: 10_000_000,
-        auto_upload: true,
-        progress: &handle_photo_progress/3
-      )
-      # Compute the price hero from any restored service/vehicle so a session
-      # resumed at a later step (e.g. :review) never renders with a nil
-      # breakdown (which would crash the review template's total access).
+      # Compute the price hero from any restored service/vehicle so a resumed
+      # session never renders with a nil breakdown (which would crash the
+      # review summary's total access).
       |> assign_price_breakdown()
-      |> load_step_data(validated_step)
+      # Eager-load every section's data — the whole page renders at once.
+      |> load_step_data(:vehicle)
+      |> load_step_data(:address)
+      |> load_step_data(:schedule)
 
     if connected?(socket), do: MobileCarWash.CatalogBroadcaster.subscribe()
 
@@ -183,78 +145,23 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, assign(socket, available_add_ons: add_ons)}
   end
 
-  # AI tags arrived for a photo we uploaded. Update that photo's entry in
-  # uploaded_photos so the preview card can render the ✨ badge, and
-  # optionally auto-apply the tag/caption so the customer doesn't have
-  # to fill the same fields by hand.
-  def handle_info({:ai_tags, photo}, socket) do
-    updated_photos =
-      Enum.map(socket.assigns.uploaded_photos, fn p ->
-        if p.id == photo.id do
-          %{p | ai_tags: photo.ai_tags, ai_processed_at: photo.ai_processed_at}
-        else
-          p
-        end
-      end)
-
-    {:noreply,
-     socket
-     |> assign(uploaded_photos: updated_photos)
-     |> maybe_auto_apply_ai_tags(photo)}
-  end
-
-  # Auto-apply guards — only fill fields the customer hasn't already touched.
-  defp maybe_auto_apply_ai_tags(socket, %{ai_tags: %{"is_vehicle_photo" => true} = tags}) do
-    socket
-    |> maybe_assign_car_part(tags["body_part"])
-    |> maybe_assign_caption(tags["description"])
-  end
-
-  defp maybe_auto_apply_ai_tags(socket, _), do: socket
-
-  defp maybe_assign_car_part(socket, part_str) when is_binary(part_str) do
-    if is_nil(socket.assigns.selected_car_part) do
-      try do
-        assign(socket, selected_car_part: String.to_existing_atom(part_str))
-      rescue
-        ArgumentError -> socket
-      end
-    else
-      socket
-    end
-  end
-
-  defp maybe_assign_car_part(socket, _), do: socket
-
-  defp maybe_assign_caption(socket, text) when is_binary(text) and text != "" do
-    current = socket.assigns.photo_caption
-
-    if is_nil(current) or current == "" do
-      assign(socket, photo_caption: text)
-    else
-      socket
-    end
-  end
-
-  defp maybe_assign_caption(socket, _), do: socket
-
-  # --- Handle Params: only process service param if on step 1 ---
+  # --- Handle Params: pre-select a service from the URL (?service=slug) ---
 
   @impl true
   def handle_params(params, _uri, socket) do
     socket =
-      case {params, socket.assigns.current_step} do
-        {%{"service" => slug}, :select_service} ->
+      case params do
+        %{"service" => slug} when is_nil(socket.assigns.selected_service) ->
           case Enum.find(socket.assigns.services, &(&1.slug == slug)) do
             nil -> socket
-            service -> assign(socket, selected_service: service)
+            service -> socket |> assign(selected_service: service) |> assign_price_breakdown()
           end
 
         _ ->
           socket
       end
 
-    if connected?(socket) and socket.assigns.current_step == :select_service do
+    if connected?(socket) do
       track_event(socket, "booking.started", %{
         "service" => params["service"],
         "is_authenticated" => socket.assigns.current_customer != nil
@@ -270,47 +177,50 @@ defmodule MobileCarWashWeb.BookingLive do
   def render(assigns) do
     ~H"""
     <div class="max-w-4xl mx-auto py-8 px-4">
-      <.step_indicator current_step={@current_step} />
-
       <MobileCarWashWeb.PriceHeader.price_header
         breakdown={@price_breakdown}
         expanded={@receipt_expanded}
       />
 
-      <div :if={@current_step == :select_service}>
-        <div class="text-center mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">
-            Pick your service
-          </h1>
-          <p class="text-sm text-base-content/60 mt-1">
-            Two tiers. No hidden fees.
-          </p>
-        </div>
+      <%!-- Top sign-in prompt (optional; returning customers) --%>
+      <div
+        :if={is_nil(@current_customer)}
+        class="my-4 flex items-center justify-between gap-3 rounded-box bg-base-200 px-4 py-3"
+      >
+        <span class="text-sm text-base-content/80">Have an account?</span>
+        <.link href={~p"/book/sign-in"} class="btn btn-ghost btn-sm">Sign in</.link>
+      </div>
+      <div
+        :if={@current_customer}
+        class="my-4 rounded-box bg-success/10 border border-success/30 px-4 py-2 text-sm text-success"
+      >
+        Signed in as {@current_customer.name}
+      </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <.booking_section
+        id="section-service"
+        index={1}
+        title="Service"
+        status={BookingSections.status(:service, build_context(assigns))}
+      >
+        <p class="text-sm text-base-content/60 mb-4">Two tiers. No hidden fees.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <.service_card
             :for={service <- @services}
             service={service}
             selected={@selected_service && @selected_service.id == service.id}
           />
         </div>
+      </.booking_section>
 
-        <div class="flex justify-end">
-          <button
-            class="btn btn-primary"
-            phx-click="next_step"
-            disabled={is_nil(@selected_service)}
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-
-      <div :if={@current_step == :add_ons}>
-        <div class="mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">Make it shine</h1>
-          <p class="text-sm text-base-content/70 mt-1">Optional add-ons — tap to include.</p>
-        </div>
+      <.booking_section
+        id="section-add_ons"
+        index={2}
+        title="Add-ons"
+        status={BookingSections.status(:add_ons, build_context(assigns))}
+      >
+        <p class="text-sm text-base-content/70 mb-4">Optional add-ons — tap to include.</p>
 
         <div class="space-y-2">
           <button
@@ -338,96 +248,15 @@ defmodule MobileCarWashWeb.BookingLive do
             </span>
           </button>
         </div>
+      </.booking_section>
 
-        <div class="flex justify-end mt-6">
-          <button class="btn btn-primary" phx-click="next_step">Continue</button>
-        </div>
-      </div>
-
-      <div :if={@current_step == :auth}>
-        <div class="mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">
-            How would you like to continue?
-          </h1>
-        </div>
-
-        <%!-- Already signed in --%>
-        <div :if={@current_customer}>
-          <div class="bg-success/10 border border-success/30 rounded-box p-4 mb-6">
-            <div class="text-sm font-semibold text-success">
-              Welcome back, {@current_customer.name}!
-            </div>
-          </div>
-          <div class="flex justify-end">
-            <button class="btn btn-primary" phx-click="next_step">Continue</button>
-          </div>
-        </div>
-
-        <%!-- Guest path (primary) + sign-in path (secondary) --%>
-        <div :if={!@current_customer} class="space-y-6">
-          <div class="bg-base-100 border border-base-300 rounded-box p-5">
-            <h2 class="text-lg font-semibold text-base-content mb-1">Continue as guest</h2>
-            <p class="text-sm text-base-content/70 mb-4">
-              No account needed. Just your contact info and we'll get you booked.
-            </p>
-
-            <div
-              :if={@guest_error}
-              class="bg-error/10 border border-error/30 rounded-lg p-3 mb-4 text-sm text-error"
-            >
-              <p>{@guest_error}</p>
-              <.link href={~p"/book/sign-in"} class="link link-error font-semibold mt-1 inline-block">
-                Sign in instead →
-              </.link>
-            </div>
-
-            <form phx-submit="guest_checkout" class="space-y-3">
-              <.input
-                name="guest[name]"
-                type="text"
-                label="Name"
-                placeholder="Your full name"
-                required
-              />
-              <.input
-                name="guest[email]"
-                type="email"
-                label="Email"
-                placeholder="your@email.com"
-                required
-              />
-              <.input name="guest[phone]" type="tel" label="Phone" placeholder="512-555-0100" />
-              <button type="submit" class="btn btn-primary w-full mt-2">
-                Continue as guest
-              </button>
-            </form>
-          </div>
-
-          <%!-- Returning customers sign in (and keep their booking in
-               progress — state is restored on the way back). --%>
-          <div class="bg-base-200 rounded-box p-4">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <div class="text-sm font-semibold text-base-content">Have an account?</div>
-                <div class="text-xs text-base-content/60 mt-0.5">
-                  Sign in to use saved vehicles and addresses.
-                </div>
-              </div>
-              <.link href={~p"/book/sign-in"} class="btn btn-ghost btn-sm">
-                Sign in
-              </.link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div :if={@current_step == :vehicle}>
-        <div class="mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">Your vehicle</h1>
-          <p class="text-sm text-base-content/60 mt-1">
-            Pick a saved vehicle, or add a new one.
-          </p>
-        </div>
+      <.booking_section
+        id="section-vehicle"
+        index={3}
+        title="Your vehicle"
+        status={BookingSections.status(:vehicle, build_context(assigns))}
+      >
+        <p class="text-sm text-base-content/60 mb-4">Pick a saved vehicle, or add a new one.</p>
 
         <%!-- Saved vehicles list --%>
         <div :if={@existing_vehicles != []} class="space-y-3 mb-6">
@@ -452,7 +281,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <%!-- VIN autofill shortcut --%>
         <form
-          :if={@existing_vehicles == [] or @show_new_vehicle_form}
+          :if={(@existing_vehicles == [] and is_nil(@selected_vehicle)) or @show_new_vehicle_form}
           phx-submit="decode_vin"
           class="bg-base-200 border border-base-300 rounded-box p-4 space-y-2 mb-4"
         >
@@ -476,7 +305,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <%!-- Manual dropdown form --%>
         <form
-          :if={@existing_vehicles == [] or @show_new_vehicle_form}
+          :if={(@existing_vehicles == [] and is_nil(@selected_vehicle)) or @show_new_vehicle_form}
           phx-change="vehicle_form_change"
           phx-submit="save_vehicle"
           class="bg-base-100 border border-base-300 rounded-box p-5 space-y-4 mb-6"
@@ -590,18 +419,26 @@ defmodule MobileCarWashWeb.BookingLive do
           <button type="submit" class="btn btn-primary w-full">Save vehicle</button>
         </form>
 
-        <div :if={@selected_vehicle} class="flex justify-end">
-          <button class="btn btn-primary" phx-click="next_step">Continue</button>
+        <div
+          :if={@selected_vehicle && @existing_vehicles == [] && !@show_new_vehicle_form}
+          class="flex items-center justify-between rounded-box border border-base-300 bg-base-100 p-4"
+        >
+          <div class="text-sm font-semibold">
+            {@selected_vehicle.year} {@selected_vehicle.make} {@selected_vehicle.model}
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" phx-click="show_new_vehicle">
+            Change
+          </button>
         </div>
-      </div>
+      </.booking_section>
 
-      <div :if={@current_step == :address}>
-        <div class="mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">Service location</h1>
-          <p class="text-sm text-base-content/60 mt-1">
-            Pick a saved address, or add a new one.
-          </p>
-        </div>
+      <.booking_section
+        id="section-address"
+        index={4}
+        title="Service location"
+        status={BookingSections.status(:address, build_context(assigns))}
+      >
+        <p class="text-sm text-base-content/60 mb-4">Pick a saved address, or add a new one.</p>
 
         <%!-- Saved addresses list --%>
         <div :if={@existing_addresses != []} class="space-y-3 mb-6">
@@ -626,7 +463,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <%!-- Add-new form --%>
         <form
-          :if={@existing_addresses == [] or @show_new_address_form}
+          :if={(@existing_addresses == [] and is_nil(@selected_address)) or @show_new_address_form}
           phx-submit="save_address"
           class="bg-base-100 border border-base-300 rounded-box p-5 space-y-3 mb-6"
         >
@@ -648,6 +485,18 @@ defmodule MobileCarWashWeb.BookingLive do
           <button type="submit" class="btn btn-primary w-full">Save address</button>
         </form>
 
+        <div
+          :if={@selected_address && @existing_addresses == [] && !@show_new_address_form}
+          class="flex items-center justify-between rounded-box border border-base-300 bg-base-100 p-4"
+        >
+          <div class="text-sm font-semibold">
+            {@selected_address.street}, {@selected_address.city} {@selected_address.state} {@selected_address.zip}
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" phx-click="show_new_address">
+            Change
+          </button>
+        </div>
+
         <%!-- Zone indicator (preserved) --%>
         <div
           :if={@selected_address && @selected_address.zone}
@@ -663,77 +512,31 @@ defmodule MobileCarWashWeb.BookingLive do
         >
           This address may be outside our current service area. We'll confirm availability.
         </div>
+      </.booking_section>
 
-        <div :if={@selected_address} class="flex justify-end">
-          <button class="btn btn-primary" phx-click="next_step">Continue</button>
-        </div>
-      </div>
-
-      <div :if={@current_step == :photos}>
-        <div class="mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">
-            Show us what to focus on
-          </h1>
-          <p class="text-sm text-base-content/60 mt-1">
-            Snap photos of any spots that need extra attention. Optional — tap Skip if you don't have any.
-          </p>
-        </div>
-
-        <form phx-change="validate_photos" id="photo-upload-form">
-          <MobileCarWashWeb.PhotoUploader.uploader
-            camera_upload={@uploads.problem_photo_camera}
-            library_upload={@uploads.problem_photo_library}
-            uploaded_photos={@uploaded_photos}
-            selected_car_part={@selected_car_part}
-            show_all_parts={@show_all_parts}
-            caption={@photo_caption}
-          />
-        </form>
-
-        <div class="flex flex-col-reverse sm:flex-row gap-2 sm:gap-4 sm:justify-end mt-6">
-          <button class="btn btn-ghost" phx-click="next_step">
-            Skip — no photos
-          </button>
-          <button :if={@uploaded_photos != []} class="btn btn-primary" phx-click="next_step">
-            Continue
-          </button>
-        </div>
-      </div>
-
-      <div :if={@current_step == :schedule}>
-        <div class="mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">
-            Pick a time
-          </h1>
-          <p class="text-sm text-base-content/60 mt-1">
-            We'll confirm your exact arrival time by midnight the day before.
-          </p>
-        </div>
+      <.booking_section
+        id="section-schedule"
+        index={5}
+        title="Pick a time"
+        status={BookingSections.status(:schedule, build_context(assigns))}
+      >
+        <p class="text-sm text-base-content/60 mb-4">
+          We'll confirm your exact arrival time by midnight the day before.
+        </p>
 
         <.block_window_picker
           date={@selected_date}
           blocks={@available_blocks}
           selected_block={@selected_block}
         />
+      </.booking_section>
 
-        <div class="flex justify-end mt-6">
-          <button
-            class="btn btn-primary"
-            phx-click="next_step"
-            disabled={is_nil(@selected_block)}
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-
-      <div :if={@current_step == :review}>
-        <div class="mb-6">
-          <h1 class="text-2xl font-bold text-base-content tracking-tight">
-            Review your booking
-          </h1>
-        </div>
-
+      <.booking_section
+        id="section-review"
+        index={6}
+        title="Review & Pay"
+        status={BookingSections.status(:review, build_context(assigns))}
+      >
         <%!-- Subscription banner --%>
         <div
           :if={@active_subscription}
@@ -821,8 +624,9 @@ defmodule MobileCarWashWeb.BookingLive do
           </div>
         </div>
 
-        <%!-- Booking summary --%>
+        <%!-- Booking summary — only once every required selection is present --%>
         <.booking_summary
+          :if={@selected_service && @selected_vehicle && @selected_address && @selected_slot}
           appointment={
             %{
               scheduled_at: @selected_slot,
@@ -835,48 +639,40 @@ defmodule MobileCarWashWeb.BookingLive do
           address={@selected_address}
         />
 
-        <%!-- Desktop button row --%>
-        <div class="hidden sm:flex gap-3 justify-end mt-6">
-          <button class="btn btn-outline" phx-click="prev_step">Back</button>
-          <button class="btn btn-primary" phx-click="confirm_booking">
-            {if @redeem_loyalty, do: "Confirm — free wash!", else: "Confirm booking"}
-          </button>
+        <%!-- Guest contact info — collected here, the customer is created at Pay --%>
+        <div :if={is_nil(@current_customer)} class="mt-4 space-y-3 border-t border-base-300 pt-4">
+          <h3 class="text-sm font-semibold text-base-content">Your contact info</h3>
+          <p :if={@guest_error} class="text-sm text-error">{@guest_error}</p>
+          <form phx-change="guest_form_change" id="guest-contact" class="space-y-3">
+            <.input name="guest[name]" type="text" label="Name" value={@guest_form["name"]} required />
+            <.input
+              name="guest[email]"
+              type="email"
+              label="Email"
+              value={@guest_form["email"]}
+              required
+            />
+            <.input name="guest[phone]" type="tel" label="Phone" value={@guest_form["phone"]} />
+          </form>
         </div>
 
-        <%!-- Mobile sticky CTA. When the cookie banner is showing (current_consent is nil),
-             push the bar above it with bottom-24 (96px) so both are reachable. --%>
-        <div class={["sm:hidden", if(@current_consent, do: "h-20", else: "h-44")]}></div>
-        <div class={[
-          "sm:hidden fixed inset-x-0 bg-base-100 border-t border-base-300 px-4 py-3 z-40",
-          if(@current_consent, do: "bottom-0", else: "bottom-24")
-        ]}>
-          <div class="flex items-center gap-3">
-            <button class="btn btn-ghost btn-sm" phx-click="prev_step">Back</button>
-            <button class="btn btn-primary flex-1" phx-click="confirm_booking">
-              {if @redeem_loyalty,
-                do: "Confirm — free!",
-                else: "Confirm · #{Pricing.format_cents(@price_breakdown.total_cents)}"}
-            </button>
-          </div>
-        </div>
-      </div>
+        <button
+          class="btn btn-primary w-full mt-4"
+          phx-click="confirm_booking"
+          disabled={not BookingSections.payable?(build_context(assigns))}
+        >
+          {cond do
+            @current_customer && @price_breakdown ->
+              "Pay #{Pricing.format_cents(@price_breakdown.total_cents)}"
 
-      <div :if={@current_step == :confirmed && @appointment}>
-        <.confirmation_card appointment={@appointment} service={@selected_service} />
+            @current_customer ->
+              "Pay"
 
-        <div class="flex justify-center mt-6">
-          <.link navigate={~p"/book/success?id=#{@appointment.id}"} class="btn btn-primary">
-            Track your appointment →
-          </.link>
-        </div>
-      </div>
-      
-    <!-- Back button (except on first and last steps; :review has its own Back in desktop row + sticky CTA) -->
-      <div :if={@current_step not in [:select_service, :review, :confirmed]} class="mt-4">
-        <button class="btn btn-ghost btn-sm" phx-click="prev_step">
-          ← Back
+            true ->
+              "Continue to payment"
+          end}
         </button>
-      </div>
+      </.booking_section>
     </div>
     """
   end
@@ -885,12 +681,15 @@ defmodule MobileCarWashWeb.BookingLive do
 
   @impl true
   def handle_event("select_service", %{"slug" => slug}, socket) do
+    prev_ctx = build_context(socket.assigns)
     service = Enum.find(socket.assigns.services, &(&1.slug == slug))
 
     socket =
       socket
       |> assign(selected_service: service)
       |> assign_price_breakdown()
+      |> persist_booking_state()
+      |> maybe_scroll(prev_ctx)
 
     {:noreply, socket}
   end
@@ -918,104 +717,9 @@ defmodule MobileCarWashWeb.BookingLive do
     end
   end
 
-  def handle_event("next_step", _params, socket) do
-    context = build_context(socket.assigns)
-    current = socket.assigns.current_step
-
-    case StateMachine.transition(:forward, current, context) do
-      {:ok, next_step} ->
-        socket =
-          socket
-          |> track_step_completion()
-          |> assign(current_step: next_step, step_started_at: System.monotonic_time(:millisecond))
-          |> load_step_data(next_step)
-          |> persist_booking_state()
-
-        {:noreply, socket}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Cannot continue: #{reason}")}
-    end
-  end
-
-  def handle_event("prev_step", _params, socket) do
-    context = build_context(socket.assigns)
-
-    case StateMachine.transition(:back, socket.assigns.current_step, context) do
-      {:ok, prev_step} ->
-        socket =
-          socket
-          |> assign(current_step: prev_step, step_started_at: System.monotonic_time(:millisecond))
-          |> persist_booking_state()
-
-        {:noreply, socket}
-
-      {:error, _} ->
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("guest_checkout", %{"guest" => guest_params}, socket) do
-    alias MobileCarWash.Accounts.Customer
-
-    require Ash.Query
-
-    existing =
-      Customer
-      |> Ash.Query.filter(email == ^guest_params["email"])
-      |> Ash.read!(authorize?: false)
-
-    result =
-      case existing do
-        [%{role: :guest} = customer] ->
-          # Only allow re-use of existing guest accounts (no password set)
-          {:ok, customer}
-
-        [_registered_customer] ->
-          # Email belongs to a registered account — don't silently adopt it
-          {:error, "An account with this email already exists. Please sign in instead."}
-
-        [] ->
-          case Customer
-               |> Ash.Changeset.for_create(:create_guest, %{
-                 email: guest_params["email"],
-                 name: guest_params["name"],
-                 phone: guest_params["phone"]
-               })
-               |> Ash.create() do
-            {:ok, customer} ->
-              {:ok, customer}
-
-            {:error, _} ->
-              {:error, "Could not create guest account. Please check your email and try again."}
-          end
-      end
-
-    case result do
-      {:ok, customer} ->
-        socket = assign(socket, current_customer: customer, guest_mode: true, guest_error: nil)
-        context = build_context(socket.assigns)
-
-        case StateMachine.transition(:forward, :auth, context) do
-          {:ok, next_step} ->
-            socket =
-              socket
-              |> assign(
-                current_step: next_step,
-                step_started_at: System.monotonic_time(:millisecond)
-              )
-              |> load_step_data(next_step)
-              |> persist_booking_state()
-
-            {:noreply, socket}
-
-          {:error, _} ->
-            {:noreply, socket}
-        end
-
-      {:error, message} ->
-        {:noreply, assign(socket, guest_error: message)}
-    end
+  def handle_event("guest_form_change", %{"guest" => params}, socket) do
+    form = Map.merge(socket.assigns.guest_form, Map.take(params, ~w(name email phone)))
+    {:noreply, assign(socket, guest_form: form)}
   end
 
   def handle_event("show_new_vehicle", _params, socket) do
@@ -1130,7 +834,37 @@ defmodule MobileCarWashWeb.BookingLive do
     end
   end
 
+  def handle_event(
+        "save_vehicle",
+        %{"vehicle" => vehicle_params},
+        %{assigns: %{current_customer: nil}} = socket
+      ) do
+    prev_ctx = build_context(socket.assigns)
+
+    attrs =
+      vehicle_params
+      |> Map.take(~w(make model year color size vin body_class))
+      |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+      |> Map.update(:year, nil, fn v ->
+        if is_binary(v) and v != "", do: String.to_integer(v), else: nil
+      end)
+      |> Map.update(:vin, nil, fn v -> if v in ["", nil], do: nil, else: v end)
+      |> Map.update(:body_class, nil, fn v -> if v in ["", nil], do: nil, else: v end)
+      |> Map.update(:size, :car, &size_to_atom/1)
+
+    # Unsaved selection (id: nil) — persisted at Pay once the guest customer exists.
+    vehicle = struct(Vehicle, attrs)
+
+    {:noreply,
+     socket
+     |> assign(selected_vehicle: vehicle, show_new_vehicle_form: false)
+     |> assign_price_breakdown()
+     |> persist_booking_state()
+     |> maybe_scroll(prev_ctx)}
+  end
+
   def handle_event("save_vehicle", %{"vehicle" => vehicle_params}, socket) do
+    prev_ctx = build_context(socket.assigns)
     customer = socket.assigns.current_customer
 
     allowed_vehicle_keys = ~w(make model year color size vin body_class)
@@ -1163,7 +897,8 @@ defmodule MobileCarWashWeb.BookingLive do
            existing_vehicles: socket.assigns.existing_vehicles ++ [vehicle]
          )
          |> assign_price_breakdown()
-         |> persist_booking_state()}
+         |> persist_booking_state()
+         |> maybe_scroll(prev_ctx)}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not save vehicle. Please check your input.")}
@@ -1171,6 +906,7 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("select_vehicle", %{"id" => id}, socket) do
+    prev_ctx = build_context(socket.assigns)
     vehicle = Enum.find(socket.assigns.existing_vehicles, &(&1.id == id))
     track_event(socket, "booking.vehicle_added", %{"vehicle_id" => id, "is_new" => false})
 
@@ -1178,10 +914,34 @@ defmodule MobileCarWashWeb.BookingLive do
      socket
      |> assign(selected_vehicle: vehicle)
      |> assign_price_breakdown()
-     |> persist_booking_state()}
+     |> persist_booking_state()
+     |> maybe_scroll(prev_ctx)}
+  end
+
+  def handle_event(
+        "save_address",
+        %{"address" => address_params},
+        %{assigns: %{current_customer: nil}} = socket
+      ) do
+    prev_ctx = build_context(socket.assigns)
+
+    attrs =
+      address_params
+      |> Map.take(~w(street city state zip))
+      |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+
+    address =
+      struct(Address, Map.put(attrs, :zone, MobileCarWash.Zones.zone_for_zip(attrs[:zip])))
+
+    {:noreply,
+     socket
+     |> assign(selected_address: address, show_new_address_form: false)
+     |> persist_booking_state()
+     |> maybe_scroll(prev_ctx)}
   end
 
   def handle_event("save_address", %{"address" => address_params}, socket) do
+    prev_ctx = build_context(socket.assigns)
     customer = socket.assigns.current_customer
 
     allowed_address_keys = ~w(street city state zip)
@@ -1208,7 +968,8 @@ defmodule MobileCarWashWeb.BookingLive do
            show_new_address_form: false,
            existing_addresses: socket.assigns.existing_addresses ++ [address]
          )
-         |> persist_booking_state()}
+         |> persist_booking_state()
+         |> maybe_scroll(prev_ctx)}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not save address. Please check your input.")}
@@ -1216,54 +977,15 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("select_address", %{"id" => id}, socket) do
+    prev_ctx = build_context(socket.assigns)
     address = Enum.find(socket.assigns.existing_addresses, &(&1.id == id))
     track_event(socket, "booking.address_added", %{"address_id" => id, "is_new" => false})
-    {:noreply, socket |> assign(selected_address: address) |> persist_booking_state()}
-  end
 
-  # Caption + tag change tracking — the photos-step form uses phx-change to
-  # keep these assigns in sync so handle_photo_progress can apply them to
-  # each photo as it finishes uploading.
-  def handle_event("validate_photos", params, socket) do
-    {:noreply,
-     assign(socket,
-       photo_caption: params["caption"] || socket.assigns.photo_caption
-     )}
-  end
-
-  def handle_event("cancel_photo_upload", %{"ref" => ref, "source" => source}, socket) do
-    upload_name = upload_name_for(source)
-    {:noreply, cancel_upload(socket, upload_name, ref)}
-  end
-
-  def handle_event("cancel_photo_upload", %{"ref" => ref}, socket) do
-    # Fallback — cancel from either config.
     {:noreply,
      socket
-     |> cancel_upload(:problem_photo_camera, ref)
-     |> cancel_upload(:problem_photo_library, ref)}
-  end
-
-  def handle_event("select_car_part", %{"part" => part_str}, socket) do
-    atom = String.to_existing_atom(part_str)
-
-    selected =
-      if socket.assigns.selected_car_part == atom do
-        nil
-      else
-        atom
-      end
-
-    {:noreply, assign(socket, selected_car_part: selected)}
-  end
-
-  def handle_event("toggle_all_parts", _params, socket) do
-    {:noreply, assign(socket, show_all_parts: !socket.assigns.show_all_parts)}
-  end
-
-  def handle_event("delete_uploaded_photo", %{"url" => url}, socket) do
-    remaining = Enum.reject(socket.assigns.uploaded_photos, &(&1.file_path == url))
-    {:noreply, assign(socket, uploaded_photos: remaining)}
+     |> assign(selected_address: address)
+     |> persist_booking_state()
+     |> maybe_scroll(prev_ctx)}
   end
 
   def handle_event("select_date", %{"date" => date_str}, socket) do
@@ -1286,6 +1008,8 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("select_block", %{"id" => block_id}, socket) do
+    prev_ctx = build_context(socket.assigns)
+
     case Enum.find(socket.assigns.available_blocks, &(&1.id == block_id)) do
       nil ->
         {:noreply, socket}
@@ -1300,7 +1024,9 @@ defmodule MobileCarWashWeb.BookingLive do
         {:noreply,
          socket
          |> assign(selected_block: block, selected_slot: block.starts_at)
-         |> persist_booking_state()}
+         |> assign_price_breakdown()
+         |> persist_booking_state()
+         |> maybe_scroll(prev_ctx)}
     end
   end
 
@@ -1373,6 +1099,19 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("confirm_booking", _params, socket) do
+    if BookingSections.payable?(build_context(socket.assigns)) do
+      with {:ok, socket} <- ensure_customer(socket),
+           {:ok, socket} <- persist_pending_records(socket) do
+        do_confirm_booking(socket)
+      else
+        {:error, message} -> {:noreply, assign(socket, guest_error: message)}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Please complete all sections before paying.")}
+    end
+  end
+
+  defp do_confirm_booking(socket) do
     %{
       current_customer: customer,
       selected_service: service,
@@ -1427,8 +1166,8 @@ defmodule MobileCarWashWeb.BookingLive do
 
         {:noreply,
          socket
-         |> assign(appointment: appointment, current_step: :confirmed)
-         |> put_flash(:info, "Booking confirmed!")}
+         |> put_flash(:info, "Booking confirmed!")
+         |> push_navigate(to: ~p"/book/success?id=#{appointment.id}")}
 
       {:error, reason} ->
         {:noreply,
@@ -1453,57 +1192,109 @@ defmodule MobileCarWashWeb.BookingLive do
 
   # === PRIVATE HELPERS ===
 
-  defp upload_name_for("camera"), do: :problem_photo_camera
-  defp upload_name_for("library"), do: :problem_photo_library
-  defp upload_name_for(_), do: :problem_photo_library
+  # Returns {:ok, socket_with_customer} | {:error, message}. Signed-in users
+  # pass through untouched; guests are looked up / created from guest_form at
+  # the moment of payment.
+  defp ensure_customer(%{assigns: %{current_customer: %{} = _c}} = socket), do: {:ok, socket}
 
-  # Auto-upload progress callback. Called by the LiveView upload machinery
-  # whenever an entry's upload state advances. Handles both the camera
-  # config and the library config — the storage path is the same either
-  # way, only the capture hint on the <input> differs.
-  defp handle_photo_progress(name, entry, socket)
-       when name in [:problem_photo_camera, :problem_photo_library] do
-    if entry.done? do
-      caption = socket.assigns.photo_caption
-      car_part = socket.assigns.selected_car_part
+  defp ensure_customer(socket) do
+    alias MobileCarWash.Accounts.Customer
 
-      photo =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
-          opts =
-            [uploaded_by: :customer, caption: caption]
-            |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
+    guest = socket.assigns.guest_form
 
-          {:ok, persisted} =
-            MobileCarWash.Operations.PhotoUpload.save_file(
-              "pending_#{socket.assigns.booking_session_id}",
-              path,
-              entry.client_name,
-              :problem_area,
-              opts
-            )
+    existing =
+      Customer
+      |> Ash.Query.filter(email == ^guest["email"])
+      |> Ash.read!(authorize?: false)
 
-          {:ok,
-           %{
-             id: persisted.id,
-             file_path: MobileCarWash.Operations.PhotoUpload.url_for(persisted),
-             caption: caption,
-             original_filename: entry.client_name,
-             car_part: car_part,
-             ai_tags: persisted.ai_tags,
-             ai_processed_at: persisted.ai_processed_at
-           }}
-        end)
+    result =
+      case existing do
+        [%{role: :guest} = customer] ->
+          # Only allow re-use of existing guest accounts (no password set)
+          {:ok, customer}
 
-      # Subscribe to the photo's AI channel so we receive the tags the
-      # moment the background analyzer finishes. No-op when not connected
-      # (e.g. initial HTTP render).
-      if connected?(socket) do
-        MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
+        [_registered_customer] ->
+          # Email belongs to a registered account — don't silently adopt it
+          {:error, "An account with this email already exists. Please sign in instead."}
+
+        [] ->
+          case Customer
+               |> Ash.Changeset.for_create(:create_guest, %{
+                 email: guest["email"],
+                 name: guest["name"],
+                 phone: guest["phone"]
+               })
+               |> Ash.create() do
+            {:ok, customer} ->
+              {:ok, customer}
+
+            {:error, _} ->
+              {:error, "Could not create guest account. Please check your email and try again."}
+          end
       end
 
-      {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
-    else
-      {:noreply, socket}
+    case result do
+      {:ok, customer} ->
+        {:ok, assign(socket, current_customer: customer, guest_mode: true, guest_error: nil)}
+
+      {:error, message} ->
+        {:error, message}
+    end
+  end
+
+  defp persist_pending_records(socket) do
+    with {:ok, socket} <- persist_pending_vehicle(socket) do
+      persist_pending_address(socket)
+    end
+  end
+
+  defp persist_pending_vehicle(
+         %{assigns: %{selected_vehicle: %{id: nil} = v, current_customer: c}} = socket
+       ) do
+    attrs = Map.take(v, [:make, :model, :year, :color, :size, :vin, :body_class])
+
+    case Vehicle
+         |> Ash.Changeset.for_create(:create, attrs)
+         |> Ash.Changeset.force_change_attribute(:customer_id, c.id)
+         |> Ash.create() do
+      {:ok, saved} -> {:ok, assign(socket, selected_vehicle: saved)}
+      {:error, _} -> {:error, "Could not save your vehicle. Please check the details."}
+    end
+  end
+
+  defp persist_pending_vehicle(socket), do: {:ok, socket}
+
+  defp persist_pending_address(
+         %{assigns: %{selected_address: %{id: nil} = a, current_customer: c}} = socket
+       ) do
+    attrs = Map.take(a, [:street, :city, :state, :zip])
+
+    case Address
+         |> Ash.Changeset.for_create(:create, attrs)
+         |> Ash.Changeset.force_change_attribute(:customer_id, c.id)
+         |> Ash.create() do
+      {:ok, saved} -> {:ok, assign(socket, selected_address: saved)}
+      {:error, _} -> {:error, "Could not save your address. Please check the details."}
+    end
+  end
+
+  defp persist_pending_address(socket), do: {:ok, socket}
+
+  # Progressive-reveal nicety: if the latest selection flipped a section from
+  # :locked to :active, smooth-scroll the browser to it. Best-effort — the page
+  # works without JS.
+  defp maybe_scroll(socket, prev_ctx) do
+    new_ctx = build_context(socket.assigns)
+
+    newly_active =
+      Enum.find(BookingSections.sections(), fn section ->
+        BookingSections.status(section, prev_ctx) == :locked and
+          BookingSections.status(section, new_ctx) == :active
+      end)
+
+    case newly_active do
+      nil -> socket
+      section -> push_event(socket, "scroll_to", %{id: "section-#{section}"})
     end
   end
 
@@ -1512,6 +1303,7 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_service: assigns[:selected_service],
       current_customer: assigns[:current_customer],
       guest_mode: assigns[:guest_mode] || false,
+      guest_form: assigns[:guest_form],
       selected_vehicle: assigns[:selected_vehicle],
       selected_address: assigns[:selected_address],
       selected_slot: assigns[:selected_slot],
@@ -1522,7 +1314,6 @@ defmodule MobileCarWashWeb.BookingLive do
 
   defp persist_booking_state(socket) do
     SessionCache.put(socket.assigns.booking_session_id, %{
-      step: socket.assigns.current_step,
       guest_mode: socket.assigns.guest_mode,
       customer_id: socket.assigns.current_customer && socket.assigns.current_customer.id,
       service_id: socket.assigns.selected_service && socket.assigns.selected_service.id,
@@ -1572,7 +1363,7 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_add_ons: add_ons
     }
 
-    {cached[:step] || :select_service, assigns}
+    assigns
   end
 
   defp safe_get(resource, id) do
@@ -1623,30 +1414,18 @@ defmodule MobileCarWashWeb.BookingLive do
     date = socket.assigns.selected_date
     service = socket.assigns.selected_service
 
-    case Date.from_iso8601(date) do
-      {:ok, parsed_date} ->
-        blocks =
-          BlockAvailability.open_blocks_for_service_range(service.id, parsed_date, parsed_date)
+    with %{} <- service,
+         {:ok, parsed_date} <- Date.from_iso8601(date) do
+      blocks =
+        BlockAvailability.open_blocks_for_service_range(service.id, parsed_date, parsed_date)
 
-        assign(socket, available_blocks: blocks)
-
-      _ ->
-        socket
+      assign(socket, available_blocks: blocks)
+    else
+      _ -> socket
     end
   end
 
   defp load_step_data(socket, _step), do: socket
-
-  defp track_step_completion(socket) do
-    elapsed = System.monotonic_time(:millisecond) - socket.assigns.step_started_at
-
-    track_event(socket, "booking.step_completed", %{
-      "step" => to_string(socket.assigns.current_step),
-      "time_on_step_ms" => elapsed
-    })
-
-    socket
-  end
 
   defp load_loyalty_card(nil), do: nil
 
@@ -1722,6 +1501,10 @@ defmodule MobileCarWashWeb.BookingLive do
     current = Date.utc_today().year + 1
     Enum.to_list(current..1990//-1)
   end
+
+  defp size_to_atom(s) when s in ["car", "suv_van", "pickup"], do: String.to_existing_atom(s)
+  defp size_to_atom(s) when is_atom(s), do: s
+  defp size_to_atom(_), do: :car
 
   defp size_badge("suv_van"), do: %{icon: "🚙", label: "SUV / Van", modifier: "+20%"}
   defp size_badge("pickup"), do: %{icon: "🚛", label: "Pickup", modifier: "+50%"}

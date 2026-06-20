@@ -34,6 +34,14 @@ defmodule MobileCarWashWeb.BookingPriceHeaderTest do
     assert html =~ "$50.00"
   end
 
+  test "the sticky price hero clears the navbar (sits below it, not hidden under)", %{conn: conn} do
+    {:ok, _view, html} = live(conn, "/book")
+    # The navbar is sticky top-0 z-50 (~4rem). The hero must stick BELOW it
+    # (top-16), not at top-0 where it would be hidden behind the navbar.
+    assert html =~ ~r/sticky top-16[^"]*z-30/
+    refute html =~ "sticky top-0 z-30"
+  end
+
   test "tapping the hero toggles the itemized receipt", %{conn: conn} do
     {:ok, view, _} = live(conn, "/book")
     render_click(view, "select_service", %{"slug" => "basic_wash"})
