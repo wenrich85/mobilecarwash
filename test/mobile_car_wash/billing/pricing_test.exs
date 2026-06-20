@@ -47,4 +47,50 @@ defmodule MobileCarWash.Billing.PricingTest do
       assert Enum.map(opts, & &1.value) == [:car, :suv_van, :pickup]
     end
   end
+
+  describe "breakdown/1" do
+    test "service only (no vehicle yet) has no size delta" do
+      b = Pricing.breakdown(%{base_price_cents: 5000})
+      assert b.base_cents == 5000
+      assert b.size_label == nil
+      assert b.size_delta_cents == 0
+      assert b.addons_total_cents == 0
+      assert b.discount_cents == 0
+      assert b.total_cents == 5000
+    end
+
+    test "suv adds a 20% size delta on top of base" do
+      b = Pricing.breakdown(%{base_price_cents: 5000, vehicle_size: :suv_van})
+      assert b.size_label == "SUV / Van"
+      assert b.size_delta_cents == 1000
+      assert b.total_cents == 6000
+    end
+
+    test "add-on lines stack flat and total" do
+      b =
+        Pricing.breakdown(%{
+          base_price_cents: 5000,
+          vehicle_size: :suv_van,
+          addon_lines: [
+            %{label: "Wax & shine", amount_cents: 1500},
+            %{label: "Pet hair removal", amount_cents: 1000}
+          ]
+        })
+
+      assert b.addons_total_cents == 2500
+      assert b.subtotal_cents == 8500
+      assert b.total_cents == 8500
+    end
+
+    test "discount subtracts and floors at zero" do
+      b = Pricing.breakdown(%{base_price_cents: 5000, discount_cents: 9000})
+      assert b.total_cents == 0
+    end
+
+    test "format_cents renders dollars" do
+      assert Pricing.format_cents(6000) == "$60.00"
+      assert Pricing.format_cents(7550) == "$75.50"
+      assert Pricing.format_cents(0) == "$0.00"
+    end
+  end
 end

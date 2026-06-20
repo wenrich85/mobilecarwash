@@ -41,4 +41,39 @@ defmodule MobileCarWash.Billing.Pricing do
       %{value: :pickup, label: "Pickup Truck", multiplier: 1.5, extra: "+50%"}
     ]
   end
+
+  @doc """
+  Pure price breakdown for the live hero header and the persisted total.
+
+  Input keys: `:base_price_cents` (required), `:vehicle_size` (atom | nil),
+  `:addon_lines` (list of `%{label, amount_cents}`), `:discount_cents`.
+  """
+  def breakdown(input) when is_map(input) do
+    base = Map.fetch!(input, :base_price_cents)
+    size = Map.get(input, :vehicle_size)
+    addon_lines = Map.get(input, :addon_lines, [])
+    discount = Map.get(input, :discount_cents, 0)
+
+    sized = if size, do: calculate(base, size), else: base
+    size_delta = sized - base
+    addons_total = Enum.sum(Enum.map(addon_lines, & &1.amount_cents))
+    subtotal = sized + addons_total
+    total = max(subtotal - discount, 0)
+
+    %{
+      base_cents: base,
+      size_label: size && size_label(size),
+      size_delta_cents: size_delta,
+      addon_lines: addon_lines,
+      addons_total_cents: addons_total,
+      discount_cents: discount,
+      subtotal_cents: subtotal,
+      total_cents: total
+    }
+  end
+
+  @doc "Formats integer cents as a dollar string, e.g. 6050 -> \"$60.50\"."
+  def format_cents(cents) when is_integer(cents) do
+    "$#{:erlang.float_to_binary(cents / 100, decimals: 2)}"
+  end
 end
