@@ -7,7 +7,7 @@ defmodule MobileCarWashWeb.BookingLive do
   alias MobileCarWash.Scheduling.{ServiceType, BlockAvailability, Booking}
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Booking.{StateMachine, SessionCache}
-  alias MobileCarWash.Billing.{Subscription, SubscriptionUsage}
+  alias MobileCarWash.Billing.{Subscription, SubscriptionUsage, Pricing}
   alias MobileCarWash.Analytics
 
   require Ash.Query
@@ -101,6 +101,9 @@ defmodule MobileCarWashWeb.BookingLive do
         referral_code: nil,
         referral_discount: 0,
         referral_error: nil,
+        # Price hero
+        receipt_expanded: false,
+        price_breakdown: nil,
         # Timing
         step_started_at: System.monotonic_time(:millisecond),
         flow_started_at: System.monotonic_time(:millisecond)
@@ -231,6 +234,11 @@ defmodule MobileCarWashWeb.BookingLive do
     ~H"""
     <div class="max-w-4xl mx-auto py-8 px-4">
       <.step_indicator current_step={@current_step} />
+
+      <MobileCarWashWeb.PriceHeader.price_header
+        breakdown={@price_breakdown}
+        expanded={@receipt_expanded}
+      />
 
       <div :if={@current_step == :select_service}>
         <div class="text-center mb-6">
@@ -641,17 +649,12 @@ defmodule MobileCarWashWeb.BookingLive do
         </div>
 
         <%!-- Booking summary --%>
-        <% base_price =
-          MobileCarWash.Billing.Pricing.calculate(
-            @selected_service.base_price_cents,
-            @selected_vehicle.size
-          ) %>
         <.booking_summary
           appointment={
             %{
               scheduled_at: @selected_slot,
-              price_cents: base_price - @referral_discount,
-              discount_cents: if(@redeem_loyalty, do: base_price, else: @referral_discount)
+              price_cents: @price_breakdown.total_cents,
+              discount_cents: @price_breakdown.discount_cents
             }
           }
           service={@selected_service}
@@ -679,7 +682,7 @@ defmodule MobileCarWashWeb.BookingLive do
             <button class="btn btn-primary flex-1" phx-click="confirm_booking">
               {if @redeem_loyalty,
                 do: "Confirm — free!",
-                else: "Confirm · $#{div(base_price - @referral_discount, 100)}"}
+                else: "Confirm · #{Pricing.format_cents(@price_breakdown.total_cents)}"}
             </button>
           </div>
         </div>
@@ -710,7 +713,13 @@ defmodule MobileCarWashWeb.BookingLive do
   @impl true
   def handle_event("select_service", %{"slug" => slug}, socket) do
     service = Enum.find(socket.assigns.services, &(&1.slug == slug))
-    {:noreply, assign(socket, selected_service: service)}
+
+    socket =
+      socket
+      |> assign(selected_service: service)
+      |> assign_price_breakdown()
+
+    {:noreply, socket}
   end
 
   def handle_event("next_step", _params, socket) do
@@ -851,6 +860,7 @@ defmodule MobileCarWashWeb.BookingLive do
            show_new_vehicle_form: false,
            existing_vehicles: socket.assigns.existing_vehicles ++ [vehicle]
          )
+         |> assign_price_breakdown()
          |> persist_booking_state()}
 
       {:error, _changeset} ->
@@ -861,7 +871,7 @@ defmodule MobileCarWashWeb.BookingLive do
   def handle_event("select_vehicle", %{"id" => id}, socket) do
     vehicle = Enum.find(socket.assigns.existing_vehicles, &(&1.id == id))
     track_event(socket, "booking.vehicle_added", %{"vehicle_id" => id, "is_new" => false})
-    {:noreply, socket |> assign(selected_vehicle: vehicle) |> persist_booking_state()}
+    {:noreply, socket |> assign(selected_vehicle: vehicle) |> assign_price_breakdown() |> persist_booking_state()}
   end
 
   def handle_event("save_address", %{"address" => address_params}, socket) do
@@ -988,7 +998,12 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("toggle_loyalty", _params, socket) do
-    {:noreply, assign(socket, redeem_loyalty: !socket.assigns.redeem_loyalty)}
+    socket =
+      socket
+      |> assign(redeem_loyalty: !socket.assigns.redeem_loyalty)
+      |> assign_price_breakdown()
+
+    {:noreply, socket}
   end
 
   def handle_event("apply_referral", %{"code" => code}, socket) do
@@ -1001,11 +1016,13 @@ defmodule MobileCarWashWeb.BookingLive do
            ) do
         {:ok, _referrer} ->
           {:noreply,
-           assign(socket,
+           socket
+           |> assign(
              referral_code: String.trim(String.upcase(code)),
              referral_discount: 1000,
              referral_error: nil
-           )}
+           )
+           |> assign_price_breakdown()}
 
         {:error, :self_referral} ->
           {:noreply,
@@ -1029,7 +1046,16 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("clear_referral", _params, socket) do
-    {:noreply, assign(socket, referral_code: nil, referral_discount: 0, referral_error: nil)}
+    socket =
+      socket
+      |> assign(referral_code: nil, referral_discount: 0, referral_error: nil)
+      |> assign_price_breakdown()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_receipt", _params, socket) do
+    {:noreply, assign(socket, receipt_expanded: !socket.assigns.receipt_expanded)}
   end
 
   def handle_event("confirm_booking", _params, socket) do
@@ -1318,5 +1344,29 @@ defmodule MobileCarWashWeb.BookingLive do
       [] ->
         nil
     end
+  end
+
+  defp assign_price_breakdown(socket) do
+    assign(socket, price_breakdown: compute_price_breakdown(socket.assigns))
+  end
+
+  defp compute_price_breakdown(%{selected_service: nil}), do: nil
+
+  defp compute_price_breakdown(assigns) do
+    base = assigns.selected_service.base_price_cents
+    size = assigns.selected_vehicle && assigns.selected_vehicle.size
+
+    discount =
+      cond do
+        assigns[:redeem_loyalty] -> Pricing.calculate(base, size || :car)
+        true -> assigns[:referral_discount] || 0
+      end
+
+    Pricing.breakdown(%{
+      base_price_cents: base,
+      vehicle_size: size,
+      addon_lines: [],
+      discount_cents: discount
+    })
   end
 end
