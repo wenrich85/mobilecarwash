@@ -1026,22 +1026,29 @@ defmodule MobileCarWashWeb.BookingLive do
 
         {:error, :self_referral} ->
           {:noreply,
-           assign(socket,
+           socket
+           |> assign(
              referral_code: nil,
              referral_discount: 0,
              referral_error: "You can't use your own referral code"
-           )}
+           )
+           |> assign_price_breakdown()}
 
         {:error, :not_found} ->
           {:noreply,
-           assign(socket,
+           socket
+           |> assign(
              referral_code: nil,
              referral_discount: 0,
              referral_error: "Invalid referral code"
-           )}
+           )
+           |> assign_price_breakdown()}
       end
     else
-      {:noreply, assign(socket, referral_error: "Sign in to use a referral code")}
+      {:noreply,
+       socket
+       |> assign(referral_error: "Sign in to use a referral code")
+       |> assign_price_breakdown()}
     end
   end
 
@@ -1356,9 +1363,11 @@ defmodule MobileCarWashWeb.BookingLive do
     base = assigns.selected_service.base_price_cents
     size = assigns.selected_vehicle && assigns.selected_vehicle.size
 
+    sized = if size, do: Pricing.calculate(base, size), else: base
+
     discount =
       cond do
-        assigns[:redeem_loyalty] -> Pricing.calculate(base, size || :car)
+        assigns[:redeem_loyalty] -> sized
         true -> assigns[:referral_discount] || 0
       end
 
