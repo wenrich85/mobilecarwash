@@ -9,6 +9,7 @@ defmodule MobileCarWashWeb.BookingLive do
   alias MobileCarWash.Booking.{StateMachine, SessionCache}
   alias MobileCarWash.Billing.{Subscription, SubscriptionUsage, Pricing}
   alias MobileCarWash.Analytics
+  alias MobileCarWash.Vehicles.NhtsaClient
 
   require Ash.Query
 
@@ -90,8 +91,20 @@ defmodule MobileCarWashWeb.BookingLive do
         existing_addresses: [],
         show_new_vehicle_form: false,
         show_new_address_form: false,
+        # NHTSA dropdown data
+        vehicle_makes: NhtsaClient.popular_makes(),
+        vehicle_models: [],
+        vin_error: nil,
         # Forms
-        vehicle_form: nil,
+        vehicle_form: %{
+          "make" => "",
+          "year" => "",
+          "model" => "",
+          "color" => "",
+          "size" => "car",
+          "vin" => "",
+          "body_class" => ""
+        },
         address_form: nil,
         # Photos
         uploaded_photos: [],
@@ -436,44 +449,147 @@ defmodule MobileCarWashWeb.BookingLive do
           + Add new vehicle
         </button>
 
-        <%!-- Add-new form: auto-shown when no records, OR when toggle is on --%>
+        <%!-- VIN autofill shortcut --%>
         <form
           :if={@existing_vehicles == [] or @show_new_vehicle_form}
+          phx-submit="decode_vin"
+          class="bg-base-200 border border-base-300 rounded-box p-4 space-y-2 mb-4"
+        >
+          <label class="text-sm font-semibold text-base-content block">⚡ Autofill from VIN</label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              name="vin"
+              value={@vehicle_form["vin"]}
+              placeholder="1HGCM82633A004352"
+              maxlength="17"
+              class="input input-bordered flex-1 uppercase"
+              autocomplete="off"
+            />
+            <button type="submit" class="btn btn-secondary">Autofill</button>
+          </div>
+          <p :if={@vin_error} class="text-xs text-error">{@vin_error}</p>
+        </form>
+
+        <%!-- Manual dropdown form --%>
+        <form
+          :if={@existing_vehicles == [] or @show_new_vehicle_form}
+          phx-change="vehicle_form_change"
           phx-submit="save_vehicle"
-          class="bg-base-100 border border-base-300 rounded-box p-5 space-y-3 mb-6"
+          class="bg-base-100 border border-base-300 rounded-box p-5 space-y-4 mb-6"
         >
           <div :if={@existing_vehicles == []} class="text-sm font-semibold text-base-content">
             Add your vehicle
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <.input name="vehicle[make]" type="text" label="Make" placeholder="Toyota" required />
-            <.input name="vehicle[model]" type="text" label="Model" placeholder="Camry" required />
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="form-control w-full">
+              <span class="label-text font-semibold mb-1">Make</span>
+              <select name="vehicle[make]" class="select select-bordered w-full" required>
+                <option value="" disabled selected={@vehicle_form["make"] == ""}>Select make</option>
+                <option :for={mk <- @vehicle_makes} value={mk} selected={@vehicle_form["make"] == mk}>
+                  {mk}
+                </option>
+              </select>
+            </label>
+
+            <label class="form-control w-full">
+              <span class="label-text font-semibold mb-1">Year</span>
+              <select name="vehicle[year]" class="select select-bordered w-full" required>
+                <option value="" disabled selected={@vehicle_form["year"] == ""}>Select year</option>
+                <option
+                  :for={yr <- vehicle_years()}
+                  value={yr}
+                  selected={to_string(@vehicle_form["year"]) == to_string(yr)}
+                >
+                  {yr}
+                </option>
+              </select>
+            </label>
+
+            <label class="form-control w-full">
+              <span class="label-text font-semibold mb-1">Model</span>
+              <select
+                name="vehicle[model]"
+                class="select select-bordered w-full"
+                required
+                disabled={@vehicle_models == []}
+              >
+                <option value="" disabled selected={@vehicle_form["model"] == ""}>
+                  {if @vehicle_models == [], do: "Pick make & year first", else: "Select model"}
+                </option>
+                <option
+                  :for={md <- @vehicle_models}
+                  value={md}
+                  selected={@vehicle_form["model"] == md}
+                >
+                  {md}
+                </option>
+              </select>
+            </label>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <.input name="vehicle[year]" type="number" label="Year" placeholder="2024" />
-            <.input name="vehicle[color]" type="text" label="Color" placeholder="Silver" />
+
+          <div>
+            <label class="text-sm font-semibold text-base-content mb-2 block">Color</label>
+            <div class="flex flex-wrap gap-3">
+              <label :for={{name, hex} <- vehicle_colors()} class="cursor-pointer" title={name}>
+                <input
+                  type="radio"
+                  name="vehicle[color]"
+                  value={name}
+                  class="sr-only peer"
+                  checked={@vehicle_form["color"] == name}
+                />
+                <span
+                  class="block size-8 rounded-full border-2 border-base-300 peer-checked:border-cyan-500 peer-checked:ring-2 peer-checked:ring-cyan-500 transition"
+                  style={"background-color: #{hex}"}
+                >
+                </span>
+              </label>
+            </div>
           </div>
 
           <div>
             <label class="text-sm font-semibold text-base-content mb-2 block">Vehicle type</label>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
-                <input type="radio" name="vehicle[size]" value="car" class="sr-only" checked />
+                <input
+                  type="radio"
+                  name="vehicle[size]"
+                  value="car"
+                  class="sr-only"
+                  checked={@vehicle_form["size"] == "car"}
+                />
                 <div class="text-sm font-semibold">Car</div>
                 <div class="text-xs text-base-content/60">Sedan, coupe, compact</div>
               </label>
               <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
-                <input type="radio" name="vehicle[size]" value="suv_van" class="sr-only" />
+                <input
+                  type="radio"
+                  name="vehicle[size]"
+                  value="suv_van"
+                  class="sr-only"
+                  checked={@vehicle_form["size"] == "suv_van"}
+                />
                 <div class="text-sm font-semibold">SUV / Van</div>
                 <div class="text-xs text-warning">+20% price</div>
               </label>
               <label class="cursor-pointer border border-base-300 rounded-lg p-3 hover:border-cyan-500 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/15 transition-colors">
-                <input type="radio" name="vehicle[size]" value="pickup" class="sr-only" />
+                <input
+                  type="radio"
+                  name="vehicle[size]"
+                  value="pickup"
+                  class="sr-only"
+                  checked={@vehicle_form["size"] == "pickup"}
+                />
                 <div class="text-sm font-semibold">Pickup</div>
                 <div class="text-xs text-warning">+50% price</div>
               </label>
             </div>
           </div>
+
+          <input type="hidden" name="vehicle[vin]" value={@vehicle_form["vin"]} />
+          <input type="hidden" name="vehicle[body_class]" value={@vehicle_form["body_class"]} />
 
           <button type="submit" class="btn btn-primary w-full">Save vehicle</button>
         </form>
@@ -914,10 +1030,67 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, assign(socket, show_new_address_form: true)}
   end
 
+  def handle_event("vehicle_form_change", %{"vehicle" => params}, socket) do
+    prev = socket.assigns.vehicle_form
+    incoming = Map.take(params, ~w(make year model color size))
+    form = Map.merge(prev, incoming)
+
+    make_year_changed? = {form["make"], form["year"]} != {prev["make"], prev["year"]}
+
+    {form, models} =
+      if make_year_changed? and form["make"] != "" and form["year"] != "" do
+        case NhtsaClient.models_for_make_year(form["make"], form["year"]) do
+          {:ok, models} -> {Map.put(form, "model", ""), models}
+          {:error, _} -> {Map.put(form, "model", ""), []}
+        end
+      else
+        {form, socket.assigns.vehicle_models}
+      end
+
+    {:noreply, assign(socket, vehicle_form: form, vehicle_models: models)}
+  end
+
+  def handle_event("decode_vin", %{"vin" => vin}, socket) do
+    vin = vin |> String.trim() |> String.upcase()
+
+    case NhtsaClient.decode_vin(vin) do
+      {:ok, decoded} ->
+        models =
+          case NhtsaClient.models_for_make_year(decoded.make, decoded.year) do
+            {:ok, m} -> m
+            _ -> []
+          end
+
+        # Ensure the decoded model is selectable even if it isn't in the list
+        models =
+          if decoded.model && decoded.model != "" && decoded.model not in models,
+            do: [decoded.model | models],
+            else: models
+
+        form = %{
+          "make" => decoded.make,
+          "year" => to_string(decoded.year),
+          "model" => decoded.model || "",
+          "color" => socket.assigns.vehicle_form["color"],
+          "size" => to_string(decoded.size),
+          "vin" => vin,
+          "body_class" => decoded.body_class || ""
+        }
+
+        {:noreply, assign(socket, vehicle_form: form, vehicle_models: models, vin_error: nil)}
+
+      {:error, _reason} ->
+        {:noreply,
+         assign(socket,
+           vin_error: "Couldn't read that VIN — enter your vehicle below."
+         )}
+    end
+  end
+
   def handle_event("save_vehicle", %{"vehicle" => vehicle_params}, socket) do
     customer = socket.assigns.current_customer
 
-    allowed_vehicle_keys = ~w(make model year color size)
+    allowed_vehicle_keys = ~w(make model year color size vin body_class)
 
     attrs =
       vehicle_params
@@ -926,6 +1099,8 @@ defmodule MobileCarWashWeb.BookingLive do
       |> Map.update(:year, nil, fn v ->
         if is_binary(v) and v != "", do: String.to_integer(v), else: nil
       end)
+      |> Map.update(:vin, nil, fn v -> if v in ["", nil], do: nil, else: v end)
+      |> Map.update(:body_class, nil, fn v -> if v in ["", nil], do: nil, else: v end)
 
     case Vehicle
          |> Ash.Changeset.for_create(:create, attrs)
@@ -1483,5 +1658,23 @@ defmodule MobileCarWashWeb.BookingLive do
       addon_lines: Pricing.addon_lines(assigns[:selected_add_ons] || []),
       discount_cents: discount
     })
+  end
+
+  defp vehicle_years do
+    current = Date.utc_today().year + 1
+    Enum.to_list(current..1990//-1)
+  end
+
+  defp vehicle_colors do
+    [
+      {"Black", "#1a1a1a"},
+      {"White", "#f5f5f5"},
+      {"Silver", "#c0c0c0"},
+      {"Gray", "#808080"},
+      {"Red", "#c0392b"},
+      {"Blue", "#2563eb"},
+      {"Green", "#16a34a"},
+      {"Tan", "#d2b48c"}
+    ]
   end
 end
