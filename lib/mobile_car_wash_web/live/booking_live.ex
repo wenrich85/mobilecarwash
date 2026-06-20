@@ -22,6 +22,12 @@ defmodule MobileCarWashWeb.BookingLive do
       |> Ash.read!()
       |> Enum.sort_by(& &1.base_price_cents)
 
+    add_ons =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Query.filter(active == true)
+      |> Ash.read!()
+      |> Enum.sort_by(& &1.sort_order)
+
     booking_session_id = derive_session_id(session)
 
     # Restore from cache if reconnecting
@@ -42,6 +48,7 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_address: restored_assigns[:selected_address],
       selected_slot: restored_assigns[:selected_slot],
       selected_block: restored_assigns[:selected_block],
+      selected_add_ons: restored_assigns[:selected_add_ons] || [],
       appointment: nil
     }
 
@@ -58,6 +65,8 @@ defmodule MobileCarWashWeb.BookingLive do
           "book mobile car wash, schedule car detail, online car wash booking, same day car wash, mobile detailing appointment",
         canonical_path: "/book",
         services: services,
+        available_add_ons: add_ons,
+        selected_add_ons: base_assigns.selected_add_ons,
         booking_session_id: booking_session_id,
         # Cookie banner detection — used by :review step's mobile sticky CTA to
         # avoid being hidden behind the cookie banner on first-visit mobile users.
@@ -149,6 +158,16 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_info(:plans_updated, socket), do: {:noreply, socket}
+
+  def handle_info(:add_ons_updated, socket) do
+    add_ons =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Query.filter(active == true)
+      |> Ash.read!()
+      |> Enum.sort_by(& &1.sort_order)
+
+    {:noreply, assign(socket, available_add_ons: add_ons)}
+  end
 
   # AI tags arrived for a photo we uploaded. Update that photo's entry in
   # uploaded_photos so the preview card can render the ✨ badge, and
@@ -270,6 +289,41 @@ defmodule MobileCarWashWeb.BookingLive do
           >
             Continue
           </button>
+        </div>
+      </div>
+
+      <div :if={@current_step == :add_ons}>
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-base-content tracking-tight">Make it shine</h1>
+          <p class="text-sm text-base-content/70 mt-1">Optional add-ons — tap to include.</p>
+        </div>
+
+        <div class="space-y-2">
+          <button
+            :for={addon <- @available_add_ons}
+            type="button"
+            phx-click="toggle_add_on"
+            phx-value-id={addon.id}
+            class={[
+              "w-full flex items-center justify-between rounded-box border p-4 text-left transition",
+              Enum.any?(@selected_add_ons, &(&1.id == addon.id)) && "border-success bg-success/10",
+              !Enum.any?(@selected_add_ons, &(&1.id == addon.id)) && "border-base-300"
+            ]}
+          >
+            <span class="flex items-center gap-3">
+              <.icon name="hero-sparkles" class="size-5 text-base-content/60" />
+              <span>
+                <span class="block font-semibold text-base-content">{addon.name}</span>
+                <span :if={addon.description} class="block text-xs text-base-content/60">{addon.description}</span>
+              </span>
+            </span>
+            <span class="font-semibold text-base-content">+{Pricing.format_cents(addon.price_cents)}</span>
+          </button>
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button class="btn btn-ghost" phx-click="prev_step">Back</button>
+          <button class="btn btn-primary" phx-click="next_step">Continue</button>
         </div>
       </div>
 
@@ -726,6 +780,25 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, socket}
   end
 
+  def handle_event("toggle_add_on", %{"id" => id}, socket) do
+    add_on = Enum.find(socket.assigns.available_add_ons, &(&1.id == id))
+
+    selected =
+      if Enum.any?(socket.assigns.selected_add_ons, &(&1.id == id)) do
+        Enum.reject(socket.assigns.selected_add_ons, &(&1.id == id))
+      else
+        socket.assigns.selected_add_ons ++ [add_on]
+      end
+
+    socket =
+      socket
+      |> assign(selected_add_ons: selected)
+      |> assign_price_breakdown()
+      |> persist_booking_state()
+
+    {:noreply, socket}
+  end
+
   def handle_event("next_step", _params, socket) do
     context = build_context(socket.assigns)
     current = socket.assigns.current_step
@@ -1092,7 +1165,8 @@ defmodule MobileCarWashWeb.BookingLive do
       subscription_id:
         socket.assigns.active_subscription && socket.assigns.active_subscription.id,
       loyalty_redeem: socket.assigns.redeem_loyalty,
-      referral_code: socket.assigns.referral_code
+      referral_code: socket.assigns.referral_code,
+      add_on_ids: Enum.map(socket.assigns.selected_add_ons || [], & &1.id)
     }
 
     case Booking.create_booking(booking_params) do
@@ -1201,6 +1275,7 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_vehicle: assigns[:selected_vehicle],
       selected_address: assigns[:selected_address],
       selected_slot: assigns[:selected_slot],
+      selected_add_ons: assigns[:selected_add_ons],
       appointment: assigns[:appointment]
     }
   end
@@ -1213,7 +1288,8 @@ defmodule MobileCarWashWeb.BookingLive do
       service_id: socket.assigns.selected_service && socket.assigns.selected_service.id,
       vehicle_id: socket.assigns.selected_vehicle && socket.assigns.selected_vehicle.id,
       address_id: socket.assigns.selected_address && socket.assigns.selected_address.id,
-      block_id: socket.assigns.selected_block && socket.assigns.selected_block.id
+      block_id: socket.assigns.selected_block && socket.assigns.selected_block.id,
+      addon_ids: Enum.map(socket.assigns.selected_add_ons || [], & &1.id)
     })
 
     socket
@@ -1240,6 +1316,11 @@ defmodule MobileCarWashWeb.BookingLive do
 
     block = cached[:block_id] && safe_get_block(cached[:block_id])
 
+    add_ons =
+      (cached[:addon_ids] || [])
+      |> Enum.map(&safe_get(MobileCarWash.Scheduling.AddOn, &1))
+      |> Enum.reject(&is_nil/1)
+
     assigns = %{
       selected_service: service,
       current_customer: customer,
@@ -1247,7 +1328,8 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_address: address,
       selected_block: block,
       selected_slot: block && block.starts_at,
-      guest_mode: cached[:guest_mode] || false
+      guest_mode: cached[:guest_mode] || false,
+      selected_add_ons: add_ons
     }
 
     {cached[:step] || :select_service, assigns}
@@ -1391,7 +1473,7 @@ defmodule MobileCarWashWeb.BookingLive do
     Pricing.breakdown(%{
       base_price_cents: base,
       vehicle_size: size,
-      addon_lines: [],
+      addon_lines: Pricing.addon_lines(assigns[:selected_add_ons] || []),
       discount_cents: discount
     })
   end

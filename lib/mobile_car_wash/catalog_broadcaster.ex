@@ -19,4 +19,8 @@ defmodule MobileCarWash.CatalogBroadcaster do
   def broadcast_plans_updated do
     PubSub.broadcast(@pubsub, @topic, :plans_updated)
   end
+
+  def broadcast_add_ons_updated do
+    PubSub.broadcast(@pubsub, @topic, :add_ons_updated)
+  end
 end
