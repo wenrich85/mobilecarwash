@@ -30,4 +30,17 @@ defmodule MobileCarWashWeb.PriceHeaderTest do
     assert html =~ "SUV / Van"
     assert html =~ "$75.00"
   end
+
+  test "does not render a zero-delta size line (e.g. Car) in the receipt" do
+    bd = MobileCarWash.Billing.Pricing.breakdown(%{base_price_cents: 5000, vehicle_size: :car})
+    html = render_price_header(%{breakdown: bd, expanded: true})
+    refute html =~ "Car"
+  end
+
+  test "expanded receipt shows a negative discount line" do
+    bd = MobileCarWash.Billing.Pricing.breakdown(%{base_price_cents: 5000, discount_cents: 1000})
+    html = render_price_header(%{breakdown: bd, expanded: true})
+    assert html =~ "Discount"
+    assert html =~ "−$10.00"
+  end
 end

@@ -44,7 +44,7 @@ defmodule MobileCarWashWeb.PriceHeader do
 
         <div :if={@expanded} class="mt-2 rounded-xl border border-base-300 bg-base-100 px-4 py-3 text-sm">
           <.line label="Base" amount={@breakdown.base_cents} />
-          <.line :if={@breakdown.size_label} label={@breakdown.size_label} amount={@breakdown.size_delta_cents} />
+          <.line :if={@breakdown.size_label && @breakdown.size_delta_cents != 0} label={@breakdown.size_label} amount={@breakdown.size_delta_cents} />
           <.line :for={l <- @breakdown.addon_lines} label={l.label} amount={l.amount_cents} />
           <.line :if={@breakdown.discount_cents > 0} label="Discount" amount={-@breakdown.discount_cents} />
           <div class="flex justify-between font-extrabold text-success border-t border-base-300 mt-2 pt-2">
