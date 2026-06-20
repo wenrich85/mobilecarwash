@@ -281,7 +281,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <%!-- VIN autofill shortcut --%>
         <form
-          :if={@existing_vehicles == [] or @show_new_vehicle_form}
+          :if={(@existing_vehicles == [] and is_nil(@selected_vehicle)) or @show_new_vehicle_form}
           phx-submit="decode_vin"
           class="bg-base-200 border border-base-300 rounded-box p-4 space-y-2 mb-4"
         >
@@ -305,7 +305,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <%!-- Manual dropdown form --%>
         <form
-          :if={@existing_vehicles == [] or @show_new_vehicle_form}
+          :if={(@existing_vehicles == [] and is_nil(@selected_vehicle)) or @show_new_vehicle_form}
           phx-change="vehicle_form_change"
           phx-submit="save_vehicle"
           class="bg-base-100 border border-base-300 rounded-box p-5 space-y-4 mb-6"
@@ -418,6 +418,18 @@ defmodule MobileCarWashWeb.BookingLive do
 
           <button type="submit" class="btn btn-primary w-full">Save vehicle</button>
         </form>
+
+        <div
+          :if={@selected_vehicle && @existing_vehicles == [] && !@show_new_vehicle_form}
+          class="flex items-center justify-between rounded-box border border-base-300 bg-base-100 p-4"
+        >
+          <div class="text-sm font-semibold">
+            {@selected_vehicle.year} {@selected_vehicle.make} {@selected_vehicle.model}
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" phx-click="show_new_vehicle">
+            Change
+          </button>
+        </div>
       </.booking_section>
 
       <.booking_section
@@ -451,7 +463,7 @@ defmodule MobileCarWashWeb.BookingLive do
 
         <%!-- Add-new form --%>
         <form
-          :if={@existing_addresses == [] or @show_new_address_form}
+          :if={(@existing_addresses == [] and is_nil(@selected_address)) or @show_new_address_form}
           phx-submit="save_address"
           class="bg-base-100 border border-base-300 rounded-box p-5 space-y-3 mb-6"
         >
@@ -472,6 +484,18 @@ defmodule MobileCarWashWeb.BookingLive do
           </div>
           <button type="submit" class="btn btn-primary w-full">Save address</button>
         </form>
+
+        <div
+          :if={@selected_address && @existing_addresses == [] && !@show_new_address_form}
+          class="flex items-center justify-between rounded-box border border-base-300 bg-base-100 p-4"
+        >
+          <div class="text-sm font-semibold">
+            {@selected_address.street}, {@selected_address.city} {@selected_address.state} {@selected_address.zip}
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" phx-click="show_new_address">
+            Change
+          </button>
+        </div>
 
         <%!-- Zone indicator (preserved) --%>
         <div
@@ -810,13 +834,33 @@ defmodule MobileCarWashWeb.BookingLive do
     end
   end
 
-  def handle_event("save_vehicle", _params, %{assigns: %{current_customer: nil}} = socket) do
+  def handle_event(
+        "save_vehicle",
+        %{"vehicle" => vehicle_params},
+        %{assigns: %{current_customer: nil}} = socket
+      ) do
+    prev_ctx = build_context(socket.assigns)
+
+    attrs =
+      vehicle_params
+      |> Map.take(~w(make model year color size vin body_class))
+      |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+      |> Map.update(:year, nil, fn v ->
+        if is_binary(v) and v != "", do: String.to_integer(v), else: nil
+      end)
+      |> Map.update(:vin, nil, fn v -> if v in ["", nil], do: nil, else: v end)
+      |> Map.update(:body_class, nil, fn v -> if v in ["", nil], do: nil, else: v end)
+      |> Map.update(:size, :car, &size_to_atom/1)
+
+    # Unsaved selection (id: nil) — persisted at Pay once the guest customer exists.
+    vehicle = struct(Vehicle, attrs)
+
     {:noreply,
-     put_flash(
-       socket,
-       :error,
-       "Sign in to save a vehicle, or complete your contact info at checkout."
-     )}
+     socket
+     |> assign(selected_vehicle: vehicle, show_new_vehicle_form: false)
+     |> assign_price_breakdown()
+     |> persist_booking_state()
+     |> maybe_scroll(prev_ctx)}
   end
 
   def handle_event("save_vehicle", %{"vehicle" => vehicle_params}, socket) do
@@ -874,13 +918,25 @@ defmodule MobileCarWashWeb.BookingLive do
      |> maybe_scroll(prev_ctx)}
   end
 
-  def handle_event("save_address", _params, %{assigns: %{current_customer: nil}} = socket) do
+  def handle_event(
+        "save_address",
+        %{"address" => address_params},
+        %{assigns: %{current_customer: nil}} = socket
+      ) do
+    prev_ctx = build_context(socket.assigns)
+
+    attrs =
+      address_params
+      |> Map.take(~w(street city state zip))
+      |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+
+    address = struct(Address, attrs)
+
     {:noreply,
-     put_flash(
-       socket,
-       :error,
-       "Sign in to save an address, or complete your contact info at checkout."
-     )}
+     socket
+     |> assign(selected_address: address, show_new_address_form: false)
+     |> persist_booking_state()
+     |> maybe_scroll(prev_ctx)}
   end
 
   def handle_event("save_address", %{"address" => address_params}, socket) do
@@ -1042,8 +1098,10 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("confirm_booking", _params, socket) do
-    case ensure_customer(socket) do
-      {:ok, socket} -> do_confirm_booking(socket)
+    with {:ok, socket} <- ensure_customer(socket),
+         {:ok, socket} <- persist_pending_records(socket) do
+      do_confirm_booking(socket)
+    else
       {:error, message} -> {:noreply, assign(socket, guest_error: message)}
     end
   end
@@ -1179,6 +1237,44 @@ defmodule MobileCarWashWeb.BookingLive do
     end
   end
 
+  defp persist_pending_records(socket) do
+    with {:ok, socket} <- persist_pending_vehicle(socket) do
+      persist_pending_address(socket)
+    end
+  end
+
+  defp persist_pending_vehicle(
+         %{assigns: %{selected_vehicle: %{id: nil} = v, current_customer: c}} = socket
+       ) do
+    attrs = Map.take(v, [:make, :model, :year, :color, :size, :vin, :body_class])
+
+    case Vehicle
+         |> Ash.Changeset.for_create(:create, attrs)
+         |> Ash.Changeset.force_change_attribute(:customer_id, c.id)
+         |> Ash.create() do
+      {:ok, saved} -> {:ok, assign(socket, selected_vehicle: saved)}
+      {:error, _} -> {:error, "Could not save your vehicle. Please check the details."}
+    end
+  end
+
+  defp persist_pending_vehicle(socket), do: {:ok, socket}
+
+  defp persist_pending_address(
+         %{assigns: %{selected_address: %{id: nil} = a, current_customer: c}} = socket
+       ) do
+    attrs = Map.take(a, [:street, :city, :state, :zip])
+
+    case Address
+         |> Ash.Changeset.for_create(:create, attrs)
+         |> Ash.Changeset.force_change_attribute(:customer_id, c.id)
+         |> Ash.create() do
+      {:ok, saved} -> {:ok, assign(socket, selected_address: saved)}
+      {:error, _} -> {:error, "Could not save your address. Please check the details."}
+    end
+  end
+
+  defp persist_pending_address(socket), do: {:ok, socket}
+
   # Progressive-reveal nicety: if the latest selection flipped a section from
   # :locked to :active, smooth-scroll the browser to it. Best-effort — the page
   # works without JS.
@@ -1202,6 +1298,7 @@ defmodule MobileCarWashWeb.BookingLive do
       selected_service: assigns[:selected_service],
       current_customer: assigns[:current_customer],
       guest_mode: assigns[:guest_mode] || false,
+      guest_form: assigns[:guest_form],
       selected_vehicle: assigns[:selected_vehicle],
       selected_address: assigns[:selected_address],
       selected_slot: assigns[:selected_slot],
@@ -1399,6 +1496,10 @@ defmodule MobileCarWashWeb.BookingLive do
     current = Date.utc_today().year + 1
     Enum.to_list(current..1990//-1)
   end
+
+  defp size_to_atom(s) when s in ["car", "suv_van", "pickup"], do: String.to_existing_atom(s)
+  defp size_to_atom(s) when is_atom(s), do: s
+  defp size_to_atom(_), do: :car
 
   defp size_badge("suv_van"), do: %{icon: "🚙", label: "SUV / Van", modifier: "+20%"}
   defp size_badge("pickup"), do: %{icon: "🚛", label: "Pickup", modifier: "+50%"}

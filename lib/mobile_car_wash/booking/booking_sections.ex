@@ -43,12 +43,21 @@ defmodule MobileCarWash.Booking.BookingSections do
   def status(:review, ctx),
     do: if(complete?(:schedule, ctx), do: :active, else: :locked)
 
-  @doc "True when every required section is complete and a customer is present."
+  @doc "True when every required section is complete and a customer is present (or a guest has supplied contact info)."
   @spec payable?(context()) :: boolean()
   def payable?(ctx) do
-    complete?(:service, ctx) and complete?(:vehicle, ctx) and
-      complete?(:address, ctx) and complete?(:schedule, ctx) and
-      present?(ctx, :current_customer)
+    selections_complete? =
+      complete?(:service, ctx) and complete?(:vehicle, ctx) and
+        complete?(:address, ctx) and complete?(:schedule, ctx)
+
+    guest_ready? =
+      is_nil(Map.get(ctx, :current_customer)) and
+        case Map.get(ctx, :guest_form) do
+          %{"email" => email} when is_binary(email) -> String.trim(email) != ""
+          _ -> false
+        end
+
+    selections_complete? and (present?(ctx, :current_customer) or guest_ready?)
   end
 
   # A required section is locked until `unlocked?`, complete when its value is

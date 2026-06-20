@@ -61,6 +61,12 @@ config :mobile_car_wash,
        :stripe_payment_intent_module,
        MobileCarWash.Billing.StripePaymentIntentMock
 
+# Use mock Stripe Checkout Session in tests so booking flows never hit the
+# live Stripe API. Returns a fake checkout URL the LiveView redirects to.
+config :mobile_car_wash,
+       :stripe_checkout_module,
+       MobileCarWash.Billing.StripeCheckoutSessionMock
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 
