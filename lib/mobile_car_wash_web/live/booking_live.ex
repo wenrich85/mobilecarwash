@@ -520,10 +520,10 @@ defmodule MobileCarWashWeb.BookingLive do
                 </option>
                 <option
                   :for={md <- @vehicle_models}
-                  value={md}
-                  selected={@vehicle_form["model"] == md}
+                  value={md.name}
+                  selected={@vehicle_form["model"] == md.name}
                 >
-                  {md}
+                  {md.name}
                 </option>
               </select>
             </label>
@@ -1047,6 +1047,18 @@ defmodule MobileCarWashWeb.BookingLive do
         {form, socket.assigns.vehicle_models}
       end
 
+    # Auto-fill size from the chosen model (editable: a later size click wins,
+    # since that event leaves the model unchanged and skips this branch).
+    form =
+      if not make_year_changed? and form["model"] != "" and form["model"] != prev["model"] do
+        case Enum.find(models, &(&1.name == form["model"])) do
+          %{size: size} -> Map.put(form, "size", to_string(size))
+          nil -> form
+        end
+      else
+        form
+      end
+
     {:noreply, assign(socket, vehicle_form: form, vehicle_models: models, vin_error: nil)}
   end
 
@@ -1066,9 +1078,10 @@ defmodule MobileCarWashWeb.BookingLive do
 
           # Ensure the decoded model is selectable even if it isn't in the list
           models =
-            if decoded.model && decoded.model != "" && decoded.model not in models,
-              do: [decoded.model | models],
-              else: models
+            if decoded.model && decoded.model != "" &&
+                 not Enum.any?(models, &(&1.name == decoded.model)),
+               do: [%{name: decoded.model, size: decoded.size} | models],
+               else: models
 
           form = %{
             "make" => decoded.make,

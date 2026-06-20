@@ -66,8 +66,16 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
   end
 
   test "choosing make + year loads models from NHTSA into the model dropdown", %{conn: conn} do
-    NhtsaClientMock.put_models("Toyota", 2021, ["Camry", "Corolla", "RAV4"])
-    NhtsaClientMock.put_models("Honda", 2021, ["Accord", "Civic"])
+    NhtsaClientMock.put_models("Toyota", 2021, [
+      %{name: "Camry", size: :car},
+      %{name: "Corolla", size: :car},
+      %{name: "RAV4", size: :suv_van}
+    ])
+
+    NhtsaClientMock.put_models("Honda", 2021, [
+      %{name: "Accord", size: :car},
+      %{name: "Civic", size: :car}
+    ])
 
     {:ok, view, _} = live(conn, "/book")
     to_vehicle_step(view)
@@ -79,7 +87,13 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     # same server behavior and assertions; only the harness path differs.
     html =
       render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{"make" => "Toyota", "year" => "2021", "model" => "", "color" => "Silver", "size" => "car"}
+        "vehicle" => %{
+          "make" => "Toyota",
+          "year" => "2021",
+          "model" => "",
+          "color" => "Silver",
+          "size" => "car"
+        }
       })
 
     assert html =~ "Camry"
@@ -88,7 +102,13 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     # Changing the make resets and reloads the model list
     html =
       render_change(view, "vehicle_form_change", %{
-        "vehicle" => %{"make" => "Honda", "year" => "2021", "model" => "", "color" => "Silver", "size" => "car"}
+        "vehicle" => %{
+          "make" => "Honda",
+          "year" => "2021",
+          "model" => "",
+          "color" => "Silver",
+          "size" => "car"
+        }
       })
 
     assert html =~ "Accord"
@@ -96,7 +116,10 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
   end
 
   test "VIN autofill populates the form and auto-selects size from body class", %{conn: conn} do
-    NhtsaClientMock.put_vin("1HGCM82633A004352", {:ok, %{make: "Honda", model: "Accord", year: 2003, body_class: "Sedan/Saloon", size: :car}})
+    NhtsaClientMock.put_vin(
+      "1HGCM82633A004352",
+      {:ok, %{make: "Honda", model: "Accord", year: 2003, body_class: "Sedan/Saloon", size: :car}}
+    )
 
     {:ok, view, _} = live(conn, "/book")
     to_vehicle_step(view)
@@ -121,8 +144,11 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     assert html =~ ~s(name="vehicle[make]")
   end
 
-  test "saving a vehicle from the dropdowns persists it and advances", %{conn: conn, customer: customer} do
-    NhtsaClientMock.put_models("Toyota", 2021, ["Camry"])
+  test "saving a vehicle from the dropdowns persists it and advances", %{
+    conn: conn,
+    customer: customer
+  } do
+    NhtsaClientMock.put_models("Toyota", 2021, [%{name: "Camry", size: :car}])
 
     {:ok, view, _} = live(conn, "/book")
     to_vehicle_step(view)
@@ -149,5 +175,61 @@ defmodule MobileCarWashWeb.BookingVehicleStepTest do
     assert vehicle.model == "Camry"
     assert vehicle.size == :suv_van
     assert is_nil(vehicle.vin)
+  end
+
+  test "selecting a model auto-fills the size from its NHTSA vehicle type", %{conn: conn} do
+    NhtsaClientMock.put_models("Ford", 2023, [
+      %{name: "F-150", size: :pickup},
+      %{name: "Focus", size: :car},
+      %{name: "Escape", size: :suv_van}
+    ])
+
+    {:ok, view, _} = live(conn, "/book")
+    to_vehicle_step(view)
+
+    # Load models for Ford 2023
+    render_change(view, "vehicle_form_change", %{
+      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "", "color" => "", "size" => "car"}
+    })
+
+    # Pick a pickup → size auto-selects pickup (even though the radio sent "car")
+    html =
+      render_change(view, "vehicle_form_change", %{
+        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "", "size" => "car"}
+      })
+
+    assert html =~ ~r/name="vehicle\[size\]" value="pickup"[^>]*checked/
+
+    # Pick an SUV → size auto-selects suv_van
+    html =
+      render_change(view, "vehicle_form_change", %{
+        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "Escape", "color" => "", "size" => "pickup"}
+      })
+
+    assert html =~ ~r/name="vehicle\[size\]" value="suv_van"[^>]*checked/
+  end
+
+  test "an auto-filled size remains user-editable", %{conn: conn} do
+    NhtsaClientMock.put_models("Ford", 2023, [%{name: "F-150", size: :pickup}])
+
+    {:ok, view, _} = live(conn, "/book")
+    to_vehicle_step(view)
+
+    render_change(view, "vehicle_form_change", %{
+      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "", "color" => "", "size" => "car"}
+    })
+
+    # Model picks pickup automatically...
+    render_change(view, "vehicle_form_change", %{
+      "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "", "size" => "car"}
+    })
+
+    # ...then the user overrides to car (model unchanged) — override sticks.
+    html =
+      render_change(view, "vehicle_form_change", %{
+        "vehicle" => %{"make" => "Ford", "year" => "2023", "model" => "F-150", "color" => "", "size" => "car"}
+      })
+
+    assert html =~ ~r/name="vehicle\[size\]" value="car"[^>]*checked/
   end
 end
