@@ -78,6 +78,11 @@ defmodule MobileCarWash.Scheduling.BookingTest do
     |> Ash.create!()
   end
 
+  defp grant_free_wash(customer) do
+    punches = MobileCarWash.Loyalty.punches_per_reward()
+    Enum.each(1..punches, fn _ -> MobileCarWash.Loyalty.add_punch(customer.id) end)
+  end
+
   # --- Tests ---
 
   describe "create_booking/1 — full flow" do
@@ -247,6 +252,34 @@ defmodule MobileCarWash.Scheduling.BookingTest do
         })
 
       assert appt.price_cents == 9_000
+    end
+
+    test "loyalty redemption zeroes a covered basic wash and consumes a free wash" do
+      customer = create_customer()
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_address(customer.id)
+
+      grant_free_wash(customer)
+
+      {:ok, card_before} = MobileCarWash.Loyalty.get_or_create_card(customer.id)
+      assert MobileCarWash.Loyalty.available_free_washes(card_before) == 1
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          loyalty_redeem: true
+        })
+
+      assert appt.price_cents == 0
+
+      {:ok, card_after} = MobileCarWash.Loyalty.get_or_create_card(customer.id)
+      assert MobileCarWash.Loyalty.available_free_washes(card_after) == 0
     end
   end
 end
