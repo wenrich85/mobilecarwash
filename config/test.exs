@@ -41,6 +41,10 @@ config :mobile_car_wash, :twilio_client, MobileCarWash.Notifications.TwilioClien
 # ever hit the network.
 config :mobile_car_wash, :nhtsa_client, MobileCarWash.Vehicles.NhtsaClientMock
 
+# Use the ETS-backed mock geocoder in tests so address autocomplete never
+# hits the network.
+config :mobile_car_wash, :geocoder_client, MobileCarWash.Fleet.GeocoderClientMock
+
 # Use mock APNs client in tests
 config :mobile_car_wash, :apns_client, MobileCarWash.Notifications.ApnsClientMock
 

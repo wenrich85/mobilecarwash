@@ -5,6 +5,7 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
   alias MobileCarWash.Scheduling.{ServiceType, AppointmentBlock}
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.{Vehicle, Address}
+  alias MobileCarWash.Fleet.GeocoderClientMock
   alias MobileCarWash.Operations.Technician
 
   require Ash.Query
@@ -257,7 +258,7 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert html =~ ~s(name="vehicle[make]")
   end
 
-  test "guest address summary card appears and Change button reopens the form",
+  test "guest address summary card appears after manual save_address",
        %{conn: conn} do
     {:ok, view, _html} = live(conn, "/book")
     render_click(view, "select_service", %{"slug" => "basic_wash"})
@@ -273,10 +274,215 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
       })
 
     assert html =~ "789 Pine Ave"
-    # Form should be hidden
-    refute html =~ ~s(name="address[street]")
-
-    html = render_click(view, "show_new_address", %{})
+    # Manual entry form is always present in the DOM (inside <details>)
     assert html =~ ~s(name="address[street]")
+  end
+
+  test "typing an address shows geocoder suggestions", %{conn: conn} do
+    GeocoderClientMock.init()
+
+    GeocoderClientMock.put_suggestions("123 main st san antonio", [
+      %{
+        label: "123 MAIN ST, SAN ANTONIO, TX, 78261",
+        street: "123 MAIN ST",
+        city: "SAN ANTONIO",
+        state: "TX",
+        zip: "78261",
+        lat: 29.6512,
+        lng: -98.4187
+      }
+    ])
+
+    {:ok, view, _} = live(conn, "/book")
+
+    render_hook(view, "address_search", %{"q" => "123 main st san antonio"})
+    html = render_async(view)
+
+    assert html =~ "123 MAIN ST, SAN ANTONIO, TX, 78261"
+  end
+
+  test "selecting a suggestion autofills the address, shows the zone, and mounts the map",
+       %{conn: conn} do
+    GeocoderClientMock.init()
+
+    GeocoderClientMock.put_suggestions("123 main st san antonio", [
+      %{
+        label: "123 MAIN ST, SAN ANTONIO, TX, 78261",
+        street: "123 MAIN ST",
+        city: "SAN ANTONIO",
+        state: "TX",
+        zip: "78261",
+        lat: 29.6512,
+        lng: -98.4187
+      }
+    ])
+
+    {:ok, view, _} = live(conn, "/book")
+
+    render_hook(view, "address_search", %{"q" => "123 main st san antonio"})
+    render_async(view)
+
+    html = render_click(view, "select_suggestion", %{"index" => "0"})
+
+    # Autofilled summary
+    assert html =~ "123 MAIN ST"
+    # ZIP 78261 is in the curated map → :ne → "Northeast", in service area
+    assert html =~ "In service area"
+    assert html =~ "Northeast"
+    # Confirmation map mounted with the geocoded coordinates
+    assert html =~ ~s(phx-hook="AddressMap")
+    assert html =~ ~s(data-lat="29.6512")
+  end
+
+  test "selecting a suggestion outside the service area warns but is allowed", %{conn: conn} do
+    GeocoderClientMock.init()
+
+    GeocoderClientMock.put_suggestions("1 elsewhere rd", [
+      %{
+        label: "1 ELSEWHERE RD, AUSTIN, TX, 73301",
+        street: "1 ELSEWHERE RD",
+        city: "AUSTIN",
+        state: "TX",
+        zip: "73301",
+        lat: 30.2672,
+        lng: -97.7431
+      }
+    ])
+
+    {:ok, view, _} = live(conn, "/book")
+
+    render_hook(view, "address_search", %{"q" => "1 elsewhere rd"})
+    render_async(view)
+
+    html = render_click(view, "select_suggestion", %{"index" => "0"})
+
+    # ZIP 73301 not in curated map → zone nil → outside-area warning
+    assert html =~ "Outside our service area"
+  end
+
+  test "signed-in: Ash create failure on select_suggestion shows error, keeps suggestions, does not set selected_address",
+       %{conn: conn} do
+    GeocoderClientMock.init()
+
+    # Stage a suggestion with an empty street — Ash will reject it with
+    # Required(:street) because allow_nil?(false) treats "" as absent.
+    GeocoderClientMock.put_suggestions("bad address", [
+      %{
+        label: "BAD ADDRESS, SAN ANTONIO, TX, 78261",
+        street: "",
+        city: "SAN ANTONIO",
+        state: "TX",
+        zip: "78261",
+        lat: 29.6512,
+        lng: -98.4187
+      }
+    ])
+
+    # Sign in a real customer so choose_geocoded_address takes the Ash-create path.
+    {:ok, customer} =
+      MobileCarWash.Accounts.Customer
+      |> Ash.Changeset.for_create(:register_with_password, %{
+        email: "geocoder-fail-#{System.unique_integer([:positive])}@test.com",
+        password: "Password123!",
+        password_confirmation: "Password123!",
+        name: "Geocoder Fail Test",
+        phone: "+15125550099"
+      })
+      |> Ash.create()
+
+    authed_conn =
+      conn
+      |> Phoenix.ConnTest.init_test_session(%{})
+      |> post("/auth/customer/password/sign_in", %{
+        "customer" => %{
+          "email" => to_string(customer.email),
+          "password" => "Password123!"
+        }
+      })
+      |> recycle()
+
+    {:ok, view, _html} = live(authed_conn, "/book")
+
+    # Drive the geocoder search and await the async result.
+    render_hook(view, "address_search", %{"q" => "bad address"})
+    render_async(view)
+
+    # Select the suggestion — the Ash create will fail.
+    html = render_click(view, "select_suggestion", %{"index" => "0"})
+
+    # (a) Error flash is shown.
+    assert html =~ "Could not save that address"
+
+    # (b) Suggestions list is still present (not cleared on failure).
+    assert html =~ "BAD ADDRESS, SAN ANTONIO, TX, 78261"
+
+    # (c) No selected_address was set.
+    refute html =~ ~s(phx-hook="AddressMap")
+  end
+
+  test "guest geocoded address persists the precise coordinates (not the ZIP centroid)",
+       %{conn: conn} do
+    GeocoderClientMock.init()
+
+    # 78250 centroid in Zones is {29.5050, -98.6350}; stage distinct coords
+    # so we can prove the precise geocoded point is what gets persisted.
+    GeocoderClientMock.put_suggestions("789 pine st san antonio", [
+      %{
+        label: "789 PINE ST, SAN ANTONIO, TX, 78250",
+        street: "789 PINE ST",
+        city: "SAN ANTONIO",
+        state: "TX",
+        zip: "78250",
+        lat: 29.5099,
+        lng: -98.6399
+      }
+    ])
+
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+
+    {:ok, view, _html} = live(conn, "/book")
+
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Toyota",
+        "model" => "Camry",
+        "year" => "2022",
+        "color" => "Silver",
+        "size" => "car",
+        "vin" => "",
+        "body_class" => ""
+      }
+    })
+
+    # Address via geocoder selection (not manual entry)
+    render_hook(view, "address_search", %{"q" => "789 pine st san antonio"})
+    render_async(view)
+    render_click(view, "select_suggestion", %{"index" => "0"})
+
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(view, "select_date", %{"date" => block_date})
+    render_click(view, "select_block", %{"id" => block.id})
+
+    guest_email = "guest-#{System.unique_integer([:positive])}@example.com"
+
+    render_change(view, "guest_form_change", %{
+      "guest" => %{"name" => "Geo Guest", "email" => guest_email, "phone" => "5125550133"}
+    })
+
+    assert {:error, {:redirect, %{to: _url}}} = render_click(view, "confirm_booking", %{})
+
+    addresses =
+      Address
+      |> Ash.Query.filter(street == "789 PINE ST")
+      |> Ash.read!(authorize?: false)
+
+    assert length(addresses) == 1
+    saved = hd(addresses)
+    assert saved.zip == "78250"
+    assert_in_delta saved.latitude, 29.5099, 0.0001
+    assert_in_delta saved.longitude, -98.6399, 0.0001
   end
 end
