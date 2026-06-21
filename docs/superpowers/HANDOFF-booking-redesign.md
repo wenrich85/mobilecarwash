@@ -1,130 +1,111 @@
 # Handoff — Booking Flow Redesign
 
-**Last updated:** 2026-06-20
-**Author:** previous agent session
-**Branch:** `main` (Phases 1 & 2 merged locally, **not pushed**)
+**Last updated:** 2026-06-20 (evening)
+**Branch:** `main` (everything merged locally, **NOT pushed** — `main` is ~45 commits ahead of `origin/main`)
 
 ---
 
 ## TL;DR for the next agent
 
-The customer booking wizard is being redesigned in phases from a single
-approved design spec. **Phases 1 (live price) and 2 (add-ons) are DONE and
-merged into local `main`.** Phases 3 (NHTSA vehicle) and 4 (geocoder address)
-are designed but **not yet planned or built**. Start with Phase 3.
+The customer booking flow has been progressively redesigned and is now a
+**single, progressively-revealed scrolling page**. Phases 1–3 plus the
+single-page rewrite (Sub-project 1) are **DONE and merged into local `main`
+(not pushed)**. The one remaining planned piece is **Sub-project 2 — geocoder
+address autocomplete + confirmation map** (designed, not built). Start there.
 
-- **Design spec (source of truth):** `docs/superpowers/specs/2026-06-19-booking-flow-redesign-design.md`
-- **Phase 1 plan (done):** `docs/superpowers/plans/2026-06-19-booking-redesign-phase-1-pricing.md`
-- **Phase 2 plan (done):** `docs/superpowers/plans/2026-06-20-booking-redesign-phase-2-addons.md`
-- **Phase 3 & 4:** no plan yet — write them with the `writing-plans` skill (one per phase, after the prior lands, so each references real interfaces).
-
----
-
-## ⚠️ Repo state you must know before doing anything
-
-1. **`main` is ahead of `origin/main` by 11 commits and NOT pushed.** The user
-   explicitly asked to merge locally without pushing (both phases). Do **not**
-   push unless the user asks.
-2. **Three uncommitted files in the working tree, intentionally left alone:**
-   - `config/dev.exs` — a local `PORT` env override so the app can run on
-     `:4010` alongside the user's other project on `:4000`. Keep it; do not
-     commit. Run the app with `PORT=4010 mix phx.server`.
-   - `AGENTS.md` — pre-existing local change from before this work.
-   - `docs/customer-flows.html` — a standalone success/failure flow graph
-     (deliverable from an earlier task), plus there's a friction heatmap in it.
-   When finishing a branch, **stash these three before merging and pop after**
-   (that's the established pattern this session used).
-3. **The new design specs/plans live under `docs/superpowers/`.** Older
-   `2026-04*`/`2026-05*` plans are unrelated prior work.
+- **Current design spec (source of truth):** `docs/superpowers/specs/2026-06-20-booking-single-page-redesign-design.md` (covers both sub-projects; §4.3 is Sub-project 2)
+- **Single-page plan (done):** `docs/superpowers/plans/2026-06-20-booking-single-page-redesign.md`
+- **Sub-project 2:** no plan yet — write it with `writing-plans` from spec §4.3.
+- Older specs/plans (`2026-06-19*`, the per-phase `2026-06-20-*vehicle*`/`*addons*`/`*size*`/`*type*` files) are the completed earlier phases.
 
 ---
 
-## How this work is being run (process)
+## ⚠️ Repo / environment gotchas (read before doing anything)
 
-- **brainstorming → writing-plans → subagent-driven-development → finishing-a-development-branch.** Each phase is its own spec section → plan → fresh feature branch off `main` → task-by-task subagents → final whole-branch review → merge.
-- **TDD is mandatory** (repo convention + skill). Every task: failing test → implement → green.
-- **`mix precommit`** (`compile --warnings-as-errors`, `deps.unlock --unused`, `format`, `test`) must be green before a phase is done.
-- **Known benign noise in the suite:** Ash "missed notifications" warnings and occasional `Postgrex ... disconnected` lines under async — these are pre-existing and are NOT failures. If `precommit` shows a single failure, re-run `mix test --failed`; it's almost always that flake.
-- **SDD ledger:** `.superpowers/sdd/progress.md` tracks per-task completion. It currently holds Phase 2's log. After compaction, trust the ledger + `git log` over memory. `.superpowers/` is git-ignored.
-- **Migrations:** Ash — `mix ash.codegen <name>` then `mix ecto.migrate` AND `MIX_ENV=test mix ecto.migrate`. **GOTCHA:** `ash.codegen` previously bundled a *stale photos `alter table`* into a new migration (snapshot drift). Always inspect the generated migration and strip any unrelated DDL. The photos snapshot has since been reconciled, so it should not recur — but verify every codegen output.
-
----
-
-## What's DONE
-
-### Pre-work: booking sign-in dead-end (branch `fix/booking-signin-deadend`, merged in Phase 1)
-- Returning customers could not sign in mid-booking (disabled "coming soon" stub) and guest checkout rejected known emails with no escape. Fixed: real `/book/sign-in` route stashing `return_to`, honored in `AuthController.success/4` (local-path-guarded); guest-collision now offers a sign-in CTA.
-- Also fixed a latent crash: the custom `<.input>` component had `attr :value` with no default, crashing every booking step that omitted `value`. Now `default: nil`.
-
-### Phase 1 — Live price (merge `7050502`)
-- `MobileCarWash.Billing.Pricing.breakdown/1` (pure) + `format_cents/1` (integer-cents) + `subscription_discount_cents/3`.
-- `MobileCarWashWeb.PriceHeader` hero component (big animated total + tap-to-expand itemized receipt) rendered on **every** booking step.
-- `BookingLive` recomputes the breakdown on service/vehicle/loyalty/referral/subscription changes; review step + `confirm_booking` use the breakdown.
-- **Display == charge invariant**: the hero reflects vehicle-size multiplier (car 1.0×/suv_van 1.2×/pickup 1.5×) AND subscription/loyalty/referral discounts. Server (`Booking`) and hero share `Pricing.subscription_discount_cents/3`.
-- Count-up JS hook: `assets/js/hooks/price_count_up.js` (registered in `app.js`).
-- Fixed a session-restore nil-breakdown crash (mount now computes the breakdown so a restored `:review` doesn't blow up).
-
-### Phase 2 — Add-ons (merge `ddb249f`)
-- `MobileCarWash.Scheduling.AddOn` resource (admin catalog: name, slug, description, price_cents, icon, active, sort_order). **No Stripe product** — see "Pricing model" below.
-- `MobileCarWash.Scheduling.AppointmentAddOn` join with **price snapshot** at booking time; `Appointment has_many :appointment_add_ons`.
-- `Pricing.addons_total_cents/1` + `addon_lines/1` (flat sum / line items).
-- **Server-authoritative pricing:** `Booking.create_booking/1` accepts `add_on_ids`, folds the flat add-on total into `price_cents` **after** discounts and **before** `create_appointment` (so the `price_cents == 0` subscription-covered auto-confirm branch stays correct), and persists join rows in-transaction. `load_add_ons` filters `active == true` so deactivated add-ons are never charged.
-- State machine: optional `:add_ons` step inserted **between `:select_service` and `:auth`** (`select_service → add_ons → auth → vehicle → address → photos → schedule → review → confirmed`).
-- `BookingLive`: `:add_ons` step UI (toggle cards), hero reflects selections live, selection threaded through context/persist(`addon_ids`)/restore/`confirm_booking`.
-- Admin add-ons CRUD in `lib/mobile_car_wash_web/live/admin/settings_live.ex`; seeds add a starter menu (Wax/Interior/Pet hair/Engine bay/Headlight).
-- **Bonus bug fix:** `SubscriptionUsage` create rejected the non-public `subscription_id` (`create: :*` only accepts public attrs) → **any subscriber booking crashed**. Untested until Phase 2. Fixed via `force_change_attribute`, with a regression test.
+1. **Not pushed.** `main` is ~45 commits ahead of `origin/main`, all intentionally local. Do **not** push unless the user asks.
+2. **Three permanently-uncommitted working-tree files** — `config/dev.exs` (PORT 4010 override), `AGENTS.md`, `docs/customer-flows.html`. Established pattern: **stash them before a branch merge and pop after** (`git stash push -u -m "convention files" config/dev.exs AGENTS.md docs/customer-flows.html`). Never commit them.
+3. **The project is on an EXTERNAL drive** (`/Volumes/mac_external`). It has disconnected mid-session before — if paths vanish, the drive unmounted; have the user reconnect it. Writes that don't flush before a disconnect can be lost (re-create from context).
+4. **Subagents don't run `mix format`.** After a subagent task, `mix precommit`'s format step often leaves reflow-only changes uncommitted — commit them as a `style:` commit (this has bitten the merge step twice). Always run `mix precommit` and commit any format reflows BEFORE merging.
+5. **Run the app:** `PORT=4010 mix phx.server` → http://localhost:4010 (port 4000 is the user's other project). After UI/CSS changes, the user may need a **hard refresh** (Cmd+Shift+R) — stale CSS caused several phantom "it's broken" reports.
+6. **Runaway asset watchers:** orphaned `esbuild --watch`/`tailwind --watch` processes (from this + other projects) accumulated and starved CPU, causing stale CSS. They were cleaned up; if "recent classes aren't applying," check `ps aux | grep -E "esbuild|tailwind"` for old orphans and `mix assets.build`.
+7. **Known benign test noise (NOT failures):** Ash "missed notifications" warnings; `Postgrex ... disconnected` under async. `test/mobile_car_wash/operations/photo_upload_test.exs` can fail under full-suite load (Ecto sandbox) but **passes in isolation** — re-run it alone to confirm.
 
 ---
 
-## What's NEXT (not started)
+## Process (how this work is run)
 
-Both are fully described in §4.4 / §4.5 and §6 of the design spec.
-
-### Phase 3 — Vehicle step: dropdowns-first + VIN shortcut (NHTSA)
-- Decided UX: **Make → Year → Model** dropdowns (NHTSA vPIC) as the primary path, with a **VIN decode shortcut** (📷 scan on mobile) pinned top; color swatches; **size auto-detected from NHTSA BodyClass** but editable. Saved-vehicle chips for returning customers.
-- Architecture (spec §6a): `MobileCarWash.Vehicles.NhtsaClient` — server-side `Req` (no key, no CSP change), **mockable** via `config :mobile_car_wash, :nhtsa_client` (mirror `Notifications.TwilioClient`). VIN: `DecodeVinValues/{vin}`. Models: `GetModelsForMakeYear/make/{make}/modelyear/{year}` (note: keyed by make **and** year → that's why the dropdown order is Make→Year→Model). Curated ~40 popular makes seeded; cache makes/models (ETS or small table, ~30d TTL).
-- Vehicle resource may gain optional `vin` + `body_class` (provenance); `size` stays the pricing driver. Map BodyClass → `:car | :suv_van | :pickup`.
-
-### Phase 4 — Address step: autocomplete + confirmation map (free geocoder)
-- Decided UX: single autocomplete field (debounced `phx-change`), suggestions stream from a **free server-proxied geocoder** (default **US Census** `geocoding.geo.census.gov`, Photon/OSM as fallback — swappable behind the module), on select auto-fills city/state/zip + drops a **Leaflet pin** (reuse the existing `DispatchMap` hook / CSP already allows OSM/Carto/Stadia tiles) + resolves the **service zone instantly** (reuse `MobileCarWash.Zones` zip map; `Address` already has `latitude`/`longitude` columns).
-- Architecture (spec §6b): `MobileCarWash.Fleet.GeocoderClient` — server-side `Req`, mockable via `config :mobile_car_wash, :geocoder_client`.
-
-### Later / deferred polish (from reviews — not blockers)
-- Surface selected add-ons in the **review step + technician/admin appointment views** (they're persisted via `appointment_add_ons` but not yet displayed there).
-- Render `add_on.icon` in the booking step (currently hardcoded `hero-sparkles`; the per-add-on icon field is decorative on the customer side) — or drop the field.
-- `AddOn.price_cents` / `AppointmentAddOn.price_cents` have no `min: 0` constraint (admin-only; low risk).
-- Full visual re-skin of all steps is in the approved scope ("full overhaul") — Phases 1–2 added the hero + add-ons; the broader re-skin/transitions can be its own phase.
+- **brainstorming → writing-plans → subagent-driven-development → finishing-a-development-branch.** Each piece: spec section → plan → fresh feature branch off `main` → task-by-task subagents (implement + two-stage review) → `mix precommit` → merge `--no-ff` locally → delete branch.
+- **TDD mandatory.** Every task: failing test → implement → green. `mix precommit` (`compile --warnings-as-errors`, `deps.unlock --unused`, `format`, `test`) green before merge.
+- **SDD ledger:** `.superpowers/sdd/progress.md` (git-ignored) tracks per-task completion across this whole session — trust it + `git log` after any compaction.
+- **Mockable external clients** (pattern: `Notifications.TwilioClient`): server-side `Req`, swapped via `config :mobile_car_wash, :<name>_client` in `config/test.exs`. Tests never hit the network.
 
 ---
 
-## Key architecture facts (don't re-derive these)
+## What's DONE (all merged to local `main`)
 
-- **Pricing is server-authoritative.** The LiveView never sends a trusted price — only ids (`add_on_ids`, `subscription_id`, `referral_code`, `loyalty_redeem`). `Booking.create_booking/1` computes the charge. Keep it that way for Phases 3/4.
-- **Stripe charge is a DYNAMIC amount.** `StripeClient.create_checkout_session/3` and `create_mobile_payment_intent/2` bill `appointment.price_cents` via `price_data`/`unit_amount` — NOT a fixed `stripe_price_id`. That's why add-ons need no Stripe product. Anything that changes the total just needs to land in `price_cents`.
-- **Discount stacking order (server == hero):** subscription discount (off base) → loyalty (zeroes the service remainder) OR referral (capped at the post-subscription service price) → **then** add-ons added flat on top. The single source for subscription discount is `Pricing.subscription_discount_cents/3`. If you touch pricing, preserve `display == charge` and add a test across {none, subscription, loyalty, referral} × add-ons (a Phase 1 review caught a real subscription divergence here).
-- **External calls go server-side via `Req`, mockable via app config.** Pattern: `lib/mobile_car_wash/notifications/twilio_client.ex`. This keeps CSP/`connect-src` unchanged and tests offline. Use it for NHTSA + geocoder.
-- **Booking state:** pure `MobileCarWash.Booking.StateMachine` (steps, guards, skip-auth-when-signed-in). `BookingLive` persists/restores via `MobileCarWash.Booking.SessionCache` (DB-backed, keyed on `booking_<csrf>`, 2h TTL). When you add a step, edit `@steps`, `raw_next/prev`, `can_be_on?`, `validate_forward_guard`, and any `maybe_skip`.
-- **Catalog live-reload:** `MobileCarWash.CatalogBroadcaster` (services/plans/add_ons updated → `BookingLive` `handle_info` reloads).
+### Phase 1 — Live price hero
+`Billing.Pricing.breakdown/1` + `format_cents/1` + `subscription_discount_cents/3`; `PriceHeader` hero (animated total + tap-to-expand receipt); display==charge invariant across size + subscription/loyalty/referral.
+
+### Phase 2 — Add-ons
+`Scheduling.AddOn` (admin catalog, **no Stripe product** — dynamic `unit_amount`), `AppointmentAddOn` price-snapshot join, server-authoritative folding into `price_cents`, admin CRUD, seeds.
+
+### Phase 3 — NHTSA vehicle step + enhancements
+- `Vehicles.NhtsaClient` (mockable, VIN decode + makes/models, BodyClass→size), `Vehicles.NhtsaCache` (ETS TTL, **degrades gracefully if the table is absent**), `Vehicle` gained optional `vin`/`body_class`.
+- Vehicle UI: Make→Year→Model dropdowns + typed-VIN autofill + color swatches + size.
+- **Size auto-detect:** `models_for_make_year/2` returns size-tagged `[%{name,size}]` via NHTSA `vehicleType` buckets (car→:car, truck→:pickup, mpv→:suv_van); selecting a model auto-fills size.
+- **Read-only vehicle type:** the manual size selector was removed — type is auto-detected, shown as a read-only badge, persisted via a hidden field. Async model loading (`start_async`/`handle_async` + `loading_models`).
+- Fixes: VIN/make URL path-encoding; color swatches render via inline size/shape (CSP/cache-independent).
+
+### Single-page redesign (Sub-project 1)
+- `Booking.BookingSections` (pure): per-section status `:locked|:active|:complete` + `payable?/1`.
+- `BookingLive` rewritten: one scrolling page, sticky price hero, sign-in at top, six sections (Service · Add-ons · Vehicle · Address · Schedule · Review & Pay) that unlock in order and stay freely editable. **Step wizard and photos removed from booking** (photo subsystem elsewhere untouched).
+- **Guest checkout:** vehicle/address held as **unsaved in-memory structs**, persisted at Pay right after the guest customer is created (`ensure_customer/1` → `persist_pending_records/1`). Signed-in users persist immediately. Server-side `payable?` guard on `confirm_booking` (a crafted Pay event can't crash it).
+- Stripe Checkout is now **globally mocked in tests** (`config/test.exs` `:stripe_checkout_module` → `StripeCheckoutSessionMock`), consistent with the other Stripe mocks.
+- Price hero sticks at **`top-16`** (below the sticky navbar, `layouts.ex` `sticky top-0 z-50`).
+
+---
+
+## What's NEXT — Sub-project 2: geocoder address autocomplete + map
+
+Fully designed in spec §4.3. The current address section is the **manual saved-list + form** (no autocomplete yet — this is the gap the user flagged as "address does not auto populate").
+
+- **`MobileCarWash.Fleet.GeocoderClient`** (new, mockable via `config :mobile_car_wash, :geocoder_client`, server-side `Req`; mirror `NhtsaClient`): `suggest(query) :: {:ok, [%{label, street, city, state, zip, lat, lng}]} | {:error, term()}`. Default **US Census** (`geocoding.geo.census.gov`, free, no key, US-only); **Photon/OSM fallback** behind the same module. Add `Fleet.GeocoderClientMock` (ETS-backed) + wire in `config/test.exs`.
+- **Address section rework:** debounced (`phx-change`, ~250ms) typeahead input → suggestions; on select → autofill street/city/state/zip, store `latitude`/`longitude` (columns already on `Address`), resolve zone via `MobileCarWash.Zones.zone_for_zip/1` (or `zone_for_coordinates/2`), drop a **Leaflet pin** via the existing `DispatchMap` hook (CSP already allows OSM/Carto/Stadia tiles). Keep manual entry + saved-address chips as fallback. Zone banner: `✓ In service area · <zone>` / `⚠ Outside our service area — we'll confirm or refund` (proceed allowed).
+- Suggestion lookups should be async/non-blocking (consistent with the vehicle section's `start_async` model) + debounced.
+
+### Other open / deferred items
+- **Guest unsaved selections don't survive a LiveView reconnect** (`SessionCache` restores by DB id; an in-memory `id: nil` struct restores as nil). Acceptable for now; revisit if guests report losing vehicle/address on reconnect. (Sub-project 2 could store geocoded address attrs in the cache to help.)
+- **"Price always visible" (OPEN):** the hero is sticky `top-16` (pins below the navbar when scrolling). The user asked for it to be "ALWAYS visible" and a clarifying question (sticky-is-fine vs fixed-top-bar vs fixed-bottom-bar) was interrupted — **confirm the desired treatment** before changing it again.
+- Guest address shows no zone banner until Pay today (the in-memory struct gets zone-from-zip set in `save_address`, so it does show for guests now — verify after Sub-project 2 reworks the section).
+
+---
+
+## Key architecture facts (don't re-derive)
+
+- **Pricing is server-authoritative.** LiveView sends only ids/selections; `Booking.create_booking/1` computes the charge. Stripe bills a **dynamic `unit_amount`** (no fixed price id), so anything affecting the total just needs to land in `price_cents`.
+- **Single-page state:** `Booking.BookingSections.status/2` + `payable?/1` derive section gating from the context map (`build_context/1`: `selected_service`, `selected_add_ons`, `selected_vehicle`, `selected_address`, `selected_slot`, `current_customer`, `guest_form`). No more `StateMachine.transition` / `next_step` / `current_step` in `BookingLive`.
+- **External calls** go server-side via `Req`, mockable via app config. `NhtsaClient`, (soon) `GeocoderClient`. Keeps CSP/`connect-src` unchanged.
+- **Persistence:** `Booking.SessionCache` (DB-backed, keyed `booking_<csrf>`, restores by id).
+- **Migrations:** Ash — `mix ash.codegen <name>` then `mix ecto.migrate` AND `MIX_ENV=test mix ecto.migrate`. Inspect generated migrations for stale unrelated DDL (snapshot drift has happened).
 
 ## Useful files
-- Booking LiveView: `lib/mobile_car_wash_web/live/booking_live.ex` (~1450 lines — read regions before editing; it's been the subject of careful work).
-- Booking orchestrator: `lib/mobile_car_wash/scheduling/booking.ex`
-- Pricing (pure): `lib/mobile_car_wash/billing/pricing.ex`
-- State machine: `lib/mobile_car_wash/booking/state_machine.ex`
-- Admin settings (catalog CRUD pattern): `lib/mobile_car_wash_web/live/admin/settings_live.ex`
-- Zones: `lib/mobile_car_wash/zones.ex` · Vehicle/Address: `lib/mobile_car_wash/fleet/`
+- Booking LiveView: `lib/mobile_car_wash_web/live/booking_live.ex` (single-page; read regions before editing).
+- Section status: `lib/mobile_car_wash/booking/booking_sections.ex`
+- Section wrapper component: `lib/mobile_car_wash_web/live/components/booking_components.ex` (`booking_section/1`)
+- Price hero: `lib/mobile_car_wash_web/components/price_header.ex`
+- NHTSA: `lib/mobile_car_wash/vehicles/nhtsa_client.ex` · `nhtsa_cache.ex` · mock `test/support/nhtsa_client_mock.ex`
+- Booking orchestrator / pricing / zones: `lib/mobile_car_wash/scheduling/booking.ex` · `lib/mobile_car_wash/billing/pricing.ex` · `lib/mobile_car_wash/zones.ex`
+- Vehicle/Address: `lib/mobile_car_wash/fleet/` · navbar: `lib/mobile_car_wash_web/components/layouts.ex`
 - Seeds: `priv/repo/seeds.exs`
-- Demo accounts (README): customer@demo.com / tech@demo.com / admin@mobilecarwash.com — all `Password123!`
+- Demo accounts: customer@demo.com / tech@demo.com / admin@mobilecarwash.com — all `Password123!`
 
-## Test/run commands
+## Test / run commands
 - Focused: `MIX_ENV=test mix test path/to/test.exs`
-- Full gate: `mix precommit`
-- Run app: `PORT=4010 mix phx.server` → http://localhost:4010 (port 4000 is the user's other project)
-
----
+- Full gate: `mix precommit`  (~5 min; last green: 1257 tests, 0 failures)
+- Run app: `PORT=4010 mix phx.server`
 
 ## Suggested first moves for the next agent
-1. Read the design spec (§4.4–4.5, §6) and this handoff.
-2. Confirm with the user: push the 11 unpushed `main` commits now, or keep local? Start Phase 3 (vehicle) or Phase 4 (address) first? (Spec build order is 3 then 4.)
-3. Use `writing-plans` to author the Phase 3 plan, then `subagent-driven-development` to execute on a fresh `feature/booking-vehicle-nhtsa` branch off `main`.
-4. Build the `NhtsaClient` mockable from the start (tests must not hit the network).
+1. Read the design spec (§4.3) and this handoff.
+2. Confirm with the user: the "price always visible" treatment (open question) and whether to start Sub-project 2.
+3. Use `writing-plans` for Sub-project 2 (GeocoderClient mockable-from-the-start), then `subagent-driven-development` on a fresh `feature/booking-geocoder-address` branch off `main`.
+4. Build `GeocoderClient` + mock first (tests must not hit the network), then rework the address section (typeahead → autofill → zone → Leaflet pin).
