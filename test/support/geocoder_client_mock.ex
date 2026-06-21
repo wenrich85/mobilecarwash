@@ -13,14 +13,15 @@ defmodule MobileCarWash.Fleet.GeocoderClientMock do
     :ets.delete_all_objects(@table)
   end
 
-  def put_suggestions(query, suggestions), do: insert({:suggest, query}, suggestions)
+  def put_suggestions(query, suggestions), do: insert({:suggest, query}, {:ok, suggestions})
 
   def put_error(query, reason), do: insert({:suggest, query}, {:error, reason})
 
+  # Staged values are stored as full `{:ok, _} | {:error, _}` results, so a
+  # staged hit just returns the stored result; a miss yields an empty list.
   def suggest(query) do
     case lookup({:suggest, query}) do
-      {:ok, {:error, _} = err} -> err
-      {:ok, suggestions} -> {:ok, suggestions}
+      {:ok, result} -> result
       :miss -> {:ok, []}
     end
   end

@@ -4,7 +4,14 @@ const SA_CENTER = [29.4241, -98.4936]
 
 export const AddressMap = {
   async mounted() {
-    const L = await loadLeaflet()
+    let L
+    try {
+      L = await loadLeaflet()
+    } catch (e) {
+      // Map is a non-essential preview — the booking form still works without it.
+      console.error("AddressMap: Leaflet failed to load", e)
+      return
+    }
     this._L = L
 
     const lat = parseFloat(this.el.dataset.lat)
@@ -29,10 +36,14 @@ export const AddressMap = {
       else this.marker = this._L.marker(p).addTo(this.map)
     })
 
-    setTimeout(() => this.map.invalidateSize(), 200)
+    // Recompute size once the container actually has dimensions — it mounts
+    // inside a progressively-revealed section, so a fixed delay is a guess.
+    this._resizeObserver = new ResizeObserver(() => this.map.invalidateSize())
+    this._resizeObserver.observe(this.el)
   },
 
   destroyed() {
+    if (this._resizeObserver) this._resizeObserver.disconnect()
     if (this.map) this.map.remove()
   },
 }

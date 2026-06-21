@@ -117,7 +117,6 @@ defmodule MobileCarWash.Fleet.GeocoderClient do
        when is_number(lat) and is_number(lng) do
     street =
       matched
-      |> to_string()
       |> String.split(",")
       |> List.first()
       |> to_string()
@@ -170,15 +169,20 @@ defmodule MobileCarWash.Fleet.GeocoderClient do
       |> Enum.reject(&(is_nil(&1) or &1 == ""))
       |> Enum.join(" ")
 
-    %{
-      label: photon_label(street, props),
-      street: street,
-      city: props["city"] || "",
-      state: props["state"] || "",
-      zip: props["postcode"] || "",
-      lat: lat * 1.0,
-      lng: lng * 1.0
-    }
+    # A street-less result (city/POI only) can't autofill a booking address — drop it.
+    if street == "" do
+      nil
+    else
+      %{
+        label: photon_label(street, props),
+        street: street,
+        city: props["city"] || "",
+        state: props["state"] || "",
+        zip: props["postcode"] || "",
+        lat: lat * 1.0,
+        lng: lng * 1.0
+      }
+    end
   end
 
   defp photon_feature(_), do: nil

@@ -273,9 +273,9 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
         }
       })
 
-    assert html =~ "789 Pine Ave"
-    # Manual entry form is always present in the DOM (inside <details>)
-    assert html =~ ~s(name="address[street]")
+    # The summary card renders the saved address as one combined line — proof the
+    # save took effect, not just that the always-present manual form echoed input.
+    assert html =~ "789 Pine Ave, Austin TX 78701"
   end
 
   test "typing an address shows geocoder suggestions", %{conn: conn} do

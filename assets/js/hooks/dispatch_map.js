@@ -99,7 +99,13 @@ function isDarkMode() {
 export const DispatchMap = {
   async mounted() {
     // Load Leaflet on demand (not in main bundle)
-    L = await loadLeaflet()
+    try {
+      L = await loadLeaflet()
+    } catch (e) {
+      // CDN unreachable — leave the map container empty rather than hang.
+      console.error("DispatchMap: Leaflet failed to load", e)
+      return
+    }
 
     this.map = L.map(this.el, {
       scrollWheelZoom: true,
