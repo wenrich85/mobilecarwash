@@ -526,4 +526,17 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert_in_delta saved.latitude, 29.5099, 0.0001
     assert_in_delta saved.longitude, -98.6399, 0.0001
   end
+
+  test "geocoder failure shows an error and surfaces manual entry", %{conn: conn} do
+    GeocoderClientMock.init()
+    GeocoderClientMock.put_error("broken st", {:error, :geocoder_unavailable})
+
+    {:ok, view, _} = live(conn, ~p"/book")
+
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+    render_hook(view, "address_search", %{"q" => "broken st"})
+    html = render_async(view)
+
+    assert html =~ "having trouble"
+  end
 end

@@ -80,6 +80,7 @@ defmodule MobileCarWashWeb.BookingLive do
         address_query: "",
         address_suggestions: [],
         loading_suggestions: false,
+        geocoder_error: false,
         # NHTSA dropdown data
         vehicle_makes: NhtsaClient.popular_makes(),
         vehicle_models: [],
@@ -473,6 +474,13 @@ defmodule MobileCarWashWeb.BookingLive do
           Searching…
         </div>
 
+        <div
+          :if={@geocoder_error}
+          class="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-2 text-sm text-warning"
+        >
+          Address lookup is having trouble right now — please enter your address manually below.
+        </div>
+
         <ul
           :if={@address_suggestions != []}
           class="menu bg-base-100 border border-base-300 rounded-box mb-4 p-1 w-full"
@@ -490,7 +498,7 @@ defmodule MobileCarWashWeb.BookingLive do
         </ul>
 
         <%!-- Manual entry fallback --%>
-        <details class="mb-4">
+        <details class="mb-4" open={@geocoder_error}>
           <summary class="text-sm text-primary cursor-pointer">Enter address manually</summary>
           <form
             phx-submit="save_address"
@@ -1063,7 +1071,7 @@ defmodule MobileCarWashWeb.BookingLive do
     else
       {:noreply,
        socket
-       |> assign(address_query: q, loading_suggestions: true)
+       |> assign(address_query: q, loading_suggestions: true, geocoder_error: false)
        |> start_async(:geocode_suggest, fn -> GeocoderClient.suggest(q) end)}
     end
   end
@@ -1330,15 +1338,22 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_async(:geocode_suggest, {:ok, {:ok, suggestions}}, socket) do
-    {:noreply, assign(socket, address_suggestions: suggestions, loading_suggestions: false)}
+    {:noreply,
+     assign(socket,
+       address_suggestions: suggestions,
+       loading_suggestions: false,
+       geocoder_error: false
+     )}
   end
 
   def handle_async(:geocode_suggest, {:ok, {:error, _reason}}, socket) do
-    {:noreply, assign(socket, address_suggestions: [], loading_suggestions: false)}
+    {:noreply,
+     assign(socket, address_suggestions: [], loading_suggestions: false, geocoder_error: true)}
   end
 
   def handle_async(:geocode_suggest, {:exit, _reason}, socket) do
-    {:noreply, assign(socket, address_suggestions: [], loading_suggestions: false)}
+    {:noreply,
+     assign(socket, address_suggestions: [], loading_suggestions: false, geocoder_error: true)}
   end
 
   # === PRIVATE HELPERS ===
