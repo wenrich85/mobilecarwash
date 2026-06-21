@@ -5,7 +5,7 @@ defmodule MobileCarWashWeb.BookingLive do
   import MobileCarWashWeb.Live.Helpers.EventTracker
 
   alias MobileCarWash.Scheduling.{ServiceType, BlockAvailability, Booking}
-  alias MobileCarWash.Fleet.{Vehicle, Address}
+  alias MobileCarWash.Fleet.{Address, GeocoderClient, Vehicle}
   alias MobileCarWash.Booking.{BookingSections, SessionCache}
   alias MobileCarWash.Billing.{Subscription, SubscriptionUsage, Pricing}
   alias MobileCarWash.Analytics
@@ -77,6 +77,9 @@ defmodule MobileCarWashWeb.BookingLive do
         existing_addresses: [],
         show_new_vehicle_form: false,
         show_new_address_form: false,
+        address_query: "",
+        address_suggestions: [],
+        loading_suggestions: false,
         # NHTSA dropdown data
         vehicle_makes: NhtsaClient.popular_makes(),
         vehicle_models: [],
@@ -438,9 +441,11 @@ defmodule MobileCarWashWeb.BookingLive do
         title="Service location"
         status={BookingSections.status(:address, build_context(assigns))}
       >
-        <p class="text-sm text-base-content/60 mb-4">Pick a saved address, or add a new one.</p>
+        <p class="text-sm text-base-content/60 mb-4">
+          Start typing your address and pick a match, or enter it manually.
+        </p>
 
-        <%!-- Saved addresses list --%>
+        <%!-- Saved addresses (signed-in customers) --%>
         <div :if={@existing_addresses != []} class="space-y-3 mb-6">
           <.saved_record_card
             :for={addr <- @existing_addresses}
@@ -452,65 +457,102 @@ defmodule MobileCarWashWeb.BookingLive do
           />
         </div>
 
-        <%!-- "Add New" toggle button (only when ≥1 saved records) --%>
-        <button
-          :if={@existing_addresses != [] and !@show_new_address_form}
-          class="btn btn-outline btn-sm mb-6"
-          phx-click="show_new_address"
-        >
-          + Add new address
-        </button>
-
-        <%!-- Add-new form --%>
-        <form
-          :if={(@existing_addresses == [] and is_nil(@selected_address)) or @show_new_address_form}
-          phx-submit="save_address"
-          class="bg-base-100 border border-base-300 rounded-box p-5 space-y-3 mb-6"
-        >
-          <div :if={@existing_addresses == []} class="text-sm font-semibold text-base-content">
-            Where should we come?
-          </div>
+        <%!-- Address typeahead --%>
+        <form phx-change="address_search" autocomplete="off" class="mb-2">
           <.input
-            name="address[street]"
+            name="q"
             type="text"
-            label="Street address"
-            placeholder="123 Main St"
-            required
+            value={@address_query}
+            label="Search address"
+            placeholder="123 Main St, San Antonio"
+            phx-debounce="250"
           />
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <.input name="address[city]" type="text" label="City" placeholder="San Antonio" required />
-            <.input name="address[state]" type="text" label="State" value="TX" required />
-            <.input name="address[zip]" type="text" label="ZIP" placeholder="78261" required />
-          </div>
-          <button type="submit" class="btn btn-primary w-full">Save address</button>
         </form>
 
+        <div :if={@loading_suggestions} class="text-xs text-base-content/50 mb-2">
+          Searching…
+        </div>
+
+        <ul
+          :if={@address_suggestions != []}
+          class="menu bg-base-100 border border-base-300 rounded-box mb-4 p-1 w-full"
+        >
+          <li :for={{s, i} <- Enum.with_index(@address_suggestions)}>
+            <button
+              type="button"
+              phx-click="select_suggestion"
+              phx-value-index={i}
+              class="text-left"
+            >
+              {s.label}
+            </button>
+          </li>
+        </ul>
+
+        <%!-- Manual entry fallback --%>
+        <details class="mb-4">
+          <summary class="text-sm text-primary cursor-pointer">Enter address manually</summary>
+          <form
+            phx-submit="save_address"
+            class="bg-base-100 border border-base-300 rounded-box p-5 space-y-3 mt-3"
+          >
+            <.input
+              name="address[street]"
+              type="text"
+              label="Street address"
+              placeholder="123 Main St"
+              required
+            />
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <.input
+                name="address[city]"
+                type="text"
+                label="City"
+                placeholder="San Antonio"
+                required
+              />
+              <.input name="address[state]" type="text" label="State" value="TX" required />
+              <.input name="address[zip]" type="text" label="ZIP" placeholder="78261" required />
+            </div>
+            <button type="submit" class="btn btn-primary w-full">Save address</button>
+          </form>
+        </details>
+
+        <%!-- Selected address summary --%>
         <div
-          :if={@selected_address && @existing_addresses == [] && !@show_new_address_form}
-          class="flex items-center justify-between rounded-box border border-base-300 bg-base-100 p-4"
+          :if={@selected_address}
+          class="flex items-center justify-between rounded-box border border-base-300 bg-base-100 p-4 mb-4"
         >
           <div class="text-sm font-semibold">
             {@selected_address.street}, {@selected_address.city} {@selected_address.state} {@selected_address.zip}
           </div>
-          <button type="button" class="btn btn-ghost btn-sm" phx-click="show_new_address">
-            Change
-          </button>
         </div>
 
-        <%!-- Zone indicator (preserved) --%>
+        <%!-- Confirmation map (only once we have coordinates) --%>
+        <div
+          :if={@selected_address && @selected_address.latitude && @selected_address.longitude}
+          id="address-map"
+          phx-hook="AddressMap"
+          phx-update="ignore"
+          data-lat={@selected_address.latitude}
+          data-lng={@selected_address.longitude}
+          class="h-56 w-full rounded-box border border-base-300 mb-4 z-0"
+        >
+        </div>
+
+        <%!-- Zone banner --%>
         <div
           :if={@selected_address && @selected_address.zone}
-          class="bg-info/10 border border-info/30 rounded-lg p-3 mb-4 text-sm text-info"
+          class="bg-success/10 border border-success/30 rounded-lg p-3 mb-4 text-sm text-success"
         >
-          Service zone: <strong>{MobileCarWash.Zones.label(@selected_address.zone)}</strong>
+          ✓ In service area · <strong>{MobileCarWash.Zones.label(@selected_address.zone)}</strong>
         </div>
 
-        <%!-- Outside-service-area warning (preserved) --%>
         <div
           :if={@selected_address && is_nil(@selected_address.zone)}
           class="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4 text-sm text-warning"
         >
-          This address may be outside our current service area. We'll confirm availability.
+          ⚠ Outside our service area — we'll confirm or refund.
         </div>
       </.booking_section>
 
@@ -988,6 +1030,37 @@ defmodule MobileCarWashWeb.BookingLive do
      |> maybe_scroll(prev_ctx)}
   end
 
+  def handle_event("address_search", %{"q" => q}, socket) do
+    q = String.trim(q)
+
+    if String.length(q) < 4 do
+      {:noreply,
+       assign(socket, address_query: q, address_suggestions: [], loading_suggestions: false)}
+    else
+      {:noreply,
+       socket
+       |> assign(address_query: q, loading_suggestions: true)
+       |> start_async(:geocode_suggest, fn -> GeocoderClient.suggest(q) end)}
+    end
+  end
+
+  def handle_event("select_suggestion", %{"index" => index}, socket) do
+    prev_ctx = build_context(socket.assigns)
+
+    case Enum.at(socket.assigns.address_suggestions, String.to_integer(index)) do
+      nil ->
+        {:noreply, socket}
+
+      s ->
+        socket = choose_geocoded_address(socket, s, prev_ctx)
+
+        {:noreply,
+         socket
+         |> assign(address_suggestions: [], address_query: "", loading_suggestions: false)
+         |> push_event("address_map_set", %{lat: s.lat, lng: s.lng})}
+    end
+  end
+
   def handle_event("select_date", %{"date" => date_str}, socket) do
     case Date.from_iso8601(date_str) do
       {:ok, date} ->
@@ -1190,6 +1263,18 @@ defmodule MobileCarWashWeb.BookingLive do
     {:noreply, assign(socket, vehicle_models: [], loading_models: false)}
   end
 
+  def handle_async(:geocode_suggest, {:ok, {:ok, suggestions}}, socket) do
+    {:noreply, assign(socket, address_suggestions: suggestions, loading_suggestions: false)}
+  end
+
+  def handle_async(:geocode_suggest, {:ok, {:error, _reason}}, socket) do
+    {:noreply, assign(socket, address_suggestions: [], loading_suggestions: false)}
+  end
+
+  def handle_async(:geocode_suggest, {:exit, _reason}, socket) do
+    {:noreply, assign(socket, address_suggestions: [], loading_suggestions: false)}
+  end
+
   # === PRIVATE HELPERS ===
 
   # Returns {:ok, socket_with_customer} | {:error, message}. Signed-in users
@@ -1263,6 +1348,55 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   defp persist_pending_vehicle(socket), do: {:ok, socket}
+
+  # Guest: hold the geocoded address in-memory (persisted at Pay).
+  defp choose_geocoded_address(%{assigns: %{current_customer: nil}} = socket, s, prev_ctx) do
+    address =
+      struct(Address, %{
+        street: s.street,
+        city: s.city,
+        state: s.state,
+        zip: s.zip,
+        latitude: s.lat,
+        longitude: s.lng,
+        zone: MobileCarWash.Zones.zone_for_zip(s.zip)
+      })
+
+    socket
+    |> assign(selected_address: address, show_new_address_form: false)
+    |> persist_booking_state()
+    |> maybe_scroll(prev_ctx)
+  end
+
+  # Signed-in: persist the geocoded address immediately (zone is set by the
+  # Address resource's SetZoneFromZip change; coords are accepted as-is).
+  defp choose_geocoded_address(socket, s, prev_ctx) do
+    customer = socket.assigns.current_customer
+
+    case Address
+         |> Ash.Changeset.for_create(:create, %{
+           street: s.street,
+           city: s.city,
+           state: s.state,
+           zip: s.zip,
+           latitude: s.lat,
+           longitude: s.lng
+         })
+         |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+         |> Ash.create() do
+      {:ok, address} ->
+        socket
+        |> assign(
+          selected_address: address,
+          existing_addresses: socket.assigns.existing_addresses ++ [address]
+        )
+        |> persist_booking_state()
+        |> maybe_scroll(prev_ctx)
+
+      {:error, _} ->
+        put_flash(socket, :error, "Could not save that address. Please try manual entry.")
+    end
+  end
 
   defp persist_pending_address(
          %{assigns: %{selected_address: %{id: nil} = a, current_customer: c}} = socket
