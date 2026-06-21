@@ -1401,7 +1401,7 @@ defmodule MobileCarWashWeb.BookingLive do
   defp persist_pending_address(
          %{assigns: %{selected_address: %{id: nil} = a, current_customer: c}} = socket
        ) do
-    attrs = Map.take(a, [:street, :city, :state, :zip])
+    attrs = Map.take(a, [:street, :city, :state, :zip, :latitude, :longitude])
 
     case Address
          |> Ash.Changeset.for_create(:create, attrs)

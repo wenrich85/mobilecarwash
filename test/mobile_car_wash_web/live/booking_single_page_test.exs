@@ -359,4 +359,70 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     # ZIP 73301 not in curated map → zone nil → outside-area warning
     assert html =~ "Outside our service area"
   end
+
+  test "guest geocoded address persists the precise coordinates (not the ZIP centroid)",
+       %{conn: conn} do
+    GeocoderClientMock.init()
+
+    # 78250 centroid in Zones is {29.5050, -98.6350}; stage distinct coords
+    # so we can prove the precise geocoded point is what gets persisted.
+    GeocoderClientMock.put_suggestions("789 pine st san antonio", [
+      %{
+        label: "789 PINE ST, SAN ANTONIO, TX, 78250",
+        street: "789 PINE ST",
+        city: "SAN ANTONIO",
+        state: "TX",
+        zip: "78250",
+        lat: 29.5099,
+        lng: -98.6399
+      }
+    ])
+
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+
+    {:ok, view, _html} = live(conn, "/book")
+
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Toyota",
+        "model" => "Camry",
+        "year" => "2022",
+        "color" => "Silver",
+        "size" => "car",
+        "vin" => "",
+        "body_class" => ""
+      }
+    })
+
+    # Address via geocoder selection (not manual entry)
+    render_hook(view, "address_search", %{"q" => "789 pine st san antonio"})
+    render_async(view)
+    render_click(view, "select_suggestion", %{"index" => "0"})
+
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(view, "select_date", %{"date" => block_date})
+    render_click(view, "select_block", %{"id" => block.id})
+
+    guest_email = "guest-#{System.unique_integer([:positive])}@example.com"
+
+    render_change(view, "guest_form_change", %{
+      "guest" => %{"name" => "Geo Guest", "email" => guest_email, "phone" => "5125550133"}
+    })
+
+    assert {:error, {:redirect, %{to: _url}}} = render_click(view, "confirm_booking", %{})
+
+    addresses =
+      Address
+      |> Ash.Query.filter(street == "789 PINE ST")
+      |> Ash.read!(authorize?: false)
+
+    assert length(addresses) == 1
+    saved = hd(addresses)
+    assert saved.zip == "78250"
+    assert_in_delta saved.latitude, 29.5099, 0.0001
+    assert_in_delta saved.longitude, -98.6399, 0.0001
+  end
 end
