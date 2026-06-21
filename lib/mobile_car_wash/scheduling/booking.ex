@@ -111,10 +111,9 @@ defmodule MobileCarWash.Scheduling.Booking do
   """
   def complete_payment(checkout_session_id, stripe_payment_intent_id \\ nil) do
     payments =
-      Ash.read!(Payment,
-        action: :by_checkout_session,
-        arguments: %{session_id: checkout_session_id}
-      )
+      Payment
+      |> Ash.Query.for_read(:by_checkout_session, %{session_id: checkout_session_id})
+      |> Ash.read!()
 
     case payments do
       [payment] ->
@@ -171,10 +170,9 @@ defmodule MobileCarWash.Scheduling.Booking do
   """
   def fail_payment(checkout_session_id) do
     payments =
-      Ash.read!(Payment,
-        action: :by_checkout_session,
-        arguments: %{session_id: checkout_session_id}
-      )
+      Payment
+      |> Ash.Query.for_read(:by_checkout_session, %{session_id: checkout_session_id})
+      |> Ash.read!()
 
     case payments do
       [payment] ->
