@@ -198,6 +198,7 @@ defmodule MobileCarWashWeb.Router do
         {MobileCarWashWeb.LiveAuth, :require_customer},
         {MobileCarWashWeb.TrackPresence, :track}
       ] do
+      live "/dashboard", DashboardLive
       live "/appointments", AppointmentsLive
       live "/appointments/:id/status", AppointmentStatusLive
       live "/account/subscription", SubscriptionManageLive
