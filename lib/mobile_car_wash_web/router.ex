@@ -101,7 +101,8 @@ defmodule MobileCarWashWeb.Router do
 
   pipeline :stripe_webhook do
     plug :accepts, ["json"]
-    plug MobileCarWashWeb.Plugs.RawBody
+    # Raw body is captured during parsing by Plugs.CacheBodyReader (wired into
+    # Plug.Parsers in the endpoint); re-reading it here would yield empty bytes.
   end
 
   # Stripe webhooks — must be before browser pipeline (no CSRF)
