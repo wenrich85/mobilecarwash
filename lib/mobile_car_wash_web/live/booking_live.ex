@@ -1724,7 +1724,7 @@ defmodule MobileCarWashWeb.BookingLive do
     Pricing.breakdown(%{
       base_price_cents: base,
       vehicle_size: size,
-      addon_lines: Pricing.addon_lines(assigns[:selected_add_ons] || []),
+      addon_lines: Pricing.addon_lines(assigns[:selected_add_ons] || [], size),
       discount_cents: discount
     })
   end

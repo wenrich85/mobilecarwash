@@ -64,6 +64,20 @@ defmodule MobileCarWash.Scheduling.BookingTest do
     dt
   end
 
+  defp create_add_on(attrs \\ []) do
+    price_cents = Keyword.get(attrs, :price_cents, 1_000)
+    slug = "addon-#{:rand.uniform(100_000)}"
+
+    MobileCarWash.Scheduling.AddOn
+    |> Ash.Changeset.for_create(:create, %{
+      name: "Test Add-On",
+      slug: slug,
+      price_cents: price_cents,
+      active: true
+    })
+    |> Ash.create!()
+  end
+
   # --- Tests ---
 
   describe "create_booking/1 — full flow" do
@@ -211,6 +225,28 @@ defmodule MobileCarWash.Scheduling.BookingTest do
         })
 
       assert {:error, :slot_unavailable} = result
+    end
+
+    test "add-on price scales with vehicle size in the charged total" do
+      # pickup (1.5x): base 5000 * 1.5 = 7500; add-on 1000 * 1.5 = 1500; total 9000
+      customer = create_customer()
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :pickup)
+      address = create_address(customer.id)
+      add_on = create_add_on(price_cents: 1_000)
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          add_on_ids: [add_on.id]
+        })
+
+      assert appt.price_cents == 9_000
     end
   end
 end

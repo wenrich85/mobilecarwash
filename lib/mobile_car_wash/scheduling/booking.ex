@@ -65,10 +65,11 @@ defmodule MobileCarWash.Scheduling.Booking do
                maybe_apply_referral(price_cents, discount_cents, params[:referral_code]),
              add_ons = load_add_ons(params[:add_on_ids]),
              price_cents =
-               price_cents + MobileCarWash.Billing.Pricing.addons_total_cents(add_ons),
+               price_cents +
+                 MobileCarWash.Billing.Pricing.addons_total_cents(add_ons, vehicle.size),
              {:ok, appointment} <-
                create_appointment(params, service_type, price_cents, discount_cents),
-             :ok <- create_appointment_add_ons(appointment, add_ons),
+             :ok <- create_appointment_add_ons(appointment, add_ons, vehicle.size),
              :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
              {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
           result
@@ -684,15 +685,15 @@ defmodule MobileCarWash.Scheduling.Booking do
     |> Ash.read!()
   end
 
-  defp create_appointment_add_ons(_appointment, []), do: :ok
+  defp create_appointment_add_ons(_appointment, [], _size), do: :ok
 
-  defp create_appointment_add_ons(appointment, add_ons) do
+  defp create_appointment_add_ons(appointment, add_ons, vehicle_size) do
     Enum.each(add_ons, fn add_on ->
       MobileCarWash.Scheduling.AppointmentAddOn
       |> Ash.Changeset.for_create(:create, %{
         appointment_id: appointment.id,
         add_on_id: add_on.id,
-        price_cents: add_on.price_cents
+        price_cents: MobileCarWash.Billing.Pricing.calculate(add_on.price_cents, vehicle_size)
       })
       |> Ash.create!()
     end)
