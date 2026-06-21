@@ -539,4 +539,74 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
 
     assert html =~ "having trouble"
   end
+
+  # ---------------------------------------------------------------------------
+  # Guest sign-in affordance — registered-email collision
+  # ---------------------------------------------------------------------------
+
+  test "guest email matching a registered account shows a sign-in link", %{conn: conn} do
+    # A registered (password) customer already owns this email.
+    Customer
+    |> Ash.Changeset.for_create(:register_with_password, %{
+      email: "taken@example.com",
+      name: "Real Account",
+      password: "Password123!",
+      password_confirmation: "Password123!"
+    })
+    |> Ash.create!()
+
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+
+    {:ok, view, _html} = live(conn, ~p"/book")
+
+    # 1. Select service
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    # 2. Save vehicle
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Toyota",
+        "model" => "Camry",
+        "year" => "2022",
+        "color" => "Silver",
+        "size" => "car",
+        "vin" => "",
+        "body_class" => ""
+      }
+    })
+
+    # 3. Save address (in-memory for guest)
+    render_submit(view, "save_address", %{
+      "address" => %{
+        "street" => "456 Oak Lane",
+        "city" => "San Antonio",
+        "state" => "TX",
+        "zip" => "78250"
+      }
+    })
+
+    # 4. Select a schedule block
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(view, "select_date", %{"date" => block_date})
+    render_click(view, "select_block", %{"id" => block.id})
+
+    # 5. Fill in guest contact info with the already-registered email
+    render_change(view, "guest_form_change", %{
+      "guest" => %{
+        "name" => "Guest User",
+        "email" => "taken@example.com",
+        "phone" => "5125550199"
+      }
+    })
+
+    # 6. Attempt to confirm — ensure_customer detects the registered account and
+    #    sets guest_error; the page must render a sign-in link in the error block.
+    html = render_click(view, "confirm_booking", %{})
+
+    assert html =~ "An account with this email already exists"
+    # The error block renders a dedicated link (distinct from the always-present
+    # nav "Sign in" button). Assert by its unique link text.
+    assert has_element?(view, "a[href='/book/sign-in']", "Sign in to continue")
+  end
 end

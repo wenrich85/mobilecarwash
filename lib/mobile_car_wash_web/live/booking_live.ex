@@ -692,7 +692,18 @@ defmodule MobileCarWashWeb.BookingLive do
         <%!-- Guest contact info — collected here, the customer is created at Pay --%>
         <div :if={is_nil(@current_customer)} class="mt-4 space-y-3 border-t border-base-300 pt-4">
           <h3 class="text-sm font-semibold text-base-content">Your contact info</h3>
-          <p :if={@guest_error} class="text-sm text-error">{@guest_error}</p>
+          <div
+            :if={@guest_error}
+            class="bg-error/10 border border-error/30 rounded-lg p-3 mb-3 text-sm text-error space-y-2"
+          >
+            <p>{@guest_error}</p>
+            <.link
+              navigate={~p"/book/sign-in"}
+              class="btn btn-sm btn-outline"
+            >
+              Sign in to continue
+            </.link>
+          </div>
           <form phx-change="guest_form_change" id="guest-contact" class="space-y-3">
             <.input name="guest[name]" type="text" label="Name" value={@guest_form["name"]} required />
             <.input
