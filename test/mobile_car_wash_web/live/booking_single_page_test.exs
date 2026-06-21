@@ -568,6 +568,92 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert html =~ "$75.00"
   end
 
+  test "redeeming loyalty overrides any referral discount in the hero", %{conn: conn} do
+    # A separate customer who owns the referral code (can't use your own).
+    {:ok, referrer} =
+      Customer
+      |> Ash.Changeset.for_create(:register_with_password, %{
+        email: "referrer-excl-#{System.unique_integer([:positive])}@test.com",
+        password: "Password123!",
+        password_confirmation: "Password123!",
+        name: "Referrer"
+      })
+      |> Ash.create()
+
+    assert referrer.referral_code != nil
+
+    # The customer who will book — needs loyalty punches so the toggle appears.
+    {:ok, booker} =
+      Customer
+      |> Ash.Changeset.for_create(:register_with_password, %{
+        email: "booker-excl-#{System.unique_integer([:positive])}@test.com",
+        password: "Password123!",
+        password_confirmation: "Password123!",
+        name: "Booker"
+      })
+      |> Ash.create()
+
+    punches = MobileCarWash.Loyalty.punches_per_reward()
+    Enum.each(1..punches, fn _ -> MobileCarWash.Loyalty.add_punch(booker.id) end)
+
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+
+    # Sign in as the booker.
+    authed_conn =
+      conn
+      |> Phoenix.ConnTest.init_test_session(%{})
+      |> post("/auth/customer/password/sign_in", %{
+        "customer" => %{
+          "email" => to_string(booker.email),
+          "password" => "Password123!"
+        }
+      })
+      |> recycle()
+
+    {:ok, view, _html} = live(authed_conn, "/book")
+
+    # 1. Select service
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    # 2. Save vehicle (signed-in path: vehicle form shows, submit creates it)
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Honda",
+        "model" => "Civic",
+        "year" => "2021",
+        "color" => "Blue",
+        "size" => "car",
+        "vin" => "",
+        "body_class" => ""
+      }
+    })
+
+    # 3. Save address
+    render_submit(view, "save_address", %{
+      "address" => %{
+        "street" => "456 Oak Lane",
+        "city" => "San Antonio",
+        "state" => "TX",
+        "zip" => "78250"
+      }
+    })
+
+    # 4. Select a time block (required for price_breakdown to include vehicle size)
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(view, "select_date", %{"date" => block_date})
+    render_click(view, "select_block", %{"id" => block.id})
+
+    # 5. Apply a valid referral code — hero should now show $40.00 ($50 - $10 referral)
+    html = render_submit(view, "apply_referral", %{"code" => referrer.referral_code})
+    assert html =~ "$40.00"
+
+    # 6. Toggle loyalty on — compute_price_breakdown takes the redeem_loyalty branch
+    #    (discount = sized = full price), overriding the referral discount entirely.
+    html = render_click(view, "toggle_loyalty", %{})
+    assert html =~ "$0.00"
+  end
+
   test "guest email matching a registered account shows a sign-in link", %{conn: conn} do
     # A registered (password) customer already owns this email.
     Customer

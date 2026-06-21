@@ -254,6 +254,33 @@ defmodule MobileCarWash.Scheduling.BookingTest do
       assert appt.price_cents == 9_000
     end
 
+    test "a valid referral code reduces the charged total" do
+      customer = create_customer()
+      # Every customer created via :create_guest gets a referral_code auto-generated
+      # in the Customer resource changes block — no extra setup needed.
+      referrer = create_customer(%{email: "referrer-#{:rand.uniform(100_000)}@example.com"})
+      assert referrer.referral_code != nil
+
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_address(customer.id)
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          referral_code: referrer.referral_code
+        })
+
+      # base 5000; referral discount $10 (1000 cents) → 4000
+      assert appt.price_cents < 5_000
+      assert appt.referral_code_used == referrer.referral_code
+    end
+
     test "loyalty redemption zeroes a covered basic wash and consumes a free wash" do
       customer = create_customer()
       service = create_service_type()
