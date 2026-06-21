@@ -334,6 +334,47 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert html =~ ~s(data-lat="29.6512")
   end
 
+  # ---------------------------------------------------------------------------
+  # Out-of-area waitlist capture
+  # ---------------------------------------------------------------------------
+
+  test "out-of-area address blocks payment and offers the waitlist", %{conn: conn} do
+    service = MobileCarWash.Scheduling.ServiceType |> Ash.read!() |> hd()
+    {:ok, lv, _html} = live(conn, ~p"/book")
+
+    # Drive the flow far enough that the review section is reachable, then
+    # set an out-of-area (zone: nil) address via the manual entry form.
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    html =
+      lv
+      |> form("form[phx-submit=save_address]",
+        address: %{street: "1 Far Rd", city: "Nowhere", state: "TX", zip: "00000"}
+      )
+      |> render_submit()
+
+    assert html =~ "Outside our service area"
+    refute has_element?(lv, "button[phx-click=confirm_booking]")
+    assert has_element?(lv, "button[phx-click=join_waitlist]")
+  end
+
+  test "join_waitlist records a lead", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/book")
+    service = MobileCarWash.Scheduling.ServiceType |> Ash.read!() |> hd()
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    lv
+    |> form("form[phx-submit=save_address]",
+      address: %{street: "1 Far Rd", city: "Nowhere", state: "TX", zip: "00000"}
+    )
+    |> render_submit()
+
+    render_submit(lv, "join_waitlist", %{"email" => "lead@example.com"})
+
+    entries = Ash.read!(MobileCarWash.Marketing.Waitlist, authorize?: false)
+    assert Enum.any?(entries, &(&1.email == "lead@example.com"))
+  end
+
   test "selecting a suggestion outside the service area warns but is allowed", %{conn: conn} do
     GeocoderClientMock.init()
 

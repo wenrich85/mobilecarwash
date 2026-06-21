@@ -699,6 +699,7 @@ defmodule MobileCarWashWeb.BookingLive do
         </div>
 
         <button
+          :if={not out_of_area?(assigns)}
           class="btn btn-primary w-full mt-4"
           phx-click="confirm_booking"
           disabled={not BookingSections.payable?(build_context(assigns))}
@@ -714,6 +715,29 @@ defmodule MobileCarWashWeb.BookingLive do
               "Continue to payment"
           end}
         </button>
+
+        <div
+          :if={out_of_area?(assigns)}
+          class="bg-warning/10 border border-warning/30 rounded-box p-5 space-y-3 mt-4"
+        >
+          <p class="text-sm font-semibold">We're not in your area yet.</p>
+          <p class="text-sm text-base-content/70">
+            Leave your email and we'll let you know the moment we start serving your neighborhood.
+          </p>
+          <form phx-submit="join_waitlist" class="flex gap-2">
+            <.input
+              name="email"
+              type="email"
+              value={
+                (@current_customer && to_string(@current_customer.email)) ||
+                  (@guest_form && @guest_form["email"]) || ""
+              }
+              placeholder="you@example.com"
+              required
+            />
+            <button type="submit" phx-click="join_waitlist" class="btn btn-primary">Notify me</button>
+          </form>
+        </div>
       </.booking_section>
     </div>
     """
@@ -1176,15 +1200,53 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("confirm_booking", _params, socket) do
-    if BookingSections.payable?(build_context(socket.assigns)) do
-      with {:ok, socket} <- ensure_customer(socket),
-           {:ok, socket} <- persist_pending_records(socket) do
-        do_confirm_booking(socket)
-      else
-        {:error, message} -> {:noreply, assign(socket, guest_error: message)}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "Please complete all sections before paying.")}
+    cond do
+      out_of_area?(socket.assigns) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "That address is outside our service area. Join the waitlist below and we'll reach out."
+         )}
+
+      BookingSections.payable?(build_context(socket.assigns)) ->
+        with {:ok, socket} <- ensure_customer(socket),
+             {:ok, socket} <- persist_pending_records(socket) do
+          do_confirm_booking(socket)
+        else
+          {:error, message} -> {:noreply, assign(socket, guest_error: message)}
+        end
+
+      true ->
+        {:noreply, put_flash(socket, :error, "Please complete all sections before paying.")}
+    end
+  end
+
+  def handle_event("join_waitlist", %{"email" => email}, socket) do
+    addr = socket.assigns.selected_address
+    service = socket.assigns.selected_service
+    guest_form = socket.assigns[:guest_form] || %{}
+
+    attrs = %{
+      email: email,
+      name: guest_form["name"],
+      phone: guest_form["phone"],
+      address_text: addr && "#{addr.street}, #{addr.city}, #{addr.state} #{addr.zip}",
+      zip: addr && addr.zip,
+      latitude: addr && addr.latitude,
+      longitude: addr && addr.longitude,
+      requested_service_slug: service && service.slug
+    }
+
+    case MobileCarWash.Marketing.Waitlist
+         |> Ash.Changeset.for_create(:join, attrs)
+         |> Ash.create(authorize?: false) do
+      {:ok, _entry} ->
+        {:noreply,
+         put_flash(socket, :info, "Thanks — we'll let you know when we reach your area.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Please enter a valid email.")}
     end
   end
 
@@ -1280,6 +1342,9 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   # === PRIVATE HELPERS ===
+
+  defp out_of_area?(%{selected_address: %{zone: nil}}), do: true
+  defp out_of_area?(_), do: false
 
   # Returns {:ok, socket_with_customer} | {:error, message}. Signed-in users
   # pass through untouched; guests are looked up / created from guest_form at
