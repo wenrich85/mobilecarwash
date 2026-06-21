@@ -7,7 +7,7 @@ defmodule MobileCarWashWeb.DashboardLive do
   use MobileCarWashWeb, :live_view
 
   alias MobileCarWash.Billing.{Subscription, SubscriptionPlan, SubscriptionUsage}
-  alias MobileCarWash.Scheduling.{RecurringSchedule, ServiceType}
+  alias MobileCarWash.Scheduling.{Appointment, AppointmentAddOn, RecurringSchedule, ServiceType}
   alias MobileCarWash.Fleet.Vehicle
 
   require Ash.Query
@@ -33,7 +33,8 @@ defmodule MobileCarWashWeb.DashboardLive do
            usage: usage,
            editing_id: nil
          )
-         |> load_schedules(customer.id)}
+         |> load_schedules(customer.id)
+         |> load_upcoming(customer.id)}
     end
   end
 
@@ -75,8 +76,7 @@ defmodule MobileCarWashWeb.DashboardLive do
     with {:ok, schedule} <- Ash.get(RecurringSchedule, id),
          true <- schedule.customer_id == customer.id,
          {:ok, _} <- schedule |> Ash.Changeset.for_update(:deactivate, %{}) |> Ash.update() do
-      {:noreply,
-       socket |> load_schedules(customer.id) |> put_flash(:info, "Schedule paused")}
+      {:noreply, socket |> load_schedules(customer.id) |> put_flash(:info, "Schedule paused")}
     else
       _ -> {:noreply, put_flash(socket, :error, "Could not pause schedule")}
     end
@@ -88,8 +88,7 @@ defmodule MobileCarWashWeb.DashboardLive do
     with {:ok, schedule} <- Ash.get(RecurringSchedule, id),
          true <- schedule.customer_id == customer.id,
          {:ok, _} <- schedule |> Ash.Changeset.for_update(:activate, %{}) |> Ash.update() do
-      {:noreply,
-       socket |> load_schedules(customer.id) |> put_flash(:info, "Schedule resumed")}
+      {:noreply, socket |> load_schedules(customer.id) |> put_flash(:info, "Schedule resumed")}
     else
       _ -> {:noreply, put_flash(socket, :error, "Could not resume schedule")}
     end
@@ -101,8 +100,7 @@ defmodule MobileCarWashWeb.DashboardLive do
     with {:ok, schedule} <- Ash.get(RecurringSchedule, id),
          true <- schedule.customer_id == customer.id,
          :ok <- Ash.destroy(schedule) do
-      {:noreply,
-       socket |> load_schedules(customer.id) |> put_flash(:info, "Schedule removed")}
+      {:noreply, socket |> load_schedules(customer.id) |> put_flash(:info, "Schedule removed")}
     else
       _ -> {:noreply, put_flash(socket, :error, "Could not remove schedule")}
     end
@@ -113,8 +111,8 @@ defmodule MobileCarWashWeb.DashboardLive do
     ~H"""
     <div class="max-w-2xl mx-auto py-8 px-4 space-y-6">
       <h1 class="text-2xl font-bold">Your Dashboard</h1>
-
-      <!-- Panel A: Subscription summary -->
+      
+    <!-- Panel A: Subscription summary -->
       <div class="card bg-base-100 shadow">
         <div class="card-body">
           <div class="flex justify-between items-start">
@@ -134,7 +132,9 @@ defmodule MobileCarWashWeb.DashboardLive do
           <div :if={@plan.basic_washes_per_month > 0} class="mt-4">
             <div class="flex justify-between text-sm mb-1">
               <span>Basic Washes</span>
-              <span>{washes_remaining(@plan.basic_washes_per_month, @usage.basic_washes_used)} left</span>
+              <span>
+                {washes_remaining(@plan.basic_washes_per_month, @usage.basic_washes_used)} left
+              </span>
             </div>
             <progress
               class="progress progress-primary w-full"
@@ -146,7 +146,9 @@ defmodule MobileCarWashWeb.DashboardLive do
           <div :if={@plan.deep_cleans_per_month > 0} class="mt-4">
             <div class="flex justify-between text-sm mb-1">
               <span>Deep Cleans</span>
-              <span>{washes_remaining(@plan.deep_cleans_per_month, @usage.deep_cleans_used)} left</span>
+              <span>
+                {washes_remaining(@plan.deep_cleans_per_month, @usage.deep_cleans_used)} left
+              </span>
             </div>
             <progress
               class="progress progress-secondary w-full"
@@ -162,8 +164,8 @@ defmodule MobileCarWashWeb.DashboardLive do
           </div>
         </div>
       </div>
-
-      <!-- Panel B: Recurring wash-days -->
+      
+    <!-- Panel B: Recurring wash-days -->
       <div class="card bg-base-100 shadow">
         <div class="card-body">
           <div class="flex justify-between items-center mb-2">
@@ -195,7 +197,11 @@ defmodule MobileCarWashWeb.DashboardLive do
               </div>
 
               <div class="flex gap-2 mt-2">
-                <button class="btn btn-outline btn-xs" phx-click="edit_schedule" phx-value-id={schedule.id}>
+                <button
+                  class="btn btn-outline btn-xs"
+                  phx-click="edit_schedule"
+                  phx-value-id={schedule.id}
+                >
                   Edit
                 </button>
                 <button
@@ -234,7 +240,9 @@ defmodule MobileCarWashWeb.DashboardLive do
               <div class="grid grid-cols-3 gap-2">
                 <select name="schedule[frequency]" class="select select-bordered select-sm">
                   <option value="weekly" selected={schedule.frequency == :weekly}>Every week</option>
-                  <option value="biweekly" selected={schedule.frequency == :biweekly}>Every 2 weeks</option>
+                  <option value="biweekly" selected={schedule.frequency == :biweekly}>
+                    Every 2 weeks
+                  </option>
                   <option value="monthly" selected={schedule.frequency == :monthly}>Monthly</option>
                 </select>
                 <select name="schedule[preferred_day]" class="select select-bordered select-sm">
@@ -253,9 +261,44 @@ defmodule MobileCarWashWeb.DashboardLive do
               </div>
               <div class="flex gap-2 mt-2">
                 <button type="submit" class="btn btn-primary btn-xs">Save</button>
-                <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_edit">Cancel</button>
+                <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_edit">
+                  Cancel
+                </button>
               </div>
             </form>
+          </div>
+        </div>
+      </div>
+      
+    <!-- Panel C: Upcoming washes (read-only) -->
+      <div class="card bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title mb-2">Upcoming Washes</h2>
+
+          <p :if={@upcoming == []} class="text-base-content/70 py-4">
+            No upcoming washes. Your recurring wash-days will book automatically, or <.link
+              navigate={~p"/book"}
+              class="link link-primary"
+            >book one now</.link>.
+          </p>
+
+          <div :for={appt <- @upcoming} class="border-t border-base-200 py-3 first:border-t-0">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="font-semibold">{appt.service_type_name}</p>
+                <p class="text-sm text-base-content/80">
+                  {Calendar.strftime(appt.scheduled_at, "%a %b %-d, %-I:%M %p")}
+                </p>
+                <p class="text-xs text-base-content/70">
+                  {appt.vehicle_label}
+                  <span :if={appt.add_on_count > 0}>· {appt.add_on_count} add-on(s)</span>
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="font-semibold">${div(appt.price_cents, 100)}</p>
+                <span class="badge badge-ghost badge-sm">{format_status(appt.status)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -287,6 +330,36 @@ defmodule MobileCarWashWeb.DashboardLive do
       end)
 
     assign(socket, schedules: schedules)
+  end
+
+  defp load_upcoming(socket, customer_id) do
+    upcoming =
+      Appointment
+      |> Ash.Query.for_read(:upcoming, %{customer_id: customer_id})
+      |> Ash.Query.sort(scheduled_at: :asc)
+      |> Ash.read!()
+      |> Enum.map(fn a ->
+        st = Ash.get!(ServiceType, a.service_type_id)
+        v = Ash.get!(Vehicle, a.vehicle_id)
+
+        add_on_count =
+          AppointmentAddOn
+          |> Ash.Query.filter(appointment_id == ^a.id)
+          |> Ash.read!()
+          |> length()
+
+        %{
+          id: a.id,
+          scheduled_at: a.scheduled_at,
+          status: a.status,
+          price_cents: a.price_cents,
+          service_type_name: st.name,
+          vehicle_label: "#{v.year || ""} #{v.make} #{v.model}" |> String.trim(),
+          add_on_count: add_on_count
+        }
+      end)
+
+    assign(socket, upcoming: upcoming)
   end
 
   defp load_subscription(customer_id) do

@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.DashboardLiveTest do
   import Phoenix.LiveViewTest
 
   alias MobileCarWash.Billing.{Subscription, SubscriptionPlan}
-  alias MobileCarWash.Scheduling.RecurringSchedule
+  alias MobileCarWash.Scheduling.{Appointment, RecurringSchedule}
 
   require Ash.Query
 
@@ -188,6 +188,73 @@ defmodule MobileCarWashWeb.DashboardLiveTest do
     assert html =~ "Schedule resumed"
   end
 
+  # Books a future appointment for the customer. Returns the appointment.
+  defp create_upcoming_appointment(customer) do
+    {:ok, service_type} =
+      MobileCarWash.Scheduling.ServiceType
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Deluxe Wash",
+        slug: "dash_appt_#{System.unique_integer([:positive])}",
+        base_price_cents: 7_500,
+        duration_minutes: 60
+      })
+      |> Ash.create()
+
+    {:ok, vehicle} =
+      MobileCarWash.Fleet.Vehicle
+      |> Ash.Changeset.for_create(:create, %{make: "Honda", model: "Civic", year: 2022})
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.create()
+
+    {:ok, address} =
+      MobileCarWash.Fleet.Address
+      |> Ash.Changeset.for_create(:create, %{
+        street: "200 Oak St",
+        city: "San Antonio",
+        state: "TX",
+        zip: "78259"
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.create()
+
+    future = DateTime.add(DateTime.utc_now(), 3 * 24 * 3600)
+
+    {:ok, appointment} =
+      Appointment
+      |> Ash.Changeset.for_create(:book, %{
+        scheduled_at: future,
+        price_cents: 7_500,
+        duration_minutes: 60,
+        customer_id: customer.id,
+        vehicle_id: vehicle.id,
+        address_id: address.id,
+        service_type_id: service_type.id
+      })
+      |> Ash.create()
+
+    appointment
+  end
+
+  test "renders an upcoming wash", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    create_active_subscription(customer, create_plan())
+    create_upcoming_appointment(customer)
+
+    {:ok, _view, html} = live(conn, ~p"/dashboard")
+
+    assert html =~ "Upcoming Washes"
+    assert html =~ "Deluxe Wash"
+    assert html =~ "Honda Civic"
+  end
+
+  test "shows upcoming empty state when none are booked", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    create_active_subscription(customer, create_plan())
+
+    {:ok, _view, html} = live(conn, ~p"/dashboard")
+    assert html =~ "No upcoming washes"
+  end
+
   test "cannot edit another customer's schedule", %{conn: conn} do
     {conn, customer} = register_and_sign_in(conn)
     create_active_subscription(customer, create_plan())
@@ -211,7 +278,11 @@ defmodule MobileCarWashWeb.DashboardLiveTest do
     # and a forged save event must not mutate it.
     render_hook(view, "save_preferences", %{
       "schedule_id" => other_schedule.id,
-      "schedule" => %{"frequency" => "monthly", "preferred_day" => "1", "preferred_time" => "09:00"}
+      "schedule" => %{
+        "frequency" => "monthly",
+        "preferred_day" => "1",
+        "preferred_time" => "09:00"
+      }
     })
 
     unchanged = Ash.get!(RecurringSchedule, other_schedule.id)
