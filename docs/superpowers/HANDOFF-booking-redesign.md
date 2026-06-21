@@ -1,111 +1,88 @@
-# Handoff — Booking Flow Redesign
+# Handoff — Booking Geocoder + Stripe Fixes
 
-**Last updated:** 2026-06-20 (evening)
-**Branch:** `main` (everything merged locally, **NOT pushed** — `main` is ~45 commits ahead of `origin/main`)
+**Last updated:** 2026-06-21 (midday)
+**Branches:** two unmerged feature branches off `main`; **nothing merged this session**, `main` untouched (still ~46 commits ahead of `origin/main`, intentionally **not pushed**).
 
 ---
 
 ## TL;DR for the next agent
 
-The customer booking flow has been progressively redesigned and is now a
-**single, progressively-revealed scrolling page**. Phases 1–3 plus the
-single-page rewrite (Sub-project 1) are **DONE and merged into local `main`
-(not pushed)**. The one remaining planned piece is **Sub-project 2 — geocoder
-address autocomplete + confirmation map** (designed, not built). Start there.
+Two independent work streams are complete-but-unmerged. The user said **"no"** to merging/precommit for now — do **not** merge or run the finish flow unless they ask.
 
-- **Current design spec (source of truth):** `docs/superpowers/specs/2026-06-20-booking-single-page-redesign-design.md` (covers both sub-projects; §4.3 is Sub-project 2)
-- **Single-page plan (done):** `docs/superpowers/plans/2026-06-20-booking-single-page-redesign.md`
-- **Sub-project 2:** no plan yet — write it with `writing-plans` from spec §4.3.
-- Older specs/plans (`2026-06-19*`, the per-phase `2026-06-20-*vehicle*`/`*addons*`/`*size*`/`*type*` files) are the completed earlier phases.
+1. **Geocoder address autocomplete (booking Sub-project 2)** — DONE on `feature/booking-geocoder-address`. Full SDD cycle + final review + a post-review service-area filter. Verified live in the booking UI.
+2. **Stripe payment/subscription fixes** — DONE on `fix/stripe-payment-confirmation` (off `main`, split out from the geocoder branch). **Four pre-existing production bugs** found by live test-mode testing and fixed; all verified end-to-end against the Stripe sandbox.
+
+Both branches are green (focused suites + `compile --warnings-as-errors`). Neither has had a **full `mix precommit`** run yet — do that before any merge.
 
 ---
 
-## ⚠️ Repo / environment gotchas (read before doing anything)
+## ⚠️ Repo / environment gotchas (read first)
 
-1. **Not pushed.** `main` is ~45 commits ahead of `origin/main`, all intentionally local. Do **not** push unless the user asks.
-2. **Three permanently-uncommitted working-tree files** — `config/dev.exs` (PORT 4010 override), `AGENTS.md`, `docs/customer-flows.html`. Established pattern: **stash them before a branch merge and pop after** (`git stash push -u -m "convention files" config/dev.exs AGENTS.md docs/customer-flows.html`). Never commit them.
-3. **The project is on an EXTERNAL drive** (`/Volumes/mac_external`). It has disconnected mid-session before — if paths vanish, the drive unmounted; have the user reconnect it. Writes that don't flush before a disconnect can be lost (re-create from context).
-4. **Subagents don't run `mix format`.** After a subagent task, `mix precommit`'s format step often leaves reflow-only changes uncommitted — commit them as a `style:` commit (this has bitten the merge step twice). Always run `mix precommit` and commit any format reflows BEFORE merging.
-5. **Run the app:** `PORT=4010 mix phx.server` → http://localhost:4010 (port 4000 is the user's other project). After UI/CSS changes, the user may need a **hard refresh** (Cmd+Shift+R) — stale CSS caused several phantom "it's broken" reports.
-6. **Runaway asset watchers:** orphaned `esbuild --watch`/`tailwind --watch` processes (from this + other projects) accumulated and starved CPU, causing stale CSS. They were cleaned up; if "recent classes aren't applying," check `ps aux | grep -E "esbuild|tailwind"` for old orphans and `mix assets.build`.
-7. **Known benign test noise (NOT failures):** Ash "missed notifications" warnings; `Postgrex ... disconnected` under async. `test/mobile_car_wash/operations/photo_upload_test.exs` can fail under full-suite load (Ecto sandbox) but **passes in isolation** — re-run it alone to confirm.
-
----
-
-## Process (how this work is run)
-
-- **brainstorming → writing-plans → subagent-driven-development → finishing-a-development-branch.** Each piece: spec section → plan → fresh feature branch off `main` → task-by-task subagents (implement + two-stage review) → `mix precommit` → merge `--no-ff` locally → delete branch.
-- **TDD mandatory.** Every task: failing test → implement → green. `mix precommit` (`compile --warnings-as-errors`, `deps.unlock --unused`, `format`, `test`) green before merge.
-- **SDD ledger:** `.superpowers/sdd/progress.md` (git-ignored) tracks per-task completion across this whole session — trust it + `git log` after any compaction.
-- **Mockable external clients** (pattern: `Notifications.TwilioClient`): server-side `Req`, swapped via `config :mobile_car_wash, :<name>_client` in `config/test.exs`. Tests never hit the network.
+1. **External drive.** Project lives on `/Volumes/mac_external`. It **unmounted mid-session** at least once — if paths vanish, the drive dropped; have the user reconnect, then continue. Commit often: unflushed writes can be lost on disconnect. (All work below is committed.)
+2. **Three permanently-uncommitted convention files** — `config/dev.exs`, `AGENTS.md`, `docs/customer-flows.html`. Never commit them. Stash before a branch merge, pop after. **Note:** `config/dev.exs` currently carries **local Stripe test edits** (see Stripe setup below) — keep them.
+3. **Not pushed.** `main` is ~46 ahead of `origin/main`, all intentionally local. Don't push unless asked.
+4. **Run the app:** `PORT=4010 mix phx.server` → http://localhost:4010 (port 4000 is the user's other project). Hard-refresh (Cmd+Shift+R) after CSS/JS changes.
+5. **Subagents don't run `mix format`** — commit format reflows as a `style:` commit before merging.
+6. **Orphaned `esbuild`/`tailwind --watch`** processes accumulate and starve CPU → stale CSS. Check `ps aux | grep -E "esbuild|tailwind"` and kill stale ones (leave other projects' alone).
+7. **Known benign test noise:** Ash "missed notifications" warnings; `Postgrex ... disconnected` under async; `photo_upload_test.exs` flakes under full-suite load but passes alone. A `stripity_stripe` `Stripe.Event.__struct__()` deprecation warning is from the dependency, not app code.
 
 ---
 
-## What's DONE (all merged to local `main`)
+## Branch 1 — `feature/booking-geocoder-address` (geocoder, DONE, unmerged)
 
-### Phase 1 — Live price hero
-`Billing.Pricing.breakdown/1` + `format_cents/1` + `subscription_discount_cents/3`; `PriceHeader` hero (animated total + tap-to-expand receipt); display==charge invariant across size + subscription/loyalty/referral.
+Off `main`. Commits (oldest→newest): `0a089a9` plan · `874ad53` GeocoderClient+mock+config · `14d949c` AddressMap hook + shared leaflet loader · `6f5af21` address typeahead/autofill/zone/map · `d1c2082` persist geocoded coords · `674818c` review-fix (signed-in save failure) · `2f15f20` **service-area hard filter + query bias**.
 
-### Phase 2 — Add-ons
-`Scheduling.AddOn` (admin catalog, **no Stripe product** — dynamic `unit_amount`), `AppointmentAddOn` price-snapshot join, server-authoritative folding into `price_cents`, admin CRUD, seeds.
-
-### Phase 3 — NHTSA vehicle step + enhancements
-- `Vehicles.NhtsaClient` (mockable, VIN decode + makes/models, BodyClass→size), `Vehicles.NhtsaCache` (ETS TTL, **degrades gracefully if the table is absent**), `Vehicle` gained optional `vin`/`body_class`.
-- Vehicle UI: Make→Year→Model dropdowns + typed-VIN autofill + color swatches + size.
-- **Size auto-detect:** `models_for_make_year/2` returns size-tagged `[%{name,size}]` via NHTSA `vehicleType` buckets (car→:car, truck→:pickup, mpv→:suv_van); selecting a model auto-fills size.
-- **Read-only vehicle type:** the manual size selector was removed — type is auto-detected, shown as a read-only badge, persisted via a hidden field. Async model loading (`start_async`/`handle_async` + `loading_models`).
-- Fixes: VIN/make URL path-encoding; color swatches render via inline size/shape (CSP/cache-independent).
-
-### Single-page redesign (Sub-project 1)
-- `Booking.BookingSections` (pure): per-section status `:locked|:active|:complete` + `payable?/1`.
-- `BookingLive` rewritten: one scrolling page, sticky price hero, sign-in at top, six sections (Service · Add-ons · Vehicle · Address · Schedule · Review & Pay) that unlock in order and stay freely editable. **Step wizard and photos removed from booking** (photo subsystem elsewhere untouched).
-- **Guest checkout:** vehicle/address held as **unsaved in-memory structs**, persisted at Pay right after the guest customer is created (`ensure_customer/1` → `persist_pending_records/1`). Signed-in users persist immediately. Server-side `payable?` guard on `confirm_booking` (a crafted Pay event can't crash it).
-- Stripe Checkout is now **globally mocked in tests** (`config/test.exs` `:stripe_checkout_module` → `StripeCheckoutSessionMock`), consistent with the other Stripe mocks.
-- Price hero sticks at **`top-16`** (below the sticky navbar, `layouts.ex` `sticky top-0 z-50`).
+- **`MobileCarWash.Fleet.GeocoderClient`** (`lib/mobile_car_wash/fleet/geocoder_client.ex`) — mockable server-side `Req` client (mirror of `NhtsaClient`), US Census default + Photon/OSM fallback. Mock at `test/support/geocoder_client_mock.ex`, wired in `config/test.exs`. **Hard-filters suggestions to service-area ZIPs** (`Zones.serviced_zip?/1`) and biases queries to San Antonio (Census query + Photon bbox/latlng). `filter_to_service_area/1` and `census_query/1` are public + unit-tested.
+- **Address section** rewritten in `lib/mobile_car_wash_web/live/booking_live.ex`: debounced (`phx-debounce=250`) typeahead → `start_async(:geocode_suggest)` → suggestions → select autofills street/city/state/zip + lat/lng, resolves zone **via `zone_for_zip` only** (nil = outside area; `zone_for_coordinates` would wrongly mark out-of-area in-area), drops a Leaflet pin via a new dedicated **`AddressMap`** hook (`assets/js/hooks/address_map.js`, shares `assets/js/hooks/leaflet_loader.js` with `DispatchMap`). Manual entry (`<details>`) + saved-address chips remain as fallback. Guest selections held in-memory and persisted at Pay (coords included).
+- **Tests:** `test/mobile_car_wash/fleet/geocoder_client_test.exs`, additions in `test/mobile_car_wash_web/live/booking_single_page_test.exs`. Final whole-branch review passed (one fix applied: signed-in save-failure no longer moves the map pin). Minor follow-ups logged in the SDD ledger (loader `onerror`, etc.).
+- Spec: `docs/superpowers/specs/2026-06-20-booking-single-page-redesign-design.md` §4.3. Plan: `docs/superpowers/plans/2026-06-20-booking-geocoder-address.md`.
 
 ---
 
-## What's NEXT — Sub-project 2: geocoder address autocomplete + map
+## Branch 2 — `fix/stripe-payment-confirmation` (4 Stripe bugs, DONE, unmerged)
 
-Fully designed in spec §4.3. The current address section is the **manual saved-list + form** (no autocomplete yet — this is the gap the user flagged as "address does not auto populate").
+Off `main`. Commits: `40dd6c9` raw body · `234104d` payment Ash.read! · `f6607ee` gitignore `.env*.local` · `5671941` subscription create. **All four were pre-existing bugs that would break real payments/subscriptions in production** (Stripe charges, the app records nothing). Found by connecting the test-mode sandbox and exercising flows live.
 
-- **`MobileCarWash.Fleet.GeocoderClient`** (new, mockable via `config :mobile_car_wash, :geocoder_client`, server-side `Req`; mirror `NhtsaClient`): `suggest(query) :: {:ok, [%{label, street, city, state, zip, lat, lng}]} | {:error, term()}`. Default **US Census** (`geocoding.geo.census.gov`, free, no key, US-only); **Photon/OSM fallback** behind the same module. Add `Fleet.GeocoderClientMock` (ETS-backed) + wire in `config/test.exs`.
-- **Address section rework:** debounced (`phx-change`, ~250ms) typeahead input → suggestions; on select → autofill street/city/state/zip, store `latitude`/`longitude` (columns already on `Address`), resolve zone via `MobileCarWash.Zones.zone_for_zip/1` (or `zone_for_coordinates/2`), drop a **Leaflet pin** via the existing `DispatchMap` hook (CSP already allows OSM/Carto/Stadia tiles). Keep manual entry + saved-address chips as fallback. Zone banner: `✓ In service area · <zone>` / `⚠ Outside our service area — we'll confirm or refund` (proceed allowed).
-- Suggestion lookups should be async/non-blocking (consistent with the vehicle section's `start_async` model) + debounced.
+1. **Webhook raw body** (`40dd6c9`) — `Plug.Parsers` consumed the body before the in-router `RawBody` plug re-read it → signature verified over empty bytes → **every webhook 400'd**. Fixed with a `Plug.Parsers :body_reader` (`lib/mobile_car_wash_web/plugs/cache_body_reader.ex`) that captures the raw body for `/webhooks/stripe`; deleted the dead `RawBody` plug; `endpoint.ex` + `router.ex` updated. Test: `test/mobile_car_wash_web/controllers/stripe_webhook_controller_test.exs`.
+2. **Payment confirmation** (`234104d`) — `Booking.complete_payment/2` + `fail_payment/1` called `Ash.read!(Payment, action:, arguments:)`; `:arguments` is not a valid `Ash.read!` option → `Ash.Error.Unknown`. Fixed via `Ash.Query.for_read/3`. Test: `test/mobile_car_wash/scheduling/booking_payment_test.exs`.
+3. **Subscription metadata access** (`5671941`) — `SubscriptionOrchestrator.create_from_checkout` used `get_in(session, [:metadata,...])` on a `%Stripe.Checkout.Session{}` struct (structs don't implement `Access`) → raised. Fixed with struct-field + map access.
+4. **Subscription actorless authz** (`5671941`) — `find_and_link_customer` ran `Ash.read!`/`Ash.update` on `Customer` without `authorize?: false` → `Ash.Error.Forbidden` in the actorless webhook context. Fixed (Stripe is the trusted source). Test: `test/mobile_car_wash/billing/subscription_orchestrator_test.exs` (uses a real `Stripe.Checkout.Session` struct so a plain map can't mask it; seeds the 5 cash-flow accounts the test DB lacks).
 
-### Other open / deferred items
-- **Guest unsaved selections don't survive a LiveView reconnect** (`SessionCache` restores by DB id; an in-memory `id: nil` struct restores as nil). Acceptable for now; revisit if guests report losing vehicle/address on reconnect. (Sub-project 2 could store geocoded address attrs in the cache to help.)
-- **"Price always visible" (OPEN):** the hero is sticky `top-16` (pins below the navbar when scrolling). The user asked for it to be "ALWAYS visible" and a clarifying question (sticky-is-fine vs fixed-top-bar vs fixed-bottom-bar) was interrupted — **confirm the desired treatment** before changing it again.
-- Guest address shows no zone banner until Pay today (the in-memory struct gets zone-from-zip set in `save_address`, so it does show for guests now — verify after Sub-project 2 reworks the section).
+**Verified end-to-end against the live sandbox:** one-time payment → appointment confirmed; subscription checkout → local `Subscription` created (Standard plan, `customer@demo.com`); lifecycle `customer.subscription.updated`/`deleted` mutate the local row; `checkout.session.expired` + invoice events route cleanly. Signature verification holds for all event types. `compile --warnings-as-errors` clean; billing suite 56/0.
 
 ---
 
-## Key architecture facts (don't re-derive)
+## Local Stripe test-mode setup (how to reproduce)
 
-- **Pricing is server-authoritative.** LiveView sends only ids/selections; `Booking.create_booking/1` computes the charge. Stripe bills a **dynamic `unit_amount`** (no fixed price id), so anything affecting the total just needs to land in `price_cents`.
-- **Single-page state:** `Booking.BookingSections.status/2` + `payable?/1` derive section gating from the context map (`build_context/1`: `selected_service`, `selected_add_ons`, `selected_vehicle`, `selected_address`, `selected_slot`, `current_customer`, `guest_form`). No more `StateMachine.transition` / `next_step` / `current_step` in `BookingLive`.
-- **External calls** go server-side via `Req`, mockable via app config. `NhtsaClient`, (soon) `GeocoderClient`. Keeps CSP/`connect-src` unchanged.
-- **Persistence:** `Booking.SessionCache` (DB-backed, keyed `booking_<csrf>`, restores by id).
-- **Migrations:** Ash — `mix ash.codegen <name>` then `mix ecto.migrate` AND `MIX_ENV=test mix ecto.migrate`. Inspect generated migrations for stale unrelated DDL (snapshot drift has happened).
+- **Stripe CLI** installed via Homebrew (`stripe`, v1.42.x). The user ran `stripe login` (CLI is authenticated).
+- **`.env.dev.local`** (gitignored via `.env*.local`) holds the user's **test-mode** `STRIPE_SECRET_KEY` (`sk_test_…`) and a `STRIPE_WEBHOOK_SECRET` captured from `stripe listen`.
+- **`config/dev.exs`** (uncommitted convention file) was edited locally: `config :stripity_stripe, api_key: System.get_env("STRIPE_SECRET_KEY") || "sk_test_placeholder"` and `base_url` → `http://localhost:4010` (was 4000 — would misdirect the post-payment redirect). Keep these.
+- **Run the server with keys:** `set -a; . ./.env.dev.local; set +a; PORT=4010 mix phx.server`.
+- **Webhook forwarding:** `stripe listen --forward-to localhost:4010/webhooks/stripe` (prints the `whsec_`).
+- **Catalog:** `mix backfill_stripe_catalog` populated test-mode Stripe product/price ids for the 2 ServiceTypes + 3 SubscriptionPlans (plans were `nil` before — subscription checkout would've failed).
+- **`.env` (committed-ignored) holds LIVE keys** (`sk_live`/`pk_live`) — production secrets; never run dev/tests against them. `runtime.exs` is prod-gated and `raise`s if keys missing.
+- **Test card:** `4242 4242 4242 4242`, any future expiry, any CVC, ZIP `78261`. Demo accounts: `customer@demo.com` / `tech@demo.com` / `admin@mobilecarwash.com` — all `Password123!`.
+- **Production readiness (operational, not code):** confirm live keys valid; register the webhook in the Stripe dashboard → `https://<host>/webhooks/stripe` with matching `whsec`; do one live-mode smoke test.
 
-## Useful files
-- Booking LiveView: `lib/mobile_car_wash_web/live/booking_live.ex` (single-page; read regions before editing).
-- Section status: `lib/mobile_car_wash/booking/booking_sections.ex`
-- Section wrapper component: `lib/mobile_car_wash_web/live/components/booking_components.ex` (`booking_section/1`)
-- Price hero: `lib/mobile_car_wash_web/components/price_header.ex`
-- NHTSA: `lib/mobile_car_wash/vehicles/nhtsa_client.ex` · `nhtsa_cache.ex` · mock `test/support/nhtsa_client_mock.ex`
-- Booking orchestrator / pricing / zones: `lib/mobile_car_wash/scheduling/booking.ex` · `lib/mobile_car_wash/billing/pricing.ex` · `lib/mobile_car_wash/zones.ex`
-- Vehicle/Address: `lib/mobile_car_wash/fleet/` · navbar: `lib/mobile_car_wash_web/components/layouts.ex`
-- Seeds: `priv/repo/seeds.exs`
-- Demo accounts: customer@demo.com / tech@demo.com / admin@mobilecarwash.com — all `Password123!`
+---
 
-## Test / run commands
-- Focused: `MIX_ENV=test mix test path/to/test.exs`
-- Full gate: `mix precommit`  (~5 min; last green: 1257 tests, 0 failures)
-- Run app: `PORT=4010 mix phx.server`
+## Currently running background processes
 
-## Suggested first moves for the next agent
-1. Read the design spec (§4.3) and this handoff.
-2. Confirm with the user: the "price always visible" treatment (open question) and whether to start Sub-project 2.
-3. Use `writing-plans` for Sub-project 2 (GeocoderClient mockable-from-the-start), then `subagent-driven-development` on a fresh `feature/booking-geocoder-address` branch off `main`.
-4. Build `GeocoderClient` + mock first (tests must not hit the network), then rework the address section (typeahead → autofill → zone → Leaflet pin).
+- `stripe listen` → task `bp67dn7n3` (forwarding to localhost:4010).
+- Dev server on 4010 → task `b8c0y898u` (on the `fix/stripe-payment-confirmation` branch, with test keys loaded).
+- Leave or stop as needed; nothing depends on them persisting.
+
+---
+
+## Open decisions / suggested next steps
+
+1. **Finish the branches** (user deferred — only on request): for each, stash convention files → full `mix precommit` → merge `--no-ff` into local `main` → pop → delete branch. They're independent and touch different files, so order doesn't matter. The 4 Stripe fixes are production-critical — worth landing.
+2. The geocoder branch's **Minor follow-ups** (loader `onerror`, etc.) are in the SDD ledger — triage before/after merge.
+3. **"Price always visible"** booking question from a prior session is resolved ("price is gtg") — no action.
+4. Local test data note: the demo customer's test subscription was set to `cancelled` locally via a lifecycle webhook test; the Stripe-side test subscription may still be active. Harmless.
+
+## Useful files & commands
+- Geocoder: `lib/mobile_car_wash/fleet/geocoder_client.ex` · `assets/js/hooks/address_map.js` · `lib/mobile_car_wash/zones.ex`
+- Stripe: `lib/mobile_car_wash/billing/stripe_client.ex` · `lib/mobile_car_wash_web/controllers/stripe_webhook_controller.ex` · `lib/mobile_car_wash_web/plugs/cache_body_reader.ex` · `lib/mobile_car_wash/billing/subscription_orchestrator.ex` · `lib/mobile_car_wash/scheduling/booking.ex`
+- SDD ledger (git-ignored, trust it + `git log` after compaction): `.superpowers/sdd/progress.md`
+- Focused test: `MIX_ENV=test mix test path/to/test.exs` · Full gate: `mix precommit` (~5 min)
