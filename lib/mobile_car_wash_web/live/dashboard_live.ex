@@ -428,5 +428,7 @@ defmodule MobileCarWashWeb.DashboardLive do
   defp format_status(:active), do: "Active"
   defp format_status(:paused), do: "Paused"
   defp format_status(:past_due), do: "Past Due"
+  defp format_status(:pending), do: "Pending"
+  defp format_status(:confirmed), do: "Confirmed"
   defp format_status(s), do: to_string(s)
 end
