@@ -19,8 +19,8 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
     stripe_subscription_id = Map.get(stripe_session, :subscription)
     stripe_customer_id = Map.get(stripe_session, :customer)
 
-    plan_id =
-      get_in(stripe_session, [:metadata, "plan_id"]) || Map.get(stripe_session.metadata, :plan_id)
+    metadata = stripe_session.metadata || %{}
+    plan_id = metadata["plan_id"] || metadata[:plan_id]
 
     with {:ok, plan} <- Ash.get(SubscriptionPlan, plan_id),
          {:ok, customer} <- find_and_link_customer(stripe_customer_id, stripe_session) do
@@ -198,7 +198,7 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
       if email do
         Customer
         |> Ash.Query.filter(email == ^email)
-        |> Ash.read!()
+        |> Ash.read!(authorize?: false)
         |> List.first()
       end
 
@@ -212,7 +212,7 @@ defmodule MobileCarWash.Billing.SubscriptionOrchestrator do
         if is_nil(customer.stripe_customer_id) do
           customer
           |> Ash.Changeset.for_update(:update, %{stripe_customer_id: stripe_customer_id})
-          |> Ash.update()
+          |> Ash.update(authorize?: false)
         else
           {:ok, customer}
         end
