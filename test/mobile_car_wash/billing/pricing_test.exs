@@ -117,6 +117,24 @@ defmodule MobileCarWash.Billing.PricingTest do
     end
   end
 
+  describe "size-aware add-ons" do
+    test "addons_total_cents/2 applies the vehicle-size multiplier" do
+      add_ons = [%{name: "Wax", price_cents: 1_000}, %{name: "Tires", price_cents: 500}]
+      # pickup = 1.5x -> 1500 + 750 = 2250
+      assert Pricing.addons_total_cents(add_ons, :pickup) == 2_250
+    end
+
+    test "addons_total_cents/2 with nil size is flat" do
+      add_ons = [%{name: "Wax", price_cents: 1_000}]
+      assert Pricing.addons_total_cents(add_ons, nil) == 1_000
+    end
+
+    test "addon_lines/2 sizes each line amount" do
+      add_ons = [%{name: "Wax", price_cents: 1_000}]
+      assert [%{label: "Wax", amount_cents: 1_200}] = Pricing.addon_lines(add_ons, :suv_van)
+    end
+  end
+
   describe "subscription_discount_cents/3" do
     test "covered basic wash discounts the full base price" do
       plan = %{basic_washes_per_month: 4, deep_clean_discount_percent: 0}
