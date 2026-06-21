@@ -2,7 +2,7 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
   use MobileCarWashWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
 
-  alias MobileCarWash.Scheduling.{ServiceType, AppointmentBlock}
+  alias MobileCarWash.Scheduling.{ServiceType, AppointmentBlock, Appointment}
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Fleet.GeocoderClientMock
@@ -52,6 +52,59 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
       status: :open
     })
     |> Ash.create!()
+  end
+
+  # Creates `count` confirmed appointments in `block`, consuming that many
+  # capacity slots. Used to drive `appointment_count` up for low-stock tests.
+  defp fill_block_to(block, count) do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+
+    customer =
+      Customer
+      |> Ash.Changeset.for_create(:create_guest, %{
+        email: "fill-block-#{System.unique_integer([:positive])}@test.com",
+        name: "Fill Block Customer"
+      })
+      |> Ash.create!(authorize?: false)
+
+    vehicle =
+      Vehicle
+      |> Ash.Changeset.for_create(:create, %{
+        make: "Toyota",
+        model: "Camry",
+        year: 2022,
+        color: "Silver",
+        size: :car
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.create!(authorize?: false)
+
+    address =
+      Address
+      |> Ash.Changeset.for_create(:create, %{
+        street: "123 Test St",
+        city: "San Antonio",
+        state: "TX",
+        zip: "78250"
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.create!(authorize?: false)
+
+    Enum.each(1..count, fn _ ->
+      Appointment
+      |> Ash.Changeset.for_create(:create, %{
+        scheduled_at: block.starts_at,
+        duration_minutes: 45,
+        status: :confirmed,
+        price_cents: 5000
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.Changeset.force_change_attribute(:vehicle_id, vehicle.id)
+      |> Ash.Changeset.force_change_attribute(:address_id, address.id)
+      |> Ash.Changeset.force_change_attribute(:service_type_id, service.id)
+      |> Ash.Changeset.force_change_attribute(:appointment_block_id, block.id)
+      |> Ash.create!(authorize?: false)
+    end)
   end
 
   # Extracts the markup of a single <section id="..."> up to the next <section
@@ -652,6 +705,50 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     #    (discount = sized = full price), overriding the referral discount entirely.
     html = render_click(view, "toggle_loyalty", %{})
     assert html =~ "$0.00"
+  end
+
+  # ---------------------------------------------------------------------------
+  # Task 11: Low-stock emphasis on block picker
+  # ---------------------------------------------------------------------------
+
+  test "a nearly-full block shows a low-stock emphasis", %{conn: conn} do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+    # capacity 5, fill 3 → 2 spots left (≤ 3 threshold → text-warning)
+    fill_block_to(block, 3)
+
+    {:ok, lv, _html} = live(conn, ~p"/book")
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(lv, "select_date", %{"date" => block_date})
+
+    html = render(lv)
+
+    assert html =~ "spots left"
+    assert html =~ "text-warning"
+  end
+
+  test "a block with ample spots does not show low-stock emphasis", %{conn: conn} do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    # capacity 5, 0 appointments → 5 spots left (> 3, no emphasis)
+    _block = create_open_block(service)
+
+    {:ok, lv, _html} = live(conn, ~p"/book")
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    block_date =
+      DateTime.utc_now()
+      |> DateTime.add(2 * 86_400, :second)
+      |> DateTime.to_date()
+      |> Date.to_string()
+
+    render_click(lv, "select_date", %{"date" => block_date})
+
+    html = render(lv)
+
+    assert html =~ "spots left"
+    refute html =~ "text-warning"
   end
 
   test "guest email matching a registered account shows a sign-in link", %{conn: conn} do

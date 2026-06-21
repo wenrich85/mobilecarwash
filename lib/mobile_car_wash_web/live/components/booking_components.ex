@@ -162,7 +162,13 @@ defmodule MobileCarWashWeb.BookingComponents do
               "%I:%M %p"
             )}
           </span>
-          <span class="text-xs opacity-75">
+          <span class={[
+            "text-xs",
+            if(block.capacity - block.appointment_count <= 3,
+              do: "text-warning font-semibold",
+              else: "text-base-content/50"
+            )
+          ]}>
             {block.capacity - block.appointment_count} of {block.capacity} spots left
           </span>
         </button>
