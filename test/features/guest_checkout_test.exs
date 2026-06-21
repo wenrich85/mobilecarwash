@@ -152,14 +152,14 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
 
-      # Step 3: Add address
+      # Step 3: Add address (78250 = San Antonio NW zone)
       {:ok, address} =
         Address
         |> Ash.Changeset.for_create(:create, %{
           street: "100 E2E Blvd",
-          city: "Austin",
+          city: "San Antonio",
           state: "TX",
-          zip: "78745"
+          zip: "78250"
         })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
@@ -224,9 +224,9 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
         Address
         |> Ash.Changeset.for_create(:create, %{
           street: "200 SUV St",
-          city: "Austin",
+          city: "San Antonio",
           state: "TX",
-          zip: "78702"
+          zip: "78250"
         })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()
@@ -269,9 +269,9 @@ defmodule MobileCarWash.Features.GuestCheckoutTest do
         Address
         |> Ash.Changeset.for_create(:create, %{
           street: "300 Car St",
-          city: "Austin",
+          city: "San Antonio",
           state: "TX",
-          zip: "78703"
+          zip: "78250"
         })
         |> Ash.Changeset.force_change_attribute(:customer_id, guest.id)
         |> Ash.create()

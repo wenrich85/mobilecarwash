@@ -80,6 +80,7 @@ defmodule MobileCarWashWeb.BookingLive do
         address_query: "",
         address_suggestions: [],
         loading_suggestions: false,
+        geocoder_error: false,
         # NHTSA dropdown data
         vehicle_makes: NhtsaClient.popular_makes(),
         vehicle_models: [],
@@ -473,6 +474,13 @@ defmodule MobileCarWashWeb.BookingLive do
           Searching…
         </div>
 
+        <div
+          :if={@geocoder_error}
+          class="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-2 text-sm text-warning"
+        >
+          Address lookup is having trouble right now — please enter your address manually below.
+        </div>
+
         <ul
           :if={@address_suggestions != []}
           class="menu bg-base-100 border border-base-300 rounded-box mb-4 p-1 w-full"
@@ -490,7 +498,7 @@ defmodule MobileCarWashWeb.BookingLive do
         </ul>
 
         <%!-- Manual entry fallback --%>
-        <details class="mb-4">
+        <details class="mb-4" open={@geocoder_error}>
           <summary class="text-sm text-primary cursor-pointer">Enter address manually</summary>
           <form
             phx-submit="save_address"
@@ -684,7 +692,18 @@ defmodule MobileCarWashWeb.BookingLive do
         <%!-- Guest contact info — collected here, the customer is created at Pay --%>
         <div :if={is_nil(@current_customer)} class="mt-4 space-y-3 border-t border-base-300 pt-4">
           <h3 class="text-sm font-semibold text-base-content">Your contact info</h3>
-          <p :if={@guest_error} class="text-sm text-error">{@guest_error}</p>
+          <div
+            :if={@guest_error}
+            class="bg-error/10 border border-error/30 rounded-lg p-3 mb-3 text-sm text-error space-y-2"
+          >
+            <p>{@guest_error}</p>
+            <.link
+              navigate={~p"/book/sign-in"}
+              class="btn btn-sm btn-outline"
+            >
+              Sign in to continue
+            </.link>
+          </div>
           <form phx-change="guest_form_change" id="guest-contact" class="space-y-3">
             <.input name="guest[name]" type="text" label="Name" value={@guest_form["name"]} required />
             <.input
@@ -699,6 +718,7 @@ defmodule MobileCarWashWeb.BookingLive do
         </div>
 
         <button
+          :if={not out_of_area?(assigns)}
           class="btn btn-primary w-full mt-4"
           phx-click="confirm_booking"
           disabled={not BookingSections.payable?(build_context(assigns))}
@@ -714,6 +734,29 @@ defmodule MobileCarWashWeb.BookingLive do
               "Continue to payment"
           end}
         </button>
+
+        <div
+          :if={out_of_area?(assigns)}
+          class="bg-warning/10 border border-warning/30 rounded-box p-5 space-y-3 mt-4"
+        >
+          <p class="text-sm font-semibold">We're not in your area yet.</p>
+          <p class="text-sm text-base-content/70">
+            Leave your email and we'll let you know the moment we start serving your neighborhood.
+          </p>
+          <form phx-submit="join_waitlist" class="flex gap-2">
+            <.input
+              name="email"
+              type="email"
+              value={
+                (@current_customer && to_string(@current_customer.email)) ||
+                  (@guest_form && @guest_form["email"]) || ""
+              }
+              placeholder="you@example.com"
+              required
+            />
+            <button type="submit" class="btn btn-primary">Notify me</button>
+          </form>
+        </div>
       </.booking_section>
     </div>
     """
@@ -1039,7 +1082,7 @@ defmodule MobileCarWashWeb.BookingLive do
     else
       {:noreply,
        socket
-       |> assign(address_query: q, loading_suggestions: true)
+       |> assign(address_query: q, loading_suggestions: true, geocoder_error: false)
        |> start_async(:geocode_suggest, fn -> GeocoderClient.suggest(q) end)}
     end
   end
@@ -1176,15 +1219,53 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_event("confirm_booking", _params, socket) do
-    if BookingSections.payable?(build_context(socket.assigns)) do
-      with {:ok, socket} <- ensure_customer(socket),
-           {:ok, socket} <- persist_pending_records(socket) do
-        do_confirm_booking(socket)
-      else
-        {:error, message} -> {:noreply, assign(socket, guest_error: message)}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "Please complete all sections before paying.")}
+    cond do
+      out_of_area?(socket.assigns) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "That address is outside our service area. Join the waitlist below and we'll reach out."
+         )}
+
+      BookingSections.payable?(build_context(socket.assigns)) ->
+        with {:ok, socket} <- ensure_customer(socket),
+             {:ok, socket} <- persist_pending_records(socket) do
+          do_confirm_booking(socket)
+        else
+          {:error, message} -> {:noreply, assign(socket, guest_error: message)}
+        end
+
+      true ->
+        {:noreply, put_flash(socket, :error, "Please complete all sections before paying.")}
+    end
+  end
+
+  def handle_event("join_waitlist", %{"email" => email}, socket) do
+    addr = socket.assigns.selected_address
+    service = socket.assigns.selected_service
+    guest_form = socket.assigns[:guest_form] || %{}
+
+    attrs = %{
+      email: email,
+      name: guest_form["name"],
+      phone: guest_form["phone"],
+      address_text: addr && "#{addr.street}, #{addr.city}, #{addr.state} #{addr.zip}",
+      zip: addr && addr.zip,
+      latitude: addr && addr.latitude,
+      longitude: addr && addr.longitude,
+      requested_service_slug: service && service.slug
+    }
+
+    case MobileCarWash.Marketing.Waitlist
+         |> Ash.Changeset.for_create(:join, attrs)
+         |> Ash.create(authorize?: false) do
+      {:ok, _entry} ->
+        {:noreply,
+         put_flash(socket, :info, "Thanks — we'll let you know when we reach your area.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Please enter a valid email.")}
     end
   end
 
@@ -1268,18 +1349,28 @@ defmodule MobileCarWashWeb.BookingLive do
   end
 
   def handle_async(:geocode_suggest, {:ok, {:ok, suggestions}}, socket) do
-    {:noreply, assign(socket, address_suggestions: suggestions, loading_suggestions: false)}
+    {:noreply,
+     assign(socket,
+       address_suggestions: suggestions,
+       loading_suggestions: false,
+       geocoder_error: false
+     )}
   end
 
   def handle_async(:geocode_suggest, {:ok, {:error, _reason}}, socket) do
-    {:noreply, assign(socket, address_suggestions: [], loading_suggestions: false)}
+    {:noreply,
+     assign(socket, address_suggestions: [], loading_suggestions: false, geocoder_error: true)}
   end
 
   def handle_async(:geocode_suggest, {:exit, _reason}, socket) do
-    {:noreply, assign(socket, address_suggestions: [], loading_suggestions: false)}
+    {:noreply,
+     assign(socket, address_suggestions: [], loading_suggestions: false, geocoder_error: true)}
   end
 
   # === PRIVATE HELPERS ===
+
+  defp out_of_area?(%{selected_address: %{zone: nil}}), do: true
+  defp out_of_area?(_), do: false
 
   # Returns {:ok, socket_with_customer} | {:error, message}. Signed-in users
   # pass through untouched; guests are looked up / created from guest_form at
@@ -1633,7 +1724,7 @@ defmodule MobileCarWashWeb.BookingLive do
     Pricing.breakdown(%{
       base_price_cents: base,
       vehicle_size: size,
-      addon_lines: Pricing.addon_lines(assigns[:selected_add_ons] || []),
+      addon_lines: Pricing.addon_lines(assigns[:selected_add_ons] || [], size),
       discount_cents: discount
     })
   end

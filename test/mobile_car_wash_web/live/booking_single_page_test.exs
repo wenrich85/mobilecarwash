@@ -2,7 +2,7 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
   use MobileCarWashWeb.ConnCase, async: false
   import Phoenix.LiveViewTest
 
-  alias MobileCarWash.Scheduling.{ServiceType, AppointmentBlock}
+  alias MobileCarWash.Scheduling.{ServiceType, AppointmentBlock, Appointment}
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Fleet.GeocoderClientMock
@@ -52,6 +52,59 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
       status: :open
     })
     |> Ash.create!()
+  end
+
+  # Creates `count` confirmed appointments in `block`, consuming that many
+  # capacity slots. Used to drive `appointment_count` up for low-stock tests.
+  defp fill_block_to(block, count) do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+
+    customer =
+      Customer
+      |> Ash.Changeset.for_create(:create_guest, %{
+        email: "fill-block-#{System.unique_integer([:positive])}@test.com",
+        name: "Fill Block Customer"
+      })
+      |> Ash.create!(authorize?: false)
+
+    vehicle =
+      Vehicle
+      |> Ash.Changeset.for_create(:create, %{
+        make: "Toyota",
+        model: "Camry",
+        year: 2022,
+        color: "Silver",
+        size: :car
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.create!(authorize?: false)
+
+    address =
+      Address
+      |> Ash.Changeset.for_create(:create, %{
+        street: "123 Test St",
+        city: "San Antonio",
+        state: "TX",
+        zip: "78250"
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.create!(authorize?: false)
+
+    Enum.each(1..count, fn _ ->
+      Appointment
+      |> Ash.Changeset.for_create(:create, %{
+        scheduled_at: block.starts_at,
+        duration_minutes: 45,
+        status: :confirmed,
+        price_cents: 5000
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.Changeset.force_change_attribute(:vehicle_id, vehicle.id)
+      |> Ash.Changeset.force_change_attribute(:address_id, address.id)
+      |> Ash.Changeset.force_change_attribute(:service_type_id, service.id)
+      |> Ash.Changeset.force_change_attribute(:appointment_block_id, block.id)
+      |> Ash.create!(authorize?: false)
+    end)
   end
 
   # Extracts the markup of a single <section id="..."> up to the next <section
@@ -334,6 +387,47 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert html =~ ~s(data-lat="29.6512")
   end
 
+  # ---------------------------------------------------------------------------
+  # Out-of-area waitlist capture
+  # ---------------------------------------------------------------------------
+
+  test "out-of-area address blocks payment and offers the waitlist", %{conn: conn} do
+    service = MobileCarWash.Scheduling.ServiceType |> Ash.read!() |> hd()
+    {:ok, lv, _html} = live(conn, ~p"/book")
+
+    # Drive the flow far enough that the review section is reachable, then
+    # set an out-of-area (zone: nil) address via the manual entry form.
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    html =
+      lv
+      |> form("form[phx-submit=save_address]",
+        address: %{street: "1 Far Rd", city: "Nowhere", state: "TX", zip: "00000"}
+      )
+      |> render_submit()
+
+    assert html =~ "Outside our service area"
+    refute has_element?(lv, "button[phx-click=confirm_booking]")
+    assert has_element?(lv, "form[phx-submit=join_waitlist]")
+  end
+
+  test "join_waitlist records a lead", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/book")
+    service = MobileCarWash.Scheduling.ServiceType |> Ash.read!() |> hd()
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    lv
+    |> form("form[phx-submit=save_address]",
+      address: %{street: "1 Far Rd", city: "Nowhere", state: "TX", zip: "00000"}
+    )
+    |> render_submit()
+
+    render_submit(lv, "join_waitlist", %{"email" => "lead@example.com"})
+
+    entries = Ash.read!(MobileCarWash.Marketing.Waitlist, authorize?: false)
+    assert Enum.any?(entries, &(&1.email == "lead@example.com"))
+  end
+
   test "selecting a suggestion outside the service area warns but is allowed", %{conn: conn} do
     GeocoderClientMock.init()
 
@@ -484,5 +578,242 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert saved.zip == "78250"
     assert_in_delta saved.latitude, 29.5099, 0.0001
     assert_in_delta saved.longitude, -98.6399, 0.0001
+  end
+
+  test "geocoder failure shows an error and surfaces manual entry", %{conn: conn} do
+    GeocoderClientMock.init()
+    GeocoderClientMock.put_error("broken st", {:error, :geocoder_unavailable})
+
+    {:ok, view, _} = live(conn, ~p"/book")
+
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+    render_hook(view, "address_search", %{"q" => "broken st"})
+    html = render_async(view)
+
+    assert html =~ "having trouble"
+  end
+
+  # ---------------------------------------------------------------------------
+  # Guest sign-in affordance — registered-email collision
+  # ---------------------------------------------------------------------------
+
+  test "selecting a pickup raises the hero total by 50%", %{conn: conn} do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+
+    {:ok, lv, _html} = live(conn, ~p"/book")
+
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    html =
+      render_submit(lv, "save_vehicle", %{
+        "vehicle" => %{
+          "make" => "Ford",
+          "model" => "F-150",
+          "year" => "2021",
+          "color" => "Black",
+          "size" => "pickup",
+          "vin" => "",
+          "body_class" => ""
+        }
+      })
+
+    # base_price_cents 5000 * 1.5 pickup multiplier = 7500 cents = $75.00
+    assert html =~ "$75.00"
+  end
+
+  test "redeeming loyalty overrides any referral discount in the hero", %{conn: conn} do
+    # A separate customer who owns the referral code (can't use your own).
+    {:ok, referrer} =
+      Customer
+      |> Ash.Changeset.for_create(:register_with_password, %{
+        email: "referrer-excl-#{System.unique_integer([:positive])}@test.com",
+        password: "Password123!",
+        password_confirmation: "Password123!",
+        name: "Referrer"
+      })
+      |> Ash.create()
+
+    assert referrer.referral_code
+
+    # The customer who will book — needs loyalty punches so the toggle appears.
+    {:ok, booker} =
+      Customer
+      |> Ash.Changeset.for_create(:register_with_password, %{
+        email: "booker-excl-#{System.unique_integer([:positive])}@test.com",
+        password: "Password123!",
+        password_confirmation: "Password123!",
+        name: "Booker"
+      })
+      |> Ash.create()
+
+    punches = MobileCarWash.Loyalty.punches_per_reward()
+    Enum.each(1..punches, fn _ -> MobileCarWash.Loyalty.add_punch(booker.id) end)
+
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+
+    # Sign in as the booker.
+    authed_conn =
+      conn
+      |> Phoenix.ConnTest.init_test_session(%{})
+      |> post("/auth/customer/password/sign_in", %{
+        "customer" => %{
+          "email" => to_string(booker.email),
+          "password" => "Password123!"
+        }
+      })
+      |> recycle()
+
+    {:ok, view, _html} = live(authed_conn, "/book")
+
+    # 1. Select service
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    # 2. Save vehicle (signed-in path: vehicle form shows, submit creates it)
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Honda",
+        "model" => "Civic",
+        "year" => "2021",
+        "color" => "Blue",
+        "size" => "car",
+        "vin" => "",
+        "body_class" => ""
+      }
+    })
+
+    # 3. Save address
+    render_submit(view, "save_address", %{
+      "address" => %{
+        "street" => "456 Oak Lane",
+        "city" => "San Antonio",
+        "state" => "TX",
+        "zip" => "78250"
+      }
+    })
+
+    # 4. Select a time block (required for price_breakdown to include vehicle size)
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(view, "select_date", %{"date" => block_date})
+    render_click(view, "select_block", %{"id" => block.id})
+
+    # 5. Apply a valid referral code — hero should now show $40.00 ($50 - $10 referral)
+    html = render_submit(view, "apply_referral", %{"code" => referrer.referral_code})
+    assert html =~ "$40.00"
+
+    # 6. Toggle loyalty on — compute_price_breakdown takes the redeem_loyalty branch
+    #    (discount = sized = full price), overriding the referral discount entirely.
+    html = render_click(view, "toggle_loyalty", %{})
+    assert html =~ "$0.00"
+  end
+
+  # ---------------------------------------------------------------------------
+  # Task 11: Low-stock emphasis on block picker
+  # ---------------------------------------------------------------------------
+
+  test "a nearly-full block shows a low-stock emphasis", %{conn: conn} do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+    # capacity 5, fill 3 → 2 spots left (≤ 3 threshold → text-warning)
+    fill_block_to(block, 3)
+
+    {:ok, lv, _html} = live(conn, ~p"/book")
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(lv, "select_date", %{"date" => block_date})
+
+    html = render(lv)
+
+    assert html =~ "spots left"
+    assert html =~ "text-warning"
+  end
+
+  test "a block with ample spots does not show low-stock emphasis", %{conn: conn} do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    # capacity 5, 0 appointments → 5 spots left (> 3, no emphasis)
+    _block = create_open_block(service)
+
+    {:ok, lv, _html} = live(conn, ~p"/book")
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    block_date =
+      DateTime.utc_now()
+      |> DateTime.add(2 * 86_400, :second)
+      |> DateTime.to_date()
+      |> Date.to_string()
+
+    render_click(lv, "select_date", %{"date" => block_date})
+
+    html = render(lv)
+
+    assert html =~ "spots left"
+    refute html =~ "text-warning"
+  end
+
+  test "guest email matching a registered account shows a sign-in link", %{conn: conn} do
+    # A registered (password) customer already owns this email.
+    Customer
+    |> Ash.Changeset.for_create(:register_with_password, %{
+      email: "taken@example.com",
+      name: "Real Account",
+      password: "Password123!",
+      password_confirmation: "Password123!"
+    })
+    |> Ash.create!()
+
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+    block = create_open_block(service)
+
+    {:ok, view, _html} = live(conn, ~p"/book")
+
+    # 1. Select service
+    render_click(view, "select_service", %{"slug" => "basic_wash"})
+
+    # 2. Save vehicle
+    render_submit(view, "save_vehicle", %{
+      "vehicle" => %{
+        "make" => "Toyota",
+        "model" => "Camry",
+        "year" => "2022",
+        "color" => "Silver",
+        "size" => "car",
+        "vin" => "",
+        "body_class" => ""
+      }
+    })
+
+    # 3. Save address (in-memory for guest)
+    render_submit(view, "save_address", %{
+      "address" => %{
+        "street" => "456 Oak Lane",
+        "city" => "San Antonio",
+        "state" => "TX",
+        "zip" => "78250"
+      }
+    })
+
+    # 4. Select a schedule block
+    block_date = block.starts_at |> DateTime.to_date() |> Date.to_string()
+    render_click(view, "select_date", %{"date" => block_date})
+    render_click(view, "select_block", %{"id" => block.id})
+
+    # 5. Fill in guest contact info with the already-registered email
+    render_change(view, "guest_form_change", %{
+      "guest" => %{
+        "name" => "Guest User",
+        "email" => "taken@example.com",
+        "phone" => "5125550199"
+      }
+    })
+
+    # 6. Attempt to confirm — ensure_customer detects the registered account and
+    #    sets guest_error; the page must render a sign-in link in the error block.
+    html = render_click(view, "confirm_booking", %{})
+
+    assert html =~ "An account with this email already exists"
+    # The error block renders a dedicated link (distinct from the always-present
+    # nav "Sign in" button). Assert by its unique link text.
+    assert has_element?(view, "a[href='/book/sign-in']", "Sign in to continue")
   end
 end

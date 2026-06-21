@@ -17,7 +17,8 @@ defmodule MobileCarWash.Marketing do
     Persona,
     PersonaMembership,
     Post,
-    Tag
+    Tag,
+    Waitlist
   }
 
   resources do
@@ -28,6 +29,7 @@ defmodule MobileCarWash.Marketing do
     resource(PersonaMembership)
     resource(Post)
     resource(Tag)
+    resource(Waitlist)
   end
 
   @canonical_channels [

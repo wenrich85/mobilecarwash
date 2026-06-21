@@ -90,6 +90,45 @@ defmodule MobileCarWash.Notifications.Email do
   end
 
   @doc """
+  Arrival-window-confirmed email — sent after the route optimizer assigns the
+  exact arrival time inside the customer's booked block.
+  """
+  def block_scheduled(appointment, service_type, customer, address) do
+    when_str = Calendar.strftime(appointment.scheduled_at, "%B %d, %Y at %I:%M %p")
+    where_str = "#{address.street}, #{address.city}, #{address.state} #{address.zip}"
+
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Your arrival time is confirmed!</h2>
+    <p>Hi #{customer.name},</p>
+    <p>Your <strong>#{service_type.name}</strong> is scheduled. We'll arrive at:</p>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">When</td><td style="padding:4px 0;font-weight:600;">#{when_str}</td></tr>
+      <tr><td style="padding:4px 16px 4px 0;color:#64748b;font-size:13px;">Where</td><td style="padding:4px 0;font-weight:600;">#{where_str}</td></tr>
+    </table>
+    <p style="color:#64748b;font-size:12px;">Booking ID: <code>#{appointment.id}</code></p>
+    """
+
+    inner_text = """
+    Your arrival time is confirmed!
+
+    Hi #{customer.name},
+
+    #{service_type.name}
+    When: #{when_str}
+    Where: #{where_str}
+
+    Booking ID: #{appointment.id}
+    """
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Arrival Time Confirmed - #{service_type.name}")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
+  end
+
+  @doc """
   Appointment reminder email — sent 24 hours before the appointment.
   """
   def appointment_reminder(appointment, service_type, customer, address) do

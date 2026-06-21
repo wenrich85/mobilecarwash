@@ -54,7 +54,8 @@ defmodule MobileCarWash.Scheduling.Booking do
       Repo.transaction(fn ->
         with {:ok, service_type} <- fetch_service_type(params.service_type_id),
              {:ok, vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
-             {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
+             {:ok, address} <- verify_address_ownership(params.address_id, params.customer_id),
+             :ok <- ensure_in_service_area(address),
              {:ok, params} <- resolve_schedule(params, service_type),
              {:ok, price_cents, discount_cents} <-
                calculate_price(service_type, vehicle.size, params[:subscription_id]),
@@ -65,10 +66,11 @@ defmodule MobileCarWash.Scheduling.Booking do
                maybe_apply_referral(price_cents, discount_cents, params[:referral_code]),
              add_ons = load_add_ons(params[:add_on_ids]),
              price_cents =
-               price_cents + MobileCarWash.Billing.Pricing.addons_total_cents(add_ons),
+               price_cents +
+                 MobileCarWash.Billing.Pricing.addons_total_cents(add_ons, vehicle.size),
              {:ok, appointment} <-
                create_appointment(params, service_type, price_cents, discount_cents),
-             :ok <- create_appointment_add_ons(appointment, add_ons),
+             :ok <- create_appointment_add_ons(appointment, add_ons, vehicle.size),
              :ok <- maybe_update_subscription_usage(params[:subscription_id], service_type),
              {:ok, result} <- create_payment_and_checkout(appointment, service_type, params) do
           result
@@ -238,6 +240,9 @@ defmodule MobileCarWash.Scheduling.Booking do
         {:error, :address_not_found}
     end
   end
+
+  defp ensure_in_service_area(%{zone: nil}), do: {:error, :out_of_service_area}
+  defp ensure_in_service_area(_address), do: :ok
 
   defp check_availability(scheduled_at, duration_minutes) do
     date = DateTime.to_date(scheduled_at)
@@ -684,15 +689,15 @@ defmodule MobileCarWash.Scheduling.Booking do
     |> Ash.read!()
   end
 
-  defp create_appointment_add_ons(_appointment, []), do: :ok
+  defp create_appointment_add_ons(_appointment, [], _size), do: :ok
 
-  defp create_appointment_add_ons(appointment, add_ons) do
+  defp create_appointment_add_ons(appointment, add_ons, vehicle_size) do
     Enum.each(add_ons, fn add_on ->
       MobileCarWash.Scheduling.AppointmentAddOn
       |> Ash.Changeset.for_create(:create, %{
         appointment_id: appointment.id,
         add_on_id: add_on.id,
-        price_cents: add_on.price_cents
+        price_cents: MobileCarWash.Billing.Pricing.calculate(add_on.price_cents, vehicle_size)
       })
       |> Ash.create!()
     end)

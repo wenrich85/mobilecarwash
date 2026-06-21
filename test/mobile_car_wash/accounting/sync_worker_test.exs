@@ -44,8 +44,14 @@ defmodule MobileCarWash.Accounting.SyncWorkerTest do
   end
 
   defp create_address(customer_id) do
+    # 78250 = San Antonio NW zone (in service area)
     MobileCarWash.Fleet.Address
-    |> Ash.Changeset.for_create(:create, %{street: "1 Sync", city: "A", state: "TX", zip: "7"})
+    |> Ash.Changeset.for_create(:create, %{
+      street: "1 Sync St",
+      city: "San Antonio",
+      state: "TX",
+      zip: "78250"
+    })
     |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
     |> Ash.create!()
   end

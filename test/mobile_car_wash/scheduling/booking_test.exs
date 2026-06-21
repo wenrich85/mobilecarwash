@@ -47,12 +47,13 @@ defmodule MobileCarWash.Scheduling.BookingTest do
   end
 
   defp create_address(customer_id) do
+    # 78250 is in the NW zone of the San Antonio service area
     MobileCarWash.Fleet.Address
     |> Ash.Changeset.for_create(:create, %{
       street: "123 Test St",
-      city: "Austin",
+      city: "San Antonio",
       state: "TX",
-      zip: "78701"
+      zip: "78250"
     })
     |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
     |> Ash.create!()
@@ -64,7 +65,39 @@ defmodule MobileCarWash.Scheduling.BookingTest do
     dt
   end
 
+  defp create_add_on(attrs \\ []) do
+    price_cents = Keyword.get(attrs, :price_cents, 1_000)
+    slug = "addon-#{:rand.uniform(100_000)}"
+
+    MobileCarWash.Scheduling.AddOn
+    |> Ash.Changeset.for_create(:create, %{
+      name: "Test Add-On",
+      slug: slug,
+      price_cents: price_cents,
+      active: true
+    })
+    |> Ash.create!()
+  end
+
+  defp grant_free_wash(customer) do
+    punches = MobileCarWash.Loyalty.punches_per_reward()
+    Enum.each(1..punches, fn _ -> MobileCarWash.Loyalty.add_punch(customer.id) end)
+  end
+
   # --- Tests ---
+
+  defp create_out_of_area_address(customer_id) do
+    # Zip "00000" is not in the service-area map → SetZoneFromZip sets zone: nil
+    MobileCarWash.Fleet.Address
+    |> Ash.Changeset.for_create(:create, %{
+      street: "1 Far Rd",
+      city: "Nowhere",
+      state: "TX",
+      zip: "00000"
+    })
+    |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
+    |> Ash.create!()
+  end
 
   describe "create_booking/1 — full flow" do
     test "creates appointment with car (1.0x pricing)" do
@@ -211,6 +244,186 @@ defmodule MobileCarWash.Scheduling.BookingTest do
         })
 
       assert {:error, :slot_unavailable} = result
+    end
+
+    test "add-on price scales with vehicle size in the charged total" do
+      # pickup (1.5x): base 5000 * 1.5 = 7500; add-on 1000 * 1.5 = 1500; total 9000
+      customer = create_customer()
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :pickup)
+      address = create_address(customer.id)
+      add_on = create_add_on(price_cents: 1_000)
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          add_on_ids: [add_on.id]
+        })
+
+      assert appt.price_cents == 9_000
+    end
+
+    test "a valid referral code reduces the charged total" do
+      customer = create_customer()
+      # Every customer created via :create_guest gets a referral_code auto-generated
+      # in the Customer resource changes block — no extra setup needed.
+      referrer = create_customer(%{email: "referrer-#{:rand.uniform(100_000)}@example.com"})
+      assert referrer.referral_code
+
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_address(customer.id)
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          referral_code: referrer.referral_code
+        })
+
+      # base 5000; referral discount $10 (1000 cents) → 4000
+      assert appt.price_cents < 5_000
+      assert appt.referral_code_used == referrer.referral_code
+    end
+
+    test "loyalty redemption zeroes a covered basic wash and consumes a free wash" do
+      customer = create_customer()
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_address(customer.id)
+
+      grant_free_wash(customer)
+
+      {:ok, card_before} = MobileCarWash.Loyalty.get_or_create_card(customer.id)
+      assert MobileCarWash.Loyalty.available_free_washes(card_before) == 1
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          loyalty_redeem: true
+        })
+
+      assert appt.price_cents == 0
+
+      {:ok, card_after} = MobileCarWash.Loyalty.get_or_create_card(customer.id)
+      assert MobileCarWash.Loyalty.available_free_washes(card_after) == 0
+    end
+
+    # FIX 1: server-side nil-zone guard
+    test "rejects booking with out-of-service-area address (zone: nil) before creating an appointment" do
+      customer = create_customer()
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_out_of_area_address(customer.id)
+
+      # Confirm address has zone: nil (i.e., SetZoneFromZip left it nil for "00000")
+      assert is_nil(address.zone)
+
+      result =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil
+        })
+
+      assert {:error, :out_of_service_area} = result
+
+      # No appointment should have been created for this customer
+      appointments =
+        MobileCarWash.Scheduling.Appointment
+        |> Ash.Query.filter(customer_id == ^customer.id)
+        |> Ash.read!(authorize?: false)
+
+      assert appointments == []
+    end
+
+    # FIX 3: hero total == server-charged total (non-tautological: pickup + add-on with multipliers)
+    test "hero total equals server-charged appointment price (pickup + add-on, size multipliers applied)" do
+      customer = create_customer()
+      service = create_service_type()
+      # pickup: 1.5x multiplier; base 5000 → sized 7500
+      vehicle = create_vehicle(customer.id, :pickup)
+      address = create_address(customer.id)
+      # add-on base 1000 → scaled 1500 for pickup
+      add_on = create_add_on(price_cents: 1_000)
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          add_on_ids: [add_on.id]
+        })
+
+      # Compute what the hero breakdown would show for the same inputs
+      hero =
+        Pricing.breakdown(%{
+          base_price_cents: service.base_price_cents,
+          vehicle_size: :pickup,
+          addon_lines: Pricing.addon_lines([add_on], :pickup),
+          discount_cents: 0
+        })
+
+      # The contract: hero total == charged total
+      assert hero.total_cents == appt.price_cents
+      # Sanity: multipliers actually kicked in (not a trivial 1.0x case)
+      assert hero.total_cents == 9_000
+    end
+
+    test "mobile payment flow creates a PaymentIntent and returns a client secret" do
+      customer = create_customer()
+      # Use a car (1.0x) so price_cents == 5000, well above zero — avoids the
+      # free-wash auto-confirm branch and exercises the :mobile payment path.
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_address(customer.id)
+
+      {:ok, result} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          payment_flow: :mobile
+        })
+
+      # Result must carry a binary client_secret (from StripePaymentIntentMock),
+      # not a checkout_url — confirming the :mobile branch was taken.
+      assert is_binary(result.payment_intent_client_secret)
+      refute Map.has_key?(result, :checkout_url)
+
+      # A Payment row must have been created and linked to the appointment.
+      payments =
+        MobileCarWash.Billing.Payment
+        |> Ash.Query.filter(appointment_id == ^result.appointment.id)
+        |> Ash.read!(authorize?: false)
+
+      assert length(payments) == 1
+      [payment] = payments
+      assert payment.amount_cents == result.appointment.price_cents
+      assert payment.status == :pending
     end
   end
 end
