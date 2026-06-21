@@ -210,7 +210,7 @@ defmodule MobileCarWashWeb.DashboardLiveTest do
     # The other customer's schedule must not appear in this dashboard at all,
     # and a forged save event must not mutate it.
     render_hook(view, "save_preferences", %{
-      "id" => other_schedule.id,
+      "schedule_id" => other_schedule.id,
       "schedule" => %{"frequency" => "monthly", "preferred_day" => "1", "preferred_time" => "09:00"}
     })
 

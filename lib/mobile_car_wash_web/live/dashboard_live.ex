@@ -46,7 +46,7 @@ defmodule MobileCarWashWeb.DashboardLive do
     {:noreply, assign(socket, editing_id: nil)}
   end
 
-  def handle_event("save_preferences", %{"id" => id, "schedule" => params}, socket) do
+  def handle_event("save_preferences", %{"schedule_id" => id, "schedule" => params}, socket) do
     customer = socket.assigns.current_customer
 
     attrs = %{
@@ -230,7 +230,7 @@ defmodule MobileCarWashWeb.DashboardLive do
               id={"edit-schedule-#{schedule.id}"}
               phx-submit="save_preferences"
             >
-              <input type="hidden" name="id" value={schedule.id} />
+              <input type="hidden" name="schedule_id" value={schedule.id} />
               <div class="grid grid-cols-3 gap-2">
                 <select name="schedule[frequency]" class="select select-bordered select-sm">
                   <option value="weekly" selected={schedule.frequency == :weekly}>Every week</option>
