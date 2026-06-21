@@ -1052,12 +1052,16 @@ defmodule MobileCarWashWeb.BookingLive do
         {:noreply, socket}
 
       s ->
-        socket = choose_geocoded_address(socket, s, prev_ctx)
+        case choose_geocoded_address(socket, s, prev_ctx) do
+          {:ok, socket} ->
+            {:noreply,
+             socket
+             |> assign(address_suggestions: [], address_query: "", loading_suggestions: false)
+             |> push_event("address_map_set", %{lat: s.lat, lng: s.lng})}
 
-        {:noreply,
-         socket
-         |> assign(address_suggestions: [], address_query: "", loading_suggestions: false)
-         |> push_event("address_map_set", %{lat: s.lat, lng: s.lng})}
+          {:error, socket} ->
+            {:noreply, socket}
+        end
     end
   end
 
@@ -1362,10 +1366,11 @@ defmodule MobileCarWashWeb.BookingLive do
         zone: MobileCarWash.Zones.zone_for_zip(s.zip)
       })
 
-    socket
-    |> assign(selected_address: address, show_new_address_form: false)
-    |> persist_booking_state()
-    |> maybe_scroll(prev_ctx)
+    {:ok,
+     socket
+     |> assign(selected_address: address, show_new_address_form: false)
+     |> persist_booking_state()
+     |> maybe_scroll(prev_ctx)}
   end
 
   # Signed-in: persist the geocoded address immediately (zone is set by the
@@ -1385,16 +1390,18 @@ defmodule MobileCarWashWeb.BookingLive do
          |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
          |> Ash.create() do
       {:ok, address} ->
-        socket
-        |> assign(
-          selected_address: address,
-          existing_addresses: socket.assigns.existing_addresses ++ [address]
-        )
-        |> persist_booking_state()
-        |> maybe_scroll(prev_ctx)
+        {:ok,
+         socket
+         |> assign(
+           selected_address: address,
+           existing_addresses: socket.assigns.existing_addresses ++ [address]
+         )
+         |> persist_booking_state()
+         |> maybe_scroll(prev_ctx)}
 
       {:error, _} ->
-        put_flash(socket, :error, "Could not save that address. Please try manual entry.")
+        {:error,
+         put_flash(socket, :error, "Could not save that address. Please try manual entry.")}
     end
   end
 
