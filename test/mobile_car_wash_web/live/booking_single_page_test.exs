@@ -408,7 +408,7 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
 
     assert html =~ "Outside our service area"
     refute has_element?(lv, "button[phx-click=confirm_booking]")
-    assert has_element?(lv, "button[phx-click=join_waitlist]")
+    assert has_element?(lv, "form[phx-submit=join_waitlist]")
   end
 
   test "join_waitlist records a lead", %{conn: conn} do
@@ -633,7 +633,7 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
       })
       |> Ash.create()
 
-    assert referrer.referral_code != nil
+    assert referrer.referral_code
 
     # The customer who will book — needs loyalty punches so the toggle appears.
     {:ok, booker} =

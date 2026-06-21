@@ -47,12 +47,13 @@ defmodule MobileCarWash.Scheduling.BookingTest do
   end
 
   defp create_address(customer_id) do
+    # 78250 is in the NW zone of the San Antonio service area
     MobileCarWash.Fleet.Address
     |> Ash.Changeset.for_create(:create, %{
       street: "123 Test St",
-      city: "Austin",
+      city: "San Antonio",
       state: "TX",
-      zip: "78701"
+      zip: "78250"
     })
     |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
     |> Ash.create!()
@@ -84,6 +85,19 @@ defmodule MobileCarWash.Scheduling.BookingTest do
   end
 
   # --- Tests ---
+
+  defp create_out_of_area_address(customer_id) do
+    # Zip "00000" is not in the service-area map → SetZoneFromZip sets zone: nil
+    MobileCarWash.Fleet.Address
+    |> Ash.Changeset.for_create(:create, %{
+      street: "1 Far Rd",
+      city: "Nowhere",
+      state: "TX",
+      zip: "00000"
+    })
+    |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
+    |> Ash.create!()
+  end
 
   describe "create_booking/1 — full flow" do
     test "creates appointment with car (1.0x pricing)" do
@@ -259,7 +273,7 @@ defmodule MobileCarWash.Scheduling.BookingTest do
       # Every customer created via :create_guest gets a referral_code auto-generated
       # in the Customer resource changes block — no extra setup needed.
       referrer = create_customer(%{email: "referrer-#{:rand.uniform(100_000)}@example.com"})
-      assert referrer.referral_code != nil
+      assert referrer.referral_code
 
       service = create_service_type()
       vehicle = create_vehicle(customer.id, :car)
@@ -307,6 +321,73 @@ defmodule MobileCarWash.Scheduling.BookingTest do
 
       {:ok, card_after} = MobileCarWash.Loyalty.get_or_create_card(customer.id)
       assert MobileCarWash.Loyalty.available_free_washes(card_after) == 0
+    end
+
+    # FIX 1: server-side nil-zone guard
+    test "rejects booking with out-of-service-area address (zone: nil) before creating an appointment" do
+      customer = create_customer()
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_out_of_area_address(customer.id)
+
+      # Confirm address has zone: nil (i.e., SetZoneFromZip left it nil for "00000")
+      assert is_nil(address.zone)
+
+      result =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil
+        })
+
+      assert {:error, :out_of_service_area} = result
+
+      # No appointment should have been created for this customer
+      appointments =
+        MobileCarWash.Scheduling.Appointment
+        |> Ash.Query.filter(customer_id == ^customer.id)
+        |> Ash.read!(authorize?: false)
+
+      assert appointments == []
+    end
+
+    # FIX 3: hero total == server-charged total (non-tautological: pickup + add-on with multipliers)
+    test "hero total equals server-charged appointment price (pickup + add-on, size multipliers applied)" do
+      customer = create_customer()
+      service = create_service_type()
+      # pickup: 1.5x multiplier; base 5000 → sized 7500
+      vehicle = create_vehicle(customer.id, :pickup)
+      address = create_address(customer.id)
+      # add-on base 1000 → scaled 1500 for pickup
+      add_on = create_add_on(price_cents: 1_000)
+
+      {:ok, %{appointment: appt}} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          add_on_ids: [add_on.id]
+        })
+
+      # Compute what the hero breakdown would show for the same inputs
+      hero =
+        Pricing.breakdown(%{
+          base_price_cents: service.base_price_cents,
+          vehicle_size: :pickup,
+          addon_lines: Pricing.addon_lines([add_on], :pickup),
+          discount_cents: 0
+        })
+
+      # The contract: hero total == charged total
+      assert hero.total_cents == appt.price_cents
+      # Sanity: multipliers actually kicked in (not a trivial 1.0x case)
+      assert hero.total_cents == 9_000
     end
 
     test "mobile payment flow creates a PaymentIntent and returns a client secret" do

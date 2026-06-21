@@ -754,7 +754,7 @@ defmodule MobileCarWashWeb.BookingLive do
               placeholder="you@example.com"
               required
             />
-            <button type="submit" phx-click="join_waitlist" class="btn btn-primary">Notify me</button>
+            <button type="submit" class="btn btn-primary">Notify me</button>
           </form>
         </div>
       </.booking_section>

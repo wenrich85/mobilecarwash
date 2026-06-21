@@ -54,7 +54,8 @@ defmodule MobileCarWash.Scheduling.Booking do
       Repo.transaction(fn ->
         with {:ok, service_type} <- fetch_service_type(params.service_type_id),
              {:ok, vehicle} <- verify_vehicle_ownership(params.vehicle_id, params.customer_id),
-             {:ok, _address} <- verify_address_ownership(params.address_id, params.customer_id),
+             {:ok, address} <- verify_address_ownership(params.address_id, params.customer_id),
+             :ok <- ensure_in_service_area(address),
              {:ok, params} <- resolve_schedule(params, service_type),
              {:ok, price_cents, discount_cents} <-
                calculate_price(service_type, vehicle.size, params[:subscription_id]),
@@ -239,6 +240,9 @@ defmodule MobileCarWash.Scheduling.Booking do
         {:error, :address_not_found}
     end
   end
+
+  defp ensure_in_service_area(%{zone: nil}), do: {:error, :out_of_service_area}
+  defp ensure_in_service_area(_address), do: :ok
 
   defp check_availability(scheduled_at, duration_minutes) do
     date = DateTime.to_date(scheduled_at)
