@@ -72,3 +72,4 @@ npm-debug.log
 .worktrees/
 
 DEPLOYMENT.md
+.env*.local
