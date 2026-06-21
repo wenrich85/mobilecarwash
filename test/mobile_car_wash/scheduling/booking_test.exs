@@ -308,5 +308,41 @@ defmodule MobileCarWash.Scheduling.BookingTest do
       {:ok, card_after} = MobileCarWash.Loyalty.get_or_create_card(customer.id)
       assert MobileCarWash.Loyalty.available_free_washes(card_after) == 0
     end
+
+    test "mobile payment flow creates a PaymentIntent and returns a client secret" do
+      customer = create_customer()
+      # Use a car (1.0x) so price_cents == 5000, well above zero — avoids the
+      # free-wash auto-confirm branch and exercises the :mobile payment path.
+      service = create_service_type()
+      vehicle = create_vehicle(customer.id, :car)
+      address = create_address(customer.id)
+
+      {:ok, result} =
+        Booking.create_booking(%{
+          customer_id: customer.id,
+          service_type_id: service.id,
+          vehicle_id: vehicle.id,
+          address_id: address.id,
+          scheduled_at: tomorrow_slot(),
+          subscription_id: nil,
+          payment_flow: :mobile
+        })
+
+      # Result must carry a binary client_secret (from StripePaymentIntentMock),
+      # not a checkout_url — confirming the :mobile branch was taken.
+      assert is_binary(result.payment_intent_client_secret)
+      refute Map.has_key?(result, :checkout_url)
+
+      # A Payment row must have been created and linked to the appointment.
+      payments =
+        MobileCarWash.Billing.Payment
+        |> Ash.Query.filter(appointment_id == ^result.appointment.id)
+        |> Ash.read!(authorize?: false)
+
+      assert length(payments) == 1
+      [payment] = payments
+      assert payment.amount_cents == result.appointment.price_cents
+      assert payment.status == :pending
+    end
   end
 end
