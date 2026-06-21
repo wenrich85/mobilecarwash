@@ -544,6 +544,30 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
   # Guest sign-in affordance — registered-email collision
   # ---------------------------------------------------------------------------
 
+  test "selecting a pickup raises the hero total by 50%", %{conn: conn} do
+    service = ServiceType |> Ash.Query.filter(slug == "basic_wash") |> Ash.read!() |> hd()
+
+    {:ok, lv, _html} = live(conn, ~p"/book")
+
+    render_click(lv, "select_service", %{"slug" => service.slug})
+
+    html =
+      render_submit(lv, "save_vehicle", %{
+        "vehicle" => %{
+          "make" => "Ford",
+          "model" => "F-150",
+          "year" => "2021",
+          "color" => "Black",
+          "size" => "pickup",
+          "vin" => "",
+          "body_class" => ""
+        }
+      })
+
+    # base_price_cents 5000 * 1.5 pickup multiplier = 7500 cents = $75.00
+    assert html =~ "$75.00"
+  end
+
   test "guest email matching a registered account shows a sign-in link", %{conn: conn} do
     # A registered (password) customer already owns this email.
     Customer
