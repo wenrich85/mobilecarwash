@@ -69,6 +69,10 @@ defmodule MobileCarWash.Scheduling.RecurringSchedule do
       accept([:last_scheduled_date])
     end
 
+    update :update_preferences do
+      accept([:frequency, :preferred_day, :preferred_time])
+    end
+
     read :active_schedules do
       filter(expr(active == true))
     end
