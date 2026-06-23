@@ -7,7 +7,7 @@ defmodule MobileCarWash.Scheduling.AppointmentServices do
   """
 
   alias MobileCarWash.Billing.{Payment, Pricing, StripeClient}
-  alias MobileCarWash.Scheduling.{AddOn, AppointmentAddOn, RecurringScheduleAddOn}
+  alias MobileCarWash.Scheduling.{AddOn, Appointment, AppointmentAddOn, RecurringScheduleAddOn}
   alias MobileCarWash.Fleet.Vehicle
 
   require Ash.Query
@@ -131,6 +131,49 @@ defmodule MobileCarWash.Scheduling.AppointmentServices do
   def editable?(appointment) do
     appointment.status in [:pending, :confirmed] and
       DateTime.diff(appointment.scheduled_at, DateTime.utc_now()) > @cutoff_seconds
+  end
+
+  @doc """
+  Webhook completion for a hosted add-on checkout: attach the add-ons and mark
+  the pending payment succeeded.
+  """
+  def complete_addon_checkout(session) do
+    metadata = Map.get(session, :metadata) || %{}
+    appointment_id = metadata["appointment_id"] || metadata[:appointment_id]
+    add_on_ids = parse_ids(metadata["add_on_ids"] || metadata[:add_on_ids])
+
+    with {:ok, appointment} <- Ash.get(Appointment, appointment_id, authorize?: false),
+         {:ok, _appt} <- add(appointment, add_on_ids) do
+      mark_payment_succeeded(Map.get(session, :id), Map.get(session, :payment_intent))
+      :ok
+    end
+  end
+
+  defp parse_ids(nil), do: []
+  defp parse_ids(""), do: []
+  defp parse_ids(csv) when is_binary(csv), do: String.split(csv, ",", trim: true)
+  defp parse_ids(list) when is_list(list), do: list
+
+  defp mark_payment_succeeded(nil, _pi), do: :ok
+
+  defp mark_payment_succeeded(session_id, payment_intent_id) do
+    Payment
+    |> Ash.Query.for_read(:by_checkout_session, %{session_id: session_id})
+    |> Ash.read!()
+    |> List.first()
+    |> case do
+      nil ->
+        :ok
+
+      payment ->
+        {:ok, payment} =
+          payment
+          |> Ash.Changeset.for_update(:complete, %{stripe_payment_intent_id: payment_intent_id})
+          |> Ash.update()
+
+        enqueue_payment_receipt(payment)
+        :ok
+    end
   end
 
   defp record_succeeded_payment(appointment, customer, amount_cents, payment_intent_id) do
