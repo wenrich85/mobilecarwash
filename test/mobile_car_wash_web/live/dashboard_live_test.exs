@@ -255,6 +255,36 @@ defmodule MobileCarWashWeb.DashboardLiveTest do
     assert html =~ "No upcoming washes"
   end
 
+  test "can attach add-ons to a recurring schedule", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    create_active_subscription(customer, create_plan())
+    schedule = create_schedule(customer)
+
+    {:ok, addon} =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Wax Coat",
+        slug: "wax-#{System.unique_integer([:positive])}",
+        price_cents: 2_000
+      })
+      |> Ash.create()
+
+    {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+    view |> element("button[phx-value-id='#{schedule.id}']", "Manage add-ons") |> render_click()
+
+    html =
+      view
+      |> form("#manage-addons-#{schedule.id}", %{"add_on_ids" => [addon.id]})
+      |> render_submit()
+
+    assert html =~ "Add-ons updated"
+
+    assert MobileCarWash.Scheduling.AppointmentServices.schedule_add_on_ids(schedule.id) == [
+             addon.id
+           ]
+  end
+
   test "cannot edit another customer's schedule", %{conn: conn} do
     {conn, customer} = register_and_sign_in(conn)
     create_active_subscription(customer, create_plan())

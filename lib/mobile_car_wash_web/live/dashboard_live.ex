@@ -6,8 +6,17 @@ defmodule MobileCarWashWeb.DashboardLive do
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Billing.{Subscription, SubscriptionPlan, SubscriptionUsage}
-  alias MobileCarWash.Scheduling.{Appointment, AppointmentAddOn, RecurringSchedule, ServiceType}
+  alias MobileCarWash.Billing.{Pricing, Subscription, SubscriptionPlan, SubscriptionUsage}
+
+  alias MobileCarWash.Scheduling.{
+    AddOn,
+    Appointment,
+    AppointmentAddOn,
+    AppointmentServices,
+    RecurringSchedule,
+    ServiceType
+  }
+
   alias MobileCarWash.Fleet.Vehicle
 
   require Ash.Query
@@ -31,7 +40,13 @@ defmodule MobileCarWashWeb.DashboardLive do
            subscription: subscription,
            plan: plan,
            usage: usage,
-           editing_id: nil
+           editing_id: nil,
+           managing_addons_id: nil,
+           all_add_ons:
+             AddOn
+             |> Ash.Query.filter(active == true)
+             |> Ash.Query.sort(sort_order: :asc)
+             |> Ash.read!()
          )
          |> load_schedules(customer.id)
          |> load_upcoming(customer.id)}
@@ -103,6 +118,32 @@ defmodule MobileCarWashWeb.DashboardLive do
       {:noreply, socket |> load_schedules(customer.id) |> put_flash(:info, "Schedule removed")}
     else
       _ -> {:noreply, put_flash(socket, :error, "Could not remove schedule")}
+    end
+  end
+
+  def handle_event("manage_addons", %{"id" => id}, socket) do
+    {:noreply, assign(socket, managing_addons_id: id)}
+  end
+
+  def handle_event("cancel_addons", _params, socket) do
+    {:noreply, assign(socket, managing_addons_id: nil)}
+  end
+
+  def handle_event("save_addons", %{"schedule_id" => id} = params, socket) do
+    customer = socket.assigns.current_customer
+    add_on_ids = Map.get(params, "add_on_ids", [])
+
+    with {:ok, schedule} <- Ash.get(RecurringSchedule, id),
+         true <- schedule.customer_id == customer.id do
+      :ok = AppointmentServices.replace_schedule_add_ons(id, add_on_ids)
+
+      {:noreply,
+       socket
+       |> assign(managing_addons_id: nil)
+       |> load_schedules(customer.id)
+       |> put_flash(:info, "Add-ons updated")}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Could not update add-ons")}
     end
   end
 
@@ -190,6 +231,9 @@ defmodule MobileCarWashWeb.DashboardLive do
                     )}
                   </p>
                   <p class="text-xs text-base-content/70">{schedule.vehicle_label}</p>
+                  <p :if={schedule.add_ons_per_wash_cents > 0} class="text-xs text-base-content/70">
+                    + ${div(schedule.add_ons_per_wash_cents, 100)} add-ons per wash
+                  </p>
                 </div>
                 <span class={["badge", if(schedule.active, do: "badge-success", else: "badge-ghost")]}>
                   {if schedule.active, do: "Active", else: "Paused"}
@@ -203,6 +247,13 @@ defmodule MobileCarWashWeb.DashboardLive do
                   phx-value-id={schedule.id}
                 >
                   Edit
+                </button>
+                <button
+                  class="btn btn-outline btn-xs"
+                  phx-click="manage_addons"
+                  phx-value-id={schedule.id}
+                >
+                  Manage add-ons
                 </button>
                 <button
                   :if={schedule.active}
@@ -266,6 +317,31 @@ defmodule MobileCarWashWeb.DashboardLive do
                 </button>
               </div>
             </form>
+
+            <form
+              :if={@managing_addons_id == schedule.id}
+              id={"manage-addons-#{schedule.id}"}
+              phx-submit="save_addons"
+            >
+              <input type="hidden" name="schedule_id" value={schedule.id} />
+              <p class="text-sm font-medium mb-1">Add-ons (charged each future wash)</p>
+              <label :for={a <- @all_add_ons} class="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  name="add_on_ids[]"
+                  value={a.id}
+                  checked={a.id in schedule.add_on_ids}
+                  class="checkbox checkbox-sm"
+                />
+                <span class="text-sm">{a.name} — ${div(a.price_cents, 100)}</span>
+              </label>
+              <div class="flex gap-2 mt-2">
+                <button type="submit" class="btn btn-primary btn-xs">Save add-ons</button>
+                <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_addons">
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -318,6 +394,10 @@ defmodule MobileCarWashWeb.DashboardLive do
         st = Ash.get!(ServiceType, s.service_type_id)
         v = Ash.get!(Vehicle, s.vehicle_id)
 
+        add_on_ids = AppointmentServices.schedule_add_on_ids(s.id)
+        add_ons = AppointmentServices.schedule_add_ons(s.id)
+        per_wash = Pricing.addons_total_cents(add_ons, v.size)
+
         %{
           id: s.id,
           frequency: s.frequency,
@@ -325,7 +405,9 @@ defmodule MobileCarWashWeb.DashboardLive do
           preferred_time: s.preferred_time,
           active: s.active,
           service_type_name: st.name,
-          vehicle_label: "#{v.year || ""} #{v.make} #{v.model}" |> String.trim()
+          vehicle_label: "#{v.year || ""} #{v.make} #{v.model}" |> String.trim(),
+          add_on_ids: add_on_ids,
+          add_ons_per_wash_cents: per_wash
         }
       end)
 
