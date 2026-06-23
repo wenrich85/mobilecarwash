@@ -62,6 +62,7 @@ defmodule MobileCarWash.Billing.StripeClient do
       mode: "subscription",
       line_items: [%{price: plan.stripe_price_id, quantity: 1}],
       metadata: %{plan_id: plan.id, plan_slug: plan.slug},
+      subscription_data: %{payment_settings: %{save_default_payment_method: "on_subscription"}},
       success_url: "#{base_url}/subscribe/success?session_id={CHECKOUT_SESSION_ID}",
       cancel_url: "#{base_url}/subscribe/cancel"
     }
