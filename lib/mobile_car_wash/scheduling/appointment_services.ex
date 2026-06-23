@@ -7,7 +7,7 @@ defmodule MobileCarWash.Scheduling.AppointmentServices do
   """
 
   alias MobileCarWash.Billing.Pricing
-  alias MobileCarWash.Scheduling.{AddOn, AppointmentAddOn}
+  alias MobileCarWash.Scheduling.{AddOn, AppointmentAddOn, RecurringScheduleAddOn}
   alias MobileCarWash.Fleet.Vehicle
 
   require Ash.Query
@@ -51,5 +51,44 @@ defmodule MobileCarWash.Scheduling.AppointmentServices do
     AddOn
     |> Ash.Query.filter(id in ^ids and active == true)
     |> Ash.read!()
+  end
+
+  @doc """
+  Replaces a recurring schedule's add-on set: deletes existing join rows,
+  then creates one per active add-on id. Affects FUTURE occurrences only.
+  """
+  def replace_schedule_add_ons(schedule_id, add_on_ids) do
+    RecurringScheduleAddOn
+    |> Ash.Query.for_read(:for_schedule, %{recurring_schedule_id: schedule_id})
+    |> Ash.read!()
+    |> Enum.each(&Ash.destroy!/1)
+
+    add_on_ids
+    |> load_active_add_ons()
+    |> Enum.each(fn add_on ->
+      RecurringScheduleAddOn
+      |> Ash.Changeset.for_create(:create, %{
+        recurring_schedule_id: schedule_id,
+        add_on_id: add_on.id
+      })
+      |> Ash.create!()
+    end)
+
+    :ok
+  end
+
+  @doc "Current add-on ids attached to a recurring schedule."
+  def schedule_add_on_ids(schedule_id) do
+    RecurringScheduleAddOn
+    |> Ash.Query.for_read(:for_schedule, %{recurring_schedule_id: schedule_id})
+    |> Ash.read!()
+    |> Enum.map(& &1.add_on_id)
+  end
+
+  @doc "Loaded active AddOn records attached to a recurring schedule."
+  def schedule_add_ons(schedule_id) do
+    schedule_id
+    |> schedule_add_on_ids()
+    |> load_active_add_ons()
   end
 end

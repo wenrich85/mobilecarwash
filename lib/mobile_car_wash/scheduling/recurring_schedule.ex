@@ -48,6 +48,7 @@ defmodule MobileCarWash.Scheduling.RecurringSchedule do
     belongs_to :address, MobileCarWash.Fleet.Address, allow_nil?: false
     belongs_to :service_type, MobileCarWash.Scheduling.ServiceType, allow_nil?: false
     belongs_to :subscription, MobileCarWash.Billing.Subscription, allow_nil?: true
+    has_many :recurring_schedule_add_ons, MobileCarWash.Scheduling.RecurringScheduleAddOn
   end
 
   actions do
