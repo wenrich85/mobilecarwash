@@ -98,24 +98,68 @@ defmodule MobileCarWash.Scheduling.RecurringAppointmentScheduler do
     |> Enum.any?()
   end
 
-  defp create_appointment(schedule, date) do
+  def create_appointment(schedule, date) do
     {:ok, service_type} = Ash.get(ServiceType, schedule.service_type_id)
 
-    with {:ok, block} <- find_or_generate_block(service_type, date, schedule.preferred_time) do
-      Appointment
-      |> Ash.Changeset.for_create(:book, %{
-        customer_id: schedule.customer_id,
-        vehicle_id: schedule.vehicle_id,
-        address_id: schedule.address_id,
-        service_type_id: schedule.service_type_id,
-        scheduled_at: block.starts_at,
-        appointment_block_id: block.id,
-        price_cents: service_type.base_price_cents,
-        duration_minutes: service_type.duration_minutes,
-        notes: "Auto-scheduled (recurring)"
-      })
-      |> Ash.Changeset.force_change_attribute(:recurring_schedule_id, schedule.id)
-      |> Ash.create()
+    with {:ok, block} <- find_or_generate_block(service_type, date, schedule.preferred_time),
+         {:ok, appointment} <-
+           Appointment
+           |> Ash.Changeset.for_create(:book, %{
+             customer_id: schedule.customer_id,
+             vehicle_id: schedule.vehicle_id,
+             address_id: schedule.address_id,
+             service_type_id: schedule.service_type_id,
+             scheduled_at: block.starts_at,
+             appointment_block_id: block.id,
+             price_cents: service_type.base_price_cents,
+             duration_minutes: service_type.duration_minutes,
+             notes: "Auto-scheduled (recurring)"
+           })
+           |> Ash.Changeset.force_change_attribute(:recurring_schedule_id, schedule.id)
+           |> Ash.create() do
+      {:ok, charge_and_attach_add_ons(schedule, appointment)}
+    end
+  end
+
+  defp charge_and_attach_add_ons(schedule, appointment) do
+    case MobileCarWash.Scheduling.AppointmentServices.schedule_add_ons(schedule.id) do
+      [] ->
+        appointment
+
+      add_ons ->
+        vehicle =
+          Ash.get!(MobileCarWash.Fleet.Vehicle, schedule.vehicle_id, authorize?: false)
+
+        customer =
+          Ash.get!(MobileCarWash.Accounts.Customer, schedule.customer_id, authorize?: false)
+
+        amount_cents = MobileCarWash.Billing.Pricing.addons_total_cents(add_ons, vehicle.size)
+        add_on_ids = Enum.map(add_ons, & &1.id)
+
+        metadata = %{kind: "recurring_addons", appointment_id: appointment.id}
+
+        case MobileCarWash.Billing.StripeClient.charge_off_session(
+               customer.stripe_customer_id,
+               amount_cents,
+               metadata
+             ) do
+          {:ok, _intent} ->
+            {:ok, updated} =
+              MobileCarWash.Scheduling.AppointmentServices.add(appointment, add_on_ids)
+
+            updated
+
+          {:error, reason} ->
+            Logger.warning(
+              "Add-on charge declined for appointment #{appointment.id}: #{inspect(reason)}"
+            )
+
+            %{appointment_id: appointment.id}
+            |> MobileCarWash.Notifications.AddOnChargeFailedWorker.new()
+            |> Oban.insert()
+
+            appointment
+        end
     end
   end
 
