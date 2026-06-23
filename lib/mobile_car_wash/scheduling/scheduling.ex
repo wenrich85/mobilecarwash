@@ -12,6 +12,7 @@ defmodule MobileCarWash.Scheduling do
     resource(MobileCarWash.Scheduling.AppointmentBlock)
     resource(MobileCarWash.Scheduling.BlockTemplate)
     resource(MobileCarWash.Scheduling.RecurringSchedule)
+    resource(MobileCarWash.Scheduling.RecurringScheduleAddOn)
     resource(MobileCarWash.Scheduling.BlockedDate)
     resource(MobileCarWash.Scheduling.SchedulingSettings)
   end

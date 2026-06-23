@@ -478,6 +478,43 @@ defmodule MobileCarWash.Notifications.Email do
   end
 
   @doc """
+  Sent when a recurring occurrence's add-ons could not be charged off-session.
+  The base wash still happens; the customer is asked to update billing.
+  """
+  def addon_charge_failed(customer, service_name) do
+    billing_url = "https://drivewaydetailcosa.com/account/subscription"
+
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">We couldn't add your extras</h2>
+    <p>Hi #{customer.name},</p>
+    <p>Your upcoming <strong>#{service_name}</strong> is still booked, but we were
+    unable to charge your saved card for the add-on services on this wash.</p>
+    <p>The base wash will go ahead as scheduled. To keep your add-ons, please
+    update your payment method.</p>
+    <p style="margin:24px 0;">#{Layout.button("Update billing", billing_url)}</p>
+    """
+
+    inner_text = """
+    We couldn't add your extras
+
+    Hi #{customer.name},
+
+    Your upcoming #{service_name} is still booked, but we were unable to charge
+    your saved card for the add-on services on this wash. The base wash will go
+    ahead as scheduled. To keep your add-ons, please update your payment method:
+
+    #{billing_url}
+    """
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Action needed: card declined for add-ons")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
+  end
+
+  @doc """
   Confirmation email when a subscription is cancelled.
   """
   def subscription_cancelled(customer, plan) do

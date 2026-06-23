@@ -9,7 +9,7 @@ defmodule MobileCarWashWeb.StripeWebhookController do
   use MobileCarWashWeb, :controller
 
   alias MobileCarWash.Billing.{StripeClient, SubscriptionOrchestrator}
-  alias MobileCarWash.Scheduling.Booking
+  alias MobileCarWash.Scheduling.{AppointmentServices, Booking}
 
   require Logger
 
@@ -50,13 +50,19 @@ defmodule MobileCarWashWeb.StripeWebhookController do
 
   defp process_event(%{type: "checkout.session.completed"} = event) do
     session = event.data.object
+    metadata = Map.get(session, :metadata) || %{}
+    kind = metadata["kind"] || metadata[:kind]
 
-    case Map.get(session, :mode) do
-      "subscription" ->
+    cond do
+      kind == "appointment_addons" ->
+        Logger.info("Stripe add-on checkout completed: #{session.id}")
+        AppointmentServices.complete_addon_checkout(session)
+
+      Map.get(session, :mode) == "subscription" ->
         Logger.info("Stripe subscription checkout completed: #{session.id}")
         SubscriptionOrchestrator.create_from_checkout(session)
 
-      _ ->
+      true ->
         Logger.info("Stripe payment checkout completed: #{session.id}")
         payment_intent_id = Map.get(session, :payment_intent)
         Booking.complete_payment(session.id, payment_intent_id)

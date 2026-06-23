@@ -255,6 +255,84 @@ defmodule MobileCarWashWeb.DashboardLiveTest do
     assert html =~ "No upcoming washes"
   end
 
+  test "can attach add-ons to a recurring schedule", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    create_active_subscription(customer, create_plan())
+    schedule = create_schedule(customer)
+
+    {:ok, addon} =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Wax Coat",
+        slug: "wax-#{System.unique_integer([:positive])}",
+        price_cents: 2_000
+      })
+      |> Ash.create()
+
+    {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+    view |> element("button[phx-value-id='#{schedule.id}']", "Manage add-ons") |> render_click()
+
+    html =
+      view
+      |> form("#manage-addons-#{schedule.id}", %{"add_on_ids" => [addon.id]})
+      |> render_submit()
+
+    assert html =~ "Add-ons updated"
+
+    assert MobileCarWash.Scheduling.AppointmentServices.schedule_add_on_ids(schedule.id) == [
+             addon.id
+           ]
+  end
+
+  test "can add services to an editable upcoming appointment (card success)", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    # give the signed-in customer a charge-able Stripe id
+    customer
+    |> Ash.Changeset.for_update(:update, %{stripe_customer_id: "cus_test_panelc"})
+    |> Ash.update!(authorize?: false)
+
+    create_active_subscription(customer, create_plan())
+    appt = create_upcoming_appointment(customer)
+
+    {:ok, addon} =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Tire Shine",
+        slug: "ts-#{System.unique_integer([:positive])}",
+        price_cents: 1_500
+      })
+      |> Ash.create()
+
+    {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+    view |> element("button[phx-value-id='#{appt.id}']", "Add services") |> render_click()
+
+    html =
+      view
+      |> form("#add-services-#{appt.id}", %{"add_on_ids" => [addon.id]})
+      |> render_submit()
+
+    assert html =~ "Services added"
+    assert Ash.get!(MobileCarWash.Scheduling.Appointment, appt.id).price_cents == 7_500 + 1_500
+  end
+
+  test "non-editable appointment shows a too-late note and no picker", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    create_active_subscription(customer, create_plan())
+    appt = create_upcoming_appointment(customer)
+    # move it inside the 12h cutoff
+    appt
+    |> Ash.Changeset.for_update(:update, %{
+      scheduled_at: DateTime.add(DateTime.utc_now(), 6 * 3600)
+    })
+    |> Ash.update!()
+
+    {:ok, _view, html} = live(conn, ~p"/dashboard")
+    assert html =~ "Too late to modify"
+    refute html =~ "add-services-#{appt.id}"
+  end
+
   test "cannot edit another customer's schedule", %{conn: conn} do
     {conn, customer} = register_and_sign_in(conn)
     create_active_subscription(customer, create_plan())
