@@ -42,6 +42,7 @@ defmodule MobileCarWashWeb.DashboardLive do
            usage: usage,
            editing_id: nil,
            managing_addons_id: nil,
+           adding_services_id: nil,
            all_add_ons:
              AddOn
              |> Ash.Query.filter(active == true)
@@ -144,6 +145,42 @@ defmodule MobileCarWashWeb.DashboardLive do
        |> put_flash(:info, "Add-ons updated")}
     else
       _ -> {:noreply, put_flash(socket, :error, "Could not update add-ons")}
+    end
+  end
+
+  def handle_event("manage_appt_addons", %{"id" => id}, socket) do
+    {:noreply, assign(socket, adding_services_id: id)}
+  end
+
+  def handle_event("cancel_appt_addons", _params, socket) do
+    {:noreply, assign(socket, adding_services_id: nil)}
+  end
+
+  def handle_event("add_services", %{"appointment_id" => id} = params, socket) do
+    customer = socket.assigns.current_customer
+    add_on_ids = Map.get(params, "add_on_ids", [])
+
+    with {:ok, appt} <- Ash.get(Appointment, id),
+         true <- appt.customer_id == customer.id do
+      case AppointmentServices.request_add_services(appt, add_on_ids) do
+        {:ok, :charged} ->
+          {:noreply,
+           socket
+           |> assign(adding_services_id: nil)
+           |> load_upcoming(customer.id)
+           |> put_flash(:info, "Services added")}
+
+        {:ok, checkout_url} when is_binary(checkout_url) ->
+          {:noreply, redirect(socket, external: checkout_url)}
+
+        {:error, :not_editable} ->
+          {:noreply, put_flash(socket, :error, "This wash can no longer be modified")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not add services")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Could not add services")}
     end
   end
 
@@ -375,6 +412,45 @@ defmodule MobileCarWashWeb.DashboardLive do
                 <span class="badge badge-ghost badge-sm">{format_status(appt.status)}</span>
               </div>
             </div>
+
+            <div class="mt-2">
+              <button
+                :if={appt.editable && @adding_services_id != appt.id}
+                class="btn btn-outline btn-xs"
+                phx-click="manage_appt_addons"
+                phx-value-id={appt.id}
+              >
+                Add services
+              </button>
+
+              <p :if={!appt.editable} class="text-xs text-base-content/60 italic">
+                Too late to modify
+              </p>
+
+              <form
+                :if={appt.editable && @adding_services_id == appt.id}
+                id={"add-services-#{appt.id}"}
+                phx-submit="add_services"
+              >
+                <input type="hidden" name="appointment_id" value={appt.id} />
+                <p class="text-sm font-medium mb-1">Add services (charged now)</p>
+                <label :for={a <- @all_add_ons} class="flex items-center gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    name="add_on_ids[]"
+                    value={a.id}
+                    class="checkbox checkbox-sm"
+                  />
+                  <span class="text-sm">{a.name} — ${div(a.price_cents, 100)}</span>
+                </label>
+                <div class="flex gap-2 mt-2">
+                  <button type="submit" class="btn btn-primary btn-xs">Add &amp; pay</button>
+                  <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_appt_addons">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -437,7 +513,8 @@ defmodule MobileCarWashWeb.DashboardLive do
           price_cents: a.price_cents,
           service_type_name: st.name,
           vehicle_label: "#{v.year || ""} #{v.make} #{v.model}" |> String.trim(),
-          add_on_count: add_on_count
+          add_on_count: add_on_count,
+          editable: AppointmentServices.editable?(a)
         }
       end)
 
