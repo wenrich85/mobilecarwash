@@ -11,7 +11,28 @@ defmodule MobileCarWash.Billing.StripePaymentIntentMock do
     :ets.delete_all_objects(@table)
   end
 
-  def create(params, _opts \\ []) do
+  def create(params, opts \\ [])
+
+  def create(%{off_session: true, payment_method: "pm_decline"}, _opts) do
+    {:error,
+     %Stripe.Error{
+       source: :stripe,
+       code: :card_error,
+       message: "Your card was declined.",
+       extra: %{card_code: :card_declined, decline_code: "generic_decline"}
+     }}
+  end
+
+  def create(%{off_session: true} = params, _opts) do
+    ensure_table()
+    id = "pi_test_#{System.unique_integer([:positive])}"
+    :ets.insert(@table, {:create, id, params})
+
+    {:ok,
+     %{id: id, status: "succeeded", amount: params[:amount], client_secret: "#{id}_secret_test"}}
+  end
+
+  def create(params, _opts) do
     ensure_table()
     id = "pi_test_#{System.unique_integer([:positive])}"
     client_secret = "#{id}_secret_test"

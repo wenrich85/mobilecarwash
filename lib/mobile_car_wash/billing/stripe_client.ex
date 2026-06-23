@@ -139,6 +139,29 @@ defmodule MobileCarWash.Billing.StripeClient do
   end
 
   @doc """
+  Charges the customer's saved default card off-session for `amount_cents`.
+  Returns `{:ok, intent}` on success, else `{:error, reason}` where reason is
+  `:no_payment_method`, `:card_declined`, `{:unexpected_status, status}`, or a
+  passed-through Stripe error code.
+  """
+  def charge_off_session(stripe_customer_id, amount_cents, metadata \\ %{})
+
+  def charge_off_session(nil, _amount_cents, _metadata), do: {:error, :no_payment_method}
+
+  def charge_off_session(stripe_customer_id, amount_cents, metadata) do
+    with {:ok, payment_method_id} <- default_payment_method(stripe_customer_id),
+         {:ok, intent} <-
+           confirm_off_session_intent(
+             stripe_customer_id,
+             payment_method_id,
+             amount_cents,
+             metadata
+           ) do
+      {:ok, intent}
+    end
+  end
+
+  @doc """
   Creates a PaymentIntent for the native mobile Payment Sheet flow. The
   mobile SDK completes the payment client-side using the returned
   client_secret, and our Stripe webhook confirms the appointment.
@@ -179,4 +202,38 @@ defmodule MobileCarWash.Billing.StripeClient do
   defp payment_intent_module do
     Application.get_env(:mobile_car_wash, :stripe_payment_intent_module, Stripe.PaymentIntent)
   end
+
+  defp customer_module do
+    Application.get_env(:mobile_car_wash, :stripe_customer_module, Stripe.Customer)
+  end
+
+  defp default_payment_method(stripe_customer_id) do
+    case customer_module().retrieve(stripe_customer_id) do
+      {:ok, %{invoice_settings: %{default_payment_method: pm}}} when is_binary(pm) -> {:ok, pm}
+      {:ok, _} -> {:error, :no_payment_method}
+      {:error, reason} -> {:error, normalize_stripe_error(reason)}
+    end
+  end
+
+  defp confirm_off_session_intent(customer_id, payment_method_id, amount_cents, metadata) do
+    params = %{
+      amount: amount_cents,
+      currency: "usd",
+      customer: customer_id,
+      payment_method: payment_method_id,
+      off_session: true,
+      confirm: true,
+      metadata: metadata
+    }
+
+    case payment_intent_module().create(params) do
+      {:ok, %{status: "succeeded"} = intent} -> {:ok, intent}
+      {:ok, %{status: status}} -> {:error, {:unexpected_status, status}}
+      {:error, reason} -> {:error, normalize_stripe_error(reason)}
+    end
+  end
+
+  defp normalize_stripe_error(%Stripe.Error{extra: %{card_code: code}}), do: code
+  defp normalize_stripe_error(%Stripe.Error{code: code}), do: code
+  defp normalize_stripe_error(other), do: other
 end
