@@ -6,7 +6,7 @@ defmodule MobileCarWash.Scheduling.AppointmentServices do
   and `complete_addon_checkout/1`.
   """
 
-  alias MobileCarWash.Billing.Pricing
+  alias MobileCarWash.Billing.{Payment, Pricing, StripeClient}
   alias MobileCarWash.Scheduling.{AddOn, AppointmentAddOn, RecurringScheduleAddOn}
   alias MobileCarWash.Fleet.Vehicle
 
@@ -90,5 +90,97 @@ defmodule MobileCarWash.Scheduling.AppointmentServices do
     schedule_id
     |> schedule_add_on_ids()
     |> load_active_add_ons()
+  end
+
+  @cutoff_seconds 12 * 3600
+
+  @doc """
+  Interactive one-off add-services flow. Caller must own the appointment.
+  Charges off-session; on success attaches + records payment, on failure
+  returns a hosted-checkout URL and attaches nothing.
+  """
+  def request_add_services(appointment, add_on_ids) do
+    with true <- editable?(appointment) || {:error, :not_editable},
+         add_ons when add_ons != [] <- load_active_add_ons(add_on_ids) do
+      vehicle = Ash.get!(Vehicle, appointment.vehicle_id, authorize?: false)
+
+      customer =
+        Ash.get!(MobileCarWash.Accounts.Customer, appointment.customer_id, authorize?: false)
+
+      amount_cents = Pricing.addons_total_cents(add_ons, vehicle.size)
+
+      metadata = %{kind: "appointment_addons", appointment_id: appointment.id}
+
+      case StripeClient.charge_off_session(customer.stripe_customer_id, amount_cents, metadata) do
+        {:ok, intent} ->
+          {:ok, _appt} = add(appointment, add_on_ids)
+          record_succeeded_payment(appointment, customer, amount_cents, intent.id)
+          {:ok, :charged}
+
+        {:error, _reason} ->
+          addon_checkout_fallback(appointment, customer, add_ons, add_on_ids, amount_cents)
+      end
+    else
+      {:error, :not_editable} -> {:error, :not_editable}
+      [] -> {:error, :no_add_ons}
+      nil -> {:error, :no_add_ons}
+    end
+  end
+
+  @doc "True when the appointment may still be modified (status + 12h cutoff)."
+  def editable?(appointment) do
+    appointment.status in [:pending, :confirmed] and
+      DateTime.diff(appointment.scheduled_at, DateTime.utc_now()) > @cutoff_seconds
+  end
+
+  defp record_succeeded_payment(appointment, customer, amount_cents, payment_intent_id) do
+    {:ok, payment} =
+      Payment
+      |> Ash.Changeset.for_create(:create, %{amount_cents: amount_cents, status: :pending})
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.create()
+
+    {:ok, payment} =
+      payment
+      |> Ash.Changeset.for_update(:complete, %{stripe_payment_intent_id: payment_intent_id})
+      |> Ash.update()
+
+    enqueue_payment_receipt(payment)
+    payment
+  end
+
+  defp addon_checkout_fallback(appointment, customer, add_ons, add_on_ids, amount_cents) do
+    {:ok, payment} =
+      Payment
+      |> Ash.Changeset.for_create(:create, %{amount_cents: amount_cents, status: :pending})
+      |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.create()
+
+    case StripeClient.create_addon_checkout(
+           appointment,
+           add_ons,
+           add_on_ids,
+           amount_cents,
+           to_string(customer.email)
+         ) do
+      {:ok, session} ->
+        {:ok, _} =
+          payment
+          |> Ash.Changeset.for_update(:update, %{stripe_checkout_session_id: session.id})
+          |> Ash.update()
+
+        {:ok, session.url}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp enqueue_payment_receipt(payment) do
+    %{payment_id: payment.id}
+    |> MobileCarWash.Notifications.PaymentReceiptWorker.new(queue: :notifications)
+    |> Oban.insert()
   end
 end

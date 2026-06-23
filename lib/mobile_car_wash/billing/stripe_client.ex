@@ -162,6 +162,40 @@ defmodule MobileCarWash.Billing.StripeClient do
   end
 
   @doc """
+  Creates a one-time (payment-mode) Checkout session for an add-on top-up on
+  an existing appointment. Metadata carries `kind`/`appointment_id`/`add_on_ids`
+  so the webhook can attach the add-ons after payment.
+  """
+  def create_addon_checkout(appointment, add_ons, add_on_ids, amount_cents, customer_email) do
+    base_url = Application.get_env(:mobile_car_wash, :base_url, "http://localhost:4000")
+    names = add_ons |> Enum.map(& &1.name) |> Enum.join(", ")
+
+    params = %{
+      mode: "payment",
+      customer_email: customer_email,
+      line_items: [
+        %{
+          price_data: %{
+            currency: "usd",
+            product_data: %{name: "Add-on services", description: names},
+            unit_amount: amount_cents
+          },
+          quantity: 1
+        }
+      ],
+      metadata: %{
+        kind: "appointment_addons",
+        appointment_id: appointment.id,
+        add_on_ids: Enum.join(add_on_ids, ",")
+      },
+      success_url: "#{base_url}/dashboard?addons=success",
+      cancel_url: "#{base_url}/dashboard?addons=cancel"
+    }
+
+    stripe_module().create(params)
+  end
+
+  @doc """
   Creates a PaymentIntent for the native mobile Payment Sheet flow. The
   mobile SDK completes the payment client-side using the returned
   client_secret, and our Stripe webhook confirms the appointment.
