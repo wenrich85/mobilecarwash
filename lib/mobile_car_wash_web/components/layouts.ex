@@ -155,14 +155,14 @@ defmodule MobileCarWashWeb.Layouts do
                 alt="Driveway Detail Co"
                 width="216"
                 height="36"
-                class="h-9 w-auto dark:hidden"
+                class="h-9 w-auto site-logo--light"
               />
               <img
                 src="/images/logo_dark.svg"
                 alt="Driveway Detail Co"
                 width="216"
                 height="36"
-                class="h-9 w-auto hidden dark:block"
+                class="h-9 w-auto site-logo--dark"
               />
             </a>
           </div>
@@ -238,14 +238,14 @@ defmodule MobileCarWashWeb.Layouts do
                   alt="Driveway Detail Co"
                   width="192"
                   height="32"
-                  class="h-8 w-auto mb-3 dark:hidden"
+                  class="h-8 w-auto mb-3 site-logo--light"
                 />
                 <img
                   src="/images/logo_dark.svg"
                   alt="Driveway Detail Co"
                   width="192"
                   height="32"
-                  class="h-8 w-auto mb-3 hidden dark:block"
+                  class="h-8 w-auto mb-3 site-logo--dark"
                 />
                 <p class="text-sm text-base-content/80">
                   Professional mobile detailing at your door. Veteran-owned in San Antonio, TX.
@@ -308,14 +308,14 @@ defmodule MobileCarWashWeb.Layouts do
               alt="Driveway Detail Co"
               width="240"
               height="40"
-              class="h-10 w-auto dark:hidden"
+              class="h-10 w-auto site-logo--light"
             />
             <img
               src="/images/logo_dark.svg"
               alt="Driveway Detail Co"
               width="240"
               height="40"
-              class="h-10 w-auto hidden dark:block"
+              class="h-10 w-auto site-logo--dark"
             />
           </li>
           <li><a href="/">Home</a></li>

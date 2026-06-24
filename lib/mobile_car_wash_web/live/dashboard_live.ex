@@ -196,7 +196,7 @@ defmodule MobileCarWashWeb.DashboardLive do
           <div class="flex justify-between items-start">
             <div>
               <h2 class="card-title">{@plan.name}</h2>
-              <p class="text-2xl font-bold text-primary mt-1">${div(@plan.price_cents, 100)}/mo</p>
+              <p class="text-2xl font-bold text-primary mt-1">${money(@plan.price_cents)}/mo</p>
             </div>
             <span class={["badge badge-lg", status_badge(@subscription.status)]}>
               {format_status(@subscription.status)}
@@ -269,7 +269,7 @@ defmodule MobileCarWashWeb.DashboardLive do
                   </p>
                   <p class="text-xs text-base-content/70">{schedule.vehicle_label}</p>
                   <p :if={schedule.add_ons_per_wash_cents > 0} class="text-xs text-base-content/70">
-                    + ${div(schedule.add_ons_per_wash_cents, 100)} add-ons per wash
+                    + ${money(schedule.add_ons_per_wash_cents)} add-ons per wash
                   </p>
                 </div>
                 <span class={["badge", if(schedule.active, do: "badge-success", else: "badge-ghost")]}>
@@ -370,7 +370,7 @@ defmodule MobileCarWashWeb.DashboardLive do
                   checked={a.id in schedule.add_on_ids}
                   class="checkbox checkbox-sm"
                 />
-                <span class="text-sm">{a.name} — ${div(a.price_cents, 100)}</span>
+                <span class="text-sm">{a.name} — ${money(a.price_cents)}</span>
               </label>
               <div class="flex gap-2 mt-2">
                 <button type="submit" class="btn btn-primary btn-xs">Save add-ons</button>
@@ -404,11 +404,13 @@ defmodule MobileCarWashWeb.DashboardLive do
                 </p>
                 <p class="text-xs text-base-content/70">
                   {appt.vehicle_label}
-                  <span :if={appt.add_on_count > 0}>· {appt.add_on_count} add-on(s)</span>
+                  <span :if={appt.add_on_count > 0}>
+                    · {appt.add_on_count} add-on{if appt.add_on_count == 1, do: "", else: "s"}
+                  </span>
                 </p>
               </div>
               <div class="text-right">
-                <p class="font-semibold">${div(appt.price_cents, 100)}</p>
+                <p class="font-semibold">${money(appt.price_cents)}</p>
                 <span class="badge badge-ghost badge-sm">{format_status(appt.status)}</span>
               </div>
             </div>
@@ -441,7 +443,7 @@ defmodule MobileCarWashWeb.DashboardLive do
                     value={a.id}
                     class="checkbox checkbox-sm"
                   />
-                  <span class="text-sm">{a.name} — ${div(a.price_cents, 100)}</span>
+                  <span class="text-sm">{a.name} — ${money(a.price_cents)}</span>
                 </label>
                 <div class="flex gap-2 mt-2">
                   <button type="submit" class="btn btn-primary btn-xs">Add &amp; pay</button>
@@ -578,6 +580,16 @@ defmodule MobileCarWashWeb.DashboardLive do
   defp format_time(time), do: Calendar.strftime(time, "%-I:%M %p")
 
   defp washes_remaining(allowance, used), do: max(allowance - used, 0)
+
+  # Dollars, showing cents only when the amount isn't a whole dollar:
+  # 9000 -> "90", 1999 -> "19.99". Templates supply the leading "$".
+  defp money(cents) when is_integer(cents) do
+    if rem(cents, 100) == 0 do
+      Integer.to_string(div(cents, 100))
+    else
+      "#{div(cents, 100)}.#{String.pad_leading(Integer.to_string(rem(cents, 100)), 2, "0")}"
+    end
+  end
 
   defp status_badge(:active), do: "badge-success"
   defp status_badge(:paused), do: "badge-warning"

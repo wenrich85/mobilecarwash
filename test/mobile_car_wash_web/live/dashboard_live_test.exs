@@ -285,6 +285,62 @@ defmodule MobileCarWashWeb.DashboardLiveTest do
            ]
   end
 
+  test "Panel B shows the add-on per-wash cost with cents (no truncation)", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    create_active_subscription(customer, create_plan())
+    schedule = create_schedule(customer)
+
+    {:ok, addon} =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Clay Bar",
+        slug: "clay-#{System.unique_integer([:positive])}",
+        price_cents: 1_999
+      })
+      |> Ash.create()
+
+    :ok =
+      MobileCarWash.Scheduling.AppointmentServices.replace_schedule_add_ons(schedule.id, [
+        addon.id
+      ])
+
+    {:ok, _view, html} = live(conn, ~p"/dashboard")
+
+    # Non-round add-on price must keep its cents (was truncating to "$19").
+    assert html =~ "$19.99 add-ons per wash"
+  end
+
+  test "Panel C pluralizes the upcoming-wash add-on count", %{conn: conn} do
+    {conn, customer} = register_and_sign_in(conn)
+    create_active_subscription(customer, create_plan())
+    appt = create_upcoming_appointment(customer)
+
+    {:ok, a1} =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Wax",
+        slug: "wax-#{System.unique_integer([:positive])}",
+        price_cents: 1_000
+      })
+      |> Ash.create()
+
+    {:ok, a2} =
+      MobileCarWash.Scheduling.AddOn
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Shine",
+        slug: "shine-#{System.unique_integer([:positive])}",
+        price_cents: 1_000
+      })
+      |> Ash.create()
+
+    {:ok, _} = MobileCarWash.Scheduling.AppointmentServices.add(appt, [a1.id, a2.id])
+
+    {:ok, _view, html} = live(conn, ~p"/dashboard")
+
+    assert html =~ "2 add-ons"
+    refute html =~ "add-on(s)"
+  end
+
   test "can add services to an editable upcoming appointment (card success)", %{conn: conn} do
     {conn, customer} = register_and_sign_in(conn)
     # give the signed-in customer a charge-able Stripe id
