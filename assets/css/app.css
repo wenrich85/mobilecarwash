@@ -156,11 +156,31 @@
 @custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 
-/* Dark mode: matches explicit data-theme="dark" OR system preference when no theme is set */
-@custom-variant dark {
-  &:where([data-theme=dark], [data-theme=dark] *);
-  @media (prefers-color-scheme: dark) {
-    &:where(:not([data-theme=light]) :not([data-theme=light] *));
+/* Dark mode utility variant — explicit data-theme="dark" only. (Tailwind v4
+   won't compile a nested @media inside @custom-variant, so the system/OS dark
+   preference can't be folded in here; theme-sensitive bits that must follow the
+   OS preference use plain CSS keyed off :root:not([data-theme]) — see the brand
+   logo swap below.) */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Brand logo swap. Mirrors daisyUI's theme resolution so the right wordmark
+   shows in every state: light theme + light logo, dark theme + light-on-dark
+   logo, and system/OS preference when no theme is explicitly chosen. */
+.site-logo--dark {
+  display: none;
+}
+[data-theme="dark"] .site-logo--light {
+  display: none;
+}
+[data-theme="dark"] .site-logo--dark {
+  display: inline-block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .site-logo--light {
+    display: none;
+  }
+  :root:not([data-theme]) .site-logo--dark {
+    display: inline-block;
   }
 }
 

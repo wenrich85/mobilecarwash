@@ -156,7 +156,9 @@ defmodule MobileCarWashWeb.SubscriptionLive do
             phx-value-slug={plan.slug}
           >
             <div class="card-body">
-              <div :if={plan.slug == "standard"} class="badge badge-primary mb-2">Most Popular</div>
+              <div class="h-6 mb-2">
+                <span :if={plan.slug == "standard"} class="badge badge-primary">Most Popular</span>
+              </div>
               <h3 class="card-title text-xl">{plan.name}</h3>
               <div class="flex items-baseline gap-1 mt-3">
                 <span class="text-3xl font-bold">${div(plan.price_cents, 100)}</span>
