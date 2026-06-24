@@ -12,6 +12,9 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Operations.Technician
 
+  require Ash.Query
+  require Logger
+
   @impl true
   def mount(%{"session_id" => session_id}, _session, socket) do
     case lookup_by_session(session_id) do
@@ -35,11 +38,9 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
 
   defp lookup_by_session(session_id) do
     payments =
-      Ash.read!(Payment,
-        action: :by_checkout_session,
-        arguments: %{session_id: session_id},
-        authorize?: false
-      )
+      Payment
+      |> Ash.Query.for_read(:by_checkout_session, %{session_id: session_id})
+      |> Ash.read!(authorize?: false)
 
     case payments do
       [payment] ->
@@ -50,7 +51,11 @@ defmodule MobileCarWashWeb.BookingSuccessLive do
         :error
     end
   rescue
-    _ -> :error
+    e ->
+      # Don't let a real failure (bad query, load error) masquerade as a
+      # friendly "couldn't find that booking" — surface it in the logs.
+      Logger.error("BookingSuccessLive: session lookup failed: #{Exception.message(e)}")
+      :error
   end
 
   defp lookup_by_appointment_id(appointment_id) do

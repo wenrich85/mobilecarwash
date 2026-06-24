@@ -106,6 +106,33 @@ defmodule MobileCarWashWeb.BookingSuccessLiveTest do
     end
   end
 
+  describe "mount with `session_id` param (Stripe arrival)" do
+    test "renders booking confirmed for a valid checkout session_id", %{conn: conn} do
+      customer = register_customer()
+      {appt, service, _address} = create_appointment(customer)
+      session_id = "cs_test_#{System.unique_integer([:positive])}"
+
+      # The Stripe checkout return path looks the booking up by the payment's
+      # stripe_checkout_session_id (the same id Stripe puts in the success URL).
+      {:ok, _payment} =
+        Payment
+        |> Ash.Changeset.for_create(:create, %{
+          amount_cents: 8_900,
+          status: :succeeded,
+          stripe_checkout_session_id: session_id
+        })
+        |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+        |> Ash.Changeset.force_change_attribute(:appointment_id, appt.id)
+        |> Ash.create()
+
+      {:ok, _view, html} = live(conn, ~p"/book/success?session_id=#{session_id}")
+
+      assert html =~ "Booking confirmed"
+      assert html =~ service.name
+      refute html =~ "We couldn&#39;t find that booking."
+    end
+  end
+
   describe "appointment summary card content" do
     test "renders price chip from payment when present", %{conn: conn} do
       customer = register_customer()
