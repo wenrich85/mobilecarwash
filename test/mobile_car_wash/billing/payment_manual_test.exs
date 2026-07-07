@@ -69,4 +69,23 @@ defmodule MobileCarWash.Billing.PaymentManualTest do
     assert payment.collected_cents == 5000
     assert payment.status == :succeeded
   end
+
+  test ":complete stamps collected_cents = amount_cents, status :succeeded, and paid_at" do
+    cust = customer()
+
+    payment =
+      Payment
+      |> Ash.Changeset.for_create(:create, %{amount_cents: 4200, status: :pending})
+      |> Ash.Changeset.force_change_attribute(:customer_id, cust.id)
+      |> Ash.create!(authorize?: false)
+
+    {:ok, completed} =
+      payment
+      |> Ash.Changeset.for_update(:complete, %{stripe_payment_intent_id: "pi_test"})
+      |> Ash.update(authorize?: false)
+
+    assert completed.collected_cents == 4200
+    assert completed.status == :succeeded
+    assert completed.paid_at
+  end
 end
