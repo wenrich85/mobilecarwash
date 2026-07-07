@@ -8,26 +8,38 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
 
   alias MobileCarWash.Scheduling.{Booking, ServiceType}
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Operations.Technician
 
   require Ash.Query
 
   @impl true
   def mount(_params, _session, socket) do
+    customers = customers()
+    first_id = customers |> List.first() |> then(&(&1 && &1.id))
+
     {:ok,
-     assign(socket,
+     socket
+     |> assign(
        page_title: "New Appointment",
        client_mode: "existing",
        waive: false,
-       customers: customers(),
+       customers: customers,
        service_types: service_types(),
        technicians: technicians()
-     )}
+     )
+     |> load_customer_fleet(first_id)}
   end
 
   @impl true
   def handle_event("set_client_mode", %{"mode" => mode}, socket) do
     {:noreply, assign(socket, client_mode: mode)}
+  end
+
+  # Reload the saved vehicles/addresses when the admin picks a different client.
+  def handle_event("select_customer", params, socket) do
+    id = get_in(params, ["manual_appointment", "customer_id"]) || params["customer_id"]
+    {:noreply, load_customer_fleet(socket, id)}
   end
 
   def handle_event("toggle_waive", params, socket) do
@@ -144,8 +156,14 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
              the test framework can find all form fields regardless of mode. --%>
         <div class={[@client_mode != "existing" && "hidden"]}>
           <label class="label label-text">Client</label>
-          <select name="manual_appointment[customer_id]" class="select select-bordered w-full">
-            <option :for={c <- @customers} value={c.id}>{c.name} ({c.email})</option>
+          <select
+            name="manual_appointment[customer_id]"
+            class="select select-bordered w-full"
+            phx-change="select_customer"
+          >
+            <option :for={c <- @customers} value={c.id} selected={c.id == @selected_customer_id}>
+              {c.name} ({c.email})
+            </option>
           </select>
         </div>
 
@@ -167,7 +185,18 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
           />
         </div>
 
-        <div class="grid grid-cols-3 gap-2">
+        <%!-- Existing client with saved vehicles: pick one (no duplicate row). --%>
+        <div :if={@client_mode == "existing" and @vehicles != []}>
+          <label class="label label-text">Vehicle</label>
+          <select name="manual_appointment[vehicle_id]" class="select select-bordered w-full">
+            <option :for={v <- @vehicles} value={v.id}>
+              {v.make} {v.model} ({v.size})
+            </option>
+          </select>
+        </div>
+
+        <%!-- New client, or existing client with no saved vehicle: quick-add. --%>
+        <div :if={@client_mode == "new" or @vehicles == []} class="grid grid-cols-3 gap-2">
           <input
             name="manual_appointment[vehicle_make]"
             placeholder="Make"
@@ -185,7 +214,18 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
           </select>
         </div>
 
-        <div class="grid grid-cols-2 gap-2">
+        <%!-- Existing client with saved addresses: pick one (no duplicate row). --%>
+        <div :if={@client_mode == "existing" and @addresses != []}>
+          <label class="label label-text">Address</label>
+          <select name="manual_appointment[address_id]" class="select select-bordered w-full">
+            <option :for={ad <- @addresses} value={ad.id}>
+              {ad.street}, {ad.city} {ad.zip}
+            </option>
+          </select>
+        </div>
+
+        <%!-- New client, or existing client with no saved address: quick-add. --%>
+        <div :if={@client_mode == "new" or @addresses == []} class="grid grid-cols-2 gap-2">
           <input
             name="manual_appointment[address_street]"
             placeholder="Street"
@@ -262,6 +302,32 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
       </form>
     </div>
     """
+  end
+
+  # Tracks the chosen client and loads their saved vehicles/addresses so the
+  # form can offer them as pickers instead of always inserting new Fleet rows.
+  defp load_customer_fleet(socket, nil) do
+    assign(socket, selected_customer_id: nil, vehicles: [], addresses: [])
+  end
+
+  defp load_customer_fleet(socket, customer_id) do
+    assign(socket,
+      selected_customer_id: customer_id,
+      vehicles: vehicles_for(customer_id),
+      addresses: addresses_for(customer_id)
+    )
+  end
+
+  defp vehicles_for(customer_id) do
+    Vehicle
+    |> Ash.Query.for_read(:for_customer, %{customer_id: customer_id})
+    |> Ash.read!(authorize?: false)
+  end
+
+  defp addresses_for(customer_id) do
+    Address
+    |> Ash.Query.for_read(:for_customer, %{customer_id: customer_id})
+    |> Ash.read!(authorize?: false)
   end
 
   defp customers do
