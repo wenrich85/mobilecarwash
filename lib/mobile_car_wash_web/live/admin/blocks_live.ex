@@ -105,6 +105,21 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
     end
   end
 
+  # === cancel block (preserves appointments) ===
+
+  def handle_event("cancel_block", %{"id" => id}, socket) do
+    case Blocks.cancel_block(id) do
+      :ok ->
+        {:noreply,
+         socket
+         |> load_week()
+         |> put_flash(:info, "Block cancelled — its appointments are kept for rebooking.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not cancel block.")}
+    end
+  end
+
   # === existing block ops (kept) ===
 
   def handle_event("optimize_now", %{"id" => id}, socket) do
@@ -229,6 +244,15 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
                 data-confirm="Close this block now and assign arrival times?"
               >
                 Optimize
+              </button>
+              <button
+                :if={block.status == :open and block.appointment_count not in [0, nil]}
+                class="btn btn-error btn-outline btn-xs mt-1"
+                phx-click="cancel_block"
+                phx-value-id={block.id}
+                data-confirm="Cancel this block? Its appointments are kept for rebooking."
+              >
+                Cancel
               </button>
             </div>
           </div>

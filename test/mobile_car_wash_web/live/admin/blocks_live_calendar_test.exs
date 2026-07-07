@@ -75,6 +75,53 @@ defmodule MobileCarWashWeb.Admin.BlocksLiveCalendarTest do
     |> Ash.create!(authorize?: false)
   end
 
+  # Creates an :open block holding one appointment. Returns {block, appointment}.
+  defp booked_block(svc, t) do
+    b = empty_block(svc, t)
+
+    cust =
+      Customer
+      |> Ash.Changeset.for_create(:create_guest, %{
+        name: "Booked",
+        email: "booked-#{System.unique_integer([:positive])}@test.com",
+        phone: "+15125550177"
+      })
+      |> Ash.create!(authorize?: false)
+
+    vehicle =
+      Vehicle
+      |> Ash.Changeset.for_create(:create, %{make: "Kia", model: "Soul", size: :car})
+      |> Ash.Changeset.force_change_attribute(:customer_id, cust.id)
+      |> Ash.create!(authorize?: false)
+
+    address =
+      Address
+      |> Ash.Changeset.for_create(:create, %{
+        street: "5 Elm",
+        city: "Austin",
+        state: "TX",
+        zip: "78701"
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, cust.id)
+      |> Ash.create!(authorize?: false)
+
+    appt =
+      Appointment
+      |> Ash.Changeset.for_create(:admin_book, %{
+        scheduled_at: b.starts_at,
+        customer_id: cust.id,
+        vehicle_id: vehicle.id,
+        address_id: address.id,
+        service_type_id: svc.id,
+        price_cents: 5000,
+        duration_minutes: 45
+      })
+      |> Ash.Changeset.force_change_attribute(:appointment_block_id, b.id)
+      |> Ash.create!(authorize?: false)
+
+    {b, appt}
+  end
+
   test "renders the week calendar", %{conn: conn} do
     conn = sign_in(conn, create_admin())
     {:ok, view, _html} = live(conn, ~p"/admin/blocks")
@@ -146,5 +193,26 @@ defmodule MobileCarWashWeb.Admin.BlocksLiveCalendarTest do
 
     assert has_element?(view, "#block-#{b.id} .block-locked")
     refute has_element?(view, "#block-#{b.id} button[phx-click='delete_block']")
+  end
+
+  test "cancels a booked block, preserving its appointments", %{conn: conn} do
+    svc = service()
+    t = tech()
+    {b, appt} = booked_block(svc, t)
+
+    conn = sign_in(conn, create_admin())
+    {:ok, view, _html} = live(conn, ~p"/admin/blocks")
+
+    assert has_element?(view, "#block-#{b.id} button[phx-click='cancel_block']")
+
+    view |> element("#block-#{b.id} button[phx-click='cancel_block']") |> render_click()
+
+    # Cancelled blocks drop off the active calendar.
+    refute has_element?(view, "#block-#{b.id}")
+
+    # The block is cancelled, not destroyed, and its appointment is untouched.
+    reloaded = Ash.get!(AppointmentBlock, b.id, authorize?: false)
+    assert reloaded.status == :cancelled
+    assert {:ok, _} = Ash.get(Appointment, appt.id, authorize?: false)
   end
 end
