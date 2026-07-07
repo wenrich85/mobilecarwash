@@ -251,13 +251,27 @@ defmodule MobileCarWash.Scheduling.Booking do
     enqueue_confirmation_email(appointment)
     enqueue_sms_confirmation(appointment)
     enqueue_push_confirmation(appointment)
-    enqueue_appointment_reminder(appointment)
-    enqueue_sms_reminder(appointment)
-    enqueue_push_reminder(appointment)
+    maybe_enqueue_admin_reminders(appointment)
     :ok
   end
 
   defp maybe_notify_admin_booking(_params, _appointment), do: :ok
+
+  # :admin_book allows past-dated appointments (backfill / override). Reminders
+  # fire 24h before scheduled_at; for a past-dated booking that time is already
+  # gone and the reminder would send immediately. Only schedule them when the
+  # reminder time is still in the future.
+  defp maybe_enqueue_admin_reminders(appointment) do
+    reminder_at = DateTime.add(appointment.scheduled_at, -24 * 3600)
+
+    if DateTime.compare(reminder_at, DateTime.utc_now()) == :gt do
+      enqueue_appointment_reminder(appointment)
+      enqueue_sms_reminder(appointment)
+      enqueue_push_reminder(appointment)
+    end
+
+    :ok
+  end
 
   # If the block this appointment belongs to just hit capacity, close +
   # optimize it immediately so customers get their confirmed times.
