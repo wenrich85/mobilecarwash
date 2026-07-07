@@ -14,7 +14,9 @@ defmodule MobileCarWash.Repo.Migrations.AddPaymentCompFields do
       add :comp_reason, :text
     end
 
-    execute("UPDATE payments SET collected_cents = amount_cents WHERE collected_cents IS NULL AND status = 'succeeded'")
+    execute(
+      "UPDATE payments SET collected_cents = amount_cents WHERE collected_cents IS NULL AND status = 'succeeded'"
+    )
   end
 
   def down do
