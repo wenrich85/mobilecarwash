@@ -17,6 +17,7 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
   def mount(_params, _session, socket) do
     customers = customers()
     first_id = customers |> List.first() |> then(&(&1 && &1.id))
+    service_types = service_types()
 
     {:ok,
      socket
@@ -25,7 +26,8 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
        client_mode: "existing",
        waive: false,
        customers: customers,
-       service_types: service_types(),
+       service_types: service_types,
+       collected_default_cents: default_price(service_types),
        technicians: technicians()
      )
      |> load_customer_fleet(first_id)}
@@ -34,6 +36,14 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
   @impl true
   def handle_event("set_client_mode", %{"mode" => mode}, socket) do
     {:noreply, assign(socket, client_mode: mode)}
+  end
+
+  # Keep the "amount collected" default in step with the chosen service.
+  def handle_event("select_service", params, socket) do
+    id = get_in(params, ["manual_appointment", "service_type_id"]) || params["service_type_id"]
+    service = Enum.find(socket.assigns.service_types, &(&1.id == id))
+    cents = if service, do: service.base_price_cents, else: socket.assigns.collected_default_cents
+    {:noreply, assign(socket, collected_default_cents: cents)}
   end
 
   # Reload the saved vehicles/addresses when the admin picks a different client.
@@ -74,7 +84,31 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
     |> put_client(p)
     |> put_vehicle(p)
     |> put_address(p)
+    |> put_collected(p)
   end
+
+  # Only meaningful when not waiving: record the amount actually collected.
+  # Blank leaves it unset so the orchestrator falls back to the full price.
+  defp put_collected(%{waive_payment?: true} = acc, _p), do: acc
+
+  defp put_collected(acc, p) do
+    case parse_cents(p["amount_collected"]) do
+      cents when is_integer(cents) -> Map.put(acc, :collected_cents, cents)
+      _ -> acc
+    end
+  end
+
+  # Parses a currency string ("30", "30.00", "$1,234.50") to integer cents.
+  defp parse_cents(value) when is_binary(value) do
+    cleaned = String.replace(value, ~r/[^\d.]/, "")
+
+    case Float.parse(cleaned) do
+      {dollars, _} -> round(dollars * 100)
+      :error -> nil
+    end
+  end
+
+  defp parse_cents(_), do: nil
 
   defp put_client(acc, %{"client_mode" => "existing"} = p),
     do: Map.put(acc, :customer_id, p["customer_id"])
@@ -250,7 +284,11 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
         </div>
 
         <div class="grid grid-cols-2 gap-2">
-          <select name="manual_appointment[service_type_id]" class="select select-bordered">
+          <select
+            name="manual_appointment[service_type_id]"
+            class="select select-bordered"
+            phx-change="select_service"
+          >
             <option :for={st <- @service_types} value={st.id}>{st.name}</option>
           </select>
           <input
@@ -284,6 +322,21 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
           placeholder="Reason for comp"
           class={["input input-bordered w-full", !@waive && "hidden"]}
         />
+
+        <%!-- Amount actually collected (cash/partial/off-platform). Hidden while
+             waiving; always in DOM so tests can submit it. Defaults to the
+             selected service's price. --%>
+        <label class={["form-control w-full", @waive && "hidden"]}>
+          <span class="label label-text">Amount collected</span>
+          <input
+            name="manual_appointment[amount_collected]"
+            type="text"
+            inputmode="decimal"
+            value={cents_to_dollars(@collected_default_cents)}
+            placeholder="0.00"
+            class="input input-bordered w-full"
+          />
+        </label>
 
         <label class="label cursor-pointer justify-start gap-2">
           <%!-- Hidden "false" ensures an unchecked box submits false; the visible checkbox overrides it to "true". --%>
@@ -329,6 +382,15 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLive do
     |> Ash.Query.for_read(:for_customer, %{customer_id: customer_id})
     |> Ash.read!(authorize?: false)
   end
+
+  defp default_price([%{base_price_cents: cents} | _]) when is_integer(cents), do: cents
+  defp default_price(_), do: 0
+
+  defp cents_to_dollars(cents) when is_integer(cents) do
+    :erlang.float_to_binary(cents / 100, decimals: 2)
+  end
+
+  defp cents_to_dollars(_), do: "0.00"
 
   defp customers do
     Customer
