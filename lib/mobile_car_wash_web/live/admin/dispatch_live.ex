@@ -311,7 +311,10 @@ defmodule MobileCarWashWeb.Admin.DispatchLive do
     ~H"""
     <div class="min-h-screen bg-base-200 px-4 py-6">
       <div class="mx-auto flex max-w-7xl flex-col gap-5">
-        <div class="flex justify-end">
+        <div class="flex justify-end gap-2">
+          <.link navigate={~p"/admin/appointments/new"} class="btn btn-secondary btn-sm">
+            + New Appointment
+          </.link>
           <.link navigate={~p"/admin/metrics"} class="btn btn-outline btn-sm">Dashboard</.link>
         </div>
 

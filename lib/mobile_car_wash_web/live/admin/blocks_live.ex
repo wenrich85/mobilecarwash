@@ -1,12 +1,12 @@
 defmodule MobileCarWashWeb.Admin.BlocksLive do
   @moduledoc """
-  Admin view of upcoming appointment blocks. Shows time window, capacity,
-  status, and assigned technician. Supports triggering the route optimizer
-  manually and cancelling a block.
+  Admin week-calendar of appointment blocks. Click a day to add a block;
+  click an empty block to delete it. Blocks holding appointments are locked.
   """
   use MobileCarWashWeb, :live_view
 
-  alias MobileCarWash.Scheduling.{AppointmentBlock, BlockGenerator, BlockOptimizer}
+  alias MobileCarWash.Scheduling.{AppointmentBlock, Blocks, BlockGenerator, BlockOptimizer}
+  alias MobileCarWash.Scheduling.ServiceType
   alias MobileCarWash.Operations.Technician
 
   require Ash.Query
@@ -16,24 +16,102 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
-     assign(socket,
+     socket
+     |> assign(
        page_title: "Appointment Blocks",
-       blocks: load_blocks(),
-       expanded: MapSet.new(),
-       editing_closes_at: nil,
+       week_start: monday_of(Date.utc_today()),
+       adding_day: nil,
        technicians: active_technicians(),
+       service_types: service_types(),
        generate_days: @generate_days
-     )}
+     )
+     |> load_week()}
   end
 
+  # === week navigation ===
+
   @impl true
+  def handle_event("prev_week", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(week_start: Date.add(socket.assigns.week_start, -7), adding_day: nil)
+     |> load_week()}
+  end
+
+  def handle_event("next_week", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(week_start: Date.add(socket.assigns.week_start, 7), adding_day: nil)
+     |> load_week()}
+  end
+
+  def handle_event("this_week", _params, socket) do
+    {:noreply,
+     socket |> assign(week_start: monday_of(Date.utc_today()), adding_day: nil) |> load_week()}
+  end
+
+  # === add block ===
+
+  def handle_event("open_add", %{"day" => day}, socket) do
+    {:noreply, assign(socket, adding_day: day)}
+  end
+
+  def handle_event("cancel_add", _params, socket) do
+    {:noreply, assign(socket, adding_day: nil)}
+  end
+
+  def handle_event("create_block", params, socket) do
+    with {:ok, starts_at} <- parse_datetime_local(params["starts_at"]),
+         {:ok, ends_at} <- parse_datetime_local(params["ends_at"]) do
+      attrs = %{
+        service_type_id: params["service_type_id"],
+        technician_id: params["technician_id"],
+        starts_at: starts_at,
+        ends_at: ends_at,
+        closes_at: DateTime.add(starts_at, -3600, :second),
+        capacity: String.to_integer(params["capacity"] || "3"),
+        status: :open
+      }
+
+      case Blocks.create_block(attrs) do
+        {:ok, _block} ->
+          {:noreply,
+           socket
+           |> assign(adding_day: nil)
+           |> load_week()
+           |> put_flash(:info, "Block added.")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Could not add block — check the fields.")}
+      end
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Invalid start/end time.")}
+    end
+  end
+
+  # === delete block (guarded) ===
+
+  def handle_event("delete_block", %{"id" => id}, socket) do
+    case Blocks.delete_block(id) do
+      :ok ->
+        {:noreply, socket |> load_week() |> put_flash(:info, "Block deleted.")}
+
+      {:error, :block_has_appointments} ->
+        {:noreply,
+         put_flash(socket, :error, "Move or cancel its appointments before deleting this block.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not delete block.")}
+    end
+  end
+
+  # === existing block ops (kept) ===
+
   def handle_event("optimize_now", %{"id" => id}, socket) do
     case BlockOptimizer.close_and_optimize(id) do
       {:ok, _} ->
         {:noreply,
-         socket
-         |> assign(blocks: load_blocks())
-         |> put_flash(:info, "Block optimized — customers notified.")}
+         socket |> load_week() |> put_flash(:info, "Block optimized — customers notified.")}
 
       {:error, :already_optimized} ->
         {:noreply, put_flash(socket, :error, "Block has already been optimized.")}
@@ -43,283 +121,210 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
     end
   end
 
-  def handle_event("cancel_block", %{"id" => id}, socket) do
-    case Ash.get(AppointmentBlock, id) do
-      {:ok, block} ->
-        case block
-             |> Ash.Changeset.for_update(:update, %{status: :cancelled})
-             |> Ash.update() do
-          {:ok, _} ->
-            {:noreply,
-             socket
-             |> assign(blocks: load_blocks())
-             |> put_flash(:info, "Block cancelled.")}
-
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Could not cancel block.")}
-        end
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
-
   def handle_event("generate_blocks", params, socket) do
     tech_id = params["technician_id"] || fallback_tech_id(socket)
 
-    cond do
-      tech_id in [nil, ""] ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "No active technician found — seed or create one before generating blocks."
-         )}
+    if tech_id in [nil, ""] do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "No active technician found — create one before generating blocks."
+       )}
+    else
+      :ok = BlockGenerator.generate_ahead(@generate_days, technician_id: tech_id)
 
-      true ->
-        :ok = BlockGenerator.generate_ahead(@generate_days, technician_id: tech_id)
-
-        tech_name =
-          Enum.find_value(socket.assigns.technicians, "selected tech", fn t ->
-            t.id == tech_id and t.name
-          end)
-
-        {:noreply,
-         socket
-         |> assign(blocks: load_blocks())
-         |> put_flash(
-           :info,
-           "Generated blocks for the next #{@generate_days} days under #{tech_name}."
-         )}
-    end
-  end
-
-  def handle_event("edit_closes_at", %{"id" => id}, socket) do
-    {:noreply, assign(socket, editing_closes_at: id)}
-  end
-
-  def handle_event("cancel_closes_at_edit", _params, socket) do
-    {:noreply, assign(socket, editing_closes_at: nil)}
-  end
-
-  def handle_event("save_closes_at", %{"id" => id, "closes_at" => value}, socket) do
-    with {:ok, closes_at} <- parse_datetime_local(value),
-         {:ok, block} <- Ash.get(AppointmentBlock, id),
-         {:ok, _} <-
-           block
-           |> Ash.Changeset.for_update(:update, %{closes_at: closes_at})
-           |> Ash.update() do
       {:noreply,
        socket
-       |> assign(blocks: load_blocks(), editing_closes_at: nil)
-       |> put_flash(:info, "Closing time updated.")}
-    else
-      _ -> {:noreply, put_flash(socket, :error, "Could not update closing time.")}
+       |> load_week()
+       |> put_flash(:info, "Generated blocks for the next #{@generate_days} days.")}
     end
-  end
-
-  def handle_event("toggle_expand", %{"id" => id}, socket) do
-    expanded =
-      if MapSet.member?(socket.assigns.expanded, id) do
-        MapSet.delete(socket.assigns.expanded, id)
-      else
-        MapSet.put(socket.assigns.expanded, id)
-      end
-
-    {:noreply, assign(socket, expanded: expanded)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-6xl mx-auto py-8 px-4">
-      <div class="flex justify-between items-start mb-6">
-        <div>
-          <h1 class="text-3xl font-bold mb-2">Appointment Blocks</h1>
-          <p class="text-base-content/80">
-            Upcoming windows. Blocks close automatically at midnight the day before; the route optimizer assigns each customer an exact arrival time and texts it to them.
-          </p>
-        </div>
-        <form phx-submit="generate_blocks" class="flex items-end gap-2">
-          <div :if={@technicians != []} class="form-control">
-            <label class="label label-text text-xs">Technician</label>
-            <select name="technician_id" class="select select-bordered select-sm">
+    <div class="max-w-7xl mx-auto py-8 px-4">
+      <div class="flex justify-between items-center mb-6 flex-wrap gap-2">
+        <h1 class="text-3xl font-bold">Appointment Blocks</h1>
+        <div class="flex items-center gap-2">
+          <.link navigate={~p"/admin/appointments/new"} class="btn btn-secondary btn-sm">
+            + New Appointment
+          </.link>
+          <form phx-submit="generate_blocks" class="flex items-end gap-2">
+            <select
+              :if={@technicians != []}
+              name="technician_id"
+              class="select select-bordered select-sm"
+            >
               <option :for={tech <- @technicians} value={tech.id}>{tech.name}</option>
             </select>
-          </div>
-          <button
-            type="submit"
-            class="btn btn-primary btn-sm"
-            data-confirm="Generate blocks for the next 14 days? Existing blocks will not be duplicated."
-          >
-            Generate Next {@generate_days} Days
-          </button>
-        </form>
-      </div>
-
-      <div :if={@blocks == []} class="text-center py-12 text-base-content/70">
-        No upcoming blocks. Click "Generate Next {@generate_days} Days" to seed the schedule.
-      </div>
-
-      <div class="space-y-3">
-        <div
-          :for={block <- @blocks}
-          class="card bg-base-100 shadow-sm"
-        >
-          <div class="card-body p-4">
-            <div class="flex justify-between items-start">
-              <div class="flex-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <h4 class="font-bold">{block.service_type.name}</h4>
-                  <span class={["badge badge-sm", status_class(block.status)]}>
-                    {block.status}
-                  </span>
-                  <span class="text-xs text-base-content/70">
-                    Tech: {(block.technician && block.technician.name) || "—"}
-                  </span>
-                </div>
-
-                <p class="text-sm mt-1">
-                  <span class="font-semibold">
-                    {Calendar.strftime(block.starts_at, "%a %b %-d · %-I:%M %p")} – {Calendar.strftime(
-                      block.ends_at,
-                      "%-I:%M %p"
-                    )}
-                  </span>
-                </p>
-
-                <p :if={@editing_closes_at != block.id} class="text-sm text-base-content/80 mt-1">
-                  {block.appointment_count} / {block.capacity} booked · closes {Calendar.strftime(
-                    block.closes_at,
-                    "%a %b %-d %-I:%M %p"
-                  )}
-                  <button
-                    :if={block.status == :open}
-                    class="btn btn-ghost btn-xs ml-1"
-                    phx-click="edit_closes_at"
-                    phx-value-id={block.id}
-                  >
-                    Edit
-                  </button>
-                </p>
-
-                <form
-                  :if={@editing_closes_at == block.id}
-                  phx-submit="save_closes_at"
-                  phx-value-id={block.id}
-                  class="flex items-center gap-2 mt-1 text-sm"
-                >
-                  <label class="text-base-content/80">Closes at:</label>
-                  <input
-                    type="datetime-local"
-                    name="closes_at"
-                    class="input input-bordered input-xs"
-                    value={format_datetime_local(block.closes_at)}
-                    required
-                  />
-                  <button type="submit" class="btn btn-primary btn-xs">Save</button>
-                  <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_closes_at_edit">
-                    Cancel
-                  </button>
-                </form>
-              </div>
-
-              <div class="flex gap-2 flex-wrap justify-end">
-                <button
-                  class="btn btn-ghost btn-xs"
-                  phx-click="toggle_expand"
-                  phx-value-id={block.id}
-                >
-                  {if MapSet.member?(@expanded, block.id), do: "Hide", else: "View"} appointments
-                </button>
-                <button
-                  :if={block.status == :open and block.appointment_count > 0}
-                  class="btn btn-primary btn-xs"
-                  phx-click="optimize_now"
-                  phx-value-id={block.id}
-                >
-                  Optimize Now
-                </button>
-                <button
-                  :if={block.status in [:open, :scheduled]}
-                  class="btn btn-error btn-outline btn-xs"
-                  phx-click="cancel_block"
-                  phx-value-id={block.id}
-                  data-confirm="Cancel this block? Booked customers will need to be rebooked manually."
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-
-            <div
-              :if={MapSet.member?(@expanded, block.id)}
-              class="mt-3 pt-3 border-t border-base-200"
+            <button
+              type="submit"
+              class="btn btn-primary btn-sm"
+              data-confirm="Generate blocks for the next 14 days?"
             >
-              <div :if={block.appointments == []} class="text-sm text-base-content/70">
-                No appointments in this block yet.
-              </div>
+              Generate {@generate_days} Days
+            </button>
+          </form>
+        </div>
+      </div>
 
-              <table :if={block.appointments != []} class="table table-sm">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Time</th>
-                    <th>Customer</th>
-                    <th>Address</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr :for={appt <- sorted_appointments(block.appointments)}>
-                    <td>{appt.route_position || "—"}</td>
-                    <td>{Calendar.strftime(appt.scheduled_at, "%-I:%M %p")}</td>
-                    <td>{(appt.customer && appt.customer.name) || "—"}</td>
-                    <td class="text-xs">
-                      {(appt.address && "#{appt.address.street}, #{appt.address.city}") || "—"}
-                    </td>
-                    <td><span class="badge badge-sm badge-ghost">{appt.status}</span></td>
-                  </tr>
-                </tbody>
-              </table>
+      <div class="flex items-center justify-between mb-4">
+        <button class="btn btn-ghost btn-sm" phx-click="prev_week">← Prev</button>
+        <div class="font-semibold">
+          Week of {Calendar.strftime(@week_start, "%b %-d, %Y")}
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost btn-sm" phx-click="this_week">Today</button>
+          <button class="btn btn-ghost btn-sm" phx-click="next_week">Next →</button>
+        </div>
+      </div>
+
+      <div id="blocks-calendar" class="grid grid-cols-1 md:grid-cols-7 gap-2">
+        <div
+          :for={day <- week_days(@week_start)}
+          class="border border-base-200 rounded-lg p-2 min-h-40"
+        >
+          <div class="text-xs font-semibold text-base-content/70 mb-2">
+            {Calendar.strftime(day, "%a %-m/%-d")}
+          </div>
+
+          <div
+            :for={block <- blocks_on(@blocks, day)}
+            id={"block-#{block.id}"}
+            class="card bg-base-100 shadow-sm mb-2"
+          >
+            <div class="card-body p-2 text-xs">
+              <div class="font-bold">{block.service_type.name}</div>
+              <div>
+                {Calendar.strftime(block.starts_at, "%-I:%M")}–{Calendar.strftime(
+                  block.ends_at,
+                  "%-I:%M %p"
+                )}
+              </div>
+              <div class="text-base-content/70">
+                {block.appointment_count} / {block.capacity} booked
+              </div>
+              <button
+                :if={block.appointment_count in [0, nil] and block.status == :open}
+                class="btn btn-error btn-outline btn-xs mt-1"
+                phx-click="delete_block"
+                phx-value-id={block.id}
+                data-confirm="Delete this empty block?"
+              >
+                Delete
+              </button>
+              <span
+                :if={block.appointment_count not in [0, nil] or block.status != :open}
+                class="block-locked text-base-content/50 mt-1"
+              >
+                Locked
+              </span>
+              <button
+                :if={block.status == :open and block.appointment_count not in [0, nil]}
+                class="btn btn-primary btn-xs mt-1"
+                phx-click="optimize_now"
+                phx-value-id={block.id}
+                data-confirm="Close this block now and assign arrival times?"
+              >
+                Optimize
+              </button>
             </div>
           </div>
+
+          <button
+            class="btn btn-ghost btn-xs w-full"
+            phx-click="open_add"
+            phx-value-day={Date.to_iso8601(day)}
+          >
+            + Add
+          </button>
+
+          <form
+            :if={@adding_day == Date.to_iso8601(day)}
+            id="block-add-form"
+            phx-submit="create_block"
+            class="mt-2 space-y-1 text-xs"
+          >
+            <input
+              type="datetime-local"
+              name="starts_at"
+              required
+              class="input input-bordered input-xs w-full"
+              value={"#{Date.to_iso8601(day)}T09:00"}
+            />
+            <input
+              type="datetime-local"
+              name="ends_at"
+              required
+              class="input input-bordered input-xs w-full"
+              value={"#{Date.to_iso8601(day)}T12:00"}
+            />
+            <select name="service_type_id" required class="select select-bordered select-xs w-full">
+              <option :for={st <- @service_types} value={st.id}>{st.name}</option>
+            </select>
+            <select name="technician_id" required class="select select-bordered select-xs w-full">
+              <option :for={tech <- @technicians} value={tech.id}>{tech.name}</option>
+            </select>
+            <input
+              type="number"
+              name="capacity"
+              value="3"
+              min="1"
+              class="input input-bordered input-xs w-full"
+            />
+            <div class="flex gap-1">
+              <button type="submit" class="btn btn-primary btn-xs flex-1">Save</button>
+              <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_add">
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
     """
   end
 
-  # --- helpers ---
+  # === helpers ===
 
-  defp status_class(:open), do: "badge-success"
-  defp status_class(:scheduled), do: "badge-info"
-  defp status_class(:in_progress), do: "badge-warning"
-  defp status_class(:completed), do: "badge-ghost"
-  defp status_class(:cancelled), do: "badge-error"
-  defp status_class(_), do: "badge-ghost"
-
-  defp sorted_appointments(appointments) do
-    Enum.sort_by(appointments, fn a -> a.route_position || 999 end)
+  defp monday_of(date) do
+    Date.add(date, -(Date.day_of_week(date) - 1))
   end
 
-  defp format_datetime_local(%DateTime{} = dt) do
-    # HTML5 datetime-local wants "YYYY-MM-DDTHH:MM" without timezone.
-    Calendar.strftime(dt, "%Y-%m-%dT%H:%M")
+  defp week_days(week_start), do: Enum.map(0..6, &Date.add(week_start, &1))
+
+  defp blocks_on(blocks, day) do
+    blocks
+    |> Enum.filter(fn b -> DateTime.to_date(b.starts_at) == day end)
+    |> Enum.sort_by(& &1.starts_at, DateTime)
   end
 
-  defp parse_datetime_local(value) when is_binary(value) do
-    case NaiveDateTime.from_iso8601(value <> ":00") do
-      {:ok, ndt} -> {:ok, DateTime.from_naive!(ndt, "Etc/UTC")}
-      error -> error
-    end
+  defp load_week(socket) do
+    week_start = socket.assigns.week_start
+    {:ok, from} = DateTime.new(week_start, ~T[00:00:00])
+    {:ok, to} = DateTime.new(Date.add(week_start, 7), ~T[00:00:00])
+
+    blocks =
+      AppointmentBlock
+      |> Ash.Query.filter(starts_at >= ^from and starts_at < ^to and status != :cancelled)
+      |> Ash.Query.sort(starts_at: :asc)
+      |> Ash.Query.load([:service_type, :technician, :appointment_count])
+      |> Ash.read!(authorize?: false)
+
+    assign(socket, blocks: blocks)
+  end
+
+  defp service_types do
+    ServiceType |> Ash.read!(authorize?: false)
   end
 
   defp active_technicians do
     Technician
     |> Ash.Query.filter(active == true)
     |> Ash.Query.sort(inserted_at: :asc)
-    |> Ash.read!()
+    |> Ash.read!(authorize?: false)
   end
 
   defp fallback_tech_id(socket) do
@@ -329,18 +334,12 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
     end
   end
 
-  defp load_blocks do
-    today = Date.utc_today() |> DateTime.new!(~T[00:00:00])
-
-    AppointmentBlock
-    |> Ash.Query.filter(starts_at >= ^today)
-    |> Ash.Query.sort(starts_at: :asc)
-    |> Ash.Query.load([
-      :service_type,
-      :technician,
-      :appointment_count,
-      appointments: [:customer, :address]
-    ])
-    |> Ash.read!()
+  defp parse_datetime_local(value) when is_binary(value) and value != "" do
+    case NaiveDateTime.from_iso8601(value <> ":00") do
+      {:ok, ndt} -> {:ok, DateTime.from_naive!(ndt, "Etc/UTC")}
+      error -> error
+    end
   end
+
+  defp parse_datetime_local(_), do: {:error, :invalid}
 end

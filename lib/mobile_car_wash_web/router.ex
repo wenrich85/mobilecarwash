@@ -267,6 +267,7 @@ defmodule MobileCarWashWeb.Router do
       live "/blocks", BlocksLive
       live "/schedule-templates", ScheduleTemplatesLive
       live "/tags", TagsLive
+      live "/appointments/new", ManualAppointmentLive, :new
     end
   end
 
