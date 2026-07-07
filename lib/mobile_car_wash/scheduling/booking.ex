@@ -26,6 +26,8 @@ defmodule MobileCarWash.Scheduling.Booking do
   alias MobileCarWash.Fleet.{Vehicle, Address}
   alias MobileCarWash.Billing.{Payment, Subscription, SubscriptionUsage, StripeClient}
   alias MobileCarWash.CashFlow.Engine, as: CashFlowEngine
+  alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Billing.Pricing
 
   require Ash.Query
 
@@ -91,6 +93,162 @@ defmodule MobileCarWash.Scheduling.Booking do
 
     result
   end
+
+  @doc """
+  Admin-only: creates a confirmed appointment directly, bypassing Stripe.
+  Always records a Payment (full service value; $0 collected when waived).
+  See the plan/spec for the full params contract.
+  """
+  def admin_create_booking(params) do
+    result =
+      Repo.transaction(fn ->
+        with {:ok, service_type} <- fetch_service_type(params.service_type_id),
+             {:ok, customer} <- resolve_client(params),
+             {:ok, vehicle} <- resolve_vehicle(params, customer.id),
+             {:ok, address} <- resolve_address(params, customer.id),
+             price_cents = Pricing.calculate(service_type.base_price_cents, vehicle.size),
+             {:ok, appointment} <-
+               create_admin_appointment(
+                 params,
+                 service_type,
+                 customer,
+                 vehicle,
+                 address,
+                 price_cents
+               ),
+             {:ok, payment} <- record_manual_payment(params, appointment, customer, price_cents) do
+          %{appointment: appointment, payment: payment}
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+
+    case result do
+      {:ok, %{appointment: appointment, payment: payment}} ->
+        maybe_record_admin_cash_flow(payment, appointment)
+        maybe_notify_admin_booking(params, appointment)
+        AppointmentTracker.broadcast_new_appointment(appointment.id)
+        {:ok, %{appointment: appointment, payment: payment}}
+
+      other ->
+        other
+    end
+  end
+
+  # --- admin booking helpers ---
+
+  defp resolve_client(%{customer_id: id}) when is_binary(id) and id != "" do
+    case Ash.get(Customer, id, authorize?: false) do
+      {:ok, customer} -> {:ok, customer}
+      {:error, _} -> {:error, :customer_not_found}
+    end
+  end
+
+  defp resolve_client(%{new_customer: %{email: email} = attrs}) do
+    case find_customer_by_email(email) do
+      {:ok, existing} ->
+        {:ok, existing}
+
+      :none ->
+        Customer
+        |> Ash.Changeset.for_create(:create_guest, attrs)
+        |> Ash.create(authorize?: false)
+    end
+  end
+
+  defp resolve_client(_), do: {:error, :client_required}
+
+  defp find_customer_by_email(email) do
+    case Customer
+         |> Ash.Query.for_read(:by_email, %{email: email})
+         |> Ash.read!(authorize?: false) do
+      [customer | _] -> {:ok, customer}
+      [] -> :none
+    end
+  end
+
+  defp resolve_vehicle(%{vehicle_id: id}, customer_id) when is_binary(id) and id != "" do
+    verify_vehicle_ownership(id, customer_id)
+  end
+
+  defp resolve_vehicle(%{new_vehicle: attrs}, customer_id) do
+    Vehicle
+    |> Ash.Changeset.for_create(:create, attrs)
+    |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
+    |> Ash.create(authorize?: false)
+  end
+
+  defp resolve_vehicle(_, _), do: {:error, :vehicle_required}
+
+  defp resolve_address(%{address_id: id}, customer_id) when is_binary(id) and id != "" do
+    verify_address_ownership(id, customer_id)
+  end
+
+  defp resolve_address(%{new_address: attrs}, customer_id) do
+    Address
+    |> Ash.Changeset.for_create(:create, attrs)
+    |> Ash.Changeset.force_change_attribute(:customer_id, customer_id)
+    |> Ash.create(authorize?: false)
+  end
+
+  defp resolve_address(_, _), do: {:error, :address_required}
+
+  defp create_admin_appointment(params, service_type, customer, vehicle, address, price_cents) do
+    Appointment
+    |> Ash.Changeset.for_create(:admin_book, %{
+      scheduled_at: params.scheduled_at,
+      notes: params[:notes],
+      customer_id: customer.id,
+      vehicle_id: vehicle.id,
+      address_id: address.id,
+      service_type_id: service_type.id,
+      technician_id: params[:technician_id],
+      price_cents: price_cents,
+      duration_minutes: service_type.duration_minutes
+    })
+    |> Ash.create(authorize?: false)
+  end
+
+  defp record_manual_payment(params, appointment, customer, price_cents) do
+    waived? = params[:waive_payment?] == true
+
+    collected =
+      cond do
+        waived? -> 0
+        is_integer(params[:collected_cents]) -> params[:collected_cents]
+        true -> price_cents
+      end
+
+    Payment
+    |> Ash.Changeset.for_create(:record_manual, %{
+      amount_cents: price_cents,
+      collected_cents: collected,
+      comped: waived?,
+      comp_reason: params[:comp_reason]
+    })
+    |> Ash.Changeset.force_change_attribute(:customer_id, customer.id)
+    |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+    |> Ash.create(authorize?: false)
+  end
+
+  defp maybe_record_admin_cash_flow(%{collected_cents: collected}, appointment)
+       when is_integer(collected) and collected > 0 do
+    record_payment_in_cash_flow(%{amount_cents: collected}, appointment)
+  end
+
+  defp maybe_record_admin_cash_flow(_payment, _appointment), do: :ok
+
+  defp maybe_notify_admin_booking(%{notify_client?: true}, appointment) do
+    enqueue_confirmation_email(appointment)
+    enqueue_sms_confirmation(appointment)
+    enqueue_push_confirmation(appointment)
+    enqueue_appointment_reminder(appointment)
+    enqueue_sms_reminder(appointment)
+    enqueue_push_reminder(appointment)
+    :ok
+  end
+
+  defp maybe_notify_admin_booking(_params, _appointment), do: :ok
 
   # If the block this appointment belongs to just hit capacity, close +
   # optimize it immediately so customers get their confirmed times.
