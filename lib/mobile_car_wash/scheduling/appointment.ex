@@ -118,7 +118,8 @@ defmodule MobileCarWash.Scheduling.Appointment do
     defaults([:read, create: :*, update: :*])
 
     create :book do
-      @doc "Books an appointment — the primary action for the booking flow"
+      description("Books an appointment — the primary action for the booking flow")
+
       accept([
         :scheduled_at,
         :notes,
@@ -144,7 +145,10 @@ defmodule MobileCarWash.Scheduling.Appointment do
     end
 
     create :admin_book do
-      @doc "Admin-created appointment. Confirmed immediately, standalone (no block), bypasses availability/future-date checks."
+      description(
+        "Admin-created appointment. Confirmed immediately, standalone (no block), bypasses availability/future-date checks."
+      )
+
       accept([
         :scheduled_at,
         :notes,

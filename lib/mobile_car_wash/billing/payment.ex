@@ -108,7 +108,10 @@ defmodule MobileCarWash.Billing.Payment do
     end
 
     create :record_manual do
-      @doc "Records a manually-created payment (admin comp or off-platform collection). Always succeeded."
+      description(
+        "Records a manually-created payment (admin comp or off-platform collection). Always succeeded."
+      )
+
       accept([:amount_cents, :collected_cents, :comped, :comp_reason])
 
       change(set_attribute(:status, :succeeded))
