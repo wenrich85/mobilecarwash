@@ -52,9 +52,15 @@ defmodule MobileCarWashWeb.Admin.BlocksLiveCalendarTest do
     |> Ash.create!(authorize?: false)
   end
 
+  defp this_week_slot do
+    today = Date.utc_today()
+    monday = Date.add(today, -(Date.day_of_week(today) - 1))
+    thursday = Date.add(monday, 3)
+    DateTime.new!(thursday, ~T[09:00:00], "Etc/UTC") |> DateTime.truncate(:second)
+  end
+
   defp empty_block(svc, t) do
-    starts_at =
-      DateTime.utc_now() |> DateTime.add(2 * 86_400, :second) |> DateTime.truncate(:second)
+    starts_at = this_week_slot()
 
     AppointmentBlock
     |> Ash.Changeset.for_create(:create, %{
