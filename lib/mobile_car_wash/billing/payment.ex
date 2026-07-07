@@ -40,6 +40,24 @@ defmodule MobileCarWash.Billing.Payment do
       public?(true)
     end
 
+    attribute :collected_cents, :integer do
+      public?(true)
+
+      description(
+        "Amount actually taken in. Differs from amount_cents on comped bookings (0 collected)."
+      )
+    end
+
+    attribute :comped, :boolean do
+      default(false)
+      allow_nil?(false)
+      public?(true)
+    end
+
+    attribute :comp_reason, :string do
+      public?(true)
+    end
+
     create_timestamp(:inserted_at)
     update_timestamp(:updated_at)
   end
@@ -67,6 +85,14 @@ defmodule MobileCarWash.Billing.Payment do
       change(set_attribute(:status, :succeeded))
       change(set_attribute(:paid_at, &DateTime.utc_now/0))
 
+      change(fn changeset, _context ->
+        Ash.Changeset.change_attribute(
+          changeset,
+          :collected_cents,
+          changeset.data.amount_cents
+        )
+      end)
+
       # Fire the one-time referral reward after the Payment row has
       # committed. Silent no-op when the customer has no referrer or
       # the reward already fired (idempotent).
@@ -79,6 +105,19 @@ defmodule MobileCarWash.Billing.Payment do
           {:ok, payment}
         end)
       end)
+    end
+
+    create :record_manual do
+      @doc "Records a manually-created payment (admin comp or off-platform collection). Always succeeded."
+      accept([:amount_cents, :collected_cents, :comped, :comp_reason])
+
+      change(set_attribute(:status, :succeeded))
+      change(set_attribute(:paid_at, &DateTime.utc_now/0))
+
+      validate(present(:comp_reason),
+        where: [attribute_equals(:comped, true)],
+        message: "comp_reason is required when comping a booking"
+      )
     end
 
     update :fail do
