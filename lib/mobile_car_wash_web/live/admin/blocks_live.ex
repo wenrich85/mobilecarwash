@@ -221,6 +221,15 @@ defmodule MobileCarWashWeb.Admin.BlocksLive do
               >
                 Locked
               </span>
+              <button
+                :if={block.status == :open and block.appointment_count not in [0, nil]}
+                class="btn btn-primary btn-xs mt-1"
+                phx-click="optimize_now"
+                phx-value-id={block.id}
+                data-confirm="Close this block now and assign arrival times?"
+              >
+                Optimize
+              </button>
             </div>
           </div>
 

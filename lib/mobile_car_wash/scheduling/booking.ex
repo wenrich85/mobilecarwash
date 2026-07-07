@@ -30,6 +30,7 @@ defmodule MobileCarWash.Scheduling.Booking do
   alias MobileCarWash.Billing.Pricing
 
   require Ash.Query
+  require Logger
 
   @type booking_params :: %{
           optional(:scheduled_at) => DateTime.t(),
@@ -125,9 +126,17 @@ defmodule MobileCarWash.Scheduling.Booking do
 
     case result do
       {:ok, %{appointment: appointment, payment: payment}} ->
-        maybe_record_admin_cash_flow(payment, appointment)
-        maybe_notify_admin_booking(params, appointment)
-        AppointmentTracker.broadcast_new_appointment(appointment.id)
+        try do
+          maybe_record_admin_cash_flow(payment, appointment)
+          maybe_notify_admin_booking(params, appointment)
+          AppointmentTracker.broadcast_new_appointment(appointment.id)
+        rescue
+          e ->
+            Logger.error(
+              "admin_create_booking post-commit side effect failed: #{Exception.message(e)}"
+            )
+        end
+
         {:ok, %{appointment: appointment, payment: payment}}
 
       other ->
