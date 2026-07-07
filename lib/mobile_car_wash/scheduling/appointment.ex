@@ -143,6 +143,28 @@ defmodule MobileCarWash.Scheduling.Appointment do
       )
     end
 
+    create :admin_book do
+      @doc "Admin-created appointment. Confirmed immediately, standalone (no block), bypasses availability/future-date checks."
+      accept([
+        :scheduled_at,
+        :notes,
+        :customer_id,
+        :vehicle_id,
+        :address_id,
+        :service_type_id,
+        :technician_id
+      ])
+
+      argument(:price_cents, :integer, allow_nil?: false)
+      argument(:duration_minutes, :integer, allow_nil?: false)
+      argument(:discount_cents, :integer, default: 0)
+
+      change(set_attribute(:price_cents, arg(:price_cents)))
+      change(set_attribute(:duration_minutes, arg(:duration_minutes)))
+      change(set_attribute(:discount_cents, arg(:discount_cents)))
+      change(set_attribute(:status, :confirmed))
+    end
+
     read :for_customer do
       argument(:customer_id, :uuid, allow_nil?: false)
       filter(expr(customer_id == ^arg(:customer_id)))
