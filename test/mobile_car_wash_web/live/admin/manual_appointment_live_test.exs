@@ -7,6 +7,34 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLiveTest do
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Scheduling.{ServiceType, Appointment}
   alias MobileCarWash.Billing.Payment
+  alias MobileCarWash.Fleet.{Vehicle, Address}
+  alias MobileCarWash.CashFlow.Account, as: CashFlowAccount
+  alias MobileCarWash.CashFlow.Transaction, as: CashFlowTransaction
+
+  # CashFlowEngine.record_deposit/2 requires the expense account to exist for
+  # any non-waived (collected > 0) booking. Seed the five cash-flow accounts.
+  setup do
+    for attrs <- [
+          %{account_type: :expense, name: "Expense Account", color: :blue},
+          %{account_type: :tax, name: "Tax Account", color: :red},
+          %{account_type: :business_savings, name: "Business Savings", color: :blue},
+          %{account_type: :investment, name: "Investment Account", color: :blue},
+          %{account_type: :personal_salary, name: "Personal Salary", color: :green}
+        ] do
+      existing =
+        CashFlowAccount
+        |> Ash.Query.filter(account_type == ^attrs.account_type)
+        |> Ash.read!()
+
+      if existing == [] do
+        CashFlowAccount
+        |> Ash.Changeset.for_create(:create, attrs)
+        |> Ash.create!()
+      end
+    end
+
+    :ok
+  end
 
   defp create_admin do
     {:ok, admin} =
@@ -43,6 +71,36 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLiveTest do
       duration_minutes: 45
     })
     |> Ash.create!(authorize?: false)
+  end
+
+  defp existing_customer_with_vehicle_and_address do
+    cust =
+      Customer
+      |> Ash.Changeset.for_create(:create_guest, %{
+        name: "Existing Client",
+        email: "existing-#{System.unique_integer([:positive])}@test.com",
+        phone: "+15125550144"
+      })
+      |> Ash.create!(authorize?: false)
+
+    vehicle =
+      Vehicle
+      |> Ash.Changeset.for_create(:create, %{make: "Ford", model: "F150", size: :pickup})
+      |> Ash.Changeset.force_change_attribute(:customer_id, cust.id)
+      |> Ash.create!(authorize?: false)
+
+    address =
+      Address
+      |> Ash.Changeset.for_create(:create, %{
+        street: "9 Oak",
+        city: "Austin",
+        state: "TX",
+        zip: "78701"
+      })
+      |> Ash.Changeset.force_change_attribute(:customer_id, cust.id)
+      |> Ash.create!(authorize?: false)
+
+    %{cust: cust, vehicle: vehicle, address: address}
   end
 
   test "renders the manual appointment form", %{conn: conn} do
@@ -93,5 +151,115 @@ defmodule MobileCarWashWeb.Admin.ManualAppointmentLiveTest do
     payment = Payment |> Ash.read!(authorize?: false) |> List.first()
     assert payment.comped == true
     assert payment.collected_cents == 0
+  end
+
+  test "reuses an existing client's saved vehicle and address, creating no new fleet rows",
+       %{conn: conn} do
+    svc = service()
+    %{cust: cust, vehicle: v, address: a} = existing_customer_with_vehicle_and_address()
+
+    vehicles_before = Vehicle |> Ash.read!(authorize?: false) |> length()
+    addresses_before = Address |> Ash.read!(authorize?: false) |> length()
+
+    conn = sign_in(conn, create_admin())
+    {:ok, view, _html} = live(conn, ~p"/admin/appointments/new")
+
+    # Choosing the client loads their saved vehicle and address as pickers.
+    view
+    |> element("select[name='manual_appointment[customer_id]']")
+    |> render_change(%{"manual_appointment" => %{"customer_id" => cust.id}})
+
+    assert has_element?(
+             view,
+             "select[name='manual_appointment[vehicle_id]'] option[value='#{v.id}']"
+           )
+
+    assert has_element?(
+             view,
+             "select[name='manual_appointment[address_id]'] option[value='#{a.id}']"
+           )
+
+    when_iso =
+      DateTime.utc_now()
+      |> DateTime.add(2 * 86_400, :second)
+      |> Calendar.strftime("%Y-%m-%dT%H:%M")
+
+    params = %{
+      "client_mode" => "existing",
+      "customer_id" => cust.id,
+      "vehicle_id" => v.id,
+      "address_id" => a.id,
+      "service_type_id" => svc.id,
+      "scheduled_at" => when_iso,
+      "waive" => "true",
+      "comp_reason" => "Reuse",
+      "notify_client" => "false"
+    }
+
+    result =
+      view
+      |> form("#manual-appointment-form", manual_appointment: params)
+      |> render_submit()
+
+    assert {:error, {:redirect, %{to: "/admin/dispatch"}}} = result
+
+    # No duplicate Fleet rows were created.
+    assert Vehicle |> Ash.read!(authorize?: false) |> length() == vehicles_before
+    assert Address |> Ash.read!(authorize?: false) |> length() == addresses_before
+
+    appt = Appointment |> Ash.read!(authorize?: false) |> List.first()
+    assert appt.vehicle_id == v.id
+    assert appt.address_id == a.id
+  end
+
+  test "records a custom collected amount on a non-waived booking", %{conn: conn} do
+    svc = service()
+    %{cust: cust, vehicle: v, address: a} = existing_customer_with_vehicle_and_address()
+
+    conn = sign_in(conn, create_admin())
+    {:ok, view, _html} = live(conn, ~p"/admin/appointments/new")
+
+    view
+    |> element("select[name='manual_appointment[customer_id]']")
+    |> render_change(%{"manual_appointment" => %{"customer_id" => cust.id}})
+
+    when_iso =
+      DateTime.utc_now()
+      |> DateTime.add(2 * 86_400, :second)
+      |> Calendar.strftime("%Y-%m-%dT%H:%M")
+
+    params = %{
+      "client_mode" => "existing",
+      "customer_id" => cust.id,
+      "vehicle_id" => v.id,
+      "address_id" => a.id,
+      "service_type_id" => svc.id,
+      "scheduled_at" => when_iso,
+      "amount_collected" => "30.00",
+      "notify_client" => "false"
+    }
+
+    result =
+      view
+      |> form("#manual-appointment-form", manual_appointment: params)
+      |> render_submit()
+
+    assert {:error, {:redirect, %{to: "/admin/dispatch"}}} = result
+
+    payment = Payment |> Ash.read!(authorize?: false) |> List.first()
+    assert payment.comped == false
+    # Only the admin-entered amount is collected...
+    assert payment.collected_cents == 3000
+    # ...while full value stays the sized price (pickup 1.5x of 5000 = 7500).
+    assert payment.amount_cents == 7500
+
+    # Cash flow books exactly the collected amount, not the full price.
+    deposits =
+      CashFlowTransaction
+      |> Ash.read!(authorize?: false)
+      |> Enum.filter(&(&1.type == :deposit))
+
+    assert Enum.any?(deposits, &(&1.amount_cents == 3000))
+    refute Enum.any?(deposits, &(&1.amount_cents == 7500))
   end
 end
