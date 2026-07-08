@@ -196,4 +196,58 @@ defmodule MobileCarWash.Scheduling.AdminCreateBookingTest do
       assert_enqueued(worker: MobileCarWash.Notifications.BookingConfirmationWorker)
     end)
   end
+
+  test "future-dated admin booking enqueues 24h reminders" do
+    svc = service()
+    %{cust: cust, vehicle: v, address: a} = existing_customer_with_vehicle_and_address()
+
+    future =
+      base_params(svc)
+      |> Map.merge(%{
+        customer_id: cust.id,
+        vehicle_id: v.id,
+        address_id: a.id,
+        waive_payment?: true,
+        comp_reason: "x",
+        notify_client?: true
+      })
+
+    Oban.Testing.with_testing_mode(:manual, fn ->
+      {:ok, _} = Booking.admin_create_booking(future)
+
+      assert_enqueued(worker: MobileCarWash.Notifications.AppointmentReminderWorker)
+      assert_enqueued(worker: MobileCarWash.Notifications.SMSAppointmentReminderWorker)
+      assert_enqueued(worker: MobileCarWash.Notifications.PushAppointmentReminderWorker)
+    end)
+  end
+
+  test "past-dated admin booking confirms but skips reminders whose time is already past" do
+    svc = service()
+    %{cust: cust, vehicle: v, address: a} = existing_customer_with_vehicle_and_address()
+
+    past =
+      base_params(svc)
+      |> Map.merge(%{
+        customer_id: cust.id,
+        vehicle_id: v.id,
+        address_id: a.id,
+        waive_payment?: true,
+        comp_reason: "x",
+        notify_client?: true,
+        scheduled_at:
+          DateTime.utc_now() |> DateTime.add(-3 * 86_400, :second) |> DateTime.truncate(:second)
+      })
+
+    Oban.Testing.with_testing_mode(:manual, fn ->
+      {:ok, _} = Booking.admin_create_booking(past)
+
+      # Confirmations still fire.
+      assert_enqueued(worker: MobileCarWash.Notifications.BookingConfirmationWorker)
+
+      # Reminders (scheduled_at - 24h) are already in the past → not enqueued.
+      refute_enqueued(worker: MobileCarWash.Notifications.AppointmentReminderWorker)
+      refute_enqueued(worker: MobileCarWash.Notifications.SMSAppointmentReminderWorker)
+      refute_enqueued(worker: MobileCarWash.Notifications.PushAppointmentReminderWorker)
+    end)
+  end
 end
