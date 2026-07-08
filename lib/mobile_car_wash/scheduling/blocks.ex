@@ -33,4 +33,24 @@ defmodule MobileCarWash.Scheduling.Blocks do
         {:error, :block_not_found}
     end
   end
+
+  @doc """
+  Cancels a block by setting its status to `:cancelled`, leaving its appointments
+  intact for manual rebooking. Unlike `delete_block/1`, this is the path for
+  booked blocks. Returns `:ok`, or `{:error, :block_not_found}`.
+  """
+  def cancel_block(id) do
+    case Ash.get(AppointmentBlock, id, authorize?: false) do
+      {:ok, block} ->
+        case block
+             |> Ash.Changeset.for_update(:update, %{status: :cancelled})
+             |> Ash.update(authorize?: false) do
+          {:ok, _} -> :ok
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:error, _} ->
+        {:error, :block_not_found}
+    end
+  end
 end
