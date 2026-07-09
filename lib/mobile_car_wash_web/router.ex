@@ -200,6 +200,7 @@ defmodule MobileCarWashWeb.Router do
       ] do
       live "/tech/apply", Tech.ApplicationLive, :apply
       live "/tech/application", Tech.ApplicationLive, :show
+      live "/tech/profile", Tech.ProfileLive
       live "/dashboard", DashboardLive
       live "/appointments", AppointmentsLive
       live "/appointments/:id/status", AppointmentStatusLive
