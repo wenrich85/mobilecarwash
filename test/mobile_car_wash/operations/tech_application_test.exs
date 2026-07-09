@@ -77,6 +77,35 @@ defmodule MobileCarWash.Operations.TechApplicationTest do
 
       assert {:error, _} = result
     end
+
+    test "generic public update action is unavailable for workflow changes" do
+      customer = customer_fixture()
+      application = create_application!(customer)
+
+      assert_raise ArgumentError, ~r/No such update action on resource .*:update/, fn ->
+        application
+        |> Ash.Changeset.for_update(:update, %{status: :accepted})
+        |> Ash.update!(authorize?: false)
+      end
+    end
+
+    test "public update actions cannot change customer_id" do
+      customer = customer_fixture()
+      other_customer = customer_fixture()
+      application = create_application!(customer)
+
+      assert {:error, _} =
+               application
+               |> Ash.Changeset.for_update(:save_draft, %{
+                 customer_id: other_customer.id,
+                 schedule_notes: "Trying to steal ownership"
+               })
+               |> Ash.update(authorize?: false)
+
+      reloaded = Ash.get!(TechApplication, application.id, authorize?: false)
+      assert reloaded.customer_id == customer.id
+      assert reloaded.schedule_notes == application.schedule_notes
+    end
   end
 
   describe "application lifecycle" do

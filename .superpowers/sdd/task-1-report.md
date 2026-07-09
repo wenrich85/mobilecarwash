@@ -44,7 +44,7 @@ Implemented the new `MobileCarWash.Operations.TechApplication` Ash resource, reg
 
 ## Concerns
 
-1. `mix precommit` did not complete cleanly due an unrelated existing failure in `test/mobile_car_wash_web/live/booking_single_page_test.exs:517`.
+1. `mix precommit` still surfaces an unrelated existing failure in `test/mobile_car_wash_web/static_cache_headers_test.exs:9`.
 2. The repo-wide run emitted heavy pre-existing Ash notification warnings and DB sandbox disconnect noise that were not introduced by this task.
 
 ## Fix After Review
@@ -63,3 +63,18 @@ Implemented the new `MobileCarWash.Operations.TechApplication` Ash resource, reg
 
 - Command: `mix precommit`
 - Output summary: `1358 tests, 1 failure` with unrelated failure at `test/mobile_car_wash_web/static_cache_headers_test.exs:9`
+
+## Second Fix After Review
+
+- Removed the generated broad `:update` action from `MobileCarWash.Operations.TechApplication` so the explicit workflow actions remain authoritative.
+- Added regression coverage proving `Ash.Changeset.for_update(application, :update, %{status: :accepted})` is unavailable and that public update attempts cannot change `customer_id`.
+
+### Requested Test Command
+
+- Command: `mix test test/mobile_car_wash/operations/tech_application_test.exs`
+- Output summary: `10 tests, 0 failures`
+
+### Additional Verification
+
+- Command: `mix precommit`
+- Output summary: surfaced the same unrelated failure at `test/mobile_car_wash_web/static_cache_headers_test.exs:9` before I stopped the noisy run

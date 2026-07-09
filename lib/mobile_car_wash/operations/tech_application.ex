@@ -212,7 +212,7 @@ defmodule MobileCarWash.Operations.TechApplication do
   end
 
   actions do
-    defaults([:read, update: :*])
+    defaults([:read])
 
     create :create do
       accept(@applicant_fields)
