@@ -56,3 +56,27 @@ Implemented the technician job brief route/page and updated dashboard CTAs so pr
 
 - The focused LiveView test run emits pre-existing duplicate-id warnings from nested layout markup (`main-content`, `flash-group`, `client-error`, `server-error`, `mobile-drawer`) when the new page rerenders. The scoped task still passes, but the warning points at a broader layout/test setup issue outside this task’s requested surface.
 - I did not run `mix precommit` because the task brief explicitly called out unrelated pre-existing static-cache/suite noise and asked not to fix unrelated assets.
+
+## Task 5 Review Fix
+
+### Changed Files
+
+- `lib/mobile_car_wash_web/live/tech/job_live.ex`
+- `test/mobile_car_wash_web/live/tech/job_live_test.exs`
+
+### What Changed
+
+- Removed the fallback ownership match on `Technician.name == current_customer.name` from `MobileCarWashWeb.Tech.JobLive`.
+- Switched ordinary technician authorization to resolve the signed-in technician strictly through `Technician.read :for_user_account`, keyed by the linked customer account.
+- Added a regression test covering two technicians with the same display name but different linked customer accounts; the signed-in technician is denied access to the other technician's appointment.
+- Kept the existing admin bypass intact and left the valid assigned-technician transition coverage (`depart`, `arrive`, `start_wash`) in place.
+
+### Tests Run / Results
+
+- `mix test test/mobile_car_wash_web/live/tech/job_live_test.exs test/mobile_car_wash_web/live/tech/tech_dashboard_live_test.exs`
+- Result: passed (`17 tests, 0 failures`)
+
+### Concerns
+
+- Pre-existing LiveView duplicate-id warnings still appear during the focused run; not addressed per task scope.
+- `mix precommit` was not run for this scoped fix because the task explicitly excluded unrelated broader failures.

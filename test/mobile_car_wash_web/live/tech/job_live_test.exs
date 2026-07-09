@@ -182,6 +182,25 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert {:error, {:redirect, %{to: "/tech"}}} = live_job(conn, appointment.id)
     end
 
+    test "denies access when another technician shares the same name", %{
+      conn: conn,
+      customer: customer
+    } do
+      shared_name = "Shared Tech"
+      other_user = create_tech_customer(shared_name)
+      other_tech = create_tech_record(other_user)
+
+      signed_in_user = create_tech_customer(shared_name)
+      _signed_in_tech = create_tech_record(signed_in_user)
+
+      appointment = create_appointment(customer.id, other_tech.id, :confirmed)
+
+      assert {:error, {:redirect, %{to: "/tech"}}} =
+               conn
+               |> sign_in(signed_in_user)
+               |> live_job(appointment.id)
+    end
+
     test "depart transitions confirmed job to en_route", %{
       conn: conn,
       tech: tech,

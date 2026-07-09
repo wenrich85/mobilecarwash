@@ -277,10 +277,8 @@ defmodule MobileCarWashWeb.Tech.JobLive do
 
   defp technician_record_for(current_customer) do
     Technician
-    |> Ash.read!(authorize?: false)
-    |> Enum.find(fn tech ->
-      tech.user_account_id == current_customer.id or tech.name == current_customer.name
-    end)
+    |> Ash.Query.for_read(:for_user_account, %{user_account_id: current_customer.id})
+    |> Ash.read_one!(authorize?: false)
   end
 
   defp assign_job(socket, job) do
