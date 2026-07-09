@@ -74,6 +74,8 @@ defmodule MobileCarWash.Operations.Technician do
   relationships do
     belongs_to :van, MobileCarWash.Operations.Van do
       allow_nil?(true)
+      attribute_writable?(true)
+      public?(true)
     end
 
     belongs_to :user_account, MobileCarWash.Accounts.Customer do
