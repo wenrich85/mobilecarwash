@@ -259,6 +259,8 @@ defmodule MobileCarWashWeb.Router do
       live "/org-chart", OrgChartLive
       live "/procedures", ProceduresLive
       live "/dispatch", DispatchLive
+      live "/tech-applications", TechApplicationsLive, :index
+      live "/tech-applications/:id", TechApplicationsLive, :show
       live "/technicians", TechniciansLive
       live "/technicians/:id", TechnicianProfileLive
       live "/settings", SettingsLive
