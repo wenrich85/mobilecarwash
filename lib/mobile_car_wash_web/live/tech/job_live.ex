@@ -29,13 +29,13 @@ defmodule MobileCarWashWeb.Tech.JobLive do
         {:ok,
          socket
          |> assign(:page_title, "Job Brief")
-         |> assign_job(job)}
+         |> assign_job(job), layout: false}
 
       {:error, :not_found} ->
-        {:ok, deny_access(socket, "Job not found.")}
+        {:ok, deny_access(socket, "Job not found."), layout: false}
 
       {:error, :forbidden} ->
-        {:ok, deny_access(socket, "That job is not assigned to you.")}
+        {:ok, deny_access(socket, "That job is not assigned to you."), layout: false}
     end
   end
 
