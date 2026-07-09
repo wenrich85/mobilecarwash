@@ -223,6 +223,7 @@ defmodule MobileCarWashWeb.Router do
         {MobileCarWashWeb.TrackPresence, :track}
       ] do
       live "/", TechDashboardLive
+      live "/appointments/:id", Tech.JobLive
       live "/checklist/:id", ChecklistLive
     end
   end

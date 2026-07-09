@@ -923,32 +923,14 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     <!-- State-machine action buttons. One button per state so the tech
              always sees exactly what's next without reading a menu. -->
         <div class="mt-3 flex gap-2">
-          <button
-            :if={@appointment.status == :confirmed and @progress.steps_total == 0}
-            class="btn btn-primary btn-sm btn-block"
-            phx-click="depart"
-            phx-value-id={@appointment.id}
+          <.link
+            :if={show_job_link?(@appointment, @progress)}
+            id={"appointment-view-job-#{@appointment.id}"}
+            navigate={~p"/tech/appointments/#{@appointment.id}"}
+            class="btn btn-primary btn-sm flex-1"
           >
-            Head out
-          </button>
-
-          <button
-            :if={@appointment.status == :en_route}
-            class="btn btn-info btn-sm btn-block"
-            phx-click="arrive"
-            phx-value-id={@appointment.id}
-          >
-            Arrived
-          </button>
-
-          <button
-            :if={@appointment.status == :on_site and @progress.steps_total == 0}
-            class="btn btn-warning btn-sm btn-block"
-            phx-click="start_wash"
-            phx-value-id={@appointment.id}
-          >
-            Start wash
-          </button>
+            View job
+          </.link>
           
     <!-- Full-width primary CTA so the tech can jump back to the
                checklist in one tap when a wash is mid-flight. -->
@@ -1189,6 +1171,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp build_progress_map(appointments) do
     Map.new(appointments, fn appt -> {appt.id, Dispatch.checklist_progress(appt.id)} end)
+  end
+
+  defp show_job_link?(appointment, progress) do
+    progress.steps_total == 0 and appointment.status in [:confirmed, :en_route, :on_site]
   end
 
   defp status_class(:pending), do: "badge-ghost"

@@ -216,56 +216,28 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
       {:ok, conn: conn, user: user, tech: tech, customer: customer}
     end
 
-    test "shows 'Head out' when appointment is :confirmed",
-         %{conn: conn, tech: tech, customer: customer} do
-      _appt = create_appointment(customer.id, tech.id, :confirmed)
-
-      {:ok, _view, html} = live(conn, ~p"/tech")
-      assert html =~ "Head out"
-    end
-
-    test "clicking 'Head out' transitions :confirmed -> :en_route",
+    test "shows 'View job' when appointment is :confirmed",
          %{conn: conn, tech: tech, customer: customer} do
       appt = create_appointment(customer.id, tech.id, :confirmed)
 
       {:ok, view, _html} = live(conn, ~p"/tech")
-
-      view
-      |> element("button[phx-value-id='#{appt.id}']", "Head out")
-      |> render_click()
-
-      {:ok, reloaded} = Ash.get(Appointment, appt.id, authorize?: false)
-      assert reloaded.status == :en_route
+      assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
     end
 
-    test "shows 'Arrived' when appointment is :en_route",
-         %{conn: conn, tech: tech, customer: customer} do
-      _appt = create_appointment(customer.id, tech.id, :en_route)
-
-      {:ok, _view, html} = live(conn, ~p"/tech")
-      assert html =~ "Arrived"
-    end
-
-    test "clicking 'Arrived' transitions :en_route -> :on_site",
+    test "shows 'View job' when appointment is :en_route",
          %{conn: conn, tech: tech, customer: customer} do
       appt = create_appointment(customer.id, tech.id, :en_route)
 
       {:ok, view, _html} = live(conn, ~p"/tech")
-
-      view
-      |> element("button[phx-value-id='#{appt.id}']", "Arrived")
-      |> render_click()
-
-      {:ok, reloaded} = Ash.get(Appointment, appt.id, authorize?: false)
-      assert reloaded.status == :on_site
+      assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
     end
 
-    test "shows 'Start wash' when appointment is :on_site",
+    test "shows 'View job' when appointment is :on_site",
          %{conn: conn, tech: tech, customer: customer} do
-      _appt = create_appointment(customer.id, tech.id, :on_site)
+      appt = create_appointment(customer.id, tech.id, :on_site)
 
-      {:ok, _view, html} = live(conn, ~p"/tech")
-      assert html =~ "Start wash"
+      {:ok, view, _html} = live(conn, ~p"/tech")
+      assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
     end
 
     test "shows a prominent 'Continue checklist' button when :in_progress",
@@ -323,6 +295,61 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
       # not a secondary link.
       assert html =~ "btn-primary"
     end
+
+    test "keeps direct checklist access for in-progress appointments", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Procedure}
+
+      appt = create_appointment(customer.id, tech.id, :in_progress)
+
+      {:ok, procedure} =
+        Procedure
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Checklist Wash SOP",
+          slug: "checklist-#{System.unique_integer([:positive])}"
+        })
+        |> Ash.Changeset.force_change_attribute(:service_type_id, appt.service_type_id)
+        |> Ash.create()
+
+      {:ok, checklist} =
+        AppointmentChecklist
+        |> Ash.Changeset.for_create(:create, %{status: :in_progress})
+        |> Ash.Changeset.force_change_attribute(:appointment_id, appt.id)
+        |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+        |> Ash.create()
+
+      alias MobileCarWash.Operations.ProcedureStep
+
+      for n <- 1..2 do
+        {:ok, step} =
+          ProcedureStep
+          |> Ash.Changeset.for_create(:create, %{
+            step_number: n,
+            title: "Step #{n}",
+            estimated_minutes: 5
+          })
+          |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+          |> Ash.create()
+
+        ChecklistItem
+        |> Ash.Changeset.for_create(:create, %{
+          step_number: n,
+          title: "Step #{n}",
+          estimated_minutes: 5,
+          completed: n == 1
+        })
+        |> Ash.Changeset.force_change_attribute(:checklist_id, checklist.id)
+        |> Ash.Changeset.force_change_attribute(:procedure_step_id, step.id)
+        |> Ash.create!()
+      end
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "a[href='/tech/checklist/#{checklist.id}']", "Continue checklist")
+    end
   end
 
   describe "address tap-to-navigate" do
@@ -359,18 +386,18 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
     test "subscribes to the current tech's status topic on mount",
          %{conn: conn} do
       user = create_tech_customer()
-      _tech = create_tech_record(user)
+      tech = create_tech_record(user)
       conn = sign_in(conn, user)
 
       # Subscribing more than once is harmless — the purpose of this test is
       # to confirm the LV is listening on the topic at all.
       {:ok, _view, _html} = live(conn, ~p"/tech")
 
-      TechnicianTracker.subscribe(_tech.id)
+      TechnicianTracker.subscribe(tech.id)
 
       # Flip the status via action — the broadcast reaches our subscription
       # and (indirectly) the LV under test.
-      _tech
+      tech
       |> Ash.Changeset.for_update(:set_status, %{status: :available})
       |> Ash.update!()
 
