@@ -4,48 +4,20 @@ defmodule MobileCarWashWeb.LandingLiveTest do
 
   require Ash.Query
 
-  # Seed the two service types that the landing page pricing section
-  # displays conditionally via :if={@basic} / :if={@premium}.
-  defp seed_services do
-    basic =
-      MobileCarWash.Scheduling.ServiceType
-      |> Ash.Query.filter(slug == "basic_wash")
-      |> Ash.read!()
-      |> case do
-        [st | _] ->
-          st
+  defp create_service(attrs) do
+    defaults = %{
+      name: "Test Service #{System.unique_integer([:positive])}",
+      slug: "test_service_#{System.unique_integer([:positive])}",
+      description: "A service for landing page tests.",
+      base_price_cents: 5000,
+      duration_minutes: 45,
+      active: true,
+      show_on_landing: true
+    }
 
-        [] ->
-          MobileCarWash.Scheduling.ServiceType
-          |> Ash.Changeset.for_create(:create, %{
-            name: "Basic Wash",
-            slug: "basic_wash",
-            base_price_cents: 5000,
-            duration_minutes: 45
-          })
-          |> Ash.create!()
-      end
-
-    premium =
-      MobileCarWash.Scheduling.ServiceType
-      |> Ash.Query.filter(slug == "deep_clean_detail")
-      |> Ash.read!()
-      |> case do
-        [st | _] ->
-          st
-
-        [] ->
-          MobileCarWash.Scheduling.ServiceType
-          |> Ash.Changeset.for_create(:create, %{
-            name: "Premium",
-            slug: "deep_clean_detail",
-            base_price_cents: 19_999,
-            duration_minutes: 180
-          })
-          |> Ash.create!()
-      end
-
-    {basic, premium}
+    MobileCarWash.Scheduling.ServiceType
+    |> Ash.Changeset.for_create(:create, Map.merge(defaults, attrs))
+    |> Ash.create!()
   end
 
   describe "landing page" do
@@ -67,17 +39,47 @@ defmodule MobileCarWashWeb.LandingLiveTest do
       assert html =~ "Pay when done"
     end
 
-    test "renders pricing section with both tier names and prices", %{conn: conn} do
-      seed_services()
+    test "renders every active service marked for landing display", %{conn: conn} do
+      create_service(%{
+        name: "Basic Wash",
+        slug: "basic_wash_#{System.unique_integer([:positive])}",
+        base_price_cents: 5000,
+        duration_minutes: 45,
+        show_on_landing: true
+      })
+
+      create_service(%{
+        name: "Deep Clean & Detail",
+        slug: "deep_clean_#{System.unique_integer([:positive])}",
+        base_price_cents: 20_000,
+        duration_minutes: 120,
+        show_on_landing: true
+      })
+
       {:ok, _lv, html} = live(conn, ~p"/")
 
-      assert html =~ "PRICING"
-      assert html =~ "Two tiers. No hidden fees."
+      assert html =~ "SERVICES"
       assert html =~ "Basic Wash"
       assert html =~ "$50"
-      assert html =~ "Premium"
-      assert html =~ "$199.99"
-      assert html =~ "MOST POPULAR"
+      assert html =~ "Deep Clean &amp; Detail"
+      assert html =~ "$200"
+      refute html =~ "Two tiers"
+    end
+
+    test "does not render active services hidden from landing display", %{conn: conn} do
+      create_service(%{
+        name: "Private Fleet Wash",
+        slug: "private_fleet_wash_#{System.unique_integer([:positive])}",
+        base_price_cents: 7500,
+        duration_minutes: 60,
+        active: true,
+        show_on_landing: false
+      })
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      refute html =~ "Private Fleet Wash"
+      refute html =~ "$75"
     end
 
     test "renders tech section with SMS preview content", %{conn: conn} do

@@ -56,7 +56,8 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
       description: params["description"],
       base_price_cents: dollars_to_cents(params["price"]),
       duration_minutes: to_int(params["duration"]),
-      active: true
+      active: true,
+      show_on_landing: checkbox_checked?(params, "show_on_landing")
     }
 
     case ServiceType |> Ash.Changeset.for_create(:create, attrs) |> Ash.create() do
@@ -86,7 +87,8 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
           name: params["name"],
           description: params["description"],
           base_price_cents: dollars_to_cents(params["price"]),
-          duration_minutes: to_int(params["duration"])
+          duration_minutes: to_int(params["duration"]),
+          show_on_landing: checkbox_checked?(params, "show_on_landing")
         }
 
         case service |> Ash.Changeset.for_update(:update, attrs) |> Ash.update() do
@@ -329,7 +331,11 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
         <div class="card bg-base-100 shadow mb-6">
           <div class="card-body p-4">
             <h3 class="font-bold mb-3">Add Service</h3>
-            <form phx-submit="add_service" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <form
+              id="service-form"
+              phx-submit="add_service"
+              class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end"
+            >
               <div class="form-control">
                 <label class="label label-text text-xs">Name</label>
                 <input
@@ -372,6 +378,16 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                   placeholder="Short description"
                 />
               </div>
+              <label class="label cursor-pointer justify-start gap-2">
+                <input
+                  type="checkbox"
+                  name="service[show_on_landing]"
+                  value="true"
+                  class="checkbox checkbox-sm checkbox-primary"
+                  checked
+                />
+                <span class="label-text text-xs">Show on landing page</span>
+              </label>
               <button type="submit" class="btn btn-primary btn-sm">Add</button>
             </form>
           </div>
@@ -391,6 +407,9 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                     <h4 class="font-bold">{svc.name}</h4>
                     <span class="badge badge-sm badge-ghost">{svc.slug}</span>
                     <span :if={!svc.active} class="badge badge-sm badge-error">Inactive</span>
+                    <span :if={!svc.show_on_landing} class="badge badge-sm badge-warning">
+                      Hidden from landing
+                    </span>
                   </div>
                   <p class="text-sm text-base-content/80">{svc.description}</p>
                   <p class="text-sm mt-1">
@@ -415,9 +434,10 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
     <!-- Edit mode -->
               <form
                 :if={@editing_service == svc.id}
+                id={"service-form-#{svc.id}"}
                 phx-submit="update_service"
                 phx-value-id={svc.id}
-                class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
+                class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end"
               >
                 <div class="form-control">
                   <label class="label label-text text-xs">Name</label>
@@ -461,6 +481,16 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
                     value={svc.description}
                   />
                 </div>
+                <label class="label cursor-pointer justify-start gap-2">
+                  <input
+                    type="checkbox"
+                    name="service[show_on_landing]"
+                    value="true"
+                    class="checkbox checkbox-sm checkbox-primary"
+                    checked={svc.show_on_landing}
+                  />
+                  <span class="label-text text-xs">Show on landing page</span>
+                </label>
                 <div class="flex gap-1">
                   <button type="submit" class="btn btn-primary btn-sm flex-1">Save</button>
                   <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_edit">
@@ -982,6 +1012,10 @@ defmodule MobileCarWashWeb.Admin.SettingsLive do
   end
 
   defp dollars_to_cents(_), do: 0
+
+  defp checkbox_checked?(params, key) do
+    Map.get(params, key) in ["true", "on", "1", true]
+  end
 
   defp to_int(str) when is_binary(str) do
     case Integer.parse(str) do

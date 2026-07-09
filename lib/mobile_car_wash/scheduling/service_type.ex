@@ -45,6 +45,12 @@ defmodule MobileCarWash.Scheduling.ServiceType do
       public?(true)
     end
 
+    attribute :show_on_landing, :boolean do
+      allow_nil?(false)
+      default(true)
+      public?(true)
+    end
+
     attribute :window_minutes, :integer do
       public?(true)
 
@@ -89,6 +95,7 @@ defmodule MobileCarWash.Scheduling.ServiceType do
         :base_price_cents,
         :duration_minutes,
         :active,
+        :show_on_landing,
         :window_minutes,
         :block_capacity
       ])
@@ -112,6 +119,7 @@ defmodule MobileCarWash.Scheduling.ServiceType do
         :base_price_cents,
         :duration_minutes,
         :active,
+        :show_on_landing,
         :window_minutes,
         :block_capacity
       ])

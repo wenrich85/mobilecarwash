@@ -10,11 +10,7 @@ defmodule MobileCarWashWeb.LandingLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    services =
-      ServiceType
-      |> Ash.Query.filter(active == true)
-      |> Ash.read!()
-      |> Enum.sort_by(& &1.base_price_cents)
+    services = landing_services()
 
     socket =
       socket
@@ -39,26 +35,12 @@ defmodule MobileCarWashWeb.LandingLive do
 
   @impl true
   def handle_info(:services_updated, socket) do
-    services =
-      ServiceType
-      |> Ash.Query.filter(active == true)
-      |> Ash.read!()
-      |> Enum.sort_by(& &1.base_price_cents)
-
-    {:noreply, assign(socket, services: services)}
+    {:noreply, assign(socket, services: landing_services())}
   end
 
   @impl true
   def render(assigns) do
     assigns = assign(assigns, local_business_json: local_business_schema(assigns.services))
-
-    basic = Enum.find(assigns.services, fn s -> s.slug == "basic_wash" end)
-
-    premium =
-      Enum.find(assigns.services, fn s -> s.slug == "deep_clean_detail" end) ||
-        Enum.find(assigns.services, fn s -> s.slug == "premium" end)
-
-    assigns = assign(assigns, basic: basic, premium: premium)
 
     ~H"""
     <%!-- Schema.org JSON-LD for Google rich results --%>
@@ -125,53 +107,26 @@ defmodule MobileCarWashWeb.LandingLive do
 
       <%!-- =================== PRICING =================== --%>
       <section id="pricing" class="bg-base-200 py-12 px-4">
-        <div class="max-w-4xl mx-auto">
+        <div class="max-w-5xl mx-auto">
           <div class="text-center mb-8">
             <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mb-1">
-              PRICING
+              SERVICES
             </div>
             <h2 class="text-2xl font-bold text-base-content tracking-tight">
-              Two tiers. No hidden fees.
+              Choose the detail that fits today.
             </h2>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <.service_tier_card
-              :if={@basic}
-              name="Basic Wash"
-              price="$50"
-              duration="~45 min"
-              features={[
-                "Exterior hand wash",
-                "Wheels & tires",
-                "Window streak-free finish",
-                "Quick interior vacuum"
-              ]}
+              :for={service <- @services}
+              name={service.name}
+              price={"$#{format_price(service.base_price_cents)}"}
+              duration={"~#{service.duration_minutes} min"}
+              features={service_features(service)}
             >
               <:cta>
-                <.link navigate={~p"/book?service=#{@basic.slug}"} class="btn btn-outline w-full">
-                  Book Basic
-                </.link>
-              </:cta>
-            </.service_tier_card>
-
-            <.service_tier_card
-              :if={@premium}
-              name="Premium"
-              price="$199.99"
-              duration="~3 hours"
-              highlighted={true}
-              features={[
-                "Everything in Basic",
-                "Full interior wipe-down",
-                "Shampoo carpets & seats",
-                "Leather treatment",
-                "Tire shine + wax coat",
-                "Engine bay detail"
-              ]}
-            >
-              <:cta>
-                <.link navigate={~p"/book?service=#{@premium.slug}"} class="btn btn-primary w-full">
-                  Book Premium
+                <.link navigate={~p"/book?service=#{service.slug}"} class="btn btn-primary w-full">
+                  Book {service.name}
                 </.link>
               </:cta>
             </.service_tier_card>
@@ -266,6 +221,35 @@ defmodule MobileCarWashWeb.LandingLive do
   # string. Dynamic `hasOfferCatalog.itemListElement` is populated
   # from the live ServiceType list so new services appear in rich
   # snippets without a code deploy.
+  defp landing_services do
+    ServiceType
+    |> Ash.Query.filter(active == true and show_on_landing == true)
+    |> Ash.read!()
+    |> Enum.sort_by(& &1.base_price_cents)
+  end
+
+  defp format_price(cents) when is_integer(cents) do
+    dollars = div(cents, 100)
+    cents_part = rem(cents, 100)
+
+    if cents_part == 0 do
+      Integer.to_string(dollars)
+    else
+      "#{dollars}.#{String.pad_leading(Integer.to_string(cents_part), 2, "0")}"
+    end
+  end
+
+  defp service_features(service) do
+    service.description
+    |> to_string()
+    |> String.split(~r/\.\s*/, trim: true)
+    |> Enum.reject(&(&1 == ""))
+    |> case do
+      [] -> ["Professional mobile detailing at your location"]
+      features -> features
+    end
+  end
+
   defp local_business_schema(services) do
     offers =
       Enum.map(services, fn s ->

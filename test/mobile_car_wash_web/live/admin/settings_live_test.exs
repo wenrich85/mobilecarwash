@@ -3,7 +3,43 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
   Tests for the admin Settings LiveView — specifically the Accounting tab.
   Verifies provider switching, configuration status display, and auth guard.
   """
-  use MobileCarWashWeb.ConnCase, async: true
+  use MobileCarWashWeb.ConnCase, async: false
+
+  import Phoenix.LiveViewTest
+
+  alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Scheduling.ServiceType
+
+  require Ash.Query
+
+  defp register_admin! do
+    {:ok, customer} =
+      Customer
+      |> Ash.Changeset.for_create(:register_with_password, %{
+        email: "settings-admin-#{System.unique_integer([:positive])}@test.com",
+        password: "Password123!",
+        password_confirmation: "Password123!",
+        name: "Settings Admin",
+        phone: "+15125557700"
+      })
+      |> Ash.create()
+
+    customer
+    |> Ash.Changeset.for_update(:update, %{role: :admin})
+    |> Ash.update!(authorize?: false)
+  end
+
+  defp sign_in(conn, customer) do
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> post("/auth/customer/password/sign_in", %{
+      "customer" => %{
+        "email" => to_string(customer.email),
+        "password" => "Password123!"
+      }
+    })
+    |> recycle()
+  end
 
   describe "accounting tab — auth guard" do
     test "non-authenticated user is redirected to sign-in", %{conn: conn} do
@@ -68,6 +104,102 @@ defmodule MobileCarWashWeb.Admin.SettingsLiveTest do
           Application.delete_env(:mobile_car_wash, :accounting_provider)
         end
       end
+    end
+  end
+
+  describe "service landing display option" do
+    test "service add and edit forms expose the landing display checkbox", %{conn: conn} do
+      admin = register_admin!()
+      conn = sign_in(conn, admin)
+
+      service =
+        ServiceType
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Display Checkbox Wash",
+          slug: "display_checkbox_wash_#{System.unique_integer([:positive])}",
+          description: "Used to verify admin form controls.",
+          base_price_cents: 9100,
+          duration_minutes: 50,
+          active: true,
+          show_on_landing: true
+        })
+        |> Ash.create!()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/settings")
+
+      assert has_element?(view, "#service-form input[name='service[show_on_landing]']")
+
+      view
+      |> element("button[phx-click='edit_service'][phx-value-id='#{service.id}']")
+      |> render_click()
+
+      assert has_element?(
+               view,
+               "#service-form-#{service.id} input[name='service[show_on_landing]']"
+             )
+    end
+
+    test "admin can create a service hidden from the landing page", %{conn: conn} do
+      admin = register_admin!()
+      conn = sign_in(conn, admin)
+      name = "Hidden Admin Wash #{System.unique_integer([:positive])}"
+
+      {:ok, view, _html} = live(conn, ~p"/admin/settings")
+
+      render_submit(view, "add_service", %{
+        "service" => %{
+          "name" => name,
+          "price" => "123",
+          "duration" => "70",
+          "description" => "Bookable but hidden.",
+          "show_on_landing" => "false"
+        }
+      })
+
+      service =
+        ServiceType
+        |> Ash.Query.filter(name == ^name)
+        |> Ash.read!()
+        |> List.first()
+
+      assert service.show_on_landing == false
+      assert service.active == true
+    end
+
+    test "admin can update a service landing display setting", %{conn: conn} do
+      admin = register_admin!()
+      conn = sign_in(conn, admin)
+
+      service =
+        ServiceType
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Update Display Wash",
+          slug: "update_display_wash_#{System.unique_integer([:positive])}",
+          description: "Starts visible.",
+          base_price_cents: 9300,
+          duration_minutes: 55,
+          active: true,
+          show_on_landing: true
+        })
+        |> Ash.create!()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/settings")
+
+      render_submit(view, "update_service", %{
+        "id" => service.id,
+        "service" => %{
+          "name" => service.name,
+          "price" => "93",
+          "duration" => "55",
+          "description" => service.description,
+          "show_on_landing" => "false"
+        }
+      })
+
+      updated = Ash.get!(ServiceType, service.id)
+
+      assert updated.show_on_landing == false
+      assert updated.active == true
     end
   end
 
