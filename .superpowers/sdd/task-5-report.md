@@ -80,3 +80,31 @@ Implemented the technician job brief route/page and updated dashboard CTAs so pr
 
 - Pre-existing LiveView duplicate-id warnings still appear during the focused run; not addressed per task scope.
 - `mix precommit` was not run for this scoped fix because the task explicitly excluded unrelated broader failures.
+
+## Task 5 Review Fix Follow-up
+
+### Changed Files
+
+- `lib/mobile_car_wash_web/live/tech/job_live.ex`
+- `lib/mobile_car_wash_web/live/tech/tech_dashboard_live.ex`
+- `test/mobile_car_wash_web/live/tech/job_live_test.exs`
+- `test/mobile_car_wash_web/live/tech/tech_dashboard_live_test.exs`
+
+### What Changed
+
+- Re-authorized `depart`, `arrive`, and `start_wash` at event time by reloading the appointment through `load_job/2` before any mutation.
+- Ensured `depart` and `arrive` transition the freshly loaded appointment record, not the cached mount-time assign.
+- Ensured `start_wash` uses the freshly authorized appointment id and redirects back to `/tech` when the signed-in technician no longer owns the job.
+- Added stale-session regression coverage for reassignment after mount on both `depart` and `start_wash`.
+- Expanded the dashboard `View job` CTA coverage to include `:pending` and `:completed` appointments while preserving direct checklist access for `:in_progress`.
+
+### Tests Run / Results
+
+- `mix test test/mobile_car_wash_web/live/tech/job_live_test.exs test/mobile_car_wash_web/live/tech/tech_dashboard_live_test.exs`
+- Result: passed (`21 tests, 0 failures`)
+
+### Concerns
+
+- Pre-existing LiveView duplicate-id warnings still appear during the focused run; left untouched per scope.
+- Focused runs still emit pre-existing Ash missed-notification warnings from checklist creation; not changed here.
+- `mix precommit` was not run because the task explicitly scoped verification to the two focused LiveView test files and excluded unrelated broader failures.

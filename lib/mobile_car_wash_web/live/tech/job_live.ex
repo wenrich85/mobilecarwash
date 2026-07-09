@@ -51,21 +51,27 @@ defmodule MobileCarWashWeb.Tech.JobLive do
 
   @impl true
   def handle_event("depart", _params, socket) do
-    transition_job(socket, :depart)
+    with_authorized_job(socket, fn socket, %{appointment: appointment} ->
+      transition_job(socket, appointment, :depart)
+    end)
   end
 
   def handle_event("arrive", _params, socket) do
-    transition_job(socket, :arrive)
+    with_authorized_job(socket, fn socket, %{appointment: appointment} ->
+      transition_job(socket, appointment, :arrive)
+    end)
   end
 
   def handle_event("start_wash", _params, socket) do
-    case WashOrchestrator.start_wash(socket.assigns.appointment.id) do
-      {:ok, checklist} ->
-        {:noreply, push_navigate(socket, to: ~p"/tech/checklist/#{checklist.id}")}
+    with_authorized_job(socket, fn socket, %{appointment: appointment} ->
+      case WashOrchestrator.start_wash(appointment.id) do
+        {:ok, checklist} ->
+          {:noreply, push_navigate(socket, to: ~p"/tech/checklist/#{checklist.id}")}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Could not start wash: #{inspect(reason)}")}
-    end
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Could not start wash: #{inspect(reason)}")}
+      end
+    end)
   end
 
   @impl true
@@ -217,8 +223,8 @@ defmodule MobileCarWashWeb.Tech.JobLive do
     """
   end
 
-  defp transition_job(socket, action) do
-    case socket.assigns.appointment
+  defp transition_job(socket, appointment, action) do
+    case appointment
          |> Ash.Changeset.for_update(action, %{})
          |> Ash.update(authorize?: false) do
       {:ok, _updated} ->
@@ -229,6 +235,13 @@ defmodule MobileCarWashWeb.Tech.JobLive do
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Could not update appointment.")}
+    end
+  end
+
+  defp with_authorized_job(socket, callback) do
+    case load_job(socket.assigns.current_customer, socket.assigns.appointment.id) do
+      {:ok, job} -> callback.(socket, job)
+      {:error, _reason} -> {:noreply, deny_access(socket, "That job is no longer available.")}
     end
   end
 

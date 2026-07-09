@@ -1174,7 +1174,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   end
 
   defp show_job_link?(appointment, progress) do
-    progress.steps_total == 0 and appointment.status in [:confirmed, :en_route, :on_site]
+    progress.steps_total == 0 and
+      appointment.status in [:pending, :confirmed, :en_route, :on_site, :completed]
   end
 
   defp status_class(:pending), do: "badge-ghost"

@@ -125,6 +125,16 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
     appointment
   end
 
+  defp reassign_appointment(appointment, technician_id) do
+    {:ok, appointment} =
+      appointment
+      |> Ash.Changeset.for_update(:update, %{})
+      |> Ash.Changeset.force_change_attribute(:technician_id, technician_id)
+      |> Ash.update(authorize?: false)
+
+    appointment
+  end
+
   defp create_procedure_for_service(service_type_id) do
     {:ok, procedure} =
       Procedure
@@ -218,6 +228,29 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert has_element?(view, "#job-arrived")
     end
 
+    test "depart denies mutation after appointment is reassigned", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+      other_user = create_tech_customer("Replacement Tech")
+      other_tech = create_tech_record(other_user)
+
+      {:ok, view, _html} = live_job(conn, appointment.id)
+
+      _reassigned_appointment = reassign_appointment(appointment, other_tech.id)
+
+      assert {:error, {:redirect, %{to: "/tech"}}} =
+               view
+               |> element("#job-head-out")
+               |> render_click()
+
+      {:ok, reloaded} = Ash.get(Appointment, appointment.id, authorize?: false)
+      assert reloaded.status == :confirmed
+      assert reloaded.technician_id == other_tech.id
+    end
+
     test "arrive transitions en_route job to on_site", %{
       conn: conn,
       tech: tech,
@@ -254,6 +287,30 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
 
       checklist_id = String.replace_prefix(to, "/tech/checklist/", "")
       assert {:ok, _uuid} = Ecto.UUID.cast(checklist_id)
+    end
+
+    test "start wash denies checklist creation after appointment is reassigned", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :on_site)
+      _procedure = create_procedure_for_service(appointment.service_type_id)
+      other_user = create_tech_customer("Start Wash Replacement")
+      other_tech = create_tech_record(other_user)
+
+      {:ok, view, _html} = live_job(conn, appointment.id)
+
+      _reassigned_appointment = reassign_appointment(appointment, other_tech.id)
+
+      assert {:error, {:redirect, %{to: "/tech"}}} =
+               view
+               |> element("#job-start-wash")
+               |> render_click()
+
+      {:ok, reloaded} = Ash.get(Appointment, appointment.id, authorize?: false)
+      assert reloaded.status == :on_site
+      assert reloaded.technician_id == other_tech.id
     end
   end
 end

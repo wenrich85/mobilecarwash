@@ -240,6 +240,22 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
       assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
     end
 
+    test "shows 'View job' when appointment is :pending",
+         %{conn: conn, tech: tech, customer: customer} do
+      appt = create_appointment(customer.id, tech.id, :pending)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+      assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
+    end
+
+    test "shows 'View job' when appointment is :completed",
+         %{conn: conn, tech: tech, customer: customer} do
+      appt = create_appointment(customer.id, tech.id, :completed)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+      assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
+    end
+
     test "shows a prominent 'Continue checklist' button when :in_progress",
          %{conn: conn, tech: tech, customer: customer} do
       alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Procedure}
