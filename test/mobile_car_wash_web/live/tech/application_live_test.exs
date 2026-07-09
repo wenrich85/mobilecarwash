@@ -124,6 +124,34 @@ defmodule MobileCarWashWeb.Tech.ApplicationLiveTest do
     assert application.submitted_at
   end
 
+  test "create ignores forged customer ownership params", %{conn: conn} do
+    customer = customer_fixture()
+    other_customer = customer_fixture()
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/apply")
+
+    view
+    |> element("#tech-application-form")
+    |> render_submit(%{
+      "application" =>
+        application_attrs()
+        |> Map.put("customer_id", other_customer.id)
+    })
+
+    application =
+      TechApplication
+      |> Ash.Query.for_read(:for_customer, %{customer_id: customer.id})
+      |> Ash.read_one!(authorize?: false)
+
+    refute Ash.Query.for_read(TechApplication, :for_customer, %{customer_id: other_customer.id})
+           |> Ash.read_one!(authorize?: false)
+
+    assert application.customer_id == customer.id
+  end
+
   test "submitted applicants are redirected from apply to the status page", %{conn: conn} do
     customer = customer_fixture()
 
@@ -137,6 +165,20 @@ defmodule MobileCarWashWeb.Tech.ApplicationLiveTest do
              |> live(~p"/tech/apply")
 
     assert to == "/tech/application"
+  end
+
+  test "draft status page keeps the continue application action available", %{conn: conn} do
+    customer = customer_fixture()
+    _application = create_application!(customer)
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/application")
+
+    assert has_element?(view, "#tech-application-status")
+    assert has_element?(view, "#tech-application-status a[href='/tech/apply']")
+    assert render(view) =~ "Draft"
   end
 
   test "status page shows submitted application status", %{conn: conn} do
