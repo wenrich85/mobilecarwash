@@ -256,6 +256,60 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
       assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
     end
 
+    test "shows 'View job' for completed appointments even with checklist history",
+         %{conn: conn, tech: tech, customer: customer} do
+      alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Procedure}
+
+      appt = create_appointment(customer.id, tech.id, :completed)
+
+      {:ok, procedure} =
+        Procedure
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Completed Wash SOP",
+          slug: "completed-#{System.unique_integer([:positive])}"
+        })
+        |> Ash.Changeset.force_change_attribute(:service_type_id, appt.service_type_id)
+        |> Ash.create()
+
+      {:ok, checklist} =
+        AppointmentChecklist
+        |> Ash.Changeset.for_create(:create, %{status: :completed})
+        |> Ash.Changeset.force_change_attribute(:appointment_id, appt.id)
+        |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+        |> Ash.create()
+
+      alias MobileCarWash.Operations.ProcedureStep
+
+      for n <- 1..2 do
+        {:ok, step} =
+          ProcedureStep
+          |> Ash.Changeset.for_create(:create, %{
+            step_number: n,
+            title: "Completed Step #{n}",
+            estimated_minutes: 5
+          })
+          |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+          |> Ash.create()
+
+        ChecklistItem
+        |> Ash.Changeset.for_create(:create, %{
+          step_number: n,
+          title: "Completed Step #{n}",
+          estimated_minutes: 5,
+          completed: true
+        })
+        |> Ash.Changeset.force_change_attribute(:checklist_id, checklist.id)
+        |> Ash.Changeset.force_change_attribute(:procedure_step_id, step.id)
+        |> Ash.create!()
+      end
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#appointment-view-job-#{appt.id}", "View job")
+      refute has_element?(view, "a[href='/tech/checklist/#{checklist.id}']", "Continue checklist")
+      refute has_element?(view, "a[href='/tech/checklist/#{checklist.id}']", "Start checklist")
+    end
+
     test "shows a prominent 'Continue checklist' button when :in_progress",
          %{conn: conn, tech: tech, customer: customer} do
       alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Procedure}

@@ -108,3 +108,26 @@ Implemented the technician job brief route/page and updated dashboard CTAs so pr
 - Pre-existing LiveView duplicate-id warnings still appear during the focused run; left untouched per scope.
 - Focused runs still emit pre-existing Ash missed-notification warnings from checklist creation; not changed here.
 - `mix precommit` was not run because the task explicitly scoped verification to the two focused LiveView test files and excluded unrelated broader failures.
+
+## Task 5 Review Fix: Completed-row checklist CTA
+
+### Changed Files
+
+- `lib/mobile_car_wash_web/live/tech/tech_dashboard_live.ex`
+- `test/mobile_car_wash_web/live/tech/tech_dashboard_live_test.exs`
+
+### What Changed
+
+- Removed the fallback checklist CTA branch for non-`in_progress` appointments.
+- Tightened `show_job_link?/2` so only `:in_progress` appointments with an attached checklist suppress the `View job` link.
+- Added a regression test that creates a completed appointment with checklist history and verifies the row still shows `View job` while omitting direct `Continue checklist` / `Start checklist` links.
+
+### Tests Run / Results
+
+- `mix test test/mobile_car_wash_web/live/tech/tech_dashboard_live_test.exs test/mobile_car_wash_web/live/tech/job_live_test.exs`
+- Result: passed (`22 tests, 0 failures`)
+
+### Concerns
+
+- The focused suite still emits the pre-existing LiveView duplicate-id warnings and Ash missed-notification warnings from other parts of the app.
+- `mix precommit` currently fails on `MobileCarWashWeb.StaticCacheHeadersTest` because `/assets/*` returns 404 in that suite; this is unrelated to the tech dashboard CTA change.

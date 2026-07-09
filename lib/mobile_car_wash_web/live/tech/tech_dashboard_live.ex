@@ -944,19 +944,6 @@ defmodule MobileCarWashWeb.TechDashboardLive do
               ({@progress.steps_done}/{@progress.steps_total})
             </span>
           </.link>
-          
-    <!-- Fallback for any other state that already has a checklist row
-               (e.g. :on_site with a pre-built list). -->
-          <.link
-            :if={
-              @appointment.status != :in_progress and @progress.steps_total > 0 and
-                @progress.checklist_id
-            }
-            navigate={~p"/tech/checklist/#{@progress.checklist_id}"}
-            class="btn btn-primary btn-sm flex-1"
-          >
-            {if @progress.steps_done > 0, do: "Continue checklist", else: "Start checklist"}
-          </.link>
 
           <button
             :if={@appointment.status == :completed}
@@ -1174,8 +1161,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   end
 
   defp show_job_link?(appointment, progress) do
-    progress.steps_total == 0 and
-      appointment.status in [:pending, :confirmed, :en_route, :on_site, :completed]
+    appointment.status != :in_progress or is_nil(progress.checklist_id)
   end
 
   defp status_class(:pending), do: "badge-ghost"
