@@ -201,6 +201,7 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert has_element?(view, "#active-step-card")
       assert has_element?(view, "#all-steps-list")
       assert has_element?(view, "#after-photo-progress")
+      assert has_element?(view, "#before-photo-progress [phx-click='show_upload']")
       refute has_element?(view, "#wrap-up-panel")
     end
 
@@ -220,6 +221,7 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert has_element?(view, "#all-steps-list")
       assert has_element?(view, "#after-photo-progress")
       assert has_element?(view, "#wrap-up-panel")
+      refute has_element?(view, "#before-photo-progress [phx-click='show_upload']")
     end
   end
 end

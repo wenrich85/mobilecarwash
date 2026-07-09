@@ -464,6 +464,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     <span class="text-xs font-bold text-white">✓</span>
                   </div>
                   <button
+                    :if={@checklist.status != :completed}
                     class="absolute left-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs text-white"
                     phx-click="show_upload"
                     phx-value-type="before"
@@ -473,7 +474,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                   </button>
                 </div>
                 <button
-                  :if={!photo}
+                  :if={!photo and @checklist.status != :completed}
                   class="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-warning bg-warning/5 transition-colors active:bg-warning/20"
                   phx-click="show_upload"
                   phx-value-type="before"
@@ -485,6 +486,12 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     {area.instruction}
                   </span>
                 </button>
+                <div
+                  :if={!photo and @checklist.status == :completed}
+                  class="flex h-40 items-center justify-center rounded-2xl border border-base-300 bg-base-200/40 px-3 text-center text-xs text-base-content/60"
+                >
+                  No before photo captured for {area.label}.
+                </div>
               </div>
             </div>
           </section>
