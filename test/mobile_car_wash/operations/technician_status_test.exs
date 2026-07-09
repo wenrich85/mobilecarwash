@@ -10,6 +10,7 @@ defmodule MobileCarWash.Operations.TechnicianStatusTest do
   """
   use MobileCarWash.DataCase, async: false
 
+  alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Operations.{Technician, TechnicianTracker}
 
   setup do
@@ -85,6 +86,55 @@ defmodule MobileCarWash.Operations.TechnicianStatusTest do
 
       assert_receive {:technician_status, %{technician_id: id, status: :on_break}}, 500
       assert id == technician.id
+    end
+  end
+
+  describe ":for_user_account read" do
+    defp customer_fixture do
+      {:ok, customer} =
+        Customer
+        |> Ash.Changeset.for_create(:register_with_password, %{
+          email: "tech-read-#{System.unique_integer([:positive])}@example.com",
+          password: "Password123!",
+          password_confirmation: "Password123!",
+          name: "Read Scope Customer",
+          phone: "+15125550999"
+        })
+        |> Ash.create()
+
+      customer
+    end
+
+    test "returns only the technician linked to the requested customer" do
+      customer = customer_fixture()
+      other_customer = customer_fixture()
+
+      linked_technician =
+        Technician
+        |> Ash.Changeset.for_create(:create, %{
+          name: "Linked Tech",
+          phone: "+15125550101",
+          active: true
+        })
+        |> Ash.Changeset.force_change_attribute(:user_account_id, customer.id)
+        |> Ash.create!()
+
+      Technician
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Other Tech",
+        phone: "+15125550102",
+        active: true
+      })
+      |> Ash.Changeset.force_change_attribute(:user_account_id, other_customer.id)
+      |> Ash.create!()
+
+      result =
+        Technician
+        |> Ash.Query.for_read(:for_user_account, %{user_account_id: customer.id})
+        |> Ash.read_one!()
+
+      assert result.id == linked_technician.id
+      assert result.user_account_id == customer.id
     end
   end
 end

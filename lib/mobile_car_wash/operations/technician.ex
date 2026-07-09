@@ -74,6 +74,8 @@ defmodule MobileCarWash.Operations.Technician do
   relationships do
     belongs_to :van, MobileCarWash.Operations.Van do
       allow_nil?(true)
+      attribute_writable?(true)
+      public?(true)
     end
 
     belongs_to :user_account, MobileCarWash.Accounts.Customer do
@@ -84,6 +86,11 @@ defmodule MobileCarWash.Operations.Technician do
 
   actions do
     defaults([:read, create: :*, update: :*])
+
+    read :for_user_account do
+      argument(:user_account_id, :uuid, allow_nil?: false)
+      filter(expr(user_account_id == ^arg(:user_account_id)))
+    end
 
     update :set_status do
       require_atomic?(false)

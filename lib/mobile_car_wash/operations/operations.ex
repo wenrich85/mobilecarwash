@@ -9,6 +9,7 @@ defmodule MobileCarWash.Operations do
 
   resources do
     resource(MobileCarWash.Operations.Technician)
+    resource(MobileCarWash.Operations.TechApplication)
     resource(MobileCarWash.Operations.Van)
     resource(MobileCarWash.Operations.OrgPosition)
     resource(MobileCarWash.Operations.PositionContract)

@@ -198,6 +198,9 @@ defmodule MobileCarWashWeb.Router do
         {MobileCarWashWeb.LiveAuth, :require_customer},
         {MobileCarWashWeb.TrackPresence, :track}
       ] do
+      live "/tech/apply", Tech.ApplicationLive, :apply
+      live "/tech/application", Tech.ApplicationLive, :show
+      live "/tech/profile", Tech.ProfileLive
       live "/dashboard", DashboardLive
       live "/appointments", AppointmentsLive
       live "/appointments/:id/status", AppointmentStatusLive
@@ -220,6 +223,7 @@ defmodule MobileCarWashWeb.Router do
         {MobileCarWashWeb.TrackPresence, :track}
       ] do
       live "/", TechDashboardLive
+      live "/appointments/:id", Tech.JobLive
       live "/checklist/:id", ChecklistLive
     end
   end
@@ -257,6 +261,8 @@ defmodule MobileCarWashWeb.Router do
       live "/org-chart", OrgChartLive
       live "/procedures", ProceduresLive
       live "/dispatch", DispatchLive
+      live "/tech-applications", TechApplicationsLive, :index
+      live "/tech-applications/:id", TechApplicationsLive, :show
       live "/technicians", TechniciansLive
       live "/technicians/:id", TechnicianProfileLive
       live "/settings", SettingsLive

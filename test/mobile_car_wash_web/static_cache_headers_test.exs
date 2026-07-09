@@ -5,6 +5,18 @@ defmodule MobileCarWashWeb.StaticCacheHeadersTest do
   """
   use MobileCarWashWeb.ConnCase, async: true
 
+  setup_all do
+    static_dir =
+      :mobile_car_wash
+      |> :code.priv_dir()
+      |> Path.join("static/assets/css")
+
+    File.mkdir_p!(static_dir)
+    File.write!(Path.join(static_dir, "app.css"), "/* cache header fixture */\n")
+
+    :ok
+  end
+
   describe "cache-control headers on static assets" do
     test "hashed /assets/* files are served immutable for 1 year", %{conn: conn} do
       conn = get(conn, "/assets/css/app.css")

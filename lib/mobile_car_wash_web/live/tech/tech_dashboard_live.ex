@@ -923,32 +923,14 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     <!-- State-machine action buttons. One button per state so the tech
              always sees exactly what's next without reading a menu. -->
         <div class="mt-3 flex gap-2">
-          <button
-            :if={@appointment.status == :confirmed and @progress.steps_total == 0}
-            class="btn btn-primary btn-sm btn-block"
-            phx-click="depart"
-            phx-value-id={@appointment.id}
+          <.link
+            :if={show_job_link?(@appointment, @progress)}
+            id={"appointment-view-job-#{@appointment.id}"}
+            navigate={~p"/tech/appointments/#{@appointment.id}"}
+            class="btn btn-primary btn-sm flex-1"
           >
-            Head out
-          </button>
-
-          <button
-            :if={@appointment.status == :en_route}
-            class="btn btn-info btn-sm btn-block"
-            phx-click="arrive"
-            phx-value-id={@appointment.id}
-          >
-            Arrived
-          </button>
-
-          <button
-            :if={@appointment.status == :on_site and @progress.steps_total == 0}
-            class="btn btn-warning btn-sm btn-block"
-            phx-click="start_wash"
-            phx-value-id={@appointment.id}
-          >
-            Start wash
-          </button>
+            View job
+          </.link>
           
     <!-- Full-width primary CTA so the tech can jump back to the
                checklist in one tap when a wash is mid-flight. -->
@@ -961,19 +943,6 @@ defmodule MobileCarWashWeb.TechDashboardLive do
             <span :if={@progress.steps_total > 0} class="text-xs opacity-80">
               ({@progress.steps_done}/{@progress.steps_total})
             </span>
-          </.link>
-          
-    <!-- Fallback for any other state that already has a checklist row
-               (e.g. :on_site with a pre-built list). -->
-          <.link
-            :if={
-              @appointment.status != :in_progress and @progress.steps_total > 0 and
-                @progress.checklist_id
-            }
-            navigate={~p"/tech/checklist/#{@progress.checklist_id}"}
-            class="btn btn-primary btn-sm flex-1"
-          >
-            {if @progress.steps_done > 0, do: "Continue checklist", else: "Start checklist"}
           </.link>
 
           <button
@@ -1189,6 +1158,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp build_progress_map(appointments) do
     Map.new(appointments, fn appt -> {appt.id, Dispatch.checklist_progress(appt.id)} end)
+  end
+
+  defp show_job_link?(appointment, progress) do
+    appointment.status != :in_progress or is_nil(progress.checklist_id)
   end
 
   defp status_class(:pending), do: "badge-ghost"
