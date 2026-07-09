@@ -24,6 +24,7 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLive do
      |> assign(:vans, load_vans())
      |> assign(:zone_options, @zone_options)
      |> assign(:decision_form, empty_decision_form())
+     |> assign(:decline_form, empty_decline_form())
      |> assign(:review_form, empty_review_form())
      |> stream(:applications, load_applications()), layout: false}
   end
@@ -39,6 +40,7 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLive do
      |> assign(:application, application)
      |> assign(:customer, customer)
      |> assign(:decision_form, decision_form(application))
+     |> assign(:decline_form, decline_form(application))
      |> assign(:review_form, review_form(application))
      |> stream(:applications, load_applications(), reset: true)}
   end
@@ -50,6 +52,7 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLive do
      |> assign(:application, nil)
      |> assign(:customer, nil)
      |> assign(:decision_form, empty_decision_form())
+     |> assign(:decline_form, empty_decline_form())
      |> assign(:review_form, empty_review_form())
      |> stream(:applications, load_applications(), reset: true)}
   end
@@ -427,11 +430,21 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLive do
 
                   <.form
                     :if={!decision_closed?(@application.status)}
-                    for={decline_form(@application)}
+                    for={@decline_form}
                     id="not-accept-tech-application-form"
                     phx-submit="not_accept"
-                    class="mt-3"
+                    class="mt-3 space-y-4 rounded-2xl border border-rose-200 bg-rose-50/40 p-4"
                   >
+                    <.input
+                      field={@decline_form[:review_notes]}
+                      type="textarea"
+                      label="Internal review notes"
+                    />
+                    <.input
+                      field={@decline_form[:decision_note]}
+                      type="textarea"
+                      label="Applicant-visible decline note"
+                    />
                     <button
                       type="submit"
                       class="inline-flex items-center justify-center rounded-full border border-rose-300 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-50"
@@ -445,8 +458,13 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLive do
                     for={@review_form}
                     id="review-tech-application-form"
                     phx-submit="mark_reviewed"
-                    class="mt-4"
+                    class="mt-4 space-y-4 rounded-2xl border border-base-300 bg-base-200/30 p-4"
                   >
+                    <.input
+                      field={@review_form[:review_notes]}
+                      type="textarea"
+                      label="Internal review notes"
+                    />
                     <button
                       type="submit"
                       class="inline-flex items-center justify-center rounded-full border border-base-300 px-4 py-2 text-sm font-medium text-base-content/75 transition hover:border-primary/40 hover:text-primary"
@@ -504,6 +522,7 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLive do
     |> assign(:application, application)
     |> assign(:customer, load_customer!(application.customer_id))
     |> assign(:decision_form, decision_form(application))
+    |> assign(:decline_form, decline_form(application))
     |> assign(:review_form, review_form(application))
     |> stream(:applications, load_applications(), reset: true)
   end
@@ -582,6 +601,16 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLive do
         "van_id" => ""
       },
       as: :decision
+    )
+  end
+
+  defp empty_decline_form do
+    to_form(
+      %{
+        "review_notes" => "",
+        "decision_note" => "Application not accepted at this time."
+      },
+      as: :not_accept
     )
   end
 

@@ -128,4 +128,53 @@ defmodule MobileCarWashWeb.Admin.TechApplicationsLiveTest do
     assert technician.zone == :sw
     assert technician.active == true
   end
+
+  test "admin can mark an application reviewed with review notes", %{conn: conn} do
+    admin = user_fixture(:admin)
+    applicant = user_fixture(:customer)
+    application = application_fixture(applicant)
+    conn = sign_in(conn, admin)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/tech-applications/#{application.id}")
+
+    view
+    |> form("#review-tech-application-form", %{
+      "review" => %{
+        "review_notes" => "Reviewed for interview readiness."
+      }
+    })
+    |> render_submit()
+
+    application = Ash.get!(TechApplication, application.id, authorize?: false)
+
+    assert application.status == :reviewed
+    assert application.reviewed_at
+    assert application.review_notes == "Reviewed for interview readiness."
+  end
+
+  test "admin can decline a pending application with review and decision notes", %{conn: conn} do
+    admin = user_fixture(:admin)
+    applicant = user_fixture(:customer)
+    application = application_fixture(applicant)
+    conn = sign_in(conn, admin)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/tech-applications/#{application.id}")
+
+    view
+    |> form("#not-accept-tech-application-form", %{
+      "not_accept" => %{
+        "review_notes" => "Attendance availability does not match demand.",
+        "decision_note" => "We are moving forward with other applicants."
+      }
+    })
+    |> render_submit()
+
+    application = Ash.get!(TechApplication, application.id, authorize?: false)
+
+    assert application.status == :not_accepted
+    assert application.reviewed_at
+    assert application.decided_at
+    assert application.review_notes == "Attendance availability does not match demand."
+    assert application.decision_note == "We are moving forward with other applicants."
+  end
 end
