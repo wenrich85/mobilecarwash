@@ -196,8 +196,7 @@ defmodule MobileCarWash.Operations.TechApplication do
 
   relationships do
     belongs_to :customer, Customer do
-      allow_nil?(true)
-      attribute_writable?(true)
+      allow_nil?(false)
       public?(true)
     end
 
@@ -216,7 +215,7 @@ defmodule MobileCarWash.Operations.TechApplication do
     defaults([:read, update: :*])
 
     create :create do
-      accept([:customer_id | @applicant_fields])
+      accept(@applicant_fields)
       change(set_attribute(:status, :draft))
     end
 
@@ -228,19 +227,30 @@ defmodule MobileCarWash.Operations.TechApplication do
     update :save_draft do
       require_atomic?(false)
       accept(@applicant_fields)
+
+      validate(fn changeset, _context ->
+        validate_current_status(changeset, :draft, "save draft")
+      end)
+
       change(set_attribute(:status, :draft))
     end
 
     update :submit do
       require_atomic?(false)
       validate(present([:preferred_name, :home_zip, :desired_hours_per_week]))
+      validate(fn changeset, _context -> validate_current_status(changeset, :draft, "submit") end)
       change(set_attribute(:status, :pending_review))
       change(set_attribute(:submitted_at, &DateTime.utc_now/0))
     end
 
     update :mark_reviewed do
       require_atomic?(false)
-      accept([:review_notes, :decision_note])
+      accept([:review_notes])
+
+      validate(fn changeset, _context ->
+        validate_current_status(changeset, :pending_review, "mark reviewed")
+      end)
+
       change(set_attribute(:status, :reviewed))
       change(set_attribute(:reviewed_at, &DateTime.utc_now/0))
     end
@@ -248,6 +258,11 @@ defmodule MobileCarWash.Operations.TechApplication do
     update :not_accept do
       require_atomic?(false)
       accept([:review_notes, :decision_note])
+
+      validate(fn changeset, _context ->
+        validate_current_status(changeset, :reviewed, "mark not accepted")
+      end)
+
       change(set_attribute(:status, :not_accepted))
       change(set_attribute(:decided_at, &DateTime.utc_now/0))
     end
@@ -265,6 +280,10 @@ defmodule MobileCarWash.Operations.TechApplication do
         :active
       ])
 
+      validate(fn changeset, _context ->
+        validate_current_status(changeset, :reviewed, "accept")
+      end)
+
       change(set_attribute(:status, :accepted))
       change(set_attribute(:decided_at, &DateTime.utc_now/0))
       change(after_action(&promote_customer_to_technician/3))
@@ -273,6 +292,19 @@ defmodule MobileCarWash.Operations.TechApplication do
 
   def applicant_fields do
     @applicant_fields
+  end
+
+  defp validate_current_status(changeset, expected_status, action_name) do
+    case changeset.data.status do
+      ^expected_status ->
+        :ok
+
+      current_status ->
+        {:error,
+         field: :status,
+         message:
+           "cannot #{action_name} from #{current_status || "unknown"}; expected #{expected_status}"}
+    end
   end
 
   defp promote_customer_to_technician(_changeset, application, _context) do
