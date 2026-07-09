@@ -195,9 +195,15 @@ defmodule MobileCarWashWeb.Tech.ProfileLive do
                     <h3 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">
                       Review notes
                     </h3>
-                    <p class="mt-4 text-sm leading-6 text-base-content/75">
-                      {blank_fallback(@application.decision_note, "No decision note yet")}
-                    </p>
+                    <div class="mt-4 space-y-4 text-sm leading-6 text-base-content/75">
+                      <p>{blank_fallback(@application.review_notes, "No review notes yet")}</p>
+                      <div :if={@application.decision_note}>
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
+                          Decision note
+                        </p>
+                        <p class="mt-1">{@application.decision_note}</p>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="rounded-2xl border border-base-300 bg-base-100 p-5">
@@ -345,13 +351,13 @@ defmodule MobileCarWashWeb.Tech.ProfileLive do
   defp application_for_customer(customer) do
     TechApplication
     |> Ash.Query.for_read(:for_customer, %{customer_id: customer.id})
-    |> Ash.read_one!(authorize?: false)
+    |> Ash.read_one!()
   end
 
   defp technician_for_customer(customer) do
     Technician
-    |> Ash.Query.filter(user_account_id == ^customer.id)
-    |> Ash.read_one!(authorize?: false)
+    |> Ash.Query.for_read(:for_user_account, %{user_account_id: customer.id})
+    |> Ash.read_one!()
   end
 
   defp profile_name(%{name: name}, _application, _customer), do: blank_fallback(name)

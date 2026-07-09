@@ -118,6 +118,27 @@ defmodule MobileCarWashWeb.Tech.ProfileLiveTest do
     assert render(view) =~ "Reliable transportation"
   end
 
+  test "reviewed applicant profile shows review notes", %{conn: conn} do
+    customer = customer_fixture()
+
+    customer
+    |> create_application!(%{
+      preferred_name: "Riley Reviewed",
+      preferred_zone: :sw
+    })
+    |> submit_application!()
+    |> review_application!("Strong customer service background.")
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/profile")
+
+    assert render(view) =~ "Reviewed"
+    assert render(view) =~ "Review notes"
+    assert render(view) =~ "Strong customer service background."
+  end
+
   test "accepted technician profile shows pay, zone, and earnings snapshot", %{conn: conn} do
     customer = customer_fixture(:technician)
 
@@ -146,5 +167,8 @@ defmodule MobileCarWashWeb.Tech.ProfileLiveTest do
     assert render(view) =~ "$32.00"
     assert render(view) =~ "SE"
     assert render(view) =~ "This pay period"
+    assert render(view) =~ "Strong applicant"
+    assert render(view) =~ "Decision note"
+    assert render(view) =~ "Welcome aboard."
   end
 end
