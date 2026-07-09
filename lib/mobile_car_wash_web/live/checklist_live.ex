@@ -388,90 +388,457 @@ defmodule MobileCarWashWeb.ChecklistLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-lg mx-auto py-4 px-4">
+    <div class="mx-auto max-w-lg px-4 py-4">
       <div :if={@checklist}>
-        <!-- Progress Header -->
-        <div class="mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <h1 class="text-xl font-bold">Wash Checklist</h1>
-            <span class={["badge badge-lg", checklist_badge(@checklist.status)]}>
-              {@done}/{@total}
-            </span>
-          </div>
-          <progress class="progress progress-primary w-full" value={@pct} max="100"></progress>
-          <div class="flex justify-between text-sm text-base-content/70 mt-1">
-            <span>{@pct}% complete</span>
-            <span>ETA: ~{remaining_minutes(@items)} min</span>
-          </div>
-        </div>
-        
-    <!-- Customer Problem Area Photos -->
-        <div :if={@problem_photos != []} class="mb-6">
-          <h3 class="font-semibold text-sm mb-2 text-warning">Customer Problem Areas</h3>
-          <div class="flex gap-2 overflow-x-auto">
-            <div :for={photo <- @problem_photos} class="flex-shrink-0">
-              <img
-                src={photo.file_path}
-                class="w-20 h-20 object-cover rounded-lg border-2 border-warning"
-              />
-              <p :if={photo.caption} class="text-xs text-center mt-1">{photo.caption}</p>
-            </div>
-          </div>
-        </div>
-        
-    <!-- Before Photos Grid (required before steps can start) -->
-        <div :if={@checklist.status != :completed} class="mb-6">
-          <div class="flex justify-between items-center mb-3">
-            <div>
-              <h3 class="font-bold">Before Photos</h3>
-              <p class="text-xs text-base-content/70">Required before starting</p>
-            </div>
-            <span :if={before_photos_complete?(@before_photos)} class="badge badge-success">
-              ✓ Complete
-            </span>
-            <span :if={!before_photos_complete?(@before_photos)} class="badge badge-warning">
-              {Enum.count(@key_areas, &(area_photo(@before_photos, &1.id) != nil))}/{length(
-                @key_areas
-              )}
-            </span>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div :for={area <- @key_areas}>
-              <% photo = area_photo(@before_photos, area.id) %>
-              <!-- Filled -->
-              <div :if={photo} class="relative h-40 rounded-2xl overflow-hidden shadow">
-                <img src={photo.file_path} class="w-full h-full object-cover" />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-2">
-                  <p class="text-white text-xs font-bold leading-tight">{area.label}</p>
+        <div id="active-wash" class="space-y-6">
+          <section id="wash-progress-header" class="space-y-4">
+            <div class="rounded-[28px] border border-base-300/70 bg-base-100 px-4 py-4 shadow-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">
+                    Active Wash
+                  </p>
+                  <h1 class="mt-1 text-xl font-bold">Wash Checklist</h1>
                 </div>
-                <div class="absolute top-2 right-2 bg-success rounded-full w-6 h-6 flex items-center justify-center shadow">
-                  <span class="text-white text-xs font-bold">✓</span>
+                <span class={["badge badge-lg", checklist_badge(@checklist.status)]}>
+                  {@done}/{@total}
+                </span>
+              </div>
+              <progress class="progress progress-primary mt-4 w-full" value={@pct} max="100">
+              </progress>
+              <div class="mt-2 flex justify-between text-sm text-base-content/70">
+                <span>{@pct}% complete</span>
+                <span>ETA: ~{remaining_minutes(@items)} min</span>
+              </div>
+            </div>
+
+            <div
+              :if={@problem_photos != []}
+              class="rounded-[24px] border border-warning/30 bg-warning/5 p-4"
+            >
+              <div class="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h2 class="font-semibold text-warning">Customer Problem Areas</h2>
+                  <p class="text-xs text-base-content/70">Reference these while you wash.</p>
+                </div>
+                <span class="badge badge-warning badge-outline">
+                  {length(@problem_photos)} flagged
+                </span>
+              </div>
+              <div class="flex gap-2 overflow-x-auto pb-1">
+                <div :for={photo <- @problem_photos} class="flex-shrink-0">
+                  <img
+                    src={photo.file_path}
+                    class="h-20 w-20 rounded-lg border-2 border-warning object-cover"
+                  />
+                  <p :if={photo.caption} class="mt-1 text-center text-xs">{photo.caption}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="before-photo-progress" class="space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="font-bold">Before Photos</h2>
+                <p class="text-xs text-base-content/70">Required before starting</p>
+              </div>
+              <span :if={before_photos_complete?(@before_photos)} class="badge badge-success">
+                ✓ Complete
+              </span>
+              <span :if={!before_photos_complete?(@before_photos)} class="badge badge-warning">
+                {Enum.count(@key_areas, &(area_photo(@before_photos, &1.id) != nil))}/{length(
+                  @key_areas
+                )}
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div :for={area <- @key_areas}>
+                <% photo = area_photo(@before_photos, area.id) %>
+                <div :if={photo} class="relative h-40 overflow-hidden rounded-2xl shadow">
+                  <img src={photo.file_path} class="h-full w-full object-cover" />
+                  <div class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-2">
+                    <p class="text-xs font-bold leading-tight text-white">{area.label}</p>
+                  </div>
+                  <div class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-success shadow">
+                    <span class="text-xs font-bold text-white">✓</span>
+                  </div>
+                  <button
+                    class="absolute left-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs text-white"
+                    phx-click="show_upload"
+                    phx-value-type="before"
+                    phx-value-area={area.id}
+                  >
+                    Retake
+                  </button>
                 </div>
                 <button
-                  class="absolute top-2 left-2 bg-black/40 rounded-full px-2 py-0.5 text-white text-xs"
+                  :if={!photo}
+                  class="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-warning bg-warning/5 transition-colors active:bg-warning/20"
                   phx-click="show_upload"
                   phx-value-type="before"
                   phx-value-area={area.id}
                 >
-                  Retake
+                  <span class="text-5xl font-thin text-warning/70">+</span>
+                  <span class="text-sm font-bold text-warning">{area.label}</span>
+                  <span class="px-3 text-center text-xs leading-tight text-base-content/70">
+                    {area.instruction}
+                  </span>
                 </button>
               </div>
-              <!-- Empty -->
-              <button
-                :if={!photo}
-                class="w-full h-40 rounded-2xl border-2 border-dashed border-warning bg-warning/5 flex flex-col items-center justify-center gap-1 active:bg-warning/20 transition-colors"
-                phx-click="show_upload"
-                phx-value-type="before"
-                phx-value-area={area.id}
-              >
-                <span class="text-5xl font-thin text-warning/70">+</span>
-                <span class="text-sm font-bold text-warning">{area.label}</span>
-                <span class="text-xs text-base-content/70 text-center px-3 leading-tight">
-                  {area.instruction}
-                </span>
-              </button>
             </div>
-          </div>
+          </section>
+
+          <section
+            id="active-step-card"
+            class="overflow-hidden rounded-[28px] border border-base-300/70 bg-base-100 shadow-sm"
+          >
+            <div class="border-b border-base-300/70 px-4 py-3">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/50">
+                Active Step
+              </p>
+              <div class="mt-2 flex items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-lg font-bold">{active_step_title(@items)}</h2>
+                  <p class="text-sm text-base-content/70">
+                    {active_step_supporting_copy(@items, @checklist.status)}
+                  </p>
+                </div>
+                <span class="badge badge-outline">{done_label(@done, @total)}</span>
+              </div>
+            </div>
+            <div class="px-4 py-4">
+              <%= case current_progress_item(@items) do %>
+                <% nil -> %>
+                  <div class="rounded-2xl border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/70">
+                    No steps are loaded for this checklist yet.
+                  </div>
+                <% item -> %>
+                  <div class="space-y-3">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                          Step {item.step_number}
+                        </p>
+                        <p :if={item.description} class="mt-1 text-sm text-base-content/70">
+                          {item.description}
+                        </p>
+                      </div>
+                      <span :if={item.required} class="badge badge-error badge-sm">Required</span>
+                    </div>
+
+                    <div
+                      :if={item.started_at && !item.completed}
+                      class="rounded-2xl bg-base-200/70 px-3 py-3"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class={["font-mono text-lg font-bold", timer_text_color(item, @now)]}>
+                          {format_elapsed(item.started_at, @now)}
+                        </span>
+                        <span class="text-xs text-base-content/70">
+                          / {item.estimated_minutes || 5}:00 est
+                        </span>
+                      </div>
+                      <progress
+                        class={["progress mt-2 h-2 w-full", timer_progress_color(item, @now)]}
+                        value={elapsed_seconds(item.started_at, @now)}
+                        max={(item.estimated_minutes || 5) * 60}
+                      >
+                      </progress>
+                    </div>
+
+                    <div
+                      :if={item.completed && item.actual_seconds}
+                      class="rounded-2xl bg-success/10 px-3 py-3 text-sm"
+                    >
+                      <span class={
+                        if item.actual_seconds <= (item.estimated_minutes || 5) * 60,
+                          do: "text-success",
+                          else: "text-error"
+                      }>
+                        Actual: {format_seconds(item.actual_seconds)}
+                      </span>
+                      <span class="text-base-content/70">
+                        / Est: {item.estimated_minutes || 5} min
+                      </span>
+                    </div>
+                  </div>
+              <% end %>
+            </div>
+          </section>
+
+          <section id="all-steps-list" class="space-y-2">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="font-bold">All Steps</h2>
+                <p class="text-xs text-base-content/70">
+                  Use the focused card above, then work down the list.
+                </p>
+              </div>
+              <span class="text-xs font-medium text-base-content/50">{@total} total</span>
+            </div>
+
+            <div class="space-y-2">
+              <div
+                :for={item <- @items}
+                class={[
+                  "card shadow-sm transition-all",
+                  item.completed && "bg-base-100 opacity-60",
+                  !item.completed && item.started_at && "border-l-4 bg-base-100",
+                  !item.completed && item.started_at && timer_border_color(item, @now),
+                  !item.completed && !item.started_at && "bg-base-100"
+                ]}
+              >
+                <div class="card-body p-4">
+                  <div class="flex items-start gap-3">
+                    <div class="flex flex-col items-center">
+                      <div :if={item.completed} class="text-xl text-success">✓</div>
+                      <div :if={!item.completed} class="text-lg font-mono text-base-content/70">
+                        {item.step_number}
+                      </div>
+                    </div>
+
+                    <div class="flex-1">
+                      <div class="flex items-start justify-between">
+                        <span class={["font-semibold", item.completed && "line-through"]}>
+                          {item.title}
+                        </span>
+                        <span :if={item.required} class="badge badge-error badge-xs">Req</span>
+                      </div>
+                      <p :if={item.description} class="mt-1 text-xs text-base-content/80">
+                        {item.description}
+                      </p>
+
+                      <div :if={item.started_at && !item.completed} class="mt-2">
+                        <div class="flex items-center gap-2">
+                          <span class={["font-mono text-lg font-bold", timer_text_color(item, @now)]}>
+                            {format_elapsed(item.started_at, @now)}
+                          </span>
+                          <span class="text-xs text-base-content/70">
+                            / {item.estimated_minutes || 5}:00 est
+                          </span>
+                        </div>
+                        <progress
+                          class={["progress h-2 w-full", timer_progress_color(item, @now)]}
+                          value={elapsed_seconds(item.started_at, @now)}
+                          max={(item.estimated_minutes || 5) * 60}
+                        >
+                        </progress>
+                      </div>
+
+                      <div :if={item.completed && item.actual_seconds} class="mt-1 text-xs">
+                        <span class={
+                          if item.actual_seconds <= (item.estimated_minutes || 5) * 60,
+                            do: "text-success",
+                            else: "text-error"
+                        }>
+                          Actual: {format_seconds(item.actual_seconds)}
+                        </span>
+                        <span class="text-base-content/70">
+                          / Est: {item.estimated_minutes || 5} min
+                        </span>
+                      </div>
+
+                      <div :if={@editing_note_id == item.id} class="mt-2 space-y-2">
+                        <form phx-submit="save_note" phx-value-id={item.id}>
+                          <textarea
+                            name="notes"
+                            class="textarea textarea-bordered textarea-sm w-full"
+                            placeholder="Add a note about this step..."
+                          >{item.notes}</textarea>
+                          <div class="mt-1 flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-xs flex-1">Save</button>
+                            <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_note">
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                      <div :if={@editing_note_id != item.id} class="mt-2">
+                        <p :if={item.notes} class="text-xs text-info">Note: {item.notes}</p>
+                        <button
+                          :if={item.notes || !item.completed}
+                          class="mt-1 text-xs link link-primary"
+                          phx-click="edit_note"
+                          phx-value-id={item.id}
+                        >
+                          {if item.notes, do: "Edit note", else: "Add note"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div :if={!item.completed} class="mt-2 flex flex-wrap justify-end gap-2">
+                    <button
+                      :if={!item.started_at}
+                      class="btn btn-primary btn-sm"
+                      phx-click="start_step"
+                      phx-value-id={item.id}
+                    >
+                      Start Step
+                    </button>
+                    <button
+                      :if={item.started_at}
+                      class="btn btn-success btn-sm"
+                      phx-click="complete_step"
+                      phx-value-id={item.id}
+                    >
+                      Done ✓
+                    </button>
+                    <button
+                      :if={!item.required && @skipping_item_id != item.id}
+                      class="btn btn-outline btn-sm"
+                      phx-click="show_skip_reason"
+                      phx-value-id={item.id}
+                    >
+                      Skip (Opt)
+                    </button>
+                    <div :if={@skipping_item_id == item.id} class="flex w-full gap-1">
+                      <form phx-submit="confirm_skip" phx-value-id={item.id} class="flex flex-1 gap-1">
+                        <input
+                          type="text"
+                          name="reason"
+                          class="input input-bordered input-sm flex-1"
+                          placeholder="Why skip?"
+                          required
+                        />
+                        <button type="submit" class="btn btn-sm btn-outline">Skip</button>
+                        <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_skip">
+                          Cancel
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="after-photo-progress" class="space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="font-bold">After Photos</h2>
+                <p class="text-xs text-base-content/70">Match each before photo</p>
+              </div>
+              <span :if={after_photos_complete?(@after_photos)} class="badge badge-success">
+                ✓ Complete
+              </span>
+              <span
+                :if={!after_photos_complete?(@after_photos)}
+                class="badge badge-success badge-outline"
+              >
+                {Enum.count(@key_areas, &(area_photo(@after_photos, &1.id) != nil))}/{length(
+                  @key_areas
+                )}
+              </span>
+            </div>
+
+            <div
+              :if={!all_required_complete?(@items) and @checklist.status != :completed}
+              class="rounded-[24px] border border-dashed border-base-300 bg-base-200/40 px-4 py-5 text-sm text-base-content/70"
+            >
+              Finish all required wash steps to unlock after-photo capture.
+            </div>
+
+            <div
+              :if={all_required_complete?(@items) or @checklist.status == :completed}
+              class="grid grid-cols-2 gap-3"
+            >
+              <div :for={area <- @key_areas}>
+                <% before_photo = area_photo(@before_photos, area.id) %>
+                <% after_photo = area_photo(@after_photos, area.id) %>
+                <div :if={after_photo} class="relative h-40 overflow-hidden rounded-2xl shadow">
+                  <img src={after_photo.file_path} class="h-full w-full object-cover" />
+                  <div
+                    :if={before_photo}
+                    class="absolute bottom-2 left-2 h-12 w-12 overflow-hidden rounded-lg border-2 border-white shadow"
+                  >
+                    <img src={before_photo.file_path} class="h-full w-full object-cover" />
+                  </div>
+                  <div class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-2 pl-16">
+                    <p class="text-xs font-bold leading-tight text-white">{area.label}</p>
+                  </div>
+                  <div class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-success shadow">
+                    <span class="text-xs font-bold text-white">✓</span>
+                  </div>
+                  <button
+                    :if={@checklist.status != :completed}
+                    class="absolute left-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs text-white"
+                    phx-click="show_upload"
+                    phx-value-type="after"
+                    phx-value-area={area.id}
+                  >
+                    Retake
+                  </button>
+                </div>
+                <button
+                  :if={!after_photo and @checklist.status != :completed}
+                  class="relative flex h-40 w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border-2 border-dashed border-success bg-success/5 transition-colors active:bg-success/20"
+                  phx-click="show_upload"
+                  phx-value-type="after"
+                  phx-value-area={area.id}
+                >
+                  <img
+                    :if={before_photo}
+                    src={before_photo.file_path}
+                    class="absolute inset-0 h-full w-full object-cover opacity-20"
+                  />
+                  <span class="relative text-5xl font-thin text-success/70">+</span>
+                  <span class="relative text-sm font-bold text-success">{area.label}</span>
+                  <span class="relative px-3 text-center text-xs leading-tight text-base-content/70">
+                    {area.instruction}
+                  </span>
+                </button>
+                <div
+                  :if={!after_photo and @checklist.status == :completed}
+                  class="flex h-40 items-center justify-center rounded-2xl border border-base-300 bg-base-200/40 px-3 text-center text-xs text-base-content/60"
+                >
+                  No after photo captured for {area.label}.
+                </div>
+              </div>
+            </div>
+
+            <div
+              :if={after_photos_complete?(@after_photos) and @checklist.status != :completed}
+              class="alert alert-success mt-4 rounded-2xl"
+            >
+              <span class="font-semibold">All photos complete — finishing wash...</span>
+            </div>
+          </section>
+
+          <section
+            :if={@checklist.status == :completed}
+            id="wrap-up-panel"
+            class="rounded-[28px] border border-success/30 bg-success/10 px-4 py-5 text-center"
+          >
+            <div class="text-4xl text-success">✓</div>
+            <h2 class="mt-2 text-xl font-bold text-success">Checklist Complete!</h2>
+            <p class="mt-1 text-sm text-base-content/80">All steps verified</p>
+
+            <div class="mx-auto mt-4 max-w-sm rounded-[24px] bg-base-100 shadow">
+              <div class="p-4">
+                <h3 class="mb-2 text-sm font-semibold">Time Analysis</h3>
+                <div
+                  :for={item <- @items}
+                  :if={item.actual_seconds}
+                  class="flex justify-between border-b border-base-200 py-1 text-xs"
+                >
+                  <span>{item.title}</span>
+                  <span class={
+                    if item.actual_seconds <= (item.estimated_minutes || 5) * 60,
+                      do: "text-success",
+                      else: "text-error"
+                  }>
+                    {format_seconds(item.actual_seconds)} / {item.estimated_minutes}m est
+                  </span>
+                </div>
+                <div class="mt-2 flex justify-between text-sm font-bold">
+                  <span>Total</span>
+                  <span>{format_seconds(total_actual_seconds(@items))}</span>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
         
     <!-- Photo Upload Overlay (full-screen on mobile) -->
@@ -517,254 +884,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 Save Photo
               </button>
             </form>
-          </div>
-        </div>
-        
-    <!-- Checklist Items with Timers -->
-        <div class="space-y-2">
-          <div
-            :for={item <- @items}
-            class={[
-              "card shadow-sm transition-all",
-              item.completed && "bg-base-100 opacity-60",
-              !item.completed && item.started_at && "bg-base-100 border-l-4",
-              !item.completed && item.started_at && timer_border_color(item, @now),
-              !item.completed && !item.started_at && "bg-base-100"
-            ]}
-          >
-            <div class="card-body p-4">
-              <div class="flex items-start gap-3">
-                <!-- Step number / check -->
-                <div class="flex flex-col items-center">
-                  <div :if={item.completed} class="text-success text-xl">✓</div>
-                  <div :if={!item.completed} class="text-lg font-mono text-base-content/70">
-                    {item.step_number}
-                  </div>
-                </div>
-
-                <div class="flex-1">
-                  <div class="flex justify-between items-start">
-                    <span class={["font-semibold", item.completed && "line-through"]}>
-                      {item.title}
-                    </span>
-                    <span :if={item.required} class="badge badge-error badge-xs">Req</span>
-                  </div>
-                  <p :if={item.description} class="text-xs text-base-content/80 mt-1">
-                    {item.description}
-                  </p>
-                  
-    <!-- Timer Display -->
-                  <div :if={item.started_at && !item.completed} class="mt-2">
-                    <div class="flex items-center gap-2">
-                      <span class={["font-mono text-lg font-bold", timer_text_color(item, @now)]}>
-                        {format_elapsed(item.started_at, @now)}
-                      </span>
-                      <span class="text-xs text-base-content/70">
-                        / {item.estimated_minutes || 5}:00 est
-                      </span>
-                    </div>
-                    <progress
-                      class={["progress w-full h-2", timer_progress_color(item, @now)]}
-                      value={elapsed_seconds(item.started_at, @now)}
-                      max={(item.estimated_minutes || 5) * 60}
-                    />
-                  </div>
-                  
-    <!-- Completed time stats -->
-                  <div :if={item.completed && item.actual_seconds} class="mt-1 text-xs">
-                    <span class={
-                      if item.actual_seconds <= (item.estimated_minutes || 5) * 60,
-                        do: "text-success",
-                        else: "text-error"
-                    }>
-                      Actual: {format_seconds(item.actual_seconds)}
-                    </span>
-                    <span class="text-base-content/70">
-                      / Est: {item.estimated_minutes || 5} min
-                    </span>
-                  </div>
-                  
-    <!-- Notes Section -->
-                  <div :if={@editing_note_id == item.id} class="mt-2 space-y-2">
-                    <form phx-submit="save_note" phx-value-id={item.id}>
-                      <textarea
-                        name="notes"
-                        class="textarea textarea-bordered textarea-sm w-full"
-                        placeholder="Add a note about this step..."
-                      >{item.notes}</textarea>
-                      <div class="flex gap-1 mt-1">
-                        <button type="submit" class="btn btn-primary btn-xs flex-1">Save</button>
-                        <button type="button" class="btn btn-ghost btn-xs" phx-click="cancel_note">
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                  <div :if={@editing_note_id != item.id} class="mt-2">
-                    <p :if={item.notes} class="text-xs text-info">Note: {item.notes}</p>
-                    <button
-                      :if={item.notes || !item.completed}
-                      class="text-xs link link-primary mt-1"
-                      phx-click="edit_note"
-                      phx-value-id={item.id}
-                    >
-                      {if item.notes, do: "Edit note", else: "Add note"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-    <!-- Action Buttons -->
-              <div :if={!item.completed} class="mt-2 flex gap-2 justify-end flex-wrap">
-                <button
-                  :if={!item.started_at}
-                  class="btn btn-primary btn-sm"
-                  phx-click="start_step"
-                  phx-value-id={item.id}
-                >
-                  Start Step
-                </button>
-                <button
-                  :if={item.started_at}
-                  class="btn btn-success btn-sm"
-                  phx-click="complete_step"
-                  phx-value-id={item.id}
-                >
-                  Done ✓
-                </button>
-                <button
-                  :if={!item.required && @skipping_item_id != item.id}
-                  class="btn btn-outline btn-sm"
-                  phx-click="show_skip_reason"
-                  phx-value-id={item.id}
-                >
-                  Skip (Opt)
-                </button>
-                <div :if={@skipping_item_id == item.id} class="flex gap-1 w-full">
-                  <form phx-submit="confirm_skip" phx-value-id={item.id} class="flex gap-1 flex-1">
-                    <input
-                      type="text"
-                      name="reason"
-                      class="input input-bordered input-sm flex-1"
-                      placeholder="Why skip?"
-                      required
-                    />
-                    <button type="submit" class="btn btn-sm btn-outline">Skip</button>
-                    <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel_skip">
-                      Cancel
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-    <!-- After Photos Grid (shown when all required steps done) -->
-        <div :if={all_required_complete?(@items) and @checklist.status != :completed} class="mt-6">
-          <div class="flex justify-between items-center mb-3">
-            <div>
-              <h3 class="font-bold">After Photos</h3>
-              <p class="text-xs text-base-content/70">Match each before photo</p>
-            </div>
-            <span :if={after_photos_complete?(@after_photos)} class="badge badge-success">
-              ✓ Complete
-            </span>
-            <span
-              :if={!after_photos_complete?(@after_photos)}
-              class="badge badge-success animate-pulse"
-            >
-              {Enum.count(@key_areas, &(area_photo(@after_photos, &1.id) != nil))}/{length(@key_areas)}
-            </span>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div :for={area <- @key_areas}>
-              <% before_photo = area_photo(@before_photos, area.id) %>
-              <% after_photo = area_photo(@after_photos, area.id) %>
-              <!-- Filled -->
-              <div :if={after_photo} class="relative h-40 rounded-2xl overflow-hidden shadow">
-                <img src={after_photo.file_path} class="w-full h-full object-cover" />
-                <!-- Before thumbnail inset -->
-                <div
-                  :if={before_photo}
-                  class="absolute bottom-2 left-2 w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow"
-                >
-                  <img src={before_photo.file_path} class="w-full h-full object-cover" />
-                </div>
-                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-2 pl-16">
-                  <p class="text-white text-xs font-bold leading-tight">{area.label}</p>
-                </div>
-                <div class="absolute top-2 right-2 bg-success rounded-full w-6 h-6 flex items-center justify-center shadow">
-                  <span class="text-white text-xs font-bold">✓</span>
-                </div>
-                <button
-                  class="absolute top-2 left-2 bg-black/40 rounded-full px-2 py-0.5 text-white text-xs"
-                  phx-click="show_upload"
-                  phx-value-type="after"
-                  phx-value-area={area.id}
-                >
-                  Retake
-                </button>
-              </div>
-              <!-- Empty -->
-              <button
-                :if={!after_photo}
-                class="relative w-full h-40 rounded-2xl border-2 border-dashed border-success bg-success/5 flex flex-col items-center justify-center gap-1 active:bg-success/20 transition-colors overflow-hidden"
-                phx-click="show_upload"
-                phx-value-type="after"
-                phx-value-area={area.id}
-              >
-                <!-- Faded before photo as background guide -->
-                <img
-                  :if={before_photo}
-                  src={before_photo.file_path}
-                  class="absolute inset-0 w-full h-full object-cover opacity-20"
-                />
-                <span class="relative text-5xl font-thin text-success/70">+</span>
-                <span class="relative text-sm font-bold text-success">{area.label}</span>
-                <span class="relative text-xs text-base-content/70 text-center px-3 leading-tight">
-                  {area.instruction}
-                </span>
-              </button>
-            </div>
-          </div>
-          <div
-            :if={after_photos_complete?(@after_photos)}
-            class="mt-4 alert alert-success rounded-2xl"
-          >
-            <span class="font-semibold">All photos complete — finishing wash...</span>
-          </div>
-        </div>
-        
-    <!-- Complete Banner -->
-        <div :if={@checklist.status == :completed} class="mt-6 text-center">
-          <div class="text-4xl mb-2">✓</div>
-          <h2 class="text-xl font-bold text-success">Checklist Complete!</h2>
-          <p class="text-sm text-base-content/80 mb-4">All steps verified</p>
-          
-    <!-- Time Summary -->
-          <div class="card bg-base-100 shadow mx-auto max-w-sm">
-            <div class="card-body p-4">
-              <h3 class="font-semibold text-sm mb-2">Time Analysis</h3>
-              <div
-                :for={item <- @items}
-                :if={item.actual_seconds}
-                class="flex justify-between text-xs py-1 border-b border-base-200"
-              >
-                <span>{item.title}</span>
-                <span class={
-                  if item.actual_seconds <= (item.estimated_minutes || 5) * 60,
-                    do: "text-success",
-                    else: "text-error"
-                }>
-                  {format_seconds(item.actual_seconds)} / {item.estimated_minutes}m est
-                </span>
-              </div>
-              <div class="flex justify-between font-bold text-sm mt-2">
-                <span>Total</span>
-                <span>{format_seconds(total_actual_seconds(@items))}</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -883,6 +1002,29 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
     active || last_completed || next_pending
   end
+
+  defp active_step_title(items) do
+    case current_progress_item(items) do
+      nil -> "No active step"
+      item -> item.title
+    end
+  end
+
+  defp active_step_supporting_copy(_items, :completed) do
+    "Everything is wrapped. Review the completed wash details below."
+  end
+
+  defp active_step_supporting_copy(items, _status) do
+    case current_progress_item(items) do
+      %{completed: true} -> "Nice. This was the last finished step."
+      %{started_at: %DateTime{}} -> "Timer is live for the step currently in motion."
+      %{required: true} -> "This is the next required step to keep the wash moving."
+      %{required: false} -> "This optional step is next up if you want to complete it."
+      nil -> "Steps will appear here once the checklist has been created."
+    end
+  end
+
+  defp done_label(done, total), do: "#{done}/#{total} done"
 
   defp timer_progress_color(item, now) do
     case timer_zone(item, now) do
