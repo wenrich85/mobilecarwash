@@ -134,6 +134,26 @@ defmodule MobileCarWashWeb.BookingSinglePageTest do
     assert section_html(html, "section-vehicle") =~ "<fieldset disabled"
   end
 
+  test "booking page renders active services hidden from landing display", %{conn: conn} do
+    service =
+      ServiceType
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Book Only Wash",
+        slug: "book_only_wash_#{System.unique_integer([:positive])}",
+        description: "Active and bookable, not marketed on landing.",
+        base_price_cents: 8800,
+        duration_minutes: 75,
+        active: true,
+        show_on_landing: false
+      })
+      |> Ash.create!()
+
+    {:ok, _view, html} = live(conn, ~p"/book")
+
+    assert html =~ service.name
+    assert html =~ "$88"
+  end
+
   test "choosing a service unlocks the vehicle section and updates the hero", %{conn: conn} do
     {:ok, view, _} = live(conn, "/book")
     html = render_click(view, "select_service", %{"slug" => "basic_wash"})
