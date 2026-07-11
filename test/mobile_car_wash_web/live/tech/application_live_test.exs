@@ -197,6 +197,30 @@ defmodule MobileCarWashWeb.Tech.ApplicationLiveTest do
     assert has_element?(view, "#tech-application-status")
     assert render(view) =~ "Pending review"
     assert render(view) =~ application.preferred_name
+    assert render(view) =~ "+15125550200"
+    assert render(view) =~ "NW"
+    assert render(view) =~ "Weekdays"
+    assert render(view) =~ "Mornings"
+    assert render(view) =~ "Driver license"
+    assert render(view) =~ "Yes"
+    assert render(view) =~ "I enjoy mobile work."
+    assert render(view) =~ "Submitted"
+  end
+
+  test "customer without an application sees the application start action", %{conn: conn} do
+    customer = customer_fixture()
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/application")
+
+    assert has_element?(view, "#tech-application-status")
+    assert has_element?(view, "#tech-application-journey")
+    assert has_element?(view, "#tech-application-next-action a[href='/tech/apply']")
+
+    assert render(view) =~
+             "Start an application to share your availability and technician details."
   end
 
   test "status page renders the application journey and applicant details", %{conn: conn} do
@@ -230,6 +254,30 @@ defmodule MobileCarWashWeb.Tech.ApplicationLiveTest do
     application =
       create_application!(customer)
       |> then(&Ash.update!(Ash.Changeset.for_update(&1, :submit, %{}), authorize?: false))
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/application")
+
+    assert application.status == :pending_review
+    assert has_element?(view, "#journey-step-pending_review[data-state='current']")
+
+    assert render(view) =~
+             "No action needed right now. We will review your application and update this page."
+
+    refute has_element?(view, "#tech-application-next-action a[href='/tech/profile']")
+    refute has_element?(view, "#tech-application-next-action a[href='/tech']")
+    refute render(view) =~ "Internal review note"
+    refute render(view) =~ "Visible only after a final decision"
+  end
+
+  test "reviewed status keeps review and decision notes private", %{conn: conn} do
+    customer = customer_fixture()
+
+    application =
+      create_application!(customer)
+      |> then(&Ash.update!(Ash.Changeset.for_update(&1, :submit, %{}), authorize?: false))
       |> then(
         &Ash.update!(
           Ash.Changeset.for_update(&1, :mark_reviewed, %{review_notes: "Internal review note"}),
@@ -243,8 +291,15 @@ defmodule MobileCarWashWeb.Tech.ApplicationLiveTest do
       |> live(~p"/tech/application")
 
     assert application.status == :reviewed
+    assert has_element?(view, "#journey-step-reviewed[data-state='current']")
+
+    assert render(view) =~
+             "A final decision is still pending. Watch this page for the next update."
+
+    assert render(view) =~ "Reviewed"
+    assert render(view) =~ Calendar.strftime(application.reviewed_at, "%b %d, %Y at %I:%M %p UTC")
     refute render(view) =~ "Internal review note"
-    refute has_element?(view, "#tech-application-next-action a[href='/tech/profile']")
+    refute render(view) =~ "Visible only after a final decision"
   end
 
   test "accepted status shows decision note and technician links", %{conn: conn} do
@@ -277,6 +332,7 @@ defmodule MobileCarWashWeb.Tech.ApplicationLiveTest do
     assert application.status == :accepted
     assert has_element?(view, "#journey-step-decision[data-state='current']")
     assert render(view) =~ "Welcome aboard."
+    refute render(view) =~ "Internal review note"
     assert has_element?(view, "#tech-application-next-action a[href='/tech/profile']")
     assert has_element?(view, "#tech-application-next-action a[href='/tech']")
   end
