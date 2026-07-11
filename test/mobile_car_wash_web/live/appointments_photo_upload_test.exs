@@ -82,6 +82,29 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
   end
 
   describe "Problem Area Photos modal" do
+    test "an oversized photo reports its error on the preview card", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      big = %{
+        name: "huge.jpg",
+        content: :binary.copy(<<0xFF>>, 10_000_001),
+        type: "image/jpeg"
+      }
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [big])
+      assert {:error, [[_ref, :too_large]]} = render_upload(input, "huge.jpg")
+
+      assert render(view) =~ "That photo is too large"
+    end
+
     test "opens with the Take Photo / Upload dual CTA", %{conn: conn} do
       customer = register_customer()
       appt = create_appointment(customer.id)

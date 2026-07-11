@@ -808,7 +808,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
         class="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-error bg-error/5 px-3 text-center"
       >
         <p class="text-sm font-bold text-error">{@area.label}</p>
-        <p class="text-xs text-error">{upload_error_to_string(hd(@upload_errs))}</p>
+        <p class="text-xs text-error">
+          {MobileCarWashWeb.PhotoUploader.error_message(hd(@upload_errs))}
+        </p>
         <button
           type="button"
           class="btn btn-outline btn-error btn-xs"
@@ -889,11 +891,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
   defp tile_accent(:after), do: "border-success bg-success/5 text-success active:bg-success/20"
 
   # --- Photo Helpers ---
-
-  defp upload_error_to_string(:too_large), do: "That photo is too large (max 10 MB)."
-  defp upload_error_to_string(:not_accepted), do: "Use a JPG, PNG, or WebP photo."
-  defp upload_error_to_string(:too_many_files), do: "One photo at a time."
-  defp upload_error_to_string(_), do: "Upload failed — remove the photo and try again."
 
   defp tile_upload_opts do
     [
