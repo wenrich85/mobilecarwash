@@ -350,5 +350,59 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
 
       assert Enum.sort(Enum.map(saved, & &1.car_part)) == [:front, :rear]
     end
+
+    test "an oversized upload reports on its tile with a retry control", %{
+      conn: conn,
+      checklist: checklist
+    } do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      big = %{
+        name: "huge.jpg",
+        content: :binary.copy(<<0xFF>>, 10_000_001),
+        type: "image/jpeg"
+      }
+
+      input = file_input(view, "#before-photo-form", :before_front, [big])
+      assert {:error, [[_ref, :too_large]]} = render_upload(input, "huge.jpg")
+
+      assert render(view) =~ "That photo is too large"
+      assert has_element?(view, "#tile-before-front button", "Try again")
+
+      # Try again clears the dead entry and returns the tile to capture state.
+      view |> element("#tile-before-front button", "Try again") |> render_click()
+
+      refute render(view) =~ "That photo is too large"
+      assert has_element?(view, "#tile-before-front label[for]")
+    end
+
+    test "a failed save reports on the tile, not via flash", %{
+      conn: conn,
+      checklist: checklist,
+      appointment: appointment
+    } do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      # A file under 4 bytes trips PhotoUpload's "File too small to
+      # validate" — a deterministic, non-destructive save failure.
+      tiny = %{name: "tiny.jpg", content: <<0xFF, 0xD8>>, type: "image/jpeg"}
+
+      input = file_input(view, "#before-photo-form", :before_rear, [tiny])
+      render_upload(input, "tiny.jpg")
+
+      html = render(view)
+      assert html =~ "Could not save photo"
+      refute html =~ "Photo saved."
+
+      require Ash.Query
+
+      assert [] =
+               MobileCarWash.Operations.Photo
+               |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :before)
+               |> Ash.read!()
+
+      # Tile is immediately retakeable (entry was consumed).
+      assert has_element?(view, "#tile-before-rear label[for]")
+    end
   end
 end
