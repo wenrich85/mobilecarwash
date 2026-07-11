@@ -240,19 +240,30 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
     end
 
     test "status update from another subscriber (PubSub) re-renders in-place",
-         %{conn: conn, tech: tech} do
+         %{conn: conn, tech: tech, user: user} do
+      appt = create_appointment(user.id, tech.id, :confirmed)
+
       {:ok, view, _html} = live(conn, ~p"/tech")
+      assert has_element?(view, "#command-start-shift", "Start shift")
 
       # Simulate a different subscriber (another open tab, admin override)
       # flipping the status.
       tech
-      |> Ash.Changeset.for_update(:set_status, %{status: :on_break})
+      |> Ash.Changeset.for_update(:set_status, %{status: :available})
       |> Ash.update!()
 
       # The broadcast is fire-and-forget; give the LiveView a render cycle
       # to pick it up.
       render(view)
-      assert render(view) =~ "On break"
+      assert render(view) =~ "Available"
+
+      assert has_element?(
+               view,
+               "#command-view-job[href='/tech/appointments/#{appt.id}']",
+               "View job"
+             )
+
+      refute has_element?(view, "#command-start-shift", "Start shift")
     end
   end
 
