@@ -21,6 +21,8 @@ defmodule MobileCarWash.Operations.PhotoUpload do
   # serving bytes or redirecting to a presigned S3 URL.
   @local_upload_dir "priv/uploads"
 
+  @allowed_extensions ~w(.jpg .jpeg .png .webp)
+
   @doc """
   Saves an uploaded file and creates a Photo record.
   Uses the configured storage backend (:local or :s3).
@@ -63,7 +65,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
             byte_size(magic) <= byte_size(header) and :binary.match(header, magic) != :nomatch
           end)
 
-        if valid? or ext in ~w(.jpg .jpeg .png .webp),
+        if valid? or ext in @allowed_extensions,
           do: :ok,
           else: {:error, "Invalid image file"}
 
@@ -112,11 +114,6 @@ defmodule MobileCarWash.Operations.PhotoUpload do
          photo_type,
          opts
        ) do
-    uploaded_by = Keyword.get(opts, :uploaded_by, :technician)
-    caption = Keyword.get(opts, :caption)
-    checklist_item_id = Keyword.get(opts, :checklist_item_id)
-    car_part = Keyword.get(opts, :car_part)
-    idempotency_key = Keyword.get(opts, :idempotency_key)
     client_id = Keyword.get(opts, :client_id, "default")
 
     filename = "#{photo_type}_#{Ash.UUID.generate()}#{ext}"
@@ -132,42 +129,7 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     end
     |> case do
       {:ok, url_path} ->
-        # Create photo record
-        changeset_attrs = %{
-          file_path: url_path,
-          original_filename: original_filename,
-          content_type: content_type,
-          photo_type: photo_type,
-          caption: caption,
-          uploaded_by: uploaded_by
-        }
-
-        changeset_attrs =
-          if car_part, do: Map.put(changeset_attrs, :car_part, car_part), else: changeset_attrs
-
-        changeset_attrs =
-          if idempotency_key,
-            do: Map.put(changeset_attrs, :idempotency_key, idempotency_key),
-            else: changeset_attrs
-
-        case Photo
-             |> Ash.Changeset.for_create(:upload, changeset_attrs)
-             |> Ash.Changeset.force_change_attribute(:appointment_id, appointment_id)
-             |> then(fn cs ->
-               if checklist_item_id do
-                 Ash.Changeset.force_change_attribute(cs, :checklist_item_id, checklist_item_id)
-               else
-                 cs
-               end
-             end)
-             |> Ash.create() do
-          {:ok, photo} = ok ->
-            maybe_enqueue_ai_analysis(photo)
-            ok
-
-          other ->
-            other
-        end
+        create_photo_record(appointment_id, url_path, original_filename, photo_type, opts)
 
       {:error, reason} ->
         {:error, reason}
@@ -202,6 +164,53 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     :ok
   end
 
+  # Shared tail of both save paths: build the changeset, insert, enqueue AI.
+  # `storage_path` is a PhotoController URL path (local) or an S3 object
+  # key (both s3 flavors) — Photo.file_path stores it verbatim.
+  defp create_photo_record(appointment_id, storage_path, original_filename, photo_type, opts) do
+    uploaded_by = Keyword.get(opts, :uploaded_by, :technician)
+    caption = Keyword.get(opts, :caption)
+    checklist_item_id = Keyword.get(opts, :checklist_item_id)
+    car_part = Keyword.get(opts, :car_part)
+    idempotency_key = Keyword.get(opts, :idempotency_key)
+
+    changeset_attrs = %{
+      file_path: storage_path,
+      original_filename: original_filename,
+      content_type: MIME.from_path(original_filename),
+      photo_type: photo_type,
+      caption: caption,
+      uploaded_by: uploaded_by
+    }
+
+    changeset_attrs =
+      if car_part, do: Map.put(changeset_attrs, :car_part, car_part), else: changeset_attrs
+
+    changeset_attrs =
+      if idempotency_key,
+        do: Map.put(changeset_attrs, :idempotency_key, idempotency_key),
+        else: changeset_attrs
+
+    case Photo
+         |> Ash.Changeset.for_create(:upload, changeset_attrs)
+         |> Ash.Changeset.force_change_attribute(:appointment_id, appointment_id)
+         |> then(fn cs ->
+           if checklist_item_id do
+             Ash.Changeset.force_change_attribute(cs, :checklist_item_id, checklist_item_id)
+           else
+             cs
+           end
+         end)
+         |> Ash.create() do
+      {:ok, photo} = ok ->
+        maybe_enqueue_ai_analysis(photo)
+        ok
+
+      other ->
+        other
+    end
+  end
+
   # Only :problem_area photos uploaded by the customer trigger the
   # vision-model analyzer. Tech-uploaded :before / :after / :step_completion
   # photos are handled by a separate before/after QA worker (not yet built).
@@ -216,6 +225,41 @@ defmodule MobileCarWash.Operations.PhotoUpload do
   @doc "Returns the configured storage backend."
   def storage_backend do
     Application.get_env(:mobile_car_wash, :photo_storage, :local)
+  end
+
+  @doc "True when uploads should go straight to object storage via presigned URLs."
+  def external_uploads?, do: storage_backend() == :s3
+
+  @doc """
+  Builds the object key for a photo. Same shape the channel path stores,
+  so display, cleanup, and AI analysis work identically for both paths.
+  """
+  def object_key(appointment_id, photo_type, original_filename) do
+    ext = Path.extname(original_filename) |> String.downcase()
+    "appointments/#{appointment_id}/#{photo_type}_#{Ash.UUID.generate()}#{ext}"
+  end
+
+  @doc """
+  Records a photo whose bytes were uploaded directly to object storage by
+  the client (presigned PUT). No byte validation is possible here — the
+  server never sees the file — so only the extension allow-list applies.
+  """
+  def save_external_file(appointment_id, key, original_filename, photo_type, opts \\ []) do
+    ext = Path.extname(original_filename) |> String.downcase()
+    idempotency_key = Keyword.get(opts, :idempotency_key)
+    car_part = Keyword.get(opts, :car_part)
+
+    cond do
+      ext not in @allowed_extensions ->
+        {:error, "Invalid image file"}
+
+      photo = get_idempotent_photo(idempotency_key) ->
+        {:ok, photo}
+
+      true ->
+        :ok = soft_delete_existing_slot(appointment_id, photo_type, car_part)
+        create_photo_record(appointment_id, key, original_filename, photo_type, opts)
+    end
   end
 
   @doc "Returns the S3 bucket name (configurable per client)."
@@ -318,6 +362,46 @@ defmodule MobileCarWash.Operations.PhotoUpload do
       {:ok, url} -> url
       # fallback — will 403 in browser but won't crash the app
       _ -> path
+    end
+  end
+
+  @presign_put_expiry 300
+
+  @doc """
+  Presigns a PUT of `key` so the client can upload straight to the bucket.
+  Content-Type is signed, so the client must send exactly this type.
+  Works on AWS S3 and DigitalOcean Spaces (via the configured endpoint).
+  """
+  def presign_put(key, content_type) do
+    region = Application.get_env(:mobile_car_wash, :s3_region, "us-east-1")
+    config = ExAws.Config.new(:s3, region: region)
+
+    ExAws.S3.presigned_url(config, :put, s3_bucket(), key,
+      expires_in: @presign_put_expiry,
+      headers: [{"Content-Type", content_type}]
+    )
+  end
+
+  @doc """
+  Builds the meta map LiveView hands to the JS uploader for an external
+  entry. `key` rides along so consume-time code knows where the bytes are.
+  """
+  def external_entry_meta(entry, appointment_id, photo_type) do
+    key = object_key(appointment_id, photo_type, entry.client_name)
+    content_type = MIME.from_path(entry.client_name)
+
+    case presign_put(key, content_type) do
+      {:ok, url} ->
+        {:ok,
+         %{
+           uploader: "S3PUT",
+           url: url,
+           headers: %{"content-type" => content_type},
+           key: key
+         }}
+
+      {:error, _} = error ->
+        error
     end
   end
 

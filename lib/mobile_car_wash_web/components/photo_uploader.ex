@@ -39,6 +39,16 @@ defmodule MobileCarWashWeb.PhotoUploader do
     {"Sunroof", :sunroof}
   ]
 
+  @doc "Human-readable message for a LiveView upload error atom."
+  def error_message(:too_large), do: "That photo is too large (max 10 MB)."
+  def error_message(:not_accepted), do: "Use a JPG, PNG, or WebP photo."
+  def error_message(:too_many_files), do: "Too many photos at once."
+
+  def error_message(:external_client_failure),
+    do: "Upload failed — check your connection and try again."
+
+  def error_message(_), do: "Upload failed — remove the photo and try again."
+
   @doc """
   Full uploader — action buttons + in-progress previews + chip row + caption.
 
@@ -68,8 +78,18 @@ defmodule MobileCarWashWeb.PhotoUploader do
         :if={@camera_upload.entries != [] or @library_upload.entries != []}
         class="grid grid-cols-2 md:grid-cols-3 gap-3"
       >
-        <.entry_preview :for={entry <- @camera_upload.entries} entry={entry} source="camera" />
-        <.entry_preview :for={entry <- @library_upload.entries} entry={entry} source="library" />
+        <.entry_preview
+          :for={entry <- @camera_upload.entries}
+          entry={entry}
+          upload={@camera_upload}
+          source="camera"
+        />
+        <.entry_preview
+          :for={entry <- @library_upload.entries}
+          entry={entry}
+          upload={@library_upload}
+          source="library"
+        />
       </div>
 
       <.preview_grid photos={@uploaded_photos} />
@@ -162,19 +182,31 @@ defmodule MobileCarWashWeb.PhotoUploader do
     """
   end
 
-  # In-flight preview with progress bar + cancel button. Source tag lets
-  # the parent know which upload config to cancel against.
+  # In-flight preview with progress bar + cancel button; failed entries
+  # show their error on the card itself. Source tag lets the parent know
+  # which upload config to cancel against.
   attr :entry, :any, required: true
+  attr :upload, :any, required: true
   attr :source, :string, required: true
 
   defp entry_preview(assigns) do
+    assigns = assign(assigns, :errs, upload_errors(assigns.upload, assigns.entry))
+
     ~H"""
     <div class="relative">
       <.live_img_preview
+        :if={@errs == []}
         entry={@entry}
         class="w-full aspect-square object-cover rounded-2xl shadow-sm"
       />
-      <div class="absolute inset-x-2 bottom-2">
+      <div
+        :if={@errs != []}
+        class="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-error bg-error/5 px-2 text-center"
+      >
+        <p class="text-xs font-semibold text-error">{error_message(hd(@errs))}</p>
+        <p class="max-w-full truncate text-xs text-base-content/60">{@entry.client_name}</p>
+      </div>
+      <div :if={@errs == []} class="absolute inset-x-2 bottom-2">
         <progress class="progress progress-primary w-full h-1.5" value={@entry.progress} max="100" />
       </div>
       <button
@@ -183,7 +215,7 @@ defmodule MobileCarWashWeb.PhotoUploader do
         phx-click="cancel_photo_upload"
         phx-value-ref={@entry.ref}
         phx-value-source={@source}
-        aria-label="Cancel upload"
+        aria-label={if @errs == [], do: "Cancel upload", else: "Remove failed photo"}
       >
         ✕
       </button>

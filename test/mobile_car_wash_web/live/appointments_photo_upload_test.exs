@@ -82,6 +82,29 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
   end
 
   describe "Problem Area Photos modal" do
+    test "an oversized photo reports its error on the preview card", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      big = %{
+        name: "huge.jpg",
+        content: :binary.copy(<<0xFF>>, 10_000_001),
+        type: "image/jpeg"
+      }
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [big])
+      assert {:error, [[_ref, :too_large]]} = render_upload(input, "huge.jpg")
+
+      assert render(view) =~ "That photo is too large"
+    end
+
     test "opens with the Take Photo / Upload dual CTA", %{conn: conn} do
       customer = register_customer()
       appt = create_appointment(customer.id)
@@ -105,6 +128,27 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
       # claimed by LiveView's internal LiveFileUpload hook.
       assert has_element?(view, "[phx-hook='ImageDownscale'] input[type='file']")
       refute has_element?(view, "input[type='file'][phx-hook]")
+    end
+
+    test "a failed save reports in the modal instead of crashing", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      # A file under 4 bytes deterministically fails PhotoUpload's
+      # content validation ("File too small to validate").
+      tiny = %{name: "tiny.jpg", content: <<0xFF, 0xD8>>, type: "image/jpeg"}
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [tiny])
+      render_upload(input, "tiny.jpg")
+
+      assert render(view) =~ "Could not save photo"
     end
 
     test "closes when the Done button is tapped", %{conn: conn} do
@@ -178,6 +222,83 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
       # body_part should be rendered in its selected (btn-primary) style.
       assert html =~ "✨"
       assert html =~ "Light scratch on lower rear bumper"
+    end
+  end
+
+  describe "external uploads (s3 backend)" do
+    setup do
+      prev_storage = Application.get_env(:mobile_car_wash, :photo_storage, :local)
+      prev_key = Application.get_env(:ex_aws, :access_key_id)
+      prev_secret = Application.get_env(:ex_aws, :secret_access_key)
+
+      Application.put_env(:mobile_car_wash, :photo_storage, :s3)
+      Application.put_env(:ex_aws, :access_key_id, "test-access-key")
+      Application.put_env(:ex_aws, :secret_access_key, "test-secret-key")
+
+      on_exit(fn ->
+        Application.put_env(:mobile_car_wash, :photo_storage, prev_storage)
+        Application.put_env(:ex_aws, :access_key_id, prev_key)
+        Application.put_env(:ex_aws, :secret_access_key, prev_secret)
+      end)
+
+      :ok
+    end
+
+    test "problem-photo preflight returns S3PUT meta", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      photo = %{
+        name: "spot.jpg",
+        content: <<0xFF, 0xD8, 0xFF, 0xE0>> <> :binary.copy(<<0>>, 60_000),
+        type: "image/jpeg"
+      }
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [photo])
+
+      {:ok, resp} = preflight_upload(input)
+      meta = resp.entries |> Map.values() |> hd()
+
+      assert meta.uploader == "S3PUT"
+      assert meta.key =~ "appointments/#{appt.id}/problem_area_"
+    end
+
+    test "a completed external upload records the object key", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      photo = %{
+        name: "spot.jpg",
+        content: <<0xFF, 0xD8, 0xFF, 0xE0>> <> :binary.copy(<<0>>, 60_000),
+        type: "image/jpeg"
+      }
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [photo])
+      render_upload(input, "spot.jpg")
+
+      require Ash.Query
+
+      saved =
+        MobileCarWash.Operations.Photo
+        |> Ash.Query.filter(appointment_id == ^appt.id and photo_type == :problem_area)
+        |> Ash.read!()
+
+      assert [%{uploaded_by: :customer} = p] = saved
+      assert p.file_path =~ "appointments/#{appt.id}/problem_area_"
     end
   end
 end

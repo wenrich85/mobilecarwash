@@ -60,22 +60,11 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         photo_caption: nil,
         selected_car_part: nil,
         show_all_parts: false,
-        uploaded_photos: []
+        uploaded_photos: [],
+        photo_save_error: nil
       )
-      |> allow_upload(:problem_photo_camera,
-        accept: ~w(.jpg .jpeg .png .webp),
-        max_entries: 5,
-        max_file_size: 10_000_000,
-        auto_upload: true,
-        progress: &handle_photo_progress/3
-      )
-      |> allow_upload(:problem_photo_library,
-        accept: ~w(.jpg .jpeg .png .webp),
-        max_entries: 5,
-        max_file_size: 10_000_000,
-        auto_upload: true,
-        progress: &handle_photo_progress/3
-      )
+      |> allow_upload(:problem_photo_camera, problem_photo_opts())
+      |> allow_upload(:problem_photo_library, problem_photo_opts())
 
     {:ok, socket}
   end
@@ -101,7 +90,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
          uploaded_photos: photos,
          photo_caption: nil,
          selected_car_part: nil,
-         show_all_parts: false
+         show_all_parts: false,
+         photo_save_error: nil
        )}
     else
       {:noreply, put_flash(socket, :error, "Appointment not found")}
@@ -163,6 +153,29 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   defp upload_name_for("library"), do: :problem_photo_library
   defp upload_name_for(_), do: :problem_photo_library
 
+  defp problem_photo_opts do
+    base = [
+      accept: ~w(.jpg .jpeg .png .webp),
+      max_entries: 5,
+      max_file_size: 10_000_000,
+      auto_upload: true,
+      progress: &handle_photo_progress/3
+    ]
+
+    if PhotoUpload.external_uploads?() do
+      base ++ [external: &presign_problem_photo/2]
+    else
+      base
+    end
+  end
+
+  defp presign_problem_photo(entry, socket) do
+    case PhotoUpload.external_entry_meta(entry, socket.assigns.uploading_for, :problem_area) do
+      {:ok, meta} -> {:ok, meta, socket}
+      {:error, reason} -> {:error, %{reason: inspect(reason)}, socket}
+    end
+  end
+
   defp handle_photo_progress(name, entry, socket)
        when name in [:problem_photo_camera, :problem_photo_library] do
     if entry.done? do
@@ -170,38 +183,68 @@ defmodule MobileCarWashWeb.AppointmentsLive do
       caption = socket.assigns.photo_caption
       car_part = socket.assigns.selected_car_part
 
-      photo =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
-          opts =
-            [uploaded_by: :customer, caption: caption]
-            |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
-
-          case PhotoUpload.save_file(
-                 appointment_id,
-                 path,
-                 entry.client_name,
-                 :problem_area,
-                 opts
-               ) do
-            {:ok, photo} ->
-              {:ok, PhotoUpload.apply_url(photo)}
-
-            other ->
-              other
-          end
+      result =
+        consume_uploaded_entry(socket, entry, fn meta ->
+          {:ok, save_problem_photo(meta, appointment_id, entry, caption, car_part)}
         end)
 
-      # Subscribe to the photo's AI channel so the preview updates the
-      # moment the background analyzer finishes.
-      if connected?(socket) and photo.id do
-        MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
-      end
+      case result do
+        {:ok, photo} ->
+          if connected?(socket) and photo.id do
+            MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
+          end
 
-      {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
+          {:noreply,
+           socket
+           |> assign(photo_save_error: nil)
+           |> update(:uploaded_photos, &(&1 ++ [photo]))}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, photo_save_error: photo_save_error_message(reason))}
+      end
     else
       {:noreply, socket}
     end
   end
+
+  defp save_problem_photo(%{path: path}, appointment_id, entry, caption, car_part) do
+    opts =
+      [uploaded_by: :customer, caption: caption]
+      |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
+
+    case PhotoUpload.save_file(appointment_id, path, entry.client_name, :problem_area, opts) do
+      {:ok, photo} -> {:ok, PhotoUpload.apply_url(photo)}
+      other -> other
+    end
+  end
+
+  defp save_problem_photo(%{key: key}, appointment_id, entry, caption, car_part) do
+    opts =
+      [uploaded_by: :customer, caption: caption]
+      |> then(fn o -> if car_part, do: o ++ [car_part: car_part], else: o end)
+
+    case PhotoUpload.save_external_file(
+           appointment_id,
+           key,
+           entry.client_name,
+           :problem_area,
+           opts
+         ) do
+      {:ok, photo} ->
+        {:ok, PhotoUpload.apply_url(photo)}
+
+      {:error, reason} ->
+        # The object is already in the bucket but has no DB row — remove
+        # it best-effort so failed saves don't strand orphans.
+        _ = PhotoUpload.delete_file(%{file_path: key})
+        {:error, reason}
+    end
+  end
+
+  defp photo_save_error_message(reason) when is_binary(reason),
+    do: "Could not save photo: #{reason}"
+
+  defp photo_save_error_message(_reason), do: "Could not save photo — please try again."
 
   # Loads already-uploaded problem-area photos for this appointment so
   # they're visible the moment the modal opens (e.g. the customer comes
@@ -483,6 +526,10 @@ defmodule MobileCarWashWeb.AppointmentsLive do
                   ✕
                 </button>
               </div>
+
+              <p :if={@photo_save_error} class="text-sm font-semibold text-error">
+                {@photo_save_error}
+              </p>
 
               <form phx-change="validate_photos" id={"photo-upload-form-#{appt.id}"}>
                 <MobileCarWashWeb.PhotoUploader.uploader
