@@ -47,12 +47,14 @@ import {AddressMap} from "./hooks/address_map"
 import {ClipboardCopy} from "./hooks/clipboard_copy"
 import {PriceCountUp} from "./hooks/price_count_up.js"
 import {ImageDownscale} from "./hooks/image_downscale"
+import {S3PUT} from "./uploaders/s3_put"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
   hooks: {...colocatedHooks, Sortable, DispatchMap, AddressMap, ClipboardCopy, PriceCountUp, ImageDownscale},
+  uploaders: {S3PUT},
 })
 
 // Show progress bar on live navigation and form submits
