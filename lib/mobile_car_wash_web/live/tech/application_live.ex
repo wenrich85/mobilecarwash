@@ -132,109 +132,149 @@ defmodule MobileCarWashWeb.Tech.ApplicationLive do
             id="tech-application-status"
             class="space-y-6 px-6 py-6 sm:px-8"
           >
-            <div class="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-              <div class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+            <div class="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
+              <section class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
                 <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">
-                  Current status
+                  Status journey
                 </h2>
-                <p class="mt-3 text-lg font-semibold text-base-content">
-                  {status_label(@application && @application.status)}
-                </p>
-                <p class="mt-2 text-sm leading-6 text-base-content/70">
-                  {status_message(@application)}
-                </p>
-              </div>
+                <div id="tech-application-journey" class="mt-5 grid gap-3 sm:grid-cols-4">
+                  <div
+                    :for={step <- journey_steps(@application)}
+                    id={"journey-step-#{step.id}"}
+                    data-state={step.state}
+                    class={journey_step_class(step.state)}
+                  >
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.16em]">
+                      {step.kicker}
+                    </p>
+                    <p class="mt-2 text-sm font-semibold">{step.label}</p>
+                  </div>
+                </div>
+              </section>
 
-              <div class="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm">
+              <section
+                id="tech-application-next-action"
+                class="rounded-2xl border border-base-300 bg-base-200/60 p-5 shadow-sm"
+              >
                 <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">
                   Next step
                 </h2>
                 <p class="mt-3 text-sm leading-6 text-base-content/75">
                   {next_step_message(@application)}
                 </p>
-                <.link
-                  :if={!@application || @application.status == :draft}
-                  patch={~p"/tech/apply"}
-                  class="btn btn-primary mt-4"
-                >
-                  Continue application
-                </.link>
-              </div>
+                <div class="mt-5 flex flex-col gap-3">
+                  <.link
+                    :if={!@application || @application.status == :draft}
+                    patch={~p"/tech/apply"}
+                    class="btn btn-primary"
+                  >
+                    {if @application, do: "Continue application", else: "Start application"}
+                  </.link>
+                  <.link
+                    :if={@application && @application.status == :accepted}
+                    navigate={~p"/tech/profile"}
+                    class="btn btn-primary"
+                  >
+                    View tech profile
+                  </.link>
+                  <.link
+                    :if={@application && @application.status == :accepted}
+                    navigate={~p"/tech"}
+                    class="btn btn-outline"
+                  >
+                    Open tech tools
+                  </.link>
+                </div>
+              </section>
             </div>
 
-            <div :if={@application} class="grid gap-4 lg:grid-cols-2">
+            <section
+              :if={@application && final_decision?(@application)}
+              class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm"
+            >
+              <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">
+                Decision note
+              </h2>
+              <p class="mt-3 text-sm leading-6 text-base-content/75">
+                {blank_fallback(@application.decision_note, "No decision note was added.")}
+              </p>
+            </section>
+
+            <section
+              :if={@application}
+              id="tech-application-details"
+              class="grid gap-4 lg:grid-cols-2"
+            >
               <div class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
                 <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">
                   Applicant details
                 </h2>
-
                 <dl class="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <dt class="text-xs uppercase tracking-wide text-base-content/50">
-                      Preferred name
-                    </dt>
-                    <dd class="mt-1 font-medium text-base-content">{@application.preferred_name}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs uppercase tracking-wide text-base-content/50">Phone</dt>
-                    <dd class="mt-1 font-medium text-base-content">
-                      {blank_fallback(@application.phone)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs uppercase tracking-wide text-base-content/50">Home ZIP</dt>
-                    <dd class="mt-1 font-medium text-base-content">
-                      {blank_fallback(@application.home_zip)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs uppercase tracking-wide text-base-content/50">
-                      Preferred zone
-                    </dt>
-                    <dd class="mt-1 font-medium text-base-content">
-                      {zone_label(@application.preferred_zone)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs uppercase tracking-wide text-base-content/50">Experience</dt>
-                    <dd class="mt-1 font-medium text-base-content">
-                      {experience_label(@application.experience_level)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-xs uppercase tracking-wide text-base-content/50">
-                      Desired hours
-                    </dt>
-                    <dd class="mt-1 font-medium text-base-content">
-                      {number_fallback(@application.desired_hours_per_week)}
-                    </dd>
-                  </div>
+                  <.detail_item label="Preferred name" value={@application.preferred_name} />
+                  <.detail_item label="Phone" value={blank_fallback(@application.phone)} />
+                  <.detail_item label="Home ZIP" value={blank_fallback(@application.home_zip)} />
+                  <.detail_item
+                    label="Preferred zone"
+                    value={zone_label(@application.preferred_zone)}
+                  />
+                  <.detail_item
+                    label="Experience"
+                    value={experience_label(@application.experience_level)}
+                  />
+                  <.detail_item
+                    label="Desired hours"
+                    value={number_fallback(@application.desired_hours_per_week)}
+                  />
+                  <.detail_item
+                    label="Earliest start"
+                    value={date_fallback(@application.earliest_start_date)}
+                  />
+                  <.detail_item
+                    label="Submitted"
+                    value={datetime_fallback(@application.submitted_at)}
+                  />
+                  <.detail_item label="Reviewed" value={datetime_fallback(@application.reviewed_at)} />
+                  <.detail_item label="Decided" value={datetime_fallback(@application.decided_at)} />
                 </dl>
               </div>
 
               <div class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
                 <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">
-                  Admin notes
+                  Availability and requirements
                 </h2>
+                <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+                  <.detail_item label="Days" value={availability_days(@application)} />
+                  <.detail_item label="Times" value={availability_times(@application)} />
+                  <.detail_item
+                    label="Driver license"
+                    value={yes_no(@application.has_valid_driver_license)}
+                  />
+                  <.detail_item
+                    label="Transportation"
+                    value={yes_no(@application.has_reliable_transportation)}
+                  />
+                  <.detail_item
+                    label="Can lift supplies"
+                    value={yes_no(@application.can_lift_supplies)}
+                  />
+                  <.detail_item
+                    label="Emergency contact"
+                    value={"#{blank_fallback(@application.emergency_contact_name)} / #{blank_fallback(@application.emergency_contact_phone)}"}
+                  />
+                </dl>
+              </div>
 
-                <div class="mt-4 space-y-4 text-sm leading-6 text-base-content/75">
-                  <div>
-                    <p class="text-xs uppercase tracking-wide text-base-content/50">Decision note</p>
-                    <p class="mt-1">
-                      {blank_fallback(@application.decision_note, "No decision note yet")}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-xs uppercase tracking-wide text-base-content/50">Submitted</p>
-                    <p class="mt-1">{datetime_fallback(@application.submitted_at)}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs uppercase tracking-wide text-base-content/50">Reviewed</p>
-                    <p class="mt-1">{datetime_fallback(@application.reviewed_at)}</p>
-                  </div>
+              <div class="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm lg:col-span-2">
+                <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/55">
+                  Application notes
+                </h2>
+                <div class="mt-4 grid gap-4 lg:grid-cols-3">
+                  <.narrative_item label="Why work with us" value={@application.why_work_with_us} />
+                  <.narrative_item label="Experience notes" value={@application.experience_notes} />
+                  <.narrative_item label="Schedule notes" value={@application.schedule_notes} />
                 </div>
               </div>
-            </div>
+            </section>
           </div>
 
           <div :if={@live_action == :apply} class="px-6 py-6 sm:px-8">
@@ -419,6 +459,34 @@ defmodule MobileCarWashWeb.Tech.ApplicationLive do
     """
   end
 
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+
+  defp detail_item(assigns) do
+    ~H"""
+    <div>
+      <dt class="text-xs uppercase tracking-wide text-base-content/50">{@label}</dt>
+      <dd class="mt-1 font-medium text-base-content">{@value}</dd>
+    </div>
+    """
+  end
+
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+
+  defp narrative_item(assigns) do
+    ~H"""
+    <article class="rounded-2xl border border-base-300 bg-base-200/35 p-4">
+      <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/50">
+        {@label}
+      </h3>
+      <p class="mt-2 text-sm leading-6 text-base-content/75">
+        {blank_fallback(@value)}
+      </p>
+    </article>
+    """
+  end
+
   defp maybe_redirect_to_status(%{assigns: %{application: %{status: status}}} = socket)
        when status != :draft do
     push_patch(socket, to: ~p"/tech/application")
@@ -539,6 +607,71 @@ defmodule MobileCarWashWeb.Tech.ApplicationLive do
   defp status_label(:accepted), do: "Accepted"
   defp status_label(:not_accepted), do: "Not accepted"
 
+  defp journey_steps(application) do
+    status = application && application.status
+
+    [
+      %{id: "draft", kicker: "Step 1", label: "Draft", state: journey_state(status, :draft)},
+      %{
+        id: "pending_review",
+        kicker: "Step 2",
+        label: "Pending review",
+        state: journey_state(status, :pending_review)
+      },
+      %{
+        id: "reviewed",
+        kicker: "Step 3",
+        label: "Reviewed",
+        state: journey_state(status, :reviewed)
+      },
+      %{
+        id: "decision",
+        kicker: "Step 4",
+        label: decision_step_label(status),
+        state: journey_state(status, :decision)
+      }
+    ]
+  end
+
+  defp journey_state(nil, _step), do: "upcoming"
+  defp journey_state(:draft, :draft), do: "current"
+  defp journey_state(:draft, _step), do: "upcoming"
+  defp journey_state(:pending_review, :draft), do: "complete"
+  defp journey_state(:pending_review, :pending_review), do: "current"
+  defp journey_state(:pending_review, _step), do: "upcoming"
+  defp journey_state(:reviewed, step) when step in [:draft, :pending_review], do: "complete"
+  defp journey_state(:reviewed, :reviewed), do: "current"
+  defp journey_state(:reviewed, :decision), do: "upcoming"
+
+  defp journey_state(status, step)
+       when status in [:accepted, :not_accepted] and
+              step in [:draft, :pending_review, :reviewed],
+       do: "complete"
+
+  defp journey_state(status, :decision) when status in [:accepted, :not_accepted],
+    do: "current"
+
+  defp journey_state(_status, _step), do: "upcoming"
+
+  defp decision_step_label(:accepted), do: "Accepted"
+  defp decision_step_label(:not_accepted), do: "Not accepted"
+  defp decision_step_label(_status), do: "Decision"
+
+  defp journey_step_class("complete") do
+    "rounded-2xl border border-success/25 bg-success/10 p-4 text-success"
+  end
+
+  defp journey_step_class("current") do
+    "rounded-2xl border border-primary/35 bg-primary/10 p-4 text-primary"
+  end
+
+  defp journey_step_class(_state) do
+    "rounded-2xl border border-base-300 bg-base-200/45 p-4 text-base-content/55"
+  end
+
+  defp final_decision?(%{status: status}), do: status in [:accepted, :not_accepted]
+  defp final_decision?(_application), do: false
+
   defp status_badge_class(nil),
     do: "rounded-full bg-base-200 px-3 py-1 text-xs text-base-content/70"
 
@@ -557,40 +690,67 @@ defmodule MobileCarWashWeb.Tech.ApplicationLive do
   defp status_badge_class(:not_accepted),
     do: "rounded-full bg-error/15 px-3 py-1 text-xs text-error"
 
-  defp status_message(nil), do: "Start an application and save it as a draft."
+  defp status_message(nil),
+    do: "Start an application to share your availability and technician details."
 
   defp status_message(%{status: :draft}),
     do: "Your application is saved, but it has not been submitted yet."
 
   defp status_message(%{status: :pending_review}),
-    do: "Your application is in the admin queue and waiting for review."
+    do: "Your application is in the admin queue."
 
   defp status_message(%{status: :reviewed}),
-    do: "Your application has been reviewed and is waiting on a final decision."
+    do: "Your application has been reviewed."
 
   defp status_message(%{status: :accepted}),
-    do: "You have been accepted and your technician access is active."
+    do: "You have been accepted."
 
   defp status_message(%{status: :not_accepted}),
     do: "Your application was not accepted at this time."
 
   defp next_step_message(nil),
-    do: "Open the form, save your draft, and come back whenever you need."
+    do: "Fill out the application and save a draft before submitting it for review."
 
   defp next_step_message(%{status: :draft}),
     do: "Finish any remaining details and submit when ready."
 
   defp next_step_message(%{status: :pending_review}),
-    do: "No action needed right now. We will review it from the admin queue."
+    do: "No action needed right now. We will review your application and update this page."
 
   defp next_step_message(%{status: :reviewed}),
-    do: "We have reviewed your application and will follow up with the final decision."
+    do: "A final decision is still pending. Watch this page for the next update."
 
   defp next_step_message(%{status: :accepted}),
-    do: "You can use your technician tools now that access is active."
+    do:
+      "Your technician profile is ready. Use your profile to review pay, zone, and account details."
 
   defp next_step_message(%{status: :not_accepted}),
-    do: "Keep using your customer account as usual and watch for any follow-up note."
+    do:
+      "You can keep using this customer account normally. Any applicant-visible note from the team appears below."
+
+  defp availability_days(application) do
+    []
+    |> maybe_push(application.availability_weekdays, "Weekdays")
+    |> maybe_push(application.availability_weekends, "Weekends")
+    |> list_or_fallback()
+  end
+
+  defp availability_times(application) do
+    []
+    |> maybe_push(application.availability_mornings, "Mornings")
+    |> maybe_push(application.availability_afternoons, "Afternoons")
+    |> maybe_push(application.availability_evenings, "Evenings")
+    |> list_or_fallback()
+  end
+
+  defp maybe_push(list, true, value), do: list ++ [value]
+  defp maybe_push(list, _flag, _value), do: list
+  defp list_or_fallback([]), do: "Not provided"
+  defp list_or_fallback(items), do: Enum.join(items, ", ")
+
+  defp yes_no(true), do: "Yes"
+  defp yes_no(false), do: "No"
+  defp yes_no(_), do: "No"
 
   defp zone_label(nil), do: "Not provided"
   defp zone_label(:nw), do: "NW"
@@ -611,6 +771,9 @@ defmodule MobileCarWashWeb.Tech.ApplicationLive do
 
   defp number_fallback(nil), do: "Not provided"
   defp number_fallback(value), do: Integer.to_string(value)
+
+  defp date_fallback(nil), do: "Not provided"
+  defp date_fallback(%Date{} = value), do: Calendar.strftime(value, "%b %-d, %Y")
 
   defp datetime_fallback(nil), do: "Not yet"
 

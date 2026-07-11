@@ -198,4 +198,121 @@ defmodule MobileCarWashWeb.Tech.ApplicationLiveTest do
     assert render(view) =~ "Pending review"
     assert render(view) =~ application.preferred_name
   end
+
+  test "status page renders the application journey and applicant details", %{conn: conn} do
+    customer = customer_fixture()
+
+    _application =
+      create_application!(customer, %{
+        preferred_name: "Portal Applicant"
+      })
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/application")
+
+    assert has_element?(view, "#tech-application-journey")
+    assert has_element?(view, "#journey-step-draft[data-state='current']")
+    assert has_element?(view, "#journey-step-pending_review[data-state='upcoming']")
+    assert has_element?(view, "#journey-step-reviewed[data-state='upcoming']")
+    assert has_element?(view, "#journey-step-decision[data-state='upcoming']")
+    assert has_element?(view, "#tech-application-next-action a[href='/tech/apply']")
+    assert has_element?(view, "#tech-application-details")
+    assert render(view) =~ "Portal Applicant"
+    refute render(view) =~ "Internal review note"
+    refute render(view) =~ "Visible only after a final decision"
+  end
+
+  test "pending review status keeps admin review notes private", %{conn: conn} do
+    customer = customer_fixture()
+
+    application =
+      create_application!(customer)
+      |> then(&Ash.update!(Ash.Changeset.for_update(&1, :submit, %{}), authorize?: false))
+      |> then(
+        &Ash.update!(
+          Ash.Changeset.for_update(&1, :mark_reviewed, %{review_notes: "Internal review note"}),
+          authorize?: false
+        )
+      )
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/application")
+
+    assert application.status == :reviewed
+    refute render(view) =~ "Internal review note"
+    refute has_element?(view, "#tech-application-next-action a[href='/tech/profile']")
+  end
+
+  test "accepted status shows decision note and technician links", %{conn: conn} do
+    customer = customer_fixture()
+
+    application =
+      create_application!(customer)
+      |> then(&Ash.update!(Ash.Changeset.for_update(&1, :submit, %{}), authorize?: false))
+      |> then(
+        &Ash.update!(
+          Ash.Changeset.for_update(&1, :mark_reviewed, %{review_notes: "Internal review note"}),
+          authorize?: false
+        )
+      )
+      |> then(
+        &Ash.update!(
+          Ash.Changeset.for_update(&1, :accept, %{
+            review_notes: "Internal review note",
+            decision_note: "Welcome aboard."
+          }),
+          authorize?: false
+        )
+      )
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/application")
+
+    assert application.status == :accepted
+    assert has_element?(view, "#journey-step-decision[data-state='current']")
+    assert render(view) =~ "Welcome aboard."
+    assert has_element?(view, "#tech-application-next-action a[href='/tech/profile']")
+    assert has_element?(view, "#tech-application-next-action a[href='/tech']")
+  end
+
+  test "not accepted status shows decision note without technician links", %{conn: conn} do
+    customer = customer_fixture()
+
+    application =
+      create_application!(customer)
+      |> then(&Ash.update!(Ash.Changeset.for_update(&1, :submit, %{}), authorize?: false))
+      |> then(
+        &Ash.update!(
+          Ash.Changeset.for_update(&1, :mark_reviewed, %{review_notes: "Internal review note"}),
+          authorize?: false
+        )
+      )
+      |> then(
+        &Ash.update!(
+          Ash.Changeset.for_update(&1, :not_accept, %{
+            review_notes: "Internal review note",
+            decision_note: "Please apply again when your license is active."
+          }),
+          authorize?: false
+        )
+      )
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(customer)
+      |> live(~p"/tech/application")
+
+    assert application.status == :not_accepted
+    assert has_element?(view, "#journey-step-decision[data-state='current']")
+    assert render(view) =~ "Please apply again when your license is active."
+    refute render(view) =~ "Internal review note"
+    refute has_element?(view, "#tech-application-next-action a[href='/tech/profile']")
+    refute has_element?(view, "#tech-application-next-action a[href='/tech']")
+  end
 end
