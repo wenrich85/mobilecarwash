@@ -35,6 +35,17 @@ defmodule MobileCarWash.Operations.TechApplication do
     :schedule_notes
   ]
 
+  @admin_invite_fields @applicant_fields ++
+                         [
+                           :review_notes,
+                           :decision_note,
+                           :accepted_pay_rate_cents,
+                           :accepted_pay_rate_pct,
+                           :assigned_zone,
+                           :van_id,
+                           :active
+                         ]
+
   postgres do
     table("tech_applications")
     repo(MobileCarWash.Repo)
@@ -46,6 +57,13 @@ defmodule MobileCarWash.Operations.TechApplication do
     attribute :status, :atom do
       constraints(one_of: [:draft, :pending_review, :reviewed, :accepted, :not_accepted])
       default(:draft)
+      allow_nil?(false)
+      public?(true)
+    end
+
+    attribute :source, :atom do
+      constraints(one_of: [:applicant, :admin_invite])
+      default(:applicant)
       allow_nil?(false)
       public?(true)
     end
@@ -217,6 +235,14 @@ defmodule MobileCarWash.Operations.TechApplication do
     create :create do
       accept(@applicant_fields)
       change(set_attribute(:status, :draft))
+      change(set_attribute(:source, :applicant))
+    end
+
+    create :create_admin_invite do
+      accept(@admin_invite_fields)
+      change(set_attribute(:status, :accepted))
+      change(set_attribute(:source, :admin_invite))
+      change(set_attribute(:decided_at, &DateTime.utc_now/0))
     end
 
     read :for_customer do

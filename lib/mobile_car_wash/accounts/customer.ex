@@ -250,7 +250,7 @@ defmodule MobileCarWash.Accounts.Customer do
             :ok
         end
       end,
-      on: [:create]
+      on: [:create, :update]
     )
 
     # SECURITY_AUDIT_REPORT MEDIUM #3: reject obviously-invalid email
@@ -332,6 +332,11 @@ defmodule MobileCarWash.Accounts.Customer do
       change(set_attribute(:role, :guest))
     end
 
+    create :create_technician_invitee do
+      accept([:email, :name, :phone])
+      change(set_attribute(:role, :technician))
+    end
+
     read :by_email do
       argument(:email, :ci_string, allow_nil?: false)
       filter(expr(email == ^arg(:email)))
@@ -396,6 +401,18 @@ defmodule MobileCarWash.Accounts.Customer do
       require_atomic?(false)
       change(set_attribute(:disabled_at, nil))
       change(set_attribute(:disabled_reason, nil))
+    end
+
+    update :set_invite_password do
+      require_atomic?(false)
+      accept([])
+
+      argument(:password, :string, allow_nil?: false, sensitive?: true)
+      argument(:password_confirmation, :string, allow_nil?: false, sensitive?: true)
+
+      validate(confirm(:password, :password_confirmation))
+
+      change({AshAuthentication.Strategy.Password.HashPasswordChange, strategy_name: :password})
     end
   end
 
