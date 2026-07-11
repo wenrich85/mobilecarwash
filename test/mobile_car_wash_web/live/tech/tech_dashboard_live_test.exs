@@ -118,6 +118,51 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
     appt
   end
 
+  defp create_checklist_progress!(appointment, steps_total, steps_done, status \\ :in_progress) do
+    alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Procedure, ProcedureStep}
+
+    {:ok, procedure} =
+      Procedure
+      |> Ash.Changeset.for_create(:create, %{
+        name: "Command Wash SOP #{System.unique_integer([:positive])}",
+        slug: "command-wash-#{System.unique_integer([:positive])}"
+      })
+      |> Ash.Changeset.force_change_attribute(:service_type_id, appointment.service_type_id)
+      |> Ash.create()
+
+    {:ok, checklist} =
+      AppointmentChecklist
+      |> Ash.Changeset.for_create(:create, %{status: status})
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+      |> Ash.create()
+
+    for n <- 1..steps_total do
+      {:ok, step} =
+        ProcedureStep
+        |> Ash.Changeset.for_create(:create, %{
+          step_number: n,
+          title: "Command Step #{n}",
+          estimated_minutes: 5
+        })
+        |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+        |> Ash.create()
+
+      ChecklistItem
+      |> Ash.Changeset.for_create(:create, %{
+        step_number: n,
+        title: "Command Step #{n}",
+        estimated_minutes: 5,
+        completed: n <= steps_done
+      })
+      |> Ash.Changeset.force_change_attribute(:checklist_id, checklist.id)
+      |> Ash.Changeset.force_change_attribute(:procedure_step_id, step.id)
+      |> Ash.create!()
+    end
+
+    checklist
+  end
+
   defp next_slot_today do
     # 2 hours from now — still today in UTC with 24-hour window
     DateTime.utc_now() |> DateTime.add(2 * 3600, :second) |> DateTime.truncate(:second)
@@ -286,6 +331,68 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
 
       refute has_element?(view, "#tech-workday-command")
       assert render(view) =~ "Viewing as admin"
+    end
+
+    test "en-route job shows mark arrived as the primary command",
+         %{conn: conn, tech: tech, customer: customer} do
+      appt = create_appointment(customer.id, tech.id, :en_route)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#command-mark-arrived", "Mark arrived")
+
+      view
+      |> element("#command-mark-arrived")
+      |> render_click()
+
+      {:ok, reloaded} = Ash.get(Appointment, appt.id, authorize?: false)
+      assert reloaded.status == :on_site
+    end
+
+    test "on-site job shows start wash as the primary command",
+         %{conn: conn, tech: tech, customer: customer} do
+      _appt = create_appointment(customer.id, tech.id, :on_site)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#command-start-wash", "Start wash")
+    end
+
+    test "in-progress job with checklist shows continue checklist as the primary command",
+         %{conn: conn, tech: tech, customer: customer} do
+      appt = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist_progress!(appt, 3, 1)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(
+               view,
+               "#command-continue-checklist[href='/tech/checklist/#{checklist.id}']",
+               "Continue checklist"
+             )
+    end
+
+    test "completed job can surface supply logging when no active work remains",
+         %{conn: conn, tech: tech, customer: customer} do
+      _appt = create_appointment(customer.id, tech.id, :completed)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#command-log-supplies", "Log supplies")
+    end
+
+    test "today row marks the command-card appointment as next",
+         %{conn: conn, tech: tech, customer: customer} do
+      appt = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(
+               view,
+               "[data-appointment-id='#{appt.id}'][data-command-row-state='next']"
+             )
+
+      assert render(view) =~ "Next"
     end
   end
 

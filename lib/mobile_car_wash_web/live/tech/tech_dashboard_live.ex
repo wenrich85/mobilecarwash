@@ -498,6 +498,32 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         <span>{@unassigned_count} unassigned appointment(s) — check with dispatch.</span>
       </div>
       
+    <!-- Today -->
+      <div class="mb-8">
+        <h2 class="text-lg font-bold mb-3">Today</h2>
+        <div :if={@todays_appointments == []} class="text-base-content/70 text-sm">
+          No appointments today
+        </div>
+        <div class="space-y-3">
+          <.appointment_row
+            :for={appt <- @todays_appointments}
+            appointment={appt}
+            service={Map.get(@service_map, appt.service_type_id)}
+            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
+            address={Map.get(@address_map, appt.address_id)}
+            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+            progress={Map.get(@progress_map, appt.id, default_progress())}
+            row_state={
+              appointment_row_state(
+                appt,
+                @command_card,
+                Map.get(@progress_map, appt.id, default_progress())
+              )
+            }
+          />
+        </div>
+      </div>
+
     <!-- Map -->
       <div class="mb-8">
         <div class="flex justify-between items-center mb-3">
@@ -543,34 +569,6 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         </div>
       </div>
       
-    <!-- Today -->
-      <div class="mb-8">
-        <h2 class="text-lg font-bold mb-3">Today</h2>
-        <div :if={@todays_appointments == []} class="text-base-content/70 text-sm">
-          No appointments today
-        </div>
-        <div class="space-y-3">
-          <.appointment_row
-            :for={appt <- @todays_appointments}
-            appointment={appt}
-            service={Map.get(@service_map, appt.service_type_id)}
-            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
-            address={Map.get(@address_map, appt.address_id)}
-            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
-            progress={
-              Map.get(@progress_map, appt.id, %{
-                checklist_id: nil,
-                steps_done: 0,
-                steps_total: 0,
-                current_step: nil,
-                eta_minutes: nil,
-                checklist_status: nil
-              })
-            }
-          />
-        </div>
-      </div>
-      
     <!-- Tomorrow -->
       <div class="mb-8">
         <h2 class="text-lg font-bold mb-3">Tomorrow</h2>
@@ -595,6 +593,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                 checklist_status: nil
               })
             }
+            row_state={nil}
           />
         </div>
       </div>
@@ -620,6 +619,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                 checklist_status: nil
               })
             }
+            row_state={nil}
           />
         </div>
       </div>
@@ -700,7 +700,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       </div>
       
     <!-- Earnings -->
-      <div :if={@tech_record} class="mb-8">
+      <div :if={@tech_record} id="tech-earnings" class="mb-8">
         <h2 class="text-lg font-bold mb-3">Earnings</h2>
         
     <!-- Period Tabs -->
@@ -895,7 +895,15 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp appointment_row(assigns) do
     ~H"""
-    <div class="card bg-base-100 shadow-sm">
+    <div
+      class={[
+        "card bg-base-100 shadow-sm",
+        @row_state == :active && "border border-warning",
+        @row_state == :next && "border border-primary/30"
+      ]}
+      data-appointment-id={@appointment.id}
+      data-command-row-state={@row_state}
+    >
       <div class="card-body p-4">
         <div class="flex justify-between items-start">
           <div class="min-w-0">
@@ -914,9 +922,14 @@ defmodule MobileCarWashWeb.TechDashboardLive do
               <span>{@address.street}, {@address.city}, {@address.state} {@address.zip}</span>
             </a>
           </div>
-          <span class={["badge badge-sm", status_class(@appointment.status)]}>
-            {format_status(@appointment.status)}
-          </span>
+          <div class="flex items-center gap-2">
+            <span class={["badge badge-sm", status_class(@appointment.status)]}>
+              {format_status(@appointment.status)}
+            </span>
+            <span :if={row_state_label(@row_state)} class="badge badge-primary badge-sm">
+              {row_state_label(@row_state)}
+            </span>
+          </div>
         </div>
         
     <!-- Progress if checklist exists -->
@@ -1272,9 +1285,8 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   defp command_priority(%{status: :completed}), do: 8
   defp command_priority(_appointment), do: 99
 
-  defp command_kind(%{status: :off_duty}, %{status: status})
-       when status in [:confirmed, :en_route, :on_site, :in_progress],
-       do: :start_shift
+  defp command_kind(%{status: :off_duty}, %{status: :confirmed}),
+    do: :start_shift
 
   defp command_kind(_tech_record, nil), do: :no_work
   defp command_kind(_tech_record, %{status: :confirmed}), do: :view_job
@@ -1387,6 +1399,24 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       checklist_status: nil
     }
   end
+
+  defp command_card_appointment_id(%{appointment: %{id: id}}), do: id
+  defp command_card_appointment_id(_command_card), do: nil
+
+  defp appointment_row_state(appointment, command_card, progress) do
+    if appointment.id == command_card_appointment_id(command_card) do
+      cond do
+        appointment.status in [:in_progress, :on_site, :en_route] -> :active
+        progress.checklist_id -> :active
+        appointment.status == :confirmed -> :next
+        true -> :next
+      end
+    end
+  end
+
+  defp row_state_label(:active), do: "Active"
+  defp row_state_label(:next), do: "Next"
+  defp row_state_label(_), do: nil
 
   defp show_job_link?(appointment, progress) do
     appointment.status != :in_progress or is_nil(progress.checklist_id)
