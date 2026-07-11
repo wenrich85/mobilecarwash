@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.Tech.ProfileLiveTest do
   import Phoenix.LiveViewTest
 
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Operations.TechApplication
+  alias MobileCarWash.Operations.{TechApplication, TechInvites}
 
   defp customer_fixture(role \\ :customer) do
     {:ok, customer} =
@@ -23,13 +23,13 @@ defmodule MobileCarWashWeb.Tech.ProfileLiveTest do
     |> Ash.update!(authorize?: false)
   end
 
-  defp sign_in(conn, customer) do
+  defp sign_in(conn, customer, password \\ "Password123!") do
     conn
     |> Phoenix.ConnTest.init_test_session(%{})
     |> post("/auth/customer/password/sign_in", %{
       "customer" => %{
         "email" => to_string(customer.email),
-        "password" => "Password123!"
+        "password" => password
       }
     })
     |> recycle()
@@ -170,5 +170,38 @@ defmodule MobileCarWashWeb.Tech.ProfileLiveTest do
     assert render(view) =~ "Strong applicant"
     assert render(view) =~ "Decision note"
     assert render(view) =~ "Welcome aboard."
+  end
+
+  test "admin-invited technician profile shows admin invite pathway", %{conn: conn} do
+    {:ok, invite} =
+      TechInvites.create_admin_invite(%{
+        email: "profile-invite-#{System.unique_integer([:positive])}@example.com",
+        name: "Admin Invited",
+        phone: "+15125550310",
+        home_zip: "78259",
+        preferred_zone: :nw,
+        availability_weekdays: true,
+        availability_mornings: true,
+        experience_level: :some,
+        has_valid_driver_license: true,
+        has_reliable_transportation: true,
+        can_lift_supplies: true,
+        desired_hours_per_week: 32,
+        accepted_pay_rate_cents: 3400,
+        assigned_zone: :nw
+      })
+
+    {:ok, accepted} =
+      TechInvites.accept_invite(invite.raw_token, "Accepted123!", "Accepted123!")
+
+    {:ok, view, _html} =
+      conn
+      |> sign_in(accepted.customer, "Accepted123!")
+      |> live(~p"/tech/profile")
+
+    assert render(view) =~ "Admin invite"
+    assert render(view) =~ "Admin Invited"
+    assert render(view) =~ "$34.00"
+    assert render(view) =~ "NW"
   end
 end

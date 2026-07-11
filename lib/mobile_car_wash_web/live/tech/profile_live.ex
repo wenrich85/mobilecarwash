@@ -379,6 +379,7 @@ defmodule MobileCarWashWeb.Tech.ProfileLive do
 
   defp pathway_label(application, technician) do
     cond do
+      application && application.source == :admin_invite -> "Admin invite"
       technician -> "Accepted technician"
       application -> "Applicant"
       true -> "Customer account only"
