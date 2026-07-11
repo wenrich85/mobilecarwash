@@ -15,6 +15,14 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
 
   alias MobileCarWash.Scheduling.{Appointment, ServiceType}
 
+  defp jpeg_entry(name) do
+    %{
+      name: name,
+      content: <<0xFF, 0xD8, 0xFF, 0xE0>> <> :binary.copy(<<0>>, 60_000),
+      type: "image/jpeg"
+    }
+  end
+
   defp create_tech_customer(name \\ "Checklist Tech") do
     {:ok, customer} =
       Customer
@@ -278,6 +286,69 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
 
       # Completed checklist: capture affordances hidden on both grids.
       refute has_element?(view, "#after-photo-form input[type='file']")
+    end
+
+    test "a completed tile upload auto-saves with its area and type", %{
+      conn: conn,
+      checklist: checklist,
+      appointment: appointment
+    } do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      front = file_input(view, "#before-photo-form", :before_front, [jpeg_entry("front.jpg")])
+
+      render_upload(front, "front.jpg", 50)
+      # Mid-transfer: progress bar lives in the tile the photo belongs to.
+      assert has_element?(view, "#tile-before-front progress")
+
+      # percent is incremental — the second half completes the transfer
+      # and the progress callback consumes + saves automatically.
+      render_upload(front, "front.jpg", 50)
+
+      html = render(view)
+      refute html =~ "Photo saved."
+
+      require Ash.Query
+
+      saved =
+        MobileCarWash.Operations.Photo
+        |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :before)
+        |> Ash.read!()
+
+      assert [%{car_part: :front, uploaded_by: :technician}] = saved
+
+      # Tile now renders the persisted photo.
+      assert has_element?(view, "#tile-before-front img")
+      refute has_element?(view, "#tile-before-front progress")
+    end
+
+    test "two tiles upload concurrently, each with its own progress", %{
+      conn: conn,
+      checklist: checklist,
+      appointment: appointment
+    } do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      front = file_input(view, "#before-photo-form", :before_front, [jpeg_entry("front.jpg")])
+      rear = file_input(view, "#before-photo-form", :before_rear, [jpeg_entry("rear.jpg")])
+
+      render_upload(front, "front.jpg", 50)
+      render_upload(rear, "rear.jpg", 50)
+
+      assert has_element?(view, "#tile-before-front progress")
+      assert has_element?(view, "#tile-before-rear progress")
+
+      render_upload(front, "front.jpg", 50)
+      render_upload(rear, "rear.jpg", 50)
+
+      require Ash.Query
+
+      saved =
+        MobileCarWash.Operations.Photo
+        |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :before)
+        |> Ash.read!()
+
+      assert Enum.sort(Enum.map(saved, & &1.car_part)) == [:front, :rear]
     end
   end
 end

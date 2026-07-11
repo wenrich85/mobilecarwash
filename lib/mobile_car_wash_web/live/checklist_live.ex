@@ -905,10 +905,53 @@ defmodule MobileCarWashWeb.ChecklistLive do
     ]
   end
 
-  # Real implementation lands with auto-save (next task).
-  defp handle_tile_progress(_name, _entry, socket), do: {:noreply, socket}
+  # Auto-save: each tile's entry is consumed the moment its transfer
+  # completes. Success re-renders the tile with the persisted photo;
+  # failure lands in @tile_errors for that tile (no flash either way).
+  defp handle_tile_progress(name, entry, socket) do
+    if entry.done? do
+      {photo_type, area} = parse_tile_name(name)
+      appointment_id = socket.assigns.appointment.id
+
+      result =
+        consume_uploaded_entry(socket, entry, fn meta ->
+          {:ok, save_tile_file(meta, appointment_id, entry.client_name, photo_type, area)}
+        end)
+
+      case result do
+        {:ok, _photo} ->
+          AppointmentTracker.broadcast_photo(appointment_id, photo_type)
+
+          {:noreply,
+           socket
+           |> update(:tile_errors, &Map.delete(&1, name))
+           |> reload_photos()
+           |> maybe_complete_wash()}
+
+        {:error, reason} ->
+          {:noreply, update(socket, :tile_errors, &Map.put(&1, name, save_error_message(reason)))}
+      end
+    else
+      {:noreply, update(socket, :tile_errors, &Map.delete(&1, name))}
+    end
+  end
+
+  defp save_tile_file(%{path: path}, appointment_id, client_name, photo_type, area) do
+    PhotoUpload.save_file(appointment_id, path, client_name, photo_type,
+      uploaded_by: :technician,
+      car_part: area
+    )
+  end
+
+  defp save_error_message(reason) when is_binary(reason), do: "Could not save photo: #{reason}"
+  defp save_error_message(_reason), do: "Could not save photo — please try again."
 
   defp tile_upload_name(type, area_id), do: :"#{type}_#{area_id}"
+
+  defp parse_tile_name(name) do
+    [type, area] = name |> Atom.to_string() |> String.split("_", parts: 2)
+    {String.to_existing_atom(type), String.to_existing_atom(area)}
+  end
 
   defp reload_photos(socket) do
     appointment_id = socket.assigns.appointment.id
