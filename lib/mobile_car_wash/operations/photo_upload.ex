@@ -365,6 +365,45 @@ defmodule MobileCarWash.Operations.PhotoUpload do
     end
   end
 
+  @presign_put_expiry 300
+
+  @doc """
+  Presigns a PUT of `key` so the client can upload straight to the bucket.
+  Content-Type is signed, so the client must send exactly this type.
+  Works on AWS S3 and DigitalOcean Spaces (via the configured endpoint).
+  """
+  def presign_put(key, content_type) do
+    region = Application.get_env(:mobile_car_wash, :s3_region, "us-east-1")
+    config = ExAws.Config.new(:s3, region: region)
+
+    ExAws.S3.presigned_url(config, :put, s3_bucket(), key,
+      expires_in: @presign_put_expiry,
+      headers: [{"Content-Type", content_type}]
+    )
+  end
+
+  @doc """
+  Builds the meta map LiveView hands to the JS uploader for an external
+  entry. `key` rides along so consume-time code knows where the bytes are.
+  """
+  def external_entry_meta(entry, appointment_id, photo_type) do
+    key = object_key(appointment_id, photo_type, entry.client_name)
+
+    case presign_put(key, entry.client_type) do
+      {:ok, url} ->
+        {:ok,
+         %{
+           uploader: "S3PUT",
+           url: url,
+           headers: %{"content-type" => entry.client_type},
+           key: key
+         }}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
   # Handles both storage formats:
   #   Legacy full URL: "https://bucket.s3.region.amazonaws.com/appointments/id/file.jpg"
   #   Current key:     "appointments/id/file.jpg"

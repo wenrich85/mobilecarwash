@@ -183,4 +183,41 @@ defmodule MobileCarWash.Operations.PhotoUploadExternalTest do
       assert PhotoUpload.external_uploads?()
     end
   end
+
+  describe "presign_put/2 and external_entry_meta/3" do
+    setup do
+      prev_key = Application.get_env(:ex_aws, :access_key_id)
+      prev_secret = Application.get_env(:ex_aws, :secret_access_key)
+      Application.put_env(:ex_aws, :access_key_id, "test-access-key")
+      Application.put_env(:ex_aws, :secret_access_key, "test-secret-key")
+
+      on_exit(fn ->
+        Application.put_env(:ex_aws, :access_key_id, prev_key)
+        Application.put_env(:ex_aws, :secret_access_key, prev_secret)
+      end)
+
+      :ok
+    end
+
+    test "presign_put returns a 5-minute PUT URL with the content type signed" do
+      {:ok, url} = PhotoUpload.presign_put("appointments/abc/before_x.jpg", "image/jpeg")
+
+      assert url =~ "appointments/abc/before_x.jpg"
+      assert url =~ "X-Amz-Expires=300"
+      assert url =~ "X-Amz-Signature="
+      # Content-Type participates in the signature (URL-encoded ';' = %3B).
+      assert url =~ "content-type%3Bhost"
+    end
+
+    test "external_entry_meta builds the uploader payload" do
+      entry = %Phoenix.LiveView.UploadEntry{client_name: "front.jpg", client_type: "image/jpeg"}
+
+      {:ok, meta} = PhotoUpload.external_entry_meta(entry, "appt-1", :before)
+
+      assert meta.uploader == "S3PUT"
+      assert meta.headers == %{"content-type" => "image/jpeg"}
+      assert meta.key =~ ~r|^appointments/appt-1/before_[0-9a-f-]{36}\.jpg$|
+      assert meta.url =~ meta.key
+    end
+  end
 end
