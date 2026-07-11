@@ -130,6 +130,27 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
       refute has_element?(view, "input[type='file'][phx-hook]")
     end
 
+    test "a failed save reports in the modal instead of crashing", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      # A file under 4 bytes deterministically fails PhotoUpload's
+      # content validation ("File too small to validate").
+      tiny = %{name: "tiny.jpg", content: <<0xFF, 0xD8>>, type: "image/jpeg"}
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [tiny])
+      render_upload(input, "tiny.jpg")
+
+      assert render(view) =~ "Could not save photo"
+    end
+
     test "closes when the Done button is tapped", %{conn: conn} do
       customer = register_customer()
       appt = create_appointment(customer.id)
@@ -247,6 +268,37 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
 
       assert meta.uploader == "S3PUT"
       assert meta.key =~ "appointments/#{appt.id}/problem_area_"
+    end
+
+    test "a completed external upload records the object key", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      photo = %{
+        name: "spot.jpg",
+        content: <<0xFF, 0xD8, 0xFF, 0xE0>> <> :binary.copy(<<0>>, 60_000),
+        type: "image/jpeg"
+      }
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [photo])
+      render_upload(input, "spot.jpg")
+
+      require Ash.Query
+
+      saved =
+        MobileCarWash.Operations.Photo
+        |> Ash.Query.filter(appointment_id == ^appt.id and photo_type == :problem_area)
+        |> Ash.read!()
+
+      assert [%{uploaded_by: :customer} = p] = saved
+      assert p.file_path =~ "appointments/#{appt.id}/problem_area_"
     end
   end
 end

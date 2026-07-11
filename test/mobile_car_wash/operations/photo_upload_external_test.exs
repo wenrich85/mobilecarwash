@@ -219,5 +219,13 @@ defmodule MobileCarWash.Operations.PhotoUploadExternalTest do
       assert meta.key =~ ~r|^appointments/appt-1/before_[0-9a-f-]{36}\.jpg$|
       assert meta.url =~ meta.key
     end
+
+    test "external_entry_meta derives the content type from the filename, not the client" do
+      entry = %Phoenix.LiveView.UploadEntry{client_name: "front.jpg", client_type: "text/html"}
+
+      {:ok, meta} = PhotoUpload.external_entry_meta(entry, "appt-1", :before)
+
+      assert meta.headers == %{"content-type" => "image/jpeg"}
+    end
   end
 end

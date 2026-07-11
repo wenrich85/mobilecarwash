@@ -10,6 +10,8 @@ export const S3PUT = function (entries, onViewError) {
     xhr.onload = () =>
       xhr.status >= 200 && xhr.status < 300 ? entry.progress(100) : entry.error()
     xhr.onerror = () => entry.error()
+    xhr.timeout = 30_000
+    xhr.ontimeout = () => entry.error()
 
     xhr.upload.addEventListener("progress", event => {
       if (event.lengthComputable) {

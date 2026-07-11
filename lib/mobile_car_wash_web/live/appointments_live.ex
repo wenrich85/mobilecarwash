@@ -60,7 +60,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         photo_caption: nil,
         selected_car_part: nil,
         show_all_parts: false,
-        uploaded_photos: []
+        uploaded_photos: [],
+        photo_save_error: nil
       )
       |> allow_upload(:problem_photo_camera, problem_photo_opts())
       |> allow_upload(:problem_photo_library, problem_photo_opts())
@@ -89,7 +90,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
          uploaded_photos: photos,
          photo_caption: nil,
          selected_car_part: nil,
-         show_all_parts: false
+         show_all_parts: false,
+         photo_save_error: nil
        )}
     else
       {:noreply, put_flash(socket, :error, "Appointment not found")}
@@ -181,18 +183,25 @@ defmodule MobileCarWashWeb.AppointmentsLive do
       caption = socket.assigns.photo_caption
       car_part = socket.assigns.selected_car_part
 
-      photo =
+      result =
         consume_uploaded_entry(socket, entry, fn meta ->
-          save_problem_photo(meta, appointment_id, entry, caption, car_part)
+          {:ok, save_problem_photo(meta, appointment_id, entry, caption, car_part)}
         end)
 
-      # Subscribe to the photo's AI channel so the preview updates the
-      # moment the background analyzer finishes.
-      if connected?(socket) and photo.id do
-        MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
-      end
+      case result do
+        {:ok, photo} ->
+          if connected?(socket) and photo.id do
+            MobileCarWash.AI.PhotoAnalyzer.subscribe(photo.id)
+          end
 
-      {:noreply, update(socket, :uploaded_photos, &(&1 ++ [photo]))}
+          {:noreply,
+           socket
+           |> assign(photo_save_error: nil)
+           |> update(:uploaded_photos, &(&1 ++ [photo]))}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, photo_save_error: photo_save_error_message(reason))}
+      end
     else
       {:noreply, socket}
     end
@@ -231,6 +240,11 @@ defmodule MobileCarWashWeb.AppointmentsLive do
         {:error, reason}
     end
   end
+
+  defp photo_save_error_message(reason) when is_binary(reason),
+    do: "Could not save photo: #{reason}"
+
+  defp photo_save_error_message(_reason), do: "Could not save photo — please try again."
 
   # Loads already-uploaded problem-area photos for this appointment so
   # they're visible the moment the modal opens (e.g. the customer comes
@@ -512,6 +526,10 @@ defmodule MobileCarWashWeb.AppointmentsLive do
                   ✕
                 </button>
               </div>
+
+              <p :if={@photo_save_error} class="text-sm font-semibold text-error">
+                {@photo_save_error}
+              </p>
 
               <form phx-change="validate_photos" id={"photo-upload-form-#{appt.id}"}>
                 <MobileCarWashWeb.PhotoUploader.uploader

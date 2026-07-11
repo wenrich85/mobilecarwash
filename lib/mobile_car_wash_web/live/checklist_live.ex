@@ -279,10 +279,14 @@ defmodule MobileCarWashWeb.ChecklistLive do
   def handle_event("retry_tile_upload", %{"name" => name, "ref" => ref}, socket) do
     name = String.to_existing_atom(name)
 
-    {:noreply,
-     socket
-     |> cancel_upload(name, ref)
-     |> update(:tile_errors, &Map.delete(&1, name))}
+    if name in @tile_uploads do
+      {:noreply,
+       socket
+       |> cancel_upload(name, ref)
+       |> update(:tile_errors, &Map.delete(&1, name))}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("edit_note", %{"id" => item_id}, socket) do

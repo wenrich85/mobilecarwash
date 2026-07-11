@@ -450,5 +450,26 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert meta.url =~ "X-Amz-Expires=300"
       assert meta.key =~ "appointments/#{appointment.id}/before_"
     end
+
+    test "a completed external upload auto-saves the object key", %{
+      conn: conn,
+      checklist: checklist,
+      appointment: appointment
+    } do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      input = file_input(view, "#before-photo-form", :before_front, [jpeg_entry("front.jpg")])
+      render_upload(input, "front.jpg")
+
+      require Ash.Query
+
+      saved =
+        MobileCarWash.Operations.Photo
+        |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :before)
+        |> Ash.read!()
+
+      assert [%{car_part: :front} = photo] = saved
+      assert photo.file_path =~ ~r|^appointments/#{appointment.id}/before_[0-9a-f-]{36}\.jpg$|
+    end
   end
 end

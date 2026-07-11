@@ -388,14 +388,15 @@ defmodule MobileCarWash.Operations.PhotoUpload do
   """
   def external_entry_meta(entry, appointment_id, photo_type) do
     key = object_key(appointment_id, photo_type, entry.client_name)
+    content_type = MIME.from_path(entry.client_name)
 
-    case presign_put(key, entry.client_type) do
+    case presign_put(key, content_type) do
       {:ok, url} ->
         {:ok,
          %{
            uploader: "S3PUT",
            url: url,
-           headers: %{"content-type" => entry.client_type},
+           headers: %{"content-type" => content_type},
            key: key
          }}
 
