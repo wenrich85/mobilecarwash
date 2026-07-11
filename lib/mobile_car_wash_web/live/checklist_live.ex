@@ -41,6 +41,11 @@ defmodule MobileCarWashWeb.ChecklistLive do
   ]
   @key_area_ids Enum.map(@key_areas, & &1.id)
 
+  # One upload config per tile. The config NAME encodes photo_type and
+  # car_part (e.g. :before_front), so concurrent uploads need no
+  # entry-to-area bookkeeping.
+  @tile_uploads for type <- [:before, :after], area <- @key_area_ids, do: :"#{type}_#{area}"
+
   @impl true
   def mount(%{"id" => checklist_id}, _session, socket) do
     case Ash.get(AppointmentChecklist, checklist_id) do
@@ -96,19 +101,16 @@ defmodule MobileCarWashWeb.ChecklistLive do
             pct: pct,
             active_item_id: nil,
             elapsed_seconds: 0,
-            show_photo_upload: nil,
             editing_note_id: nil,
             skipping_item_id: nil,
             now: DateTime.utc_now()
           )
-          |> allow_upload(:photo,
-            accept: ~w(.jpg .jpeg .png .webp),
-            max_entries: 1,
-            max_file_size: 10_000_000,
-            # Transfer starts the moment the tech picks a photo, so by
-            # the time they've reviewed the preview, Save is instant.
-            auto_upload: true
-          )
+          |> assign(tile_errors: %{})
+          |> then(fn sock ->
+            Enum.reduce(@tile_uploads, sock, fn name, s ->
+              allow_upload(s, name, tile_upload_opts())
+            end)
+          end)
 
         {:ok, socket}
 
@@ -129,7 +131,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
            pct: 0,
            active_item_id: nil,
            elapsed_seconds: 0,
-           show_photo_upload: nil,
            editing_note_id: nil,
            skipping_item_id: nil,
            now: DateTime.utc_now()
@@ -154,7 +155,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
        pct: 0,
        active_item_id: nil,
        elapsed_seconds: 0,
-       show_photo_upload: nil,
        editing_note_id: nil,
        skipping_item_id: nil,
        now: DateTime.utc_now()
@@ -274,30 +274,15 @@ defmodule MobileCarWashWeb.ChecklistLive do
     end
   end
 
-  def handle_event("show_upload", %{"type" => type, "area" => area}, socket) do
-    {:noreply,
-     assign(socket, show_photo_upload: %{type: type, area: String.to_existing_atom(area)})}
-  end
-
-  def handle_event("cancel_upload", _params, socket) do
-    {:noreply, assign(socket, show_photo_upload: nil)}
-  end
-
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
-  def handle_event("save_photo", _params, socket) do
-    entries = socket.assigns.uploads.photo.entries
+  def handle_event("retry_tile_upload", %{"name" => name, "ref" => ref}, socket) do
+    name = String.to_existing_atom(name)
 
-    cond do
-      entries == [] ->
-        {:noreply, put_flash(socket, :error, "Select a photo first.")}
-
-      Enum.any?(entries, &(!&1.done?)) ->
-        {:noreply, put_flash(socket, :error, "Photo is still uploading — one moment.")}
-
-      true ->
-        save_completed_photo(socket)
-    end
+    {:noreply,
+     socket
+     |> cancel_upload(name, ref)
+     |> update(:tile_errors, &Map.delete(&1, name))}
   end
 
   def handle_event("edit_note", %{"id" => item_id}, socket) do
@@ -445,48 +430,23 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 )}
               </span>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div :for={area <- @key_areas}>
-                <% photo = area_photo(@before_photos, area.id) %>
-                <div :if={photo} class="relative h-40 overflow-hidden rounded-2xl shadow">
-                  <img src={photo.file_path} class="h-full w-full object-cover" />
-                  <div class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-2">
-                    <p class="text-xs font-bold leading-tight text-white">{area.label}</p>
-                  </div>
-                  <div class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-success shadow">
-                    <span class="text-xs font-bold text-white">✓</span>
-                  </div>
-                  <button
-                    :if={@checklist.status != :completed}
-                    class="absolute left-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs text-white"
-                    phx-click="show_upload"
-                    phx-value-type="before"
-                    phx-value-area={area.id}
-                  >
-                    Retake
-                  </button>
-                </div>
-                <button
-                  :if={!photo and @checklist.status != :completed}
-                  class="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-warning bg-warning/5 transition-colors active:bg-warning/20"
-                  phx-click="show_upload"
-                  phx-value-type="before"
-                  phx-value-area={area.id}
-                >
-                  <span class="text-5xl font-thin text-warning/70">+</span>
-                  <span class="text-sm font-bold text-warning">{area.label}</span>
-                  <span class="px-3 text-center text-xs leading-tight text-base-content/70">
-                    {area.instruction}
-                  </span>
-                </button>
-                <div
-                  :if={!photo and @checklist.status == :completed}
-                  class="flex h-40 items-center justify-center rounded-2xl border border-base-300 bg-base-200/40 px-3 text-center text-xs text-base-content/60"
-                >
-                  No before photo captured for {area.label}.
-                </div>
-              </div>
-            </div>
+            <form
+              id="before-photo-form"
+              phx-change="validate_upload"
+              phx-hook="ImageDownscale"
+              class="grid grid-cols-2 gap-3"
+            >
+              <.photo_tile
+                :for={area <- @key_areas}
+                area={area}
+                type={:before}
+                photo={area_photo(@before_photos, area.id)}
+                ghost={nil}
+                upload={@uploads[tile_upload_name(:before, area.id)]}
+                tile_error={@tile_errors[tile_upload_name(:before, area.id)]}
+                completed={@checklist.status == :completed}
+              />
+            </form>
           </section>
 
           <section
@@ -740,63 +700,24 @@ defmodule MobileCarWashWeb.ChecklistLive do
               Finish all required wash steps to unlock after-photo capture.
             </div>
 
-            <div
+            <form
               :if={all_required_complete?(@items) or @checklist.status == :completed}
+              id="after-photo-form"
+              phx-change="validate_upload"
+              phx-hook="ImageDownscale"
               class="grid grid-cols-2 gap-3"
             >
-              <div :for={area <- @key_areas}>
-                <% before_photo = area_photo(@before_photos, area.id) %>
-                <% after_photo = area_photo(@after_photos, area.id) %>
-                <div :if={after_photo} class="relative h-40 overflow-hidden rounded-2xl shadow">
-                  <img src={after_photo.file_path} class="h-full w-full object-cover" />
-                  <div
-                    :if={before_photo}
-                    class="absolute bottom-2 left-2 h-12 w-12 overflow-hidden rounded-lg border-2 border-white shadow"
-                  >
-                    <img src={before_photo.file_path} class="h-full w-full object-cover" />
-                  </div>
-                  <div class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-2 pl-16">
-                    <p class="text-xs font-bold leading-tight text-white">{area.label}</p>
-                  </div>
-                  <div class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-success shadow">
-                    <span class="text-xs font-bold text-white">✓</span>
-                  </div>
-                  <button
-                    :if={@checklist.status != :completed}
-                    class="absolute left-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs text-white"
-                    phx-click="show_upload"
-                    phx-value-type="after"
-                    phx-value-area={area.id}
-                  >
-                    Retake
-                  </button>
-                </div>
-                <button
-                  :if={!after_photo and @checklist.status != :completed}
-                  class="relative flex h-40 w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border-2 border-dashed border-success bg-success/5 transition-colors active:bg-success/20"
-                  phx-click="show_upload"
-                  phx-value-type="after"
-                  phx-value-area={area.id}
-                >
-                  <img
-                    :if={before_photo}
-                    src={before_photo.file_path}
-                    class="absolute inset-0 h-full w-full object-cover opacity-20"
-                  />
-                  <span class="relative text-5xl font-thin text-success/70">+</span>
-                  <span class="relative text-sm font-bold text-success">{area.label}</span>
-                  <span class="relative px-3 text-center text-xs leading-tight text-base-content/70">
-                    {area.instruction}
-                  </span>
-                </button>
-                <div
-                  :if={!after_photo and @checklist.status == :completed}
-                  class="flex h-40 items-center justify-center rounded-2xl border border-base-300 bg-base-200/40 px-3 text-center text-xs text-base-content/60"
-                >
-                  No after photo captured for {area.label}.
-                </div>
-              </div>
-            </div>
+              <.photo_tile
+                :for={area <- @key_areas}
+                area={area}
+                type={:after}
+                photo={area_photo(@after_photos, area.id)}
+                ghost={area_photo(@before_photos, area.id)}
+                upload={@uploads[tile_upload_name(:after, area.id)]}
+                tile_error={@tile_errors[tile_upload_name(:after, area.id)]}
+                completed={@checklist.status == :completed}
+              />
+            </form>
 
             <div
               :if={after_photos_complete?(@after_photos) and @checklist.status != :completed}
@@ -840,84 +761,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
             </div>
           </section>
         </div>
-        
-    <!-- Photo Upload Overlay (full-screen on mobile) -->
-        <div :if={@show_photo_upload} class="fixed inset-0 z-50 bg-base-100 flex flex-col">
-          <div class="flex items-center justify-between p-4 border-b border-base-300">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-base-content/70">
-                {String.capitalize(@show_photo_upload.type)} Photo
-              </p>
-              <h3 class="text-lg font-bold leading-tight">{area_label(@show_photo_upload.area)}</h3>
-              <p class="text-sm text-base-content/70">{area_instruction(@show_photo_upload.area)}</p>
-            </div>
-            <button phx-click="cancel_upload" class="btn btn-ghost btn-sm btn-circle text-lg">
-              ✕
-            </button>
-          </div>
-          <div class="flex-1 overflow-y-auto p-4">
-            <form
-              id="checklist-photo-form"
-              phx-submit="save_photo"
-              phx-change="validate_upload"
-              class="flex flex-col gap-4"
-            >
-              <!-- Preview + transfer progress (upload streams in the background) -->
-              <div :if={@uploads.photo.entries != []}>
-                <div :for={entry <- @uploads.photo.entries}>
-                  <.live_img_preview entry={entry} class="w-full rounded-2xl object-cover max-h-72" />
-                  <progress
-                    :if={!entry.done?}
-                    class="progress progress-primary mt-2 h-1.5 w-full"
-                    value={entry.progress}
-                    max="100"
-                  >
-                  </progress>
-                  <p
-                    :for={err <- upload_errors(@uploads.photo, entry)}
-                    class="mt-1 text-sm text-error"
-                  >
-                    {upload_error_to_string(err)}
-                  </p>
-                </div>
-              </div>
-
-              <p :for={err <- upload_errors(@uploads.photo)} class="text-sm text-error">
-                {upload_error_to_string(err)}
-              </p>
-              
-    <!-- Placeholder (shown when no file yet) — non-interactive, file input below handles taps -->
-              <div
-                :if={@uploads.photo.entries == []}
-                class="rounded-2xl border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 py-16 pointer-events-none"
-              >
-                <span class="text-6xl font-thin text-base-content/20">+</span>
-                <p class="text-sm text-base-content/70">Select photo below</p>
-              </div>
-              
-    <!-- Single file input — always mounted so LiveView's upload hook stays attached.
-         The wrapper's ImageDownscale hook shrinks the photo on-device before the
-         transfer starts (the input itself is claimed by Phoenix.LiveFileUpload). -->
-              <div id="checklist-photo-downscale" phx-hook="ImageDownscale">
-                <.live_file_input
-                  upload={@uploads.photo}
-                  class="file-input file-input-bordered w-full"
-                />
-              </div>
-
-              <button
-                type="submit"
-                class="btn btn-primary btn-lg w-full rounded-2xl"
-                disabled={
-                  @uploads.photo.entries == [] or
-                    Enum.any?(@uploads.photo.entries, &(!&1.done?))
-                }
-              >
-                Save Photo
-              </button>
-            </form>
-          </div>
-        </div>
       </div>
 
       <div :if={!@checklist} class="text-center py-12">
@@ -927,52 +770,145 @@ defmodule MobileCarWashWeb.ChecklistLive do
     """
   end
 
-  # --- Photo Helpers ---
+  # One grid tile. States, in precedence order: uploading (entry, no
+  # errors) → upload failed (entry with errors) → saved (persisted photo)
+  # → capture label (empty) → completed-and-missing placeholder.
+  defp photo_tile(assigns) do
+    entry = List.first(assigns.upload.entries)
 
-  # Entries are fully transferred at this point (auto_upload streams them
-  # in the background; save_photo guards on done?). Consuming is a fast
-  # local file move + DB insert, so Save feels instant. A failed save
-  # postpones the entry — it stays visible so the tech can retry or
-  # cancel — and reports the error instead of claiming success.
-  defp save_completed_photo(socket) do
-    %{type: type_str, area: area} = socket.assigns.show_photo_upload
-    photo_type = String.to_existing_atom(type_str)
-    appointment_id = socket.assigns.appointment.id
+    errors =
+      if entry,
+        do: upload_errors(assigns.upload, entry) ++ upload_errors(assigns.upload),
+        else: upload_errors(assigns.upload)
 
-    results =
-      consume_uploaded_entries(socket, :photo, fn %{path: path}, entry ->
-        opts = [uploaded_by: :technician, car_part: area]
+    assigns = assign(assigns, entry: entry, upload_errs: errors)
 
-        case PhotoUpload.save_file(appointment_id, path, entry.client_name, photo_type, opts) do
-          {:ok, photo} -> {:ok, {:ok, photo}}
-          {:error, reason} -> {:postpone, {:error, reason}}
-        end
-      end)
+    ~H"""
+    <div id={"tile-#{@type}-#{@area.id}"}>
+      <div
+        :if={@entry && @upload_errs == []}
+        class="relative h-40 overflow-hidden rounded-2xl shadow"
+      >
+        <.live_img_preview entry={@entry} class="h-full w-full object-cover" />
+        <div class="absolute inset-x-2 bottom-2">
+          <progress
+            class="progress progress-primary h-1.5 w-full"
+            value={@entry.progress}
+            max="100"
+          >
+          </progress>
+        </div>
+        <p class="absolute left-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs text-white">
+          {@area.label}
+        </p>
+      </div>
 
-    if Enum.any?(results, &match?({:ok, _}, &1)) do
-      AppointmentTracker.broadcast_photo(appointment_id, photo_type)
+      <div
+        :if={@entry && @upload_errs != []}
+        class="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-error bg-error/5 px-3 text-center"
+      >
+        <p class="text-sm font-bold text-error">{@area.label}</p>
+        <p class="text-xs text-error">{upload_error_to_string(hd(@upload_errs))}</p>
+        <button
+          type="button"
+          class="btn btn-outline btn-error btn-xs"
+          phx-click="retry_tile_upload"
+          phx-value-name={@upload.name}
+          phx-value-ref={@entry.ref}
+        >
+          Try again
+        </button>
+      </div>
 
-      socket =
-        socket
-        |> assign(show_photo_upload: nil)
-        |> reload_photos()
-        |> maybe_complete_wash()
+      <div :if={!@entry && @photo} class="relative h-40 overflow-hidden rounded-2xl shadow">
+        <img src={@photo.file_path} class="h-full w-full object-cover" />
+        <div
+          :if={@ghost}
+          class="absolute bottom-2 left-2 h-12 w-12 overflow-hidden rounded-lg border-2 border-white shadow"
+        >
+          <img src={@ghost.file_path} class="h-full w-full object-cover" />
+        </div>
+        <div class={[
+          "absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-2",
+          @ghost && "pl-16"
+        ]}>
+          <p class="text-xs font-bold leading-tight text-white">{@area.label}</p>
+        </div>
+        <div class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-success shadow">
+          <span class="text-xs font-bold text-white">✓</span>
+        </div>
+        <label
+          :if={!@completed}
+          for={@upload.ref}
+          class="absolute left-2 top-2 cursor-pointer rounded-full bg-black/40 px-2 py-0.5 text-xs text-white"
+        >
+          Retake
+        </label>
+      </div>
 
-      {:noreply, put_flash(socket, :info, "Photo saved.")}
-    else
-      {:noreply, put_flash(socket, :error, save_error_message(results))}
-    end
+      <label
+        :if={!@entry && !@photo && !@completed}
+        for={@upload.ref}
+        class={[
+          "relative flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-1",
+          "overflow-hidden rounded-2xl border-2 border-dashed transition-colors",
+          tile_accent(@type)
+        ]}
+      >
+        <img
+          :if={@ghost}
+          src={@ghost.file_path}
+          class="absolute inset-0 h-full w-full object-cover opacity-20"
+        />
+        <span class="relative text-5xl font-thin opacity-70">+</span>
+        <span class="relative text-sm font-bold">{@area.label}</span>
+        <span class="relative px-3 text-center text-xs leading-tight text-base-content/70">
+          {@area.instruction}
+        </span>
+        <p :if={@tile_error} class="relative text-xs font-semibold text-error">{@tile_error}</p>
+      </label>
+
+      <div
+        :if={!@entry && !@photo && @completed}
+        class="flex h-40 items-center justify-center rounded-2xl border border-base-300 bg-base-200/40 px-3 text-center text-xs text-base-content/60"
+      >
+        No {@type} photo captured for {@area.label}.
+      </div>
+
+      <.live_file_input
+        :if={!@completed}
+        upload={@upload}
+        capture="environment"
+        class="sr-only"
+      />
+    </div>
+    """
   end
 
-  defp save_error_message([{:error, reason} | _]) when is_binary(reason),
-    do: "Could not save photo: #{reason}"
+  defp tile_accent(:before), do: "border-warning bg-warning/5 text-warning active:bg-warning/20"
+  defp tile_accent(:after), do: "border-success bg-success/5 text-success active:bg-success/20"
 
-  defp save_error_message(_), do: "Could not save photo — please try again."
+  # --- Photo Helpers ---
 
   defp upload_error_to_string(:too_large), do: "That photo is too large (max 10 MB)."
   defp upload_error_to_string(:not_accepted), do: "Use a JPG, PNG, or WebP photo."
   defp upload_error_to_string(:too_many_files), do: "One photo at a time."
   defp upload_error_to_string(_), do: "Upload failed — remove the photo and try again."
+
+  defp tile_upload_opts do
+    [
+      accept: ~w(.jpg .jpeg .png .webp),
+      max_entries: 1,
+      max_file_size: 10_000_000,
+      auto_upload: true,
+      progress: &handle_tile_progress/3
+    ]
+  end
+
+  # Real implementation lands with auto-save (next task).
+  defp handle_tile_progress(_name, _entry, socket), do: {:noreply, socket}
+
+  defp tile_upload_name(type, area_id), do: :"#{type}_#{area_id}"
 
   defp reload_photos(socket) do
     appointment_id = socket.assigns.appointment.id
@@ -1021,20 +957,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   defp area_photo(photos, area_id) do
     Enum.find(photos, &(&1.car_part == area_id))
-  end
-
-  defp area_label(area_id) do
-    case Enum.find(@key_areas, &(&1.id == area_id)) do
-      %{label: label} -> label
-      nil -> to_string(area_id)
-    end
-  end
-
-  defp area_instruction(area_id) do
-    case Enum.find(@key_areas, &(&1.id == area_id)) do
-      %{instruction: instruction} -> instruction
-      nil -> ""
-    end
   end
 
   # --- Timer Helpers ---
