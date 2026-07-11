@@ -196,6 +196,99 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
     end
   end
 
+  describe "workday command card" do
+    setup %{conn: conn} do
+      user = create_tech_customer()
+      tech = create_tech_record(user)
+      conn = sign_in(conn, user)
+
+      {:ok, customer} =
+        Customer
+        |> Ash.Changeset.for_create(:register_with_password, %{
+          email: "command-cust-#{System.unique_integer([:positive])}@test.com",
+          password: "Password123!",
+          password_confirmation: "Password123!",
+          name: "Command Customer",
+          phone: "+15125550401"
+        })
+        |> Ash.create()
+
+      {:ok, conn: conn, user: user, tech: tech, customer: customer}
+    end
+
+    test "off-duty tech with work today sees start shift as the primary command",
+         %{conn: conn, tech: tech, customer: customer} do
+      _appt = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#tech-workday-command")
+      assert has_element?(view, "#command-start-shift", "Start shift")
+
+      assert has_element?(
+               view,
+               "#tech-workday-command",
+               "Start your shift to begin today's work."
+             )
+    end
+
+    test "available tech with a confirmed job sees the next job command",
+         %{conn: conn, tech: tech, customer: customer} do
+      tech
+      |> Ash.Changeset.for_update(:set_status, %{status: :available})
+      |> Ash.update!()
+
+      appt = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#tech-workday-command")
+
+      assert has_element?(
+               view,
+               "#command-view-job[href='/tech/appointments/#{appt.id}']",
+               "View job"
+             )
+
+      assert render(view) =~ "Command Customer"
+      assert render(view) =~ "Basic Wash"
+    end
+
+    test "linked tech with no work today sees a calm empty state", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#tech-workday-command")
+      assert render(view) =~ "No jobs today"
+      assert render(view) =~ "You are clear for now."
+    end
+
+    test "admin without linked technician record keeps admin mode without a personal command card",
+         %{conn: conn} do
+      {:ok, admin} =
+        Customer
+        |> Ash.Changeset.for_create(:register_with_password, %{
+          email: "command-admin-#{System.unique_integer([:positive])}@test.com",
+          password: "Password123!",
+          password_confirmation: "Password123!",
+          name: "Command Admin",
+          phone: "+15125550499"
+        })
+        |> Ash.create()
+
+      {:ok, admin} =
+        admin
+        |> Ash.Changeset.for_update(:update, %{role: :admin})
+        |> Ash.update(authorize?: false)
+
+      admin_conn = sign_in(conn, admin)
+
+      {:ok, view, _html} = live(admin_conn, ~p"/tech")
+
+      refute has_element?(view, "#tech-workday-command")
+      assert render(view) =~ "Viewing as admin"
+    end
+  end
+
   describe "per-appointment state-machine buttons" do
     setup %{conn: conn} do
       user = create_tech_customer()
