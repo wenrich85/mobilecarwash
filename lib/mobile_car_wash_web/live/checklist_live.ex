@@ -893,13 +893,28 @@ defmodule MobileCarWashWeb.ChecklistLive do
   # --- Photo Helpers ---
 
   defp tile_upload_opts do
-    [
+    base = [
       accept: ~w(.jpg .jpeg .png .webp),
       max_entries: 1,
       max_file_size: 10_000_000,
       auto_upload: true,
       progress: &handle_tile_progress/3
     ]
+
+    if PhotoUpload.external_uploads?() do
+      base ++ [external: &presign_photo/2]
+    else
+      base
+    end
+  end
+
+  defp presign_photo(entry, socket) do
+    {photo_type, _area} = parse_tile_name(entry.upload_config)
+
+    case PhotoUpload.external_entry_meta(entry, socket.assigns.appointment.id, photo_type) do
+      {:ok, meta} -> {:ok, meta, socket}
+      {:error, reason} -> {:error, %{reason: inspect(reason)}, socket}
+    end
   end
 
   # Auto-save: each tile's entry is consumed the moment its transfer
@@ -930,6 +945,22 @@ defmodule MobileCarWashWeb.ChecklistLive do
       end
     else
       {:noreply, update(socket, :tile_errors, &Map.delete(&1, name))}
+    end
+  end
+
+  defp save_tile_file(%{key: key}, appointment_id, client_name, photo_type, area) do
+    case PhotoUpload.save_external_file(appointment_id, key, client_name, photo_type,
+           uploaded_by: :technician,
+           car_part: area
+         ) do
+      {:ok, _photo} = ok ->
+        ok
+
+      {:error, reason} ->
+        # The object is already in the bucket but has no DB row — remove
+        # it best-effort so failed saves don't strand orphans.
+        _ = PhotoUpload.delete_file(%{file_path: key})
+        {:error, reason}
     end
   end
 

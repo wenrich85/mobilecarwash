@@ -405,4 +405,50 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert has_element?(view, "#tile-before-rear label[for]")
     end
   end
+
+  describe "external uploads (s3 backend)" do
+    setup %{conn: conn} do
+      prev_storage = Application.get_env(:mobile_car_wash, :photo_storage, :local)
+      prev_key = Application.get_env(:ex_aws, :access_key_id)
+      prev_secret = Application.get_env(:ex_aws, :secret_access_key)
+
+      Application.put_env(:mobile_car_wash, :photo_storage, :s3)
+      Application.put_env(:ex_aws, :access_key_id, "test-access-key")
+      Application.put_env(:ex_aws, :secret_access_key, "test-secret-key")
+
+      on_exit(fn ->
+        Application.put_env(:mobile_car_wash, :photo_storage, prev_storage)
+        Application.put_env(:ex_aws, :access_key_id, prev_key)
+        Application.put_env(:ex_aws, :secret_access_key, prev_secret)
+      end)
+
+      user = create_tech_customer()
+      tech = create_tech_record(user)
+      customer = create_customer()
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+
+      {:ok, conn: sign_in(conn, user), appointment: appointment, checklist: checklist}
+    end
+
+    test "tile preflight returns S3PUT meta with a presigned key", %{
+      conn: conn,
+      checklist: checklist,
+      appointment: appointment
+    } do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      input = file_input(view, "#before-photo-form", :before_front, [jpeg_entry("front.jpg")])
+
+      {:ok, resp} = preflight_upload(input)
+      meta = resp.entries |> Map.values() |> hd()
+
+      # NOTE: if these fail with a KeyError, the preflight reply
+      # string-encodes keys — switch to meta["uploader"], meta["url"],
+      # meta["key"] accordingly. Assert the same values either way.
+      assert meta.uploader == "S3PUT"
+      assert meta.url =~ "X-Amz-Expires=300"
+      assert meta.key =~ "appointments/#{appointment.id}/before_"
+    end
+  end
 end

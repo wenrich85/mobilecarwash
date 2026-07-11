@@ -203,4 +203,50 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
       assert html =~ "Light scratch on lower rear bumper"
     end
   end
+
+  describe "external uploads (s3 backend)" do
+    setup do
+      prev_storage = Application.get_env(:mobile_car_wash, :photo_storage, :local)
+      prev_key = Application.get_env(:ex_aws, :access_key_id)
+      prev_secret = Application.get_env(:ex_aws, :secret_access_key)
+
+      Application.put_env(:mobile_car_wash, :photo_storage, :s3)
+      Application.put_env(:ex_aws, :access_key_id, "test-access-key")
+      Application.put_env(:ex_aws, :secret_access_key, "test-secret-key")
+
+      on_exit(fn ->
+        Application.put_env(:mobile_car_wash, :photo_storage, prev_storage)
+        Application.put_env(:ex_aws, :access_key_id, prev_key)
+        Application.put_env(:ex_aws, :secret_access_key, prev_secret)
+      end)
+
+      :ok
+    end
+
+    test "problem-photo preflight returns S3PUT meta", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer.id)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments")
+
+      view
+      |> element("button[phx-value-id='#{appt.id}']", "Problem Area Photos")
+      |> render_click()
+
+      photo = %{
+        name: "spot.jpg",
+        content: <<0xFF, 0xD8, 0xFF, 0xE0>> <> :binary.copy(<<0>>, 60_000),
+        type: "image/jpeg"
+      }
+
+      input = file_input(view, "#photo-upload-form-#{appt.id}", :problem_photo_library, [photo])
+
+      {:ok, resp} = preflight_upload(input)
+      meta = resp.entries |> Map.values() |> hd()
+
+      assert meta.uploader == "S3PUT"
+      assert meta.key =~ "appointments/#{appt.id}/problem_area_"
+    end
+  end
 end
