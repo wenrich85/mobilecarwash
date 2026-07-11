@@ -99,6 +99,12 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
       # The camera input must set capture="environment" so tapping
       # goes straight to the rear camera on mobile browsers.
       assert html =~ ~s(capture="environment")
+      # Both inputs downscale on-device before upload so transfers are
+      # a few hundred KB instead of a full-resolution phone photo. The
+      # hook must wrap the input, not sit on it — the input itself is
+      # claimed by LiveView's internal LiveFileUpload hook.
+      assert has_element?(view, "[phx-hook='ImageDownscale'] input[type='file']")
+      refute has_element?(view, "input[type='file'][phx-hook]")
     end
 
     test "closes when the Done button is tapped", %{conn: conn} do
