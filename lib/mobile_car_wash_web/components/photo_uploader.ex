@@ -101,9 +101,13 @@ defmodule MobileCarWashWeb.PhotoUploader do
   def action_buttons(assigns) do
     ~H"""
     <div class="flex flex-col sm:flex-row gap-3">
-      <!-- Take Photo (camera direct on mobile) -->
+      <!-- Take Photo (camera direct on mobile). The label carries the
+           ImageDownscale hook — it can't sit on the input itself, which
+           is claimed by LiveView's internal Phoenix.LiveFileUpload hook. -->
       <label
+        id={"#{@camera_upload.ref}-downscale"}
         for={@camera_upload.ref}
+        phx-hook="ImageDownscale"
         class="btn btn-primary btn-lg flex-1 rounded-2xl gap-2 h-20"
       >
         <span class="text-2xl" aria-hidden="true">📷</span>
@@ -114,10 +118,14 @@ defmodule MobileCarWashWeb.PhotoUploader do
         <.live_file_input upload={@camera_upload} capture="environment" class="sr-only" />
       </label>
       
-    <!-- Upload from library (also the desktop drag target) -->
+    <!-- Upload from library (also the desktop drag target). Drag-and-drop
+           bypasses the input's change event, so dropped files upload at
+           full size — only picker selections are downscaled. -->
       <label
+        id={"#{@library_upload.ref}-downscale"}
         for={@library_upload.ref}
         phx-drop-target={@library_upload.ref}
+        phx-hook="ImageDownscale"
         class="btn btn-outline btn-lg flex-1 rounded-2xl gap-2 h-20 border-dashed hover:border-solid"
       >
         <span class="text-2xl" aria-hidden="true">🖼️</span>

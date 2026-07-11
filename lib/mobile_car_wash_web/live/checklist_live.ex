@@ -104,7 +104,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
           |> allow_upload(:photo,
             accept: ~w(.jpg .jpeg .png .webp),
             max_entries: 1,
-            max_file_size: 10_000_000
+            max_file_size: 10_000_000,
+            # Transfer starts the moment the tech picks a photo, so by
+            # the time they've reviewed the preview, Save is instant.
+            auto_upload: true
           )
 
         {:ok, socket}
@@ -283,28 +286,18 @@ defmodule MobileCarWashWeb.ChecklistLive do
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
 
   def handle_event("save_photo", _params, socket) do
-    %{type: type_str, area: area} = socket.assigns.show_photo_upload
-    photo_type = String.to_existing_atom(type_str)
-    appointment_id = socket.assigns.appointment.id
+    entries = socket.assigns.uploads.photo.entries
 
-    consume_uploaded_entries(socket, :photo, fn %{path: path}, entry ->
-      opts = [uploaded_by: :technician, car_part: area]
+    cond do
+      entries == [] ->
+        {:noreply, put_flash(socket, :error, "Select a photo first.")}
 
-      case PhotoUpload.save_file(appointment_id, path, entry.client_name, photo_type, opts) do
-        {:ok, photo} -> {:ok, photo}
-        {:error, reason} -> {:postpone, reason}
-      end
-    end)
+      Enum.any?(entries, &(!&1.done?)) ->
+        {:noreply, put_flash(socket, :error, "Photo is still uploading — one moment.")}
 
-    AppointmentTracker.broadcast_photo(appointment_id, photo_type)
-
-    socket =
-      socket
-      |> assign(show_photo_upload: nil)
-      |> reload_photos()
-      |> maybe_complete_wash()
-
-    {:noreply, put_flash(socket, :info, "Photo saved.")}
+      true ->
+        save_completed_photo(socket)
+    end
   end
 
   def handle_event("edit_note", %{"id" => item_id}, socket) do
@@ -863,13 +856,35 @@ defmodule MobileCarWashWeb.ChecklistLive do
             </button>
           </div>
           <div class="flex-1 overflow-y-auto p-4">
-            <form phx-submit="save_photo" phx-change="validate_upload" class="flex flex-col gap-4">
-              <!-- Preview (shown once a file is selected) -->
+            <form
+              id="checklist-photo-form"
+              phx-submit="save_photo"
+              phx-change="validate_upload"
+              class="flex flex-col gap-4"
+            >
+              <!-- Preview + transfer progress (upload streams in the background) -->
               <div :if={@uploads.photo.entries != []}>
                 <div :for={entry <- @uploads.photo.entries}>
                   <.live_img_preview entry={entry} class="w-full rounded-2xl object-cover max-h-72" />
+                  <progress
+                    :if={!entry.done?}
+                    class="progress progress-primary mt-2 h-1.5 w-full"
+                    value={entry.progress}
+                    max="100"
+                  >
+                  </progress>
+                  <p
+                    :for={err <- upload_errors(@uploads.photo, entry)}
+                    class="mt-1 text-sm text-error"
+                  >
+                    {upload_error_to_string(err)}
+                  </p>
                 </div>
               </div>
+
+              <p :for={err <- upload_errors(@uploads.photo)} class="text-sm text-error">
+                {upload_error_to_string(err)}
+              </p>
               
     <!-- Placeholder (shown when no file yet) — non-interactive, file input below handles taps -->
               <div
@@ -880,13 +895,23 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 <p class="text-sm text-base-content/70">Select photo below</p>
               </div>
               
-    <!-- Single file input — always mounted so LiveView's upload hook stays attached -->
-              <.live_file_input upload={@uploads.photo} class="file-input file-input-bordered w-full" />
+    <!-- Single file input — always mounted so LiveView's upload hook stays attached.
+         The wrapper's ImageDownscale hook shrinks the photo on-device before the
+         transfer starts (the input itself is claimed by Phoenix.LiveFileUpload). -->
+              <div id="checklist-photo-downscale" phx-hook="ImageDownscale">
+                <.live_file_input
+                  upload={@uploads.photo}
+                  class="file-input file-input-bordered w-full"
+                />
+              </div>
 
               <button
                 type="submit"
                 class="btn btn-primary btn-lg w-full rounded-2xl"
-                disabled={@uploads.photo.entries == []}
+                disabled={
+                  @uploads.photo.entries == [] or
+                    Enum.any?(@uploads.photo.entries, &(!&1.done?))
+                }
               >
                 Save Photo
               </button>
@@ -903,6 +928,51 @@ defmodule MobileCarWashWeb.ChecklistLive do
   end
 
   # --- Photo Helpers ---
+
+  # Entries are fully transferred at this point (auto_upload streams them
+  # in the background; save_photo guards on done?). Consuming is a fast
+  # local file move + DB insert, so Save feels instant. A failed save
+  # postpones the entry — it stays visible so the tech can retry or
+  # cancel — and reports the error instead of claiming success.
+  defp save_completed_photo(socket) do
+    %{type: type_str, area: area} = socket.assigns.show_photo_upload
+    photo_type = String.to_existing_atom(type_str)
+    appointment_id = socket.assigns.appointment.id
+
+    results =
+      consume_uploaded_entries(socket, :photo, fn %{path: path}, entry ->
+        opts = [uploaded_by: :technician, car_part: area]
+
+        case PhotoUpload.save_file(appointment_id, path, entry.client_name, photo_type, opts) do
+          {:ok, photo} -> {:ok, {:ok, photo}}
+          {:error, reason} -> {:postpone, {:error, reason}}
+        end
+      end)
+
+    if Enum.any?(results, &match?({:ok, _}, &1)) do
+      AppointmentTracker.broadcast_photo(appointment_id, photo_type)
+
+      socket =
+        socket
+        |> assign(show_photo_upload: nil)
+        |> reload_photos()
+        |> maybe_complete_wash()
+
+      {:noreply, put_flash(socket, :info, "Photo saved.")}
+    else
+      {:noreply, put_flash(socket, :error, save_error_message(results))}
+    end
+  end
+
+  defp save_error_message([{:error, reason} | _]) when is_binary(reason),
+    do: "Could not save photo: #{reason}"
+
+  defp save_error_message(_), do: "Could not save photo — please try again."
+
+  defp upload_error_to_string(:too_large), do: "That photo is too large (max 10 MB)."
+  defp upload_error_to_string(:not_accepted), do: "Use a JPG, PNG, or WebP photo."
+  defp upload_error_to_string(:too_many_files), do: "One photo at a time."
+  defp upload_error_to_string(_), do: "Upload failed — remove the photo and try again."
 
   defp reload_photos(socket) do
     appointment_id = socket.assigns.appointment.id
