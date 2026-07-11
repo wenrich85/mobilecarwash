@@ -149,6 +149,7 @@ defmodule MobileCarWashWeb.Router do
       live "/subscribe/cancel", SubscriptionCancelLive
       live "/style-guide", Admin.StyleGuideLive
       live "/privacy", PrivacyLive
+      live "/tech/invite/:token", Tech.InviteLive
     end
 
     # Calendar (.ics) download for the booking-success page. Outside

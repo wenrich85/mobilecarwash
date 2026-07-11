@@ -43,6 +43,42 @@ defmodule MobileCarWash.Notifications.Email do
   end
 
   @doc """
+  Technician setup invitation email — sent after an admin creates a technician account shell.
+  """
+  def tech_invite(customer, invite_url, expires_at) do
+    expires_label = Calendar.strftime(expires_at, "%B %d, %Y")
+
+    inner_html = """
+    <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Set up your technician account</h2>
+    <p>Hi #{customer.name},</p>
+    <p>Your Driveway Detail Co technician account is ready. Set your password to activate access to your private technician profile and tools.</p>
+    <p style="margin:24px 0;">#{Layout.button("Set my password", invite_url)}</p>
+    <p style="color:#64748b;font-size:12px;">This setup link expires on #{expires_label}. If you were not expecting this invite, you can ignore this email.</p>
+    """
+
+    inner_text = """
+    Set up your technician account
+
+    Hi #{customer.name},
+
+    Your Driveway Detail Co technician account is ready. Set your password to
+    activate access to your private technician profile and tools.
+
+    Set password: #{invite_url}
+
+    This setup link expires on #{expires_label}. If you were not expecting this
+    invite, you can ignore this email.
+    """
+
+    new()
+    |> to({customer.name, to_string(customer.email)})
+    |> from(@from)
+    |> subject("Set up your Driveway Detail Co technician account")
+    |> html_body(Layout.wrap_html(inner_html))
+    |> text_body(Layout.wrap_text(inner_text))
+  end
+
+  @doc """
   Booking confirmation email — sent after successful payment.
   """
   def booking_confirmation(appointment, service_type, customer, address) do
