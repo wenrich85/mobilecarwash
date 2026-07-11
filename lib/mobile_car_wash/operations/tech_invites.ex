@@ -64,6 +64,18 @@ defmodule MobileCarWash.Operations.TechInvites do
 
   def accept_invite(_token, _password, _password_confirmation), do: {:error, :invalid_token}
 
+  def pending_invite(token) when is_binary(token) do
+    with {:ok, invite} <- invite_for_token(token),
+         :ok <- ensure_pending(invite),
+         :ok <- ensure_not_expired_for_lookup(invite),
+         {:ok, customer} <- Ash.get(Customer, invite.customer_id, authorize?: false),
+         {:ok, technician} <- Ash.get(Technician, invite.technician_id, authorize?: false) do
+      {:ok, %{customer: customer, technician: technician, invite: invite}}
+    end
+  end
+
+  def pending_invite(_token), do: {:error, :invalid_token}
+
   def invite_url(token) do
     base =
       Application.get_env(
@@ -160,6 +172,14 @@ defmodule MobileCarWash.Operations.TechInvites do
       |> Ash.Changeset.for_update(:update, %{status: :expired})
       |> ash_update()
 
+      {:error, :invite_expired}
+    else
+      :ok
+    end
+  end
+
+  defp ensure_not_expired_for_lookup(invite) do
+    if DateTime.compare(invite.expires_at, DateTime.utc_now()) == :lt do
       {:error, :invite_expired}
     else
       :ok
