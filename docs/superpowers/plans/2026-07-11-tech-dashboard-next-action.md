@@ -26,12 +26,13 @@
   - Add a `:command_card` assign in `mount/3` and `reload_appointments/1`.
   - Add private helpers:
     - `build_command_card/3`
+    - `command_candidate/2`
     - `command_priority/1`
     - `command_kind/2`
     - `command_title/1`
     - `command_body/1`
     - `command_badge/1`
-    - `command_primary_action/3`
+    - `command_primary_action/1`
     - `command_card_appointment_id/1`
     - `appointment_row_state/3`
   - Add a private HEEx function component `workday_command_card/1`.
