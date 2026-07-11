@@ -11,6 +11,8 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
   require Ash.Query
 
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Inventory
+  alias MobileCarWash.Inventory.Supply
   alias MobileCarWash.Operations.{Technician, TechnicianTracker}
   alias MobileCarWash.Scheduling.Appointment
 
@@ -113,9 +115,22 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
       |> Ash.Changeset.for_update(:update, %{})
       |> Ash.Changeset.force_change_attribute(:technician_id, technician_id)
       |> Ash.Changeset.force_change_attribute(:status, status)
+      |> Ash.Changeset.force_change_attribute(:scheduled_at, DateTime.utc_now())
       |> Ash.update(authorize?: false)
 
     appt
+  end
+
+  defp create_supply do
+    Supply
+    |> Ash.Changeset.for_create(:create, %{
+      name: "Dashboard Supply #{System.unique_integer([:positive])}",
+      category: :other,
+      unit: "units",
+      quantity_on_hand: Decimal.new("10"),
+      active: true
+    })
+    |> Ash.create!(authorize?: false)
   end
 
   defp create_checklist_progress!(appointment, steps_total, steps_done, status \\ :in_progress) do
@@ -277,6 +292,38 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
              )
     end
 
+    test "starting a shift immediately replaces the command with the appointment action",
+         %{conn: conn, tech: tech, customer: customer} do
+      appt = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#command-start-shift", "Start shift")
+
+      view
+      |> element("#command-start-shift")
+      |> render_click()
+
+      refute has_element?(view, "#command-start-shift", "Start shift")
+
+      assert has_element?(
+               view,
+               "#command-view-job[href='/tech/appointments/#{appt.id}']",
+               "View job"
+             )
+    end
+
+    for status <- [:en_route, :on_site, :in_progress] do
+      test "off-duty tech with a #{status} appointment sees start shift as the primary command",
+           %{conn: conn, tech: tech, customer: customer} do
+        _appt = create_appointment(customer.id, tech.id, unquote(status))
+
+        {:ok, view, _html} = live(conn, ~p"/tech")
+
+        assert has_element?(view, "#command-start-shift", "Start shift")
+      end
+    end
+
     test "available tech with a confirmed job sees the next job command",
          %{conn: conn, tech: tech, customer: customer} do
       tech
@@ -335,6 +382,10 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
 
     test "en-route job shows mark arrived as the primary command",
          %{conn: conn, tech: tech, customer: customer} do
+      tech
+      |> Ash.Changeset.for_update(:set_status, %{status: :available})
+      |> Ash.update!()
+
       appt = create_appointment(customer.id, tech.id, :en_route)
 
       {:ok, view, _html} = live(conn, ~p"/tech")
@@ -351,6 +402,10 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
 
     test "on-site job shows start wash as the primary command",
          %{conn: conn, tech: tech, customer: customer} do
+      tech
+      |> Ash.Changeset.for_update(:set_status, %{status: :available})
+      |> Ash.update!()
+
       _appt = create_appointment(customer.id, tech.id, :on_site)
 
       {:ok, view, _html} = live(conn, ~p"/tech")
@@ -360,6 +415,10 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
 
     test "in-progress job with checklist shows continue checklist as the primary command",
          %{conn: conn, tech: tech, customer: customer} do
+      tech
+      |> Ash.Changeset.for_update(:set_status, %{status: :available})
+      |> Ash.update!()
+
       appt = create_appointment(customer.id, tech.id, :in_progress)
       checklist = create_checklist_progress!(appt, 3, 1)
 
@@ -379,6 +438,46 @@ defmodule MobileCarWashWeb.Tech.TechDashboardLiveTest do
       {:ok, view, _html} = live(conn, ~p"/tech")
 
       assert has_element?(view, "#command-log-supplies", "Log supplies")
+    end
+
+    test "completed job with logged supplies returns to the no-work command",
+         %{conn: conn, tech: tech, customer: customer} do
+      appt = create_appointment(customer.id, tech.id, :completed)
+      supply = create_supply()
+
+      {:ok, _usage} =
+        Inventory.log_usage(%{
+          supply_id: supply.id,
+          appointment_id: appt.id,
+          technician_id: tech.id,
+          quantity_used: Decimal.new("1")
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#tech-workday-command", "No jobs today")
+      refute has_element?(view, "#command-log-supplies", "Log supplies")
+    end
+
+    test "saving supply usage immediately clears the completed-job command",
+         %{conn: conn, tech: tech, customer: customer} do
+      _appt = create_appointment(customer.id, tech.id, :completed)
+      supply = create_supply()
+
+      {:ok, view, _html} = live(conn, ~p"/tech")
+
+      assert has_element?(view, "#command-log-supplies", "Log supplies")
+
+      view
+      |> element("#command-log-supplies")
+      |> render_click()
+
+      view
+      |> form("form", %{"rows" => %{"0" => %{"supply_id" => supply.id, "qty" => "1"}}})
+      |> render_submit()
+
+      assert has_element?(view, "#tech-workday-command", "No jobs today")
+      refute has_element?(view, "#command-log-supplies", "Log supplies")
     end
 
     test "today row marks the command-card appointment as next",

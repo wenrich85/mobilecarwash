@@ -143,7 +143,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   def handle_info({:technician_status, %{technician_id: id, status: status}}, socket) do
     case socket.assigns.tech_record do
       %{id: ^id} = tech ->
-        {:noreply, assign(socket, tech_record: %{tech | status: status})}
+        {:noreply,
+         socket
+         |> assign(tech_record: %{tech | status: status})
+         |> assign_command_card()}
 
       _ ->
         {:noreply, socket}
@@ -309,7 +312,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
              })
              |> Ash.update() do
           {:ok, updated} ->
-            {:noreply, assign(socket, tech_record: updated)}
+            {:noreply,
+             socket
+             |> assign(tech_record: updated)
+             |> assign_command_card()}
 
           {:error, _} ->
             {:noreply, put_flash(socket, :error, "Could not update status.")}
@@ -354,6 +360,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     tech = socket.assigns.tech_record
 
     rows = params["rows"] || []
+    rows = if is_map(rows), do: Map.values(rows), else: rows
 
     entries =
       rows
@@ -396,12 +403,22 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         {:noreply, assign(socket, supply_log_error: "Add at least one supply entry")}
 
       true ->
-        Enum.each(valid, &Inventory.log_usage/1)
+        case Enum.reduce_while(valid, :ok, fn entry, :ok ->
+               case Inventory.log_usage(entry) do
+                 {:ok, _usage} -> {:cont, :ok}
+                 {:error, reason} -> {:halt, {:error, reason}}
+               end
+             end) do
+          :ok ->
+            {:noreply,
+             socket
+             |> assign(logging_supplies_for: nil, supply_log_error: nil)
+             |> assign_command_card()
+             |> put_flash(:info, "#{length(valid)} supply usage(s) logged")}
 
-        {:noreply,
-         socket
-         |> assign(logging_supplies_for: nil, supply_log_error: nil)
-         |> put_flash(:info, "#{length(valid)} supply usage(s) logged")}
+          {:error, _reason} ->
+            {:noreply, assign(socket, supply_log_error: "Could not log supply usage")}
+        end
     end
   end
 
@@ -1251,6 +1268,18 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     )
   end
 
+  defp assign_command_card(socket) do
+    assign(
+      socket,
+      command_card:
+        build_command_card(
+          socket.assigns.tech_record,
+          socket.assigns.todays_appointments,
+          socket.assigns.progress_map
+        )
+    )
+  end
+
   defp build_progress_map(appointments) do
     Map.new(appointments, fn appt -> {appt.id, Dispatch.checklist_progress(appt.id)} end)
   end
@@ -1261,11 +1290,12 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     actionable =
       todays_appointments
       |> Enum.reject(&(&1.status in [:cancelled, :pending]))
+      |> Enum.reject(&supply_usage_logged?/1)
       |> Enum.sort_by(fn appointment ->
         {command_priority(appointment), DateTime.to_unix(appointment.scheduled_at)}
       end)
 
-    candidate = Enum.find(actionable, &(command_priority(&1) < 99))
+    candidate = List.first(actionable)
     kind = command_kind(tech_record, candidate)
 
     %{
@@ -1283,10 +1313,11 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   defp command_priority(%{status: :en_route}), do: 2
   defp command_priority(%{status: :confirmed}), do: 3
   defp command_priority(%{status: :completed}), do: 8
-  defp command_priority(_appointment), do: 99
+  defp command_priority(_appointment), do: 4
 
-  defp command_kind(%{status: :off_duty}, %{status: :confirmed}),
-    do: :start_shift
+  defp command_kind(%{status: :off_duty}, %{status: status})
+       when status in [:confirmed, :en_route, :on_site, :in_progress],
+       do: :start_shift
 
   defp command_kind(_tech_record, nil), do: :no_work
   defp command_kind(_tech_record, %{status: :confirmed}), do: :view_job
@@ -1387,7 +1418,21 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       label: "Log supplies"
     }
 
+  defp command_primary_action(:review_schedule, %{id: appointment_id}, _progress_map),
+    do: %{
+      type: :link,
+      id: "command-review-schedule",
+      to: ~p"/tech/appointments/#{appointment_id}",
+      label: "Review schedule"
+    }
+
   defp command_primary_action(_kind, _appointment, _progress_map), do: nil
+
+  defp supply_usage_logged?(%{status: :completed, id: appointment_id}) do
+    Inventory.usage_for_appointment(appointment_id) != []
+  end
+
+  defp supply_usage_logged?(_appointment), do: false
 
   defp default_progress do
     %{
