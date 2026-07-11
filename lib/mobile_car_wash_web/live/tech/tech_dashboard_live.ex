@@ -523,7 +523,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
           />
         </div>
       </div>
-
+      
     <!-- Map -->
       <div class="mb-8">
         <div class="flex justify-between items-center mb-3">
