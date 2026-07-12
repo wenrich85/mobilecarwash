@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
   import Phoenix.LiveViewTest
 
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Operations.{Procedure, ProcedureStep, Technician}
+  alias MobileCarWash.Operations.{Photo, Procedure, ProcedureStep, Technician}
   alias MobileCarWash.Scheduling.{Appointment, ServiceType}
 
   defp create_tech_customer(name \\ "Job Tech") do
@@ -125,6 +125,30 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
     appointment
   end
 
+  defp with_notes(appointment, notes) do
+    appointment
+    |> Ash.Changeset.for_update(:update, %{})
+    |> Ash.Changeset.force_change_attribute(:notes, notes)
+    |> Ash.update!(authorize?: false)
+  end
+
+  defp create_problem_photo!(appointment, attrs \\ %{}) do
+    defaults = %{
+      file_path: "/photos/appointments/#{appointment.id}/problem_area_front.jpg",
+      original_filename: "problem_area_front.jpg",
+      content_type: "image/jpeg",
+      photo_type: :problem_area,
+      caption: "Bird droppings on the front bumper",
+      uploaded_by: :customer,
+      car_part: :front
+    }
+
+    Photo
+    |> Ash.Changeset.for_create(:upload, Map.merge(defaults, attrs))
+    |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+    |> Ash.create!(authorize?: false)
+  end
+
   defp reassign_appointment(appointment, technician_id) do
     {:ok, appointment} =
       appointment
@@ -159,6 +183,26 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
     procedure
   end
 
+  defp create_checklist_progress!(appointment) do
+    procedure = create_procedure_for_service(appointment.service_type_id)
+
+    {:ok, checklist} =
+      MobileCarWash.Operations.AppointmentChecklist
+      |> Ash.Changeset.for_create(:create, %{status: :in_progress})
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+      |> Ash.create()
+
+    appointment
+    |> Ash.Changeset.for_update(:update, %{})
+    |> Ash.Changeset.force_change_attribute(:status, :in_progress)
+    |> Ash.update!(authorize?: false)
+
+    checklist
+  end
+
+  defp count_id(html, id), do: length(Regex.scan(~r/id="#{id}"/, html))
+
   defp live_job(conn, appointment_id) do
     live(conn, ~p"/tech/appointments/#{appointment_id}", on_error: :warn)
   end
@@ -182,6 +226,218 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert render(view) =~ customer.name
       assert render(view) =~ "Toyota"
       assert render(view) =~ "78259"
+    end
+
+    test "renders prep cards for service vehicle address customer and notes", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment =
+        customer.id
+        |> create_appointment(tech.id, :confirmed)
+        |> with_notes("Customer asked us to focus on the front bumper.")
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-prep-cards")
+      assert has_element?(view, "#job-service-card")
+      assert has_element?(view, "#job-vehicle-card")
+      assert has_element?(view, "#job-address-card")
+      assert has_element?(view, "#job-customer-card")
+      assert has_element?(view, "#job-notes-card")
+      assert html =~ "Job Wash"
+      assert html =~ "Toyota"
+      assert html =~ "100 Job Ave"
+      assert html =~ customer.phone
+      assert html =~ "Customer asked us to focus on the front bumper."
+    end
+
+    test "renders a calm notes fallback when the appointment has no notes", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-notes-card")
+      assert html =~ "No appointment notes"
+    end
+
+    test "confirmed job renders one command header head-out action", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-command-card")
+      assert has_element?(view, "#job-head-out[data-role='job-primary-action']", "Head out")
+      assert html =~ "Leave for this service stop"
+      assert count_id(html, "job-head-out") == 1
+    end
+
+    test "command header includes a Maps-linked destination summary", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, _html} = live_job(conn, appointment.id)
+
+      assert has_element?(
+               view,
+               "#job-header-address[href*='maps.apple.com']",
+               "100 Job Ave, San Antonio, TX 78259"
+             )
+    end
+
+    test "en-route job renders one command header arrived action", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :en_route)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-arrived[data-role='job-primary-action']", "Arrived")
+      assert html =~ "Mark yourself on site"
+      assert count_id(html, "job-arrived") == 1
+    end
+
+    test "on-site job renders one command header start-wash action", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :on_site)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-start-wash[data-role='job-primary-action']", "Start wash")
+      assert html =~ "Start the wash"
+      assert count_id(html, "job-start-wash") == 1
+    end
+
+    test "in-progress job renders one command header checklist link", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :on_site)
+      checklist = create_checklist_progress!(appointment)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(
+               view,
+               "#job-open-checklist[data-role='job-primary-action'][href='/tech/checklist/#{checklist.id}']",
+               "Continue checklist"
+             )
+
+      assert html =~ "Continue the active wash checklist"
+      assert count_id(html, "job-open-checklist") == 1
+    end
+
+    test "pending job renders a non-clickable command state", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :pending)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-primary-waiting")
+      assert html =~ "Waiting on dispatch"
+      refute has_element?(view, "[data-role='job-primary-action']")
+    end
+
+    test "completed job renders a non-clickable command state", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :completed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-primary-waiting")
+      assert html =~ "Completed stop"
+      assert html =~ "Review the completed service details."
+      refute has_element?(view, "[data-role='job-primary-action']")
+    end
+
+    test "cancelled job renders a non-clickable command state", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :cancelled)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-primary-waiting")
+      assert html =~ "Cancelled stop"
+      assert html =~ "No field action is available for this appointment."
+      refute has_element?(view, "[data-role='job-primary-action']")
+    end
+
+    test "renders customer problem photos with caption and car part", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+      photo = create_problem_photo!(appointment)
+
+      non_problem_photo =
+        create_problem_photo!(appointment, %{
+          file_path: "/photos/appointments/#{appointment.id}/before_front.jpg",
+          original_filename: "before_front.jpg",
+          photo_type: :before
+        })
+
+      soft_deleted_problem_photo =
+        appointment
+        |> create_problem_photo!(%{
+          file_path: "/photos/appointments/#{appointment.id}/problem_area_rear.jpg",
+          original_filename: "problem_area_rear.jpg",
+          car_part: :rear
+        })
+        |> Ash.Changeset.for_update(:soft_delete, %{})
+        |> Ash.update!(authorize?: false)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-problem-photos")
+      assert has_element?(view, "#job-problem-photo-#{photo.id}")
+      assert html =~ ~s(src="#{photo.file_path}")
+      assert html =~ "Bird droppings on the front bumper"
+      assert html =~ "Front"
+      refute has_element?(view, "#job-problem-photo-empty")
+      refute has_element?(view, "#job-problem-photo-#{non_problem_photo.id}")
+      refute has_element?(view, "#job-problem-photo-#{soft_deleted_problem_photo.id}")
+    end
+
+    test "renders an empty problem-photo state when the customer uploaded none", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-problem-photos")
+      assert has_element?(view, "#job-problem-photo-empty")
+      assert html =~ "No customer problem photos"
     end
 
     test "denies access to another technician's appointment", %{conn: conn, customer: customer} do
