@@ -199,4 +199,61 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert html =~ "front-new.jpg"
     end
   end
+
+  describe "reveal mode (completed wash)" do
+    test "renders a slider per complete pair, in priority order", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+      create_photo(appt, :after, :front, "/uploads/front-a.jpg")
+      create_photo(appt, :before, :wheels, "/uploads/wheels-b.jpg")
+      create_photo(appt, :after, :wheels, "/uploads/wheels-a.jpg")
+      conn = sign_in(conn, customer)
+
+      {:ok, _view, html} = live(conn, ~p"/appointments/#{appt.id}/status")
+
+      assert html =~ ~s(id="reveal-front")
+      assert html =~ ~s(id="reveal-wheels")
+      assert html =~ ~s(phx-hook="BeforeAfterSlider")
+      assert html =~ ~s(data-before-url="/uploads/front-b.jpg")
+      assert html =~ ~s(data-after-url="/uploads/front-a.jpg")
+      # priority order: front slider appears before wheels slider
+      {front_pos, _} = :binary.match(html, ~s(id="reveal-front"))
+      {wheels_pos, _} = :binary.match(html, ~s(id="reveal-wheels"))
+      assert front_pos < wheels_pos
+    end
+
+    test "incomplete pairs fall to the More photos strip, empty areas render nothing", %{
+      conn: conn
+    } do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      # rear has only a before — no slider, lands in strip
+      create_photo(appt, :before, :rear, "/uploads/rear-b.jpg")
+      conn = sign_in(conn, customer)
+
+      {:ok, _view, html} = live(conn, ~p"/appointments/#{appt.id}/status")
+
+      refute html =~ ~s(id="reveal-rear")
+      assert html =~ "More photos"
+      assert html =~ "/uploads/rear-b.jpg"
+      # no placeholder circles in reveal mode
+      refute html =~ "○"
+    end
+
+    test "in-progress wash keeps the live grid, no sliders", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :in_progress)
+      create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+      create_photo(appt, :after, :front, "/uploads/front-a.jpg")
+      conn = sign_in(conn, customer)
+
+      {:ok, _view, html} = live(conn, ~p"/appointments/#{appt.id}/status")
+
+      refute html =~ "BeforeAfterSlider"
+      assert html =~ "Before"
+      assert html =~ "After"
+      assert html =~ "/uploads/front-b.jpg"
+    end
+  end
 end

@@ -37,22 +37,19 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         photos = load_photos(appointment_id)
 
         problem_photos = Enum.filter(photos, &(&1.photo_type == :problem_area))
-        before_photos = Enum.filter(photos, &(&1.photo_type == :before))
-        after_photos = Enum.filter(photos, &(&1.photo_type == :after))
 
         # Load current checklist state from DB
         {items, steps_done, steps_total, eta_minutes, current_step} =
           load_checklist_state(appointment_id)
 
         {:ok,
-         assign(socket,
+         socket
+         |> assign(
            page_title: "Appointment Status",
            appointment: appointment,
            service_type: service_type,
            address: address,
            problem_photos: problem_photos,
-           before_photos: before_photos,
-           after_photos: after_photos,
            key_areas: @key_areas,
            # Real-time state (loaded from DB, then updated via PubSub)
            live_status: if(appointment.status == :in_progress, do: :in_progress, else: nil),
@@ -62,7 +59,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
            eta_minutes: eta_minutes,
            items: items,
            message: status_message(appointment.status)
-         )}
+         )
+         |> assign_photo_views(photos)}
 
       _ ->
         {:ok,
@@ -222,9 +220,12 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           </div>
         </div>
         
-    <!-- Before/After Photos (live) -->
+    <!-- Before/After Photos (live, during wash) -->
         <div
-          :if={@live_status == :in_progress or @before_photos != [] or @after_photos != []}
+          :if={
+            @appointment.status != :completed and
+              (@live_status == :in_progress or @before_photos != [] or @after_photos != [])
+          }
           class="mb-6"
         >
           <div class="flex items-center gap-2 mb-3">
@@ -278,7 +279,67 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             </div>
           </div>
         </div>
-        
+
+    <!-- The reveal (completed wash) -->
+        <div
+          :if={@appointment.status == :completed and (@pairs != [] or @unpaired_photos != [])}
+          class="mb-6"
+        >
+          <h3 class="font-semibold mb-3">The reveal ✨</h3>
+          <div class="space-y-4">
+            <div :for={pair <- @pairs}>
+              <p class="text-xs text-base-content/70 mb-1">{pair.label}</p>
+              <div
+                id={"reveal-#{pair.area}"}
+                phx-hook="BeforeAfterSlider"
+                phx-update="ignore"
+                class="relative aspect-[4/3] rounded-xl overflow-hidden bg-base-200 select-none touch-none cursor-ew-resize"
+                data-before-url={pair.before.file_path}
+                data-after-url={pair.after.file_path}
+              >
+                <img
+                  src={pair.after.file_path}
+                  crossorigin="anonymous"
+                  class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                />
+                <img
+                  src={pair.before.file_path}
+                  crossorigin="anonymous"
+                  data-role="before"
+                  class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  style="clip-path: inset(0 0% 0 0)"
+                />
+                <span class="absolute top-2 left-2 badge badge-sm bg-base-100/80 border-0 pointer-events-none">
+                  Before
+                </span>
+                <span class="absolute top-2 right-2 badge badge-sm bg-base-100/80 border-0 pointer-events-none">
+                  After
+                </span>
+                <div
+                  data-role="divider"
+                  class="absolute inset-y-0 w-0.5 bg-base-100 shadow pointer-events-none"
+                  style="left: 100%"
+                >
+                  <div class="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-base-100 shadow-md flex items-center justify-center text-base-content/60 text-sm">
+                    ⇔
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div :if={@unpaired_photos != []} class="mt-4">
+            <p class="text-xs text-base-content/70 mb-1">More photos</p>
+            <div class="flex gap-2 overflow-x-auto">
+              <img
+                :for={photo <- @unpaired_photos}
+                src={photo.file_path}
+                class="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+              />
+            </div>
+          </div>
+        </div>
+
     <!-- Customer Problem Photos -->
         <div :if={@problem_photos != []} class="mb-6">
           <h3 class="font-semibold mb-2">Your Problem Areas</h3>
@@ -328,12 +389,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   end
 
   defp reload_photos(socket) do
-    photos = load_photos(socket.assigns.appointment.id)
-
-    assign(socket,
-      before_photos: Enum.filter(photos, &(&1.photo_type == :before)),
-      after_photos: Enum.filter(photos, &(&1.photo_type == :after))
-    )
+    assign_photo_views(socket, load_photos(socket.assigns.appointment.id))
   end
 
   defp load_photos(appointment_id) do
@@ -341,6 +397,38 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
     |> Ash.Query.filter(appointment_id == ^appointment_id and is_nil(deleted_at))
     |> Ash.read!()
     |> Enum.map(&PhotoUpload.apply_url/1)
+  end
+
+  defp assign_photo_views(socket, photos) do
+    before_photos = Enum.filter(photos, &(&1.photo_type == :before))
+    after_photos = Enum.filter(photos, &(&1.photo_type == :after))
+    pairs = complete_pairs(before_photos, after_photos)
+
+    assign(socket,
+      before_photos: before_photos,
+      after_photos: after_photos,
+      pairs: pairs,
+      unpaired_photos: unpaired_photos(before_photos, after_photos, pairs)
+    )
+  end
+
+  defp complete_pairs(before_photos, after_photos) do
+    @key_areas
+    |> Enum.map(fn area ->
+      %{
+        area: area.id,
+        label: area.label,
+        before: Enum.find(before_photos, &(&1.car_part == area.id)),
+        after: Enum.find(after_photos, &(&1.car_part == area.id))
+      }
+    end)
+    |> Enum.filter(&(&1.before && &1.after))
+  end
+
+  defp unpaired_photos(before_photos, after_photos, pairs) do
+    paired = MapSet.new(pairs, & &1.area)
+
+    Enum.reject(before_photos ++ after_photos, &MapSet.member?(paired, &1.car_part))
   end
 
   defp format_seconds(seconds) when is_integer(seconds) do
