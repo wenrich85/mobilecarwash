@@ -328,6 +328,18 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert html =~ ~s(data-after-url="/uploads/wheels-a.jpg")
     end
 
+    test "open_share_modal is a no-op when no complete pair exists", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments/#{appt.id}/status")
+      html = render_hook(view, "open_share_modal", %{})
+
+      refute html =~ ~s(id="share-wash-modal")
+      assert Process.alive?(view.pid)
+    end
+
     test "share_degraded and share_fallback_done render inline notices", %{conn: conn} do
       {conn, appt} = completed_with_pair(conn)
       {:ok, view, _html} = live(conn, ~p"/appointments/#{appt.id}/status")

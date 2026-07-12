@@ -169,19 +169,19 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
 
   @impl true
   def handle_event("open_share_modal", _params, socket) do
-    default_area =
-      case socket.assigns.pairs do
-        [first | _] -> first.area
-        [] -> nil
-      end
+    case socket.assigns.pairs do
+      [] ->
+        {:noreply, socket}
 
-    {:noreply,
-     assign(socket,
-       share_modal_open: true,
-       share_area: socket.assigns.share_area || default_area,
-       share_degraded: false,
-       share_confirmation: nil
-     )}
+      [first | _] ->
+        {:noreply,
+         assign(socket,
+           share_modal_open: true,
+           share_area: socket.assigns.share_area || first.area,
+           share_degraded: false,
+           share_confirmation: nil
+         )}
+    end
   end
 
   def handle_event("close_share_modal", _params, socket) do
