@@ -105,6 +105,16 @@ defmodule MobileCarWashWeb.Tech.JobLive do
                       "%b %d · %I:%M %p"
                     )}
                   </p>
+                  <a
+                    id="job-header-address"
+                    href={maps_url(@address)}
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition hover:text-primary/80"
+                  >
+                    <.icon name="hero-map-pin" class="h-4 w-4 shrink-0" />
+                    <span>{@address.street}, {@address.city}, {@address.state} {@address.zip}</span>
+                  </a>
                 </div>
               </div>
 

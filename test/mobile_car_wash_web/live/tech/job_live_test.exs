@@ -281,6 +281,22 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert count_id(html, "job-head-out") == 1
     end
 
+    test "command header includes a Maps-linked destination summary", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, _html} = live_job(conn, appointment.id)
+
+      assert has_element?(
+               view,
+               "#job-header-address[href*='maps.apple.com']",
+               "100 Job Ave, San Antonio, TX 78259"
+             )
+    end
+
     test "en-route job renders one command header arrived action", %{
       conn: conn,
       tech: tech,
@@ -343,6 +359,36 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       refute has_element?(view, "[data-role='job-primary-action']")
     end
 
+    test "completed job renders a non-clickable command state", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :completed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-primary-waiting")
+      assert html =~ "Completed stop"
+      assert html =~ "Review the completed service details."
+      refute has_element?(view, "[data-role='job-primary-action']")
+    end
+
+    test "cancelled job renders a non-clickable command state", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :cancelled)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-primary-waiting")
+      assert html =~ "Cancelled stop"
+      assert html =~ "No field action is available for this appointment."
+      refute has_element?(view, "[data-role='job-primary-action']")
+    end
+
     test "renders customer problem photos with caption and car part", %{
       conn: conn,
       tech: tech,
@@ -350,6 +396,23 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
     } do
       appointment = create_appointment(customer.id, tech.id, :confirmed)
       photo = create_problem_photo!(appointment)
+
+      non_problem_photo =
+        create_problem_photo!(appointment, %{
+          file_path: "/photos/appointments/#{appointment.id}/before_front.jpg",
+          original_filename: "before_front.jpg",
+          photo_type: :before
+        })
+
+      soft_deleted_problem_photo =
+        appointment
+        |> create_problem_photo!(%{
+          file_path: "/photos/appointments/#{appointment.id}/problem_area_rear.jpg",
+          original_filename: "problem_area_rear.jpg",
+          car_part: :rear
+        })
+        |> Ash.Changeset.for_update(:soft_delete, %{})
+        |> Ash.update!(authorize?: false)
 
       {:ok, view, html} = live_job(conn, appointment.id)
 
@@ -359,6 +422,8 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert html =~ "Bird droppings on the front bumper"
       assert html =~ "Front"
       refute has_element?(view, "#job-problem-photo-empty")
+      refute has_element?(view, "#job-problem-photo-#{non_problem_photo.id}")
+      refute has_element?(view, "#job-problem-photo-#{soft_deleted_problem_photo.id}")
     end
 
     test "renders an empty problem-photo state when the customer uploaded none", %{
