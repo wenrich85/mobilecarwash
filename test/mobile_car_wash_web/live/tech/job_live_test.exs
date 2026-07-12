@@ -125,6 +125,13 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
     appointment
   end
 
+  defp with_notes(appointment, notes) do
+    appointment
+    |> Ash.Changeset.for_update(:update, %{})
+    |> Ash.Changeset.force_change_attribute(:notes, notes)
+    |> Ash.update!(authorize?: false)
+  end
+
   defp create_problem_photo!(appointment, attrs \\ %{}) do
     defaults = %{
       file_path: "/photos/appointments/#{appointment.id}/problem_area_front.jpg",
@@ -219,6 +226,44 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert render(view) =~ customer.name
       assert render(view) =~ "Toyota"
       assert render(view) =~ "78259"
+    end
+
+    test "renders prep cards for service vehicle address customer and notes", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment =
+        customer.id
+        |> create_appointment(tech.id, :confirmed)
+        |> with_notes("Customer asked us to focus on the front bumper.")
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-prep-cards")
+      assert has_element?(view, "#job-service-card")
+      assert has_element?(view, "#job-vehicle-card")
+      assert has_element?(view, "#job-address-card")
+      assert has_element?(view, "#job-customer-card")
+      assert has_element?(view, "#job-notes-card")
+      assert html =~ "Job Wash"
+      assert html =~ "Toyota"
+      assert html =~ "100 Job Ave"
+      assert html =~ customer.phone
+      assert html =~ "Customer asked us to focus on the front bumper."
+    end
+
+    test "renders a calm notes fallback when the appointment has no notes", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-notes-card")
+      assert html =~ "No appointment notes"
     end
 
     test "confirmed job renders one command header head-out action", %{

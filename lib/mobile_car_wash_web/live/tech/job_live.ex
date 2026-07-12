@@ -108,111 +108,124 @@ defmodule MobileCarWashWeb.Tech.JobLive do
                 </div>
               </div>
 
-              <div
-                id="job-command-card"
-                class="rounded-xl border border-base-300 bg-base-100 px-4 py-4 text-sm shadow-sm sm:min-w-72"
-              >
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
-                  Next action
-                </p>
-                <p class="mt-2 text-base font-semibold text-base-content">{@command.title}</p>
-                <p class="mt-1 text-sm leading-6 text-base-content/70">{@command.body}</p>
-
-                <button
-                  :if={@command.action && @command.action.type == :event}
-                  id={@command.action.id}
-                  data-role="job-primary-action"
-                  phx-click={@command.action.event}
-                  class="btn btn-primary mt-4 w-full"
-                >
-                  {@command.action.label}
-                </button>
-
-                <.link
-                  :if={@command.action && @command.action.type == :link}
-                  id={@command.action.id}
-                  data-role="job-primary-action"
-                  navigate={@command.action.to}
-                  class="btn btn-primary mt-4 w-full"
-                >
-                  {@command.action.label}
-                </.link>
-
+              <div class="sm:min-w-72">
                 <div
-                  :if={is_nil(@command.action)}
-                  id="job-primary-waiting"
-                  class="mt-4 rounded-lg border border-dashed border-base-300 bg-base-200/50 px-3 py-2 text-sm text-base-content/70"
+                  id="job-command-card"
+                  class="rounded-xl border border-base-300 bg-base-100 px-4 py-4 text-sm shadow-sm"
                 >
-                  No field action available.
+                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                    Next action
+                  </p>
+                  <p class="mt-2 text-base font-semibold text-base-content">{@command.title}</p>
+                  <p class="mt-1 text-sm leading-6 text-base-content/70">{@command.body}</p>
+
+                  <button
+                    :if={@command.action && @command.action.type == :event}
+                    id={@command.action.id}
+                    data-role="job-primary-action"
+                    phx-click={@command.action.event}
+                    class="btn btn-primary mt-4 w-full"
+                  >
+                    {@command.action.label}
+                  </button>
+
+                  <.link
+                    :if={@command.action && @command.action.type == :link}
+                    id={@command.action.id}
+                    data-role="job-primary-action"
+                    navigate={@command.action.to}
+                    class="btn btn-primary mt-4 w-full"
+                  >
+                    {@command.action.label}
+                  </.link>
+
+                  <div
+                    :if={is_nil(@command.action)}
+                    id="job-primary-waiting"
+                    class="mt-4 rounded-lg border border-dashed border-base-300 bg-base-200/50 px-3 py-2 text-sm text-base-content/70"
+                  >
+                    No field action available.
+                  </div>
+                </div>
+
+                <div :if={@progress.steps_total > 0} class="mt-4 space-y-2">
+                  <div class="flex items-center justify-between text-sm text-base-content/70">
+                    <span>Checklist progress</span>
+                    <span>{@progress.steps_done}/{@progress.steps_total}</span>
+                  </div>
+                  <progress
+                    class="progress progress-primary h-2 w-full"
+                    value={@progress.steps_done}
+                    max={@progress.steps_total}
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[1.15fr_0.85fr]">
-            <section class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-              <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-base-content/50">
-                Service stop
-              </h2>
-              <dl class="mt-4 space-y-4">
-                <div>
-                  <dt class="text-xs font-medium uppercase tracking-[0.14em] text-base-content/45">
-                    Vehicle
-                  </dt>
-                  <dd class="mt-1 text-sm text-base-content">{vehicle_label(@vehicle)}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs font-medium uppercase tracking-[0.14em] text-base-content/45">
-                    Address
-                  </dt>
-                  <dd class="mt-1">
-                    <a
-                      href={maps_url(@address)}
-                      target="_blank"
-                      rel="noopener"
-                      class="inline-flex items-start gap-2 text-sm text-primary transition hover:text-primary/80"
-                    >
-                      <.icon name="hero-map-pin" class="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{@address.street}, {@address.city}, {@address.state} {@address.zip}</span>
-                    </a>
-                  </dd>
-                </div>
-                <div :if={present?(@appointment.notes)}>
-                  <dt class="text-xs font-medium uppercase tracking-[0.14em] text-base-content/45">
-                    Notes
-                  </dt>
-                  <dd class="mt-1 text-sm leading-6 text-base-content/80">{@appointment.notes}</dd>
-                </div>
-              </dl>
-            </section>
+          <section id="job-prep-cards" class="grid gap-3 px-5 py-5 sm:px-6 lg:grid-cols-2">
+            <article
+              id="job-service-card"
+              class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm"
+            >
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                Service
+              </p>
+              <p class="mt-2 text-sm font-semibold text-base-content">{@service.name}</p>
+              <p class="mt-1 text-sm text-base-content/70">
+                {Calendar.strftime(@appointment.scheduled_at, "%b %d · %I:%M %p")}
+              </p>
+            </article>
 
-            <section class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-              <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-base-content/50">
-                Action
-              </h2>
+            <article
+              id="job-vehicle-card"
+              class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm"
+            >
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                Vehicle
+              </p>
+              <p class="mt-2 text-sm font-semibold text-base-content">{vehicle_label(@vehicle)}</p>
+            </article>
 
-              <div :if={@progress.steps_total > 0} class="mt-4 space-y-2">
-                <div class="flex items-center justify-between text-sm text-base-content/70">
-                  <span>Checklist progress</span>
-                  <span>{@progress.steps_done}/{@progress.steps_total}</span>
-                </div>
-                <progress
-                  class="progress progress-primary h-2 w-full"
-                  value={@progress.steps_done}
-                  max={@progress.steps_total}
-                />
-              </div>
+            <article
+              id="job-address-card"
+              class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm"
+            >
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                Address
+              </p>
+              <a
+                href={maps_url(@address)}
+                target="_blank"
+                rel="noopener"
+                class="mt-2 inline-flex items-start gap-2 text-sm font-semibold text-primary transition hover:text-primary/80"
+              >
+                <.icon name="hero-map-pin" class="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{@address.street}, {@address.city}, {@address.state} {@address.zip}</span>
+              </a>
+            </article>
 
-              <div class="mt-4">
-                <div
-                  :if={show_waiting_state?(@appointment.status, @progress)}
-                  class="rounded-xl border border-dashed border-base-300 bg-base-200/50 px-4 py-3 text-sm text-base-content/70"
-                >
-                  This appointment is waiting on dispatch or completion updates before the next action.
-                </div>
-              </div>
-            </section>
-          </div>
+            <article
+              id="job-customer-card"
+              class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm"
+            >
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                Customer
+              </p>
+              <p class="mt-2 text-sm font-semibold text-base-content">{@customer.name}</p>
+              <p class="mt-1 text-sm text-base-content/70">{customer_contact_label(@customer)}</p>
+            </article>
+
+            <article
+              id="job-notes-card"
+              class="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm lg:col-span-2"
+            >
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                Appointment notes
+              </p>
+              <p class="mt-2 text-sm leading-6 text-base-content/80">{notes_text(@appointment)}</p>
+            </article>
+          </section>
 
           <section
             id="job-problem-photos"
@@ -464,10 +477,6 @@ defmodule MobileCarWashWeb.Tech.JobLive do
     }
   end
 
-  defp show_waiting_state?(status, progress) do
-    progress.checklist_id == nil and status in [:pending, :completed, :cancelled]
-  end
-
   defp status_class(:pending), do: "badge-ghost"
   defp status_class(:confirmed), do: "badge-info"
   defp status_class(:en_route), do: "badge-info"
@@ -483,8 +492,6 @@ defmodule MobileCarWashWeb.Tech.JobLive do
   defp format_status(:in_progress), do: "Active"
   defp format_status(:completed), do: "Done"
   defp format_status(status), do: to_string(status)
-
-  defp present?(value), do: not is_nil(value) and String.trim(to_string(value)) != ""
 
   defp maps_url(%{latitude: lat, longitude: lng})
        when is_number(lat) and is_number(lng) do
@@ -513,4 +520,22 @@ defmodule MobileCarWashWeb.Tech.JobLive do
   end
 
   defp vehicle_label(_), do: "Vehicle details unavailable"
+
+  defp customer_contact_label(%{phone: phone}) when is_binary(phone) do
+    case String.trim(phone) do
+      "" -> "No phone on file"
+      value -> value
+    end
+  end
+
+  defp customer_contact_label(_customer), do: "No phone on file"
+
+  defp notes_text(%{notes: notes}) when is_binary(notes) do
+    case String.trim(notes) do
+      "" -> "No appointment notes"
+      value -> value
+    end
+  end
+
+  defp notes_text(_appointment), do: "No appointment notes"
 end
