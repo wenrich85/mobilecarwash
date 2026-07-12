@@ -358,5 +358,31 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert html =~ "Image saved"
       refute html =~ "Image saved — link copied"
     end
+
+    test "modal closes without crashing when a PubSub reload empties the pairs while open",
+         %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      before_photo = create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+      after_photo = create_photo(appt, :after, :front, "/uploads/front-a.jpg")
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments/#{appt.id}/status")
+      view |> element("button", "Share your wash") |> render_click()
+
+      before_photo
+      |> Ash.Changeset.for_update(:soft_delete, %{})
+      |> Ash.update()
+
+      after_photo
+      |> Ash.Changeset.for_update(:soft_delete, %{})
+      |> Ash.update()
+
+      send(view.pid, {:appointment_update, %{event: :photo_uploaded, status: :completed}})
+      html = render(view)
+
+      refute html =~ ~s(id="share-wash-modal")
+      assert Process.alive?(view.pid)
+    end
   end
 end

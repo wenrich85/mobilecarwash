@@ -419,7 +419,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         </div>
 
         <.modal
-          :if={@share_modal_open}
+          :if={@share_modal_open and @pairs != []}
           id="share-wash-modal"
           show
           on_cancel={Phoenix.LiveView.JS.push("close_share_modal")}
