@@ -47,13 +47,14 @@ import {AddressMap} from "./hooks/address_map"
 import {ClipboardCopy} from "./hooks/clipboard_copy"
 import {PriceCountUp} from "./hooks/price_count_up.js"
 import {ImageDownscale} from "./hooks/image_downscale"
+import {BeforeAfterSlider} from "./hooks/before_after_slider"
 import {S3PUT} from "./uploaders/s3_put"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, Sortable, DispatchMap, AddressMap, ClipboardCopy, PriceCountUp, ImageDownscale},
+  hooks: {...colocatedHooks, Sortable, DispatchMap, AddressMap, ClipboardCopy, PriceCountUp, ImageDownscale, BeforeAfterSlider},
   uploaders: {S3PUT},
 })
 
