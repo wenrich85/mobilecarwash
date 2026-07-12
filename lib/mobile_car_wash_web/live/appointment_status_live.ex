@@ -9,6 +9,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType}
   alias MobileCarWash.Operations.{Photo, PhotoUpload}
   alias MobileCarWash.Fleet.Address
+  alias MobileCarWash.Marketing.Referrals
 
   require Ash.Query
 
@@ -42,6 +43,16 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         {items, steps_done, steps_total, eta_minutes, current_step} =
           load_checklist_state(appointment_id)
 
+        share_link = Referrals.share_link_for(customer)
+
+        referral_code =
+          share_link
+          |> URI.parse()
+          |> Map.get(:query, "")
+          |> Kernel.||("")
+          |> URI.decode_query()
+          |> Map.get("ref")
+
         {:ok,
          socket
          |> assign(
@@ -58,7 +69,13 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
            steps_total: steps_total,
            eta_minutes: eta_minutes,
            items: items,
-           message: status_message(appointment.status)
+           message: status_message(appointment.status),
+           share_link: share_link,
+           referral_code: referral_code,
+           share_modal_open: false,
+           share_area: nil,
+           share_degraded: false,
+           share_confirmation: nil
          )
          |> assign_photo_views(photos)}
 
@@ -148,6 +165,48 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             {:noreply, put_flash(socket, :error, "Could not cancel — please try again.")}
         end
     end
+  end
+
+  @impl true
+  def handle_event("open_share_modal", _params, socket) do
+    default_area =
+      case socket.assigns.pairs do
+        [first | _] -> first.area
+        [] -> nil
+      end
+
+    {:noreply,
+     assign(socket,
+       share_modal_open: true,
+       share_area: socket.assigns.share_area || default_area,
+       share_degraded: false,
+       share_confirmation: nil
+     )}
+  end
+
+  def handle_event("close_share_modal", _params, socket) do
+    {:noreply, assign(socket, share_modal_open: false)}
+  end
+
+  def handle_event("select_share_area", %{"area" => area}, socket) do
+    case Enum.find(socket.assigns.pairs, &(to_string(&1.area) == area)) do
+      nil -> {:noreply, socket}
+      pair -> {:noreply, assign(socket, share_area: pair.area)}
+    end
+  end
+
+  def handle_event("share_degraded", _params, socket) do
+    {:noreply, assign(socket, share_degraded: true)}
+  end
+
+  def handle_event("share_fallback_done", params, socket) do
+    message =
+      case params["mode"] do
+        "image" -> "Image saved — link copied"
+        _ -> "Link copied"
+      end
+
+    {:noreply, assign(socket, share_confirmation: message)}
   end
 
   @impl true
@@ -340,6 +399,82 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           </div>
         </div>
 
+    <!-- Share CTA -->
+        <div
+          :if={@appointment.status == :completed and @pairs != [] and @share_link}
+          class="card bg-gradient-to-br from-primary/10 to-secondary/10 shadow mb-6"
+        >
+          <div class="card-body p-4">
+            <h3 class="font-semibold">✨ Share your wash</h3>
+            <p class="text-sm text-base-content/80">
+              Show off the transformation — friends save on their first wash and you earn
+              <span class="font-semibold">${Referrals.default_reward_dollars()} in credit</span>
+              when they book.
+            </p>
+            <button type="button" class="btn btn-primary w-full mt-2" phx-click="open_share_modal">
+              Share your wash
+            </button>
+          </div>
+        </div>
+
+        <.modal
+          :if={@share_modal_open}
+          id="share-wash-modal"
+          show
+          on_cancel={Phoenix.LiveView.JS.push("close_share_modal")}
+        >
+          <:title>Share your wash</:title>
+          <p class="text-sm text-base-content/80 mb-3">Pick your favorite before &amp; after:</p>
+          <div class="flex gap-3 overflow-x-auto pb-2">
+            <button
+              :for={pair <- @pairs}
+              type="button"
+              phx-click="select_share_area"
+              phx-value-area={pair.area}
+              class={[
+                "flex-shrink-0 rounded-lg border-2 p-1",
+                if(@share_area == pair.area, do: "border-primary", else: "border-transparent")
+              ]}
+            >
+              <div class="flex gap-0.5 w-32">
+                <img
+                  src={pair.before.file_path}
+                  crossorigin="anonymous"
+                  class="w-1/2 aspect-[3/4] object-cover rounded-l"
+                />
+                <img
+                  src={pair.after.file_path}
+                  crossorigin="anonymous"
+                  class="w-1/2 aspect-[3/4] object-cover rounded-r"
+                />
+              </div>
+              <p class="text-xs text-center mt-1">{pair.label}</p>
+            </button>
+          </div>
+          <p :if={@share_degraded} class="text-xs text-warning mt-2">
+            Couldn't attach the photo — your link was shared instead.
+          </p>
+          <p :if={@share_confirmation} class="text-xs text-success mt-2">{@share_confirmation}</p>
+          <:footer>
+            <% pair = selected_pair(@pairs, @share_area) %>
+            <button
+              id="share-wash-card"
+              type="button"
+              phx-hook="ShareWashCard"
+              data-before-url={pair.before.file_path}
+              data-after-url={pair.after.file_path}
+              data-area-label={pair.label}
+              data-referral-code={@referral_code}
+              data-reward-dollars={Referrals.default_reward_dollars()}
+              data-share-link={@share_link}
+              data-share-text={"Look what Driveway Detail did for my car ✨ Get $#{Referrals.default_reward_dollars()} off your first wash:"}
+              class="btn btn-primary"
+            >
+              Share
+            </button>
+          </:footer>
+        </.modal>
+
     <!-- Customer Problem Photos -->
         <div :if={@problem_photos != []} class="mb-6">
           <h3 class="font-semibold mb-2">Your Problem Areas</h3>
@@ -429,6 +564,10 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
     paired = MapSet.new(pairs, & &1.area)
 
     Enum.reject(before_photos ++ after_photos, &MapSet.member?(paired, &1.car_part))
+  end
+
+  defp selected_pair(pairs, area) do
+    Enum.find(pairs, &(&1.area == area)) || List.first(pairs)
   end
 
   defp format_seconds(seconds) when is_integer(seconds) do

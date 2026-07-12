@@ -256,4 +256,91 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert html =~ "/uploads/front-b.jpg"
     end
   end
+
+  describe "share your wash" do
+    defp completed_with_pair(conn) do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+      create_photo(appt, :after, :front, "/uploads/front-a.jpg")
+      create_photo(appt, :before, :wheels, "/uploads/wheels-b.jpg")
+      create_photo(appt, :after, :wheels, "/uploads/wheels-a.jpg")
+      {sign_in(conn, customer), appt}
+    end
+
+    test "CTA renders only when a complete pair exists", %{conn: conn} do
+      {conn2, appt} = completed_with_pair(conn)
+      {:ok, _view, html} = live(conn2, ~p"/appointments/#{appt.id}/status")
+      assert html =~ "Share your wash"
+
+      customer = register_customer()
+      bare = create_appointment(customer, :completed)
+      create_photo(bare, :before, :front, "/uploads/only-before.jpg")
+      conn3 = sign_in(conn, customer)
+      {:ok, _view, html} = live(conn3, ~p"/appointments/#{bare.id}/status")
+      refute html =~ "Share your wash"
+    end
+
+    test "modal opens with the first pair preselected and referral data wired", %{conn: conn} do
+      {conn, appt} = completed_with_pair(conn)
+      {:ok, view, _html} = live(conn, ~p"/appointments/#{appt.id}/status")
+
+      html = view |> element("button", "Share your wash") |> render_click()
+
+      assert html =~ ~s(id="share-wash-card")
+      assert html =~ ~s(phx-hook="ShareWashCard")
+      assert html =~ ~s(data-before-url="/uploads/front-b.jpg")
+      assert html =~ ~s(data-after-url="/uploads/front-a.jpg")
+      assert html =~ "utm_source=referral"
+      # referral code present and embedded in the share link
+      assert [_, code] = Regex.run(~r/data-referral-code="([^"]+)"/, html)
+      assert html =~ "ref=#{code}"
+    end
+
+    test "smart default is the first complete pair in priority order when front is incomplete",
+         %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      # front has only a before (incomplete); wheels is the only complete pair
+      create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+      create_photo(appt, :before, :wheels, "/uploads/wheels-b.jpg")
+      create_photo(appt, :after, :wheels, "/uploads/wheels-a.jpg")
+      conn = sign_in(conn, customer)
+
+      {:ok, view, _html} = live(conn, ~p"/appointments/#{appt.id}/status")
+      html = view |> element("button", "Share your wash") |> render_click()
+
+      assert html =~ ~s(data-before-url="/uploads/wheels-b.jpg")
+      assert html =~ ~s(data-after-url="/uploads/wheels-a.jpg")
+    end
+
+    test "selecting another pair updates the share button dataset", %{conn: conn} do
+      {conn, appt} = completed_with_pair(conn)
+      {:ok, view, _html} = live(conn, ~p"/appointments/#{appt.id}/status")
+      view |> element("button", "Share your wash") |> render_click()
+
+      html =
+        view
+        |> element(~s(button[phx-value-area="wheels"]))
+        |> render_click()
+
+      assert html =~ ~s(data-before-url="/uploads/wheels-b.jpg")
+      assert html =~ ~s(data-after-url="/uploads/wheels-a.jpg")
+    end
+
+    test "share_degraded and share_fallback_done render inline notices", %{conn: conn} do
+      {conn, appt} = completed_with_pair(conn)
+      {:ok, view, _html} = live(conn, ~p"/appointments/#{appt.id}/status")
+      view |> element("button", "Share your wash") |> render_click()
+
+      html = render_hook(view, "share_degraded", %{})
+      assert html =~ "Couldn&#39;t attach the photo"
+
+      html = render_hook(view, "share_fallback_done", %{"mode" => "image"})
+      assert html =~ "Image saved — link copied"
+
+      html = render_hook(view, "share_fallback_done", %{"mode" => "link"})
+      assert html =~ "Link copied"
+    end
+  end
 end
