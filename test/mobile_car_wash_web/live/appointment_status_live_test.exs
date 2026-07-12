@@ -353,6 +353,10 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
 
       html = render_hook(view, "share_fallback_done", %{"mode" => "link"})
       assert html =~ "Link copied"
+
+      html = render_hook(view, "share_fallback_done", %{"mode" => "image_only"})
+      assert html =~ "Image saved"
+      refute html =~ "Image saved — link copied"
     end
   end
 end

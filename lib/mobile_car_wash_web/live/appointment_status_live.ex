@@ -203,6 +203,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
     message =
       case params["mode"] do
         "image" -> "Image saved — link copied"
+        "image_only" -> "Image saved"
         _ -> "Link copied"
       end
 

@@ -1,9 +1,17 @@
 // Composes the branded before/after share card on a canvas and opens
-// the native share sheet (navigator.share with files). Fallbacks:
-//   - canvas fails (image load error / CORS taint) -> share text+link only,
-//     pushEvent("share_degraded") so the modal shows a soft notice
-//   - no file-capable share sheet (desktop) -> download the JPEG and copy
+// the native share sheet (navigator.share with files). This is an
+// exclusive fallback ladder: exactly one pushEvent fires per click (or
+// zero, on success / user cancel) — never two contradictory notices.
+//   - file-capable share sheet succeeds -> done, no pushEvent
+//   - canvas composition fails but a share sheet exists -> share text+link
+//     only, pushEvent("share_degraded")
+//   - file-capable share sheet throws (non-AbortError) -> salvage the
+//     already-composed image via download() before falling through
+//   - no usable share sheet -> download the JPEG (if composed) and copy
 //     the share text+link, pushEvent("share_fallback_done", {mode})
+//   - clipboard write fails -> report what actually happened: the image
+//     was still downloaded ("image_only") or nothing was saved at all
+//     (share_degraded)
 // A user-cancelled share sheet (AbortError) is silently ignored.
 // No flash messages — all feedback renders inside the modal.
 const CANVAS_W = 1080
@@ -109,26 +117,41 @@ export const ShareWashCard = {
     try {
       file = await composeCard(data)
     } catch (_error) {
-      this.pushEvent("share_degraded", {})
+      file = null
     }
 
-    try {
-      if (file && navigator.canShare && navigator.canShare({files: [file]})) {
-        await navigator.share({files: [file], text: data.shareText, url: data.shareLink})
-      } else if (!file && navigator.share) {
-        await navigator.share({text: data.shareText, url: data.shareLink})
-      } else {
-        if (file) download(file)
-        await navigator.clipboard.writeText(`${data.shareText} ${data.shareLink}`)
-        this.pushEvent("share_fallback_done", {mode: file ? "image" : "link"})
-      }
-    } catch (error) {
-      if (error.name === "AbortError") return
-      // Share sheet failed some other way — last resort: copy the link.
+    if (file && navigator.canShare && navigator.canShare({files: [file]})) {
+      // Native share sheet with the composed image.
       try {
-        await navigator.clipboard.writeText(`${data.shareText} ${data.shareLink}`)
-        this.pushEvent("share_fallback_done", {mode: "link"})
-      } catch (_clipboardError) {
+        await navigator.share({files: [file], text: data.shareText, url: data.shareLink})
+        return
+      } catch (error) {
+        if (error.name === "AbortError") return
+        // Share sheet failed — salvage below with download + copy.
+      }
+    } else if (!file && navigator.share) {
+      // Composition failed but a share sheet exists: share text + link only.
+      try {
+        await navigator.share({text: data.shareText, url: data.shareLink})
+        this.pushEvent("share_degraded", {})
+        return
+      } catch (error) {
+        if (error.name === "AbortError") return
+        // Fall through to the clipboard fallback.
+      }
+    }
+
+    // No usable share sheet: keep the image via download, put the link on
+    // the clipboard, and report exactly what happened.
+    if (file) download(file)
+
+    try {
+      await navigator.clipboard.writeText(`${data.shareText} ${data.shareLink}`)
+      this.pushEvent("share_fallback_done", {mode: file ? "image" : "link"})
+    } catch (_error) {
+      if (file) {
+        this.pushEvent("share_fallback_done", {mode: "image_only"})
+      } else {
         this.pushEvent("share_degraded", {})
       }
     }
