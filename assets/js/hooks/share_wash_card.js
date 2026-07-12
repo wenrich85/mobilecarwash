@@ -45,7 +45,19 @@ function drawChip(ctx, text, x, y) {
   const h = 58
   ctx.fillStyle = "rgba(255, 255, 255, 0.85)"
   ctx.beginPath()
-  ctx.roundRect(x, y, w, h, h / 2)
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, h / 2)
+  } else {
+    // Fallback for browsers without CanvasRenderingContext2D.roundRect
+    // (older iOS Safari): trace the same pill shape manually so the
+    // chip still renders instead of throwing and degrading the share.
+    const r = h / 2
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + w - r, y)
+    ctx.arc(x + w - r, y + r, r, -Math.PI / 2, Math.PI / 2)
+    ctx.lineTo(x + r, y + h)
+    ctx.arc(x + r, y + r, r, Math.PI / 2, (3 * Math.PI) / 2)
+  }
   ctx.fill()
   ctx.fillStyle = "#1f2937"
   ctx.textBaseline = "middle"
