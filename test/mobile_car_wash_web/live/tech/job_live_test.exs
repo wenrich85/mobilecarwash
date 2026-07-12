@@ -176,6 +176,26 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
     procedure
   end
 
+  defp create_checklist_progress!(appointment) do
+    procedure = create_procedure_for_service(appointment.service_type_id)
+
+    {:ok, checklist} =
+      MobileCarWash.Operations.AppointmentChecklist
+      |> Ash.Changeset.for_create(:create, %{status: :in_progress})
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.Changeset.force_change_attribute(:procedure_id, procedure.id)
+      |> Ash.create()
+
+    appointment
+    |> Ash.Changeset.for_update(:update, %{})
+    |> Ash.Changeset.force_change_attribute(:status, :in_progress)
+    |> Ash.update!(authorize?: false)
+
+    checklist
+  end
+
+  defp count_id(html, id), do: length(Regex.scan(~r/id="#{id}"/, html))
+
   defp live_job(conn, appointment_id) do
     live(conn, ~p"/tech/appointments/#{appointment_id}", on_error: :warn)
   end
@@ -199,6 +219,83 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert render(view) =~ customer.name
       assert render(view) =~ "Toyota"
       assert render(view) =~ "78259"
+    end
+
+    test "confirmed job renders one command header head-out action", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-command-card")
+      assert has_element?(view, "#job-head-out[data-role='job-primary-action']", "Head out")
+      assert html =~ "Leave for this service stop"
+      assert count_id(html, "job-head-out") == 1
+    end
+
+    test "en-route job renders one command header arrived action", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :en_route)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-arrived[data-role='job-primary-action']", "Arrived")
+      assert html =~ "Mark yourself on site"
+      assert count_id(html, "job-arrived") == 1
+    end
+
+    test "on-site job renders one command header start-wash action", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :on_site)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-start-wash[data-role='job-primary-action']", "Start wash")
+      assert html =~ "Start the wash"
+      assert count_id(html, "job-start-wash") == 1
+    end
+
+    test "in-progress job renders one command header checklist link", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :on_site)
+      checklist = create_checklist_progress!(appointment)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(
+               view,
+               "#job-open-checklist[data-role='job-primary-action'][href='/tech/checklist/#{checklist.id}']",
+               "Continue checklist"
+             )
+
+      assert html =~ "Continue the active wash checklist"
+      assert count_id(html, "job-open-checklist") == 1
+    end
+
+    test "pending job renders a non-clickable command state", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :pending)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-primary-waiting")
+      assert html =~ "Waiting on dispatch"
+      refute has_element?(view, "[data-role='job-primary-action']")
     end
 
     test "renders customer problem photos with caption and car part", %{

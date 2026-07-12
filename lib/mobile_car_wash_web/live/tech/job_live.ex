@@ -108,11 +108,43 @@ defmodule MobileCarWashWeb.Tech.JobLive do
                 </div>
               </div>
 
-              <div class="rounded-xl border border-base-300 bg-base-100 px-4 py-3 text-sm shadow-sm">
-                <p class="font-medium text-base-content">Next step</p>
-                <p class="mt-1 text-base-content/70">
-                  {next_step_label(@appointment.status, @progress)}
+              <div
+                id="job-command-card"
+                class="rounded-xl border border-base-300 bg-base-100 px-4 py-4 text-sm shadow-sm sm:min-w-72"
+              >
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                  Next action
                 </p>
+                <p class="mt-2 text-base font-semibold text-base-content">{@command.title}</p>
+                <p class="mt-1 text-sm leading-6 text-base-content/70">{@command.body}</p>
+
+                <button
+                  :if={@command.action && @command.action.type == :event}
+                  id={@command.action.id}
+                  data-role="job-primary-action"
+                  phx-click={@command.action.event}
+                  class="btn btn-primary mt-4 w-full"
+                >
+                  {@command.action.label}
+                </button>
+
+                <.link
+                  :if={@command.action && @command.action.type == :link}
+                  id={@command.action.id}
+                  data-role="job-primary-action"
+                  navigate={@command.action.to}
+                  class="btn btn-primary mt-4 w-full"
+                >
+                  {@command.action.label}
+                </.link>
+
+                <div
+                  :if={is_nil(@command.action)}
+                  id="job-primary-waiting"
+                  class="mt-4 rounded-lg border border-dashed border-base-300 bg-base-200/50 px-3 py-2 text-sm text-base-content/70"
+                >
+                  No field action available.
+                </div>
               </div>
             </div>
           </div>
@@ -171,43 +203,7 @@ defmodule MobileCarWashWeb.Tech.JobLive do
                 />
               </div>
 
-              <div class="mt-4 flex flex-col gap-3">
-                <button
-                  :if={@appointment.status == :confirmed and @progress.steps_total == 0}
-                  id="job-head-out"
-                  phx-click="depart"
-                  class="btn btn-primary w-full transition hover:-translate-y-0.5"
-                >
-                  Head out
-                </button>
-
-                <button
-                  :if={@appointment.status == :en_route and @progress.steps_total == 0}
-                  id="job-arrived"
-                  phx-click="arrive"
-                  class="btn btn-info w-full transition hover:-translate-y-0.5"
-                >
-                  Arrived
-                </button>
-
-                <button
-                  :if={@appointment.status == :on_site and @progress.steps_total == 0}
-                  id="job-start-wash"
-                  phx-click="start_wash"
-                  class="btn btn-warning w-full transition hover:-translate-y-0.5"
-                >
-                  Start wash
-                </button>
-
-                <.link
-                  :if={@progress.checklist_id}
-                  id="job-open-checklist"
-                  navigate={~p"/tech/checklist/#{@progress.checklist_id}"}
-                  class="btn btn-primary w-full"
-                >
-                  {if @progress.steps_done > 0, do: "Continue checklist", else: "Start checklist"}
-                </.link>
-
+              <div class="mt-4">
                 <div
                   :if={show_waiting_state?(@appointment.status, @progress)}
                   class="rounded-xl border border-dashed border-base-300 bg-base-200/50 px-4 py-3 text-sm text-base-content/70"
@@ -380,7 +376,8 @@ defmodule MobileCarWashWeb.Tech.JobLive do
       address: job.address,
       vehicle: job.vehicle,
       progress: job.progress,
-      problem_photos: job.problem_photos
+      problem_photos: job.problem_photos,
+      command: job_command(job.appointment.status, job.progress)
     )
   end
 
@@ -390,18 +387,82 @@ defmodule MobileCarWashWeb.Tech.JobLive do
     |> redirect(to: ~p"/tech")
   end
 
-  defp next_step_label(:confirmed, %{steps_total: 0}), do: "Leave for the service address."
-  defp next_step_label(:en_route, %{steps_total: 0}), do: "Mark yourself on site when you arrive."
-  defp next_step_label(:on_site, %{steps_total: 0}), do: "Start the wash when you're ready."
-
-  defp next_step_label(_status, %{checklist_id: checklist_id, steps_total: steps_total})
-       when not is_nil(checklist_id) and steps_total > 0 do
-    "Open the checklist and continue the wash."
+  defp job_command(_status, %{checklist_id: checklist_id}) when not is_nil(checklist_id) do
+    %{
+      title: "Wash in progress",
+      body: "Continue the active wash checklist.",
+      kind: :active,
+      action: %{
+        type: :link,
+        id: "job-open-checklist",
+        to: ~p"/tech/checklist/#{checklist_id}",
+        label: "Continue checklist"
+      }
+    }
   end
 
-  defp next_step_label(:completed, _progress), do: "Review the completed stop details."
-  defp next_step_label(:pending, _progress), do: "Waiting on confirmation from dispatch."
-  defp next_step_label(_status, _progress), do: "Review the appointment details."
+  defp job_command(:confirmed, %{steps_total: 0}) do
+    %{
+      title: "Leave for this service stop",
+      body: "Head out when you are ready to travel to the customer.",
+      kind: :ready,
+      action: %{type: :event, id: "job-head-out", event: "depart", label: "Head out"}
+    }
+  end
+
+  defp job_command(:en_route, %{steps_total: 0}) do
+    %{
+      title: "You are en route",
+      body: "Mark yourself on site when you arrive.",
+      kind: :travel,
+      action: %{type: :event, id: "job-arrived", event: "arrive", label: "Arrived"}
+    }
+  end
+
+  defp job_command(:on_site, %{steps_total: 0}) do
+    %{
+      title: "You are on site",
+      body: "Start the wash when you are ready.",
+      kind: :onsite,
+      action: %{type: :event, id: "job-start-wash", event: "start_wash", label: "Start wash"}
+    }
+  end
+
+  defp job_command(:pending, _progress) do
+    %{
+      title: "Waiting on dispatch",
+      body: "This appointment is not ready for field action yet.",
+      kind: :waiting,
+      action: nil
+    }
+  end
+
+  defp job_command(:completed, _progress) do
+    %{
+      title: "Completed stop",
+      body: "Review the completed service details.",
+      kind: :done,
+      action: nil
+    }
+  end
+
+  defp job_command(:cancelled, _progress) do
+    %{
+      title: "Cancelled stop",
+      body: "No field action is available for this appointment.",
+      kind: :waiting,
+      action: nil
+    }
+  end
+
+  defp job_command(_status, _progress) do
+    %{
+      title: "Review appointment",
+      body: "Review the appointment details before taking action.",
+      kind: :review,
+      action: nil
+    }
+  end
 
   defp show_waiting_state?(status, progress) do
     progress.checklist_id == nil and status in [:pending, :completed, :cancelled]
