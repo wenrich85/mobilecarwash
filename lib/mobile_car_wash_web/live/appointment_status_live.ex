@@ -34,11 +34,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           AppointmentTracker.subscribe(appointment_id)
         end
 
-        photos =
-          Photo
-          |> Ash.Query.filter(appointment_id == ^appointment_id)
-          |> Ash.read!()
-          |> Enum.map(&PhotoUpload.apply_url/1)
+        photos = load_photos(appointment_id)
 
         problem_photos = Enum.filter(photos, &(&1.photo_type == :problem_area))
         before_photos = Enum.filter(photos, &(&1.photo_type == :before))
@@ -332,18 +328,19 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   end
 
   defp reload_photos(socket) do
-    appointment_id = socket.assigns.appointment.id
-
-    photos =
-      Photo
-      |> Ash.Query.filter(appointment_id == ^appointment_id)
-      |> Ash.read!()
-      |> Enum.map(&PhotoUpload.apply_url/1)
+    photos = load_photos(socket.assigns.appointment.id)
 
     assign(socket,
       before_photos: Enum.filter(photos, &(&1.photo_type == :before)),
       after_photos: Enum.filter(photos, &(&1.photo_type == :after))
     )
+  end
+
+  defp load_photos(appointment_id) do
+    Photo
+    |> Ash.Query.filter(appointment_id == ^appointment_id and is_nil(deleted_at))
+    |> Ash.read!()
+    |> Enum.map(&PhotoUpload.apply_url/1)
   end
 
   defp format_seconds(seconds) when is_integer(seconds) do

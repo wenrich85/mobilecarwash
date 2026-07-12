@@ -12,6 +12,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Scheduling.{Appointment, ServiceType}
   alias MobileCarWash.Fleet.{Address, Vehicle}
+  alias MobileCarWash.Operations.Photo
 
   defp register_customer do
     {:ok, customer} =
@@ -93,6 +94,22 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
     end
   end
 
+  defp create_photo(appt, photo_type, car_part, file_path) do
+    {:ok, photo} =
+      Photo
+      |> Ash.Changeset.for_create(:upload, %{
+        file_path: file_path,
+        photo_type: photo_type,
+        car_part: car_part,
+        content_type: "image/jpeg",
+        original_filename: Path.basename(file_path)
+      })
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appt.id)
+      |> Ash.create()
+
+    photo
+  end
+
   describe "cancel button visibility" do
     test "is rendered when the appointment is pending", %{conn: conn} do
       customer = register_customer()
@@ -160,6 +177,26 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       {:ok, reloaded} = Ash.get(Appointment, appt.id, authorize?: false)
       assert reloaded.status == :cancelled
       assert reloaded.cancellation_reason
+    end
+  end
+
+  describe "photo loading" do
+    test "soft-deleted photos never render", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :in_progress)
+      photo = create_photo(appt, :before, :front, "/uploads/front-old.jpg")
+
+      {:ok, _} =
+        photo
+        |> Ash.Changeset.for_update(:soft_delete, %{})
+        |> Ash.update()
+
+      create_photo(appt, :before, :front, "/uploads/front-new.jpg")
+      conn = sign_in(conn, customer)
+
+      {:ok, _view, html} = live(conn, ~p"/appointments/#{appt.id}/status")
+      refute html =~ "front-old.jpg"
+      assert html =~ "front-new.jpg"
     end
   end
 end
