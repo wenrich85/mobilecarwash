@@ -138,6 +138,7 @@ referral code, reward dollars, share link, share text. On click the hook:
 referral link. Otherwise (desktop Chrome/Firefox): download the JPEG and copy
 share text + link to the clipboard, then show "Image saved — link copied"
 confirmation inside the modal.
+If the clipboard write fails after a successful download, the hook reports mode "image_only" and the modal shows "Image saved".
 
 ### Error handling
 

@@ -251,12 +251,18 @@ LiveSocket as `uploaders: {S3PUT}`.
 
 1. Set CORS on the Space (DO control panel or `s3cmd`/`aws s3api` against
    the Spaces endpoint): allowed origin = the app's production origin,
-   methods = `PUT`, allowed headers = `content-type`, max age 3600.
+   methods = `PUT` and `GET`, allowed headers = `content-type`, max age 3600.
+   (`GET` is required by the before/after share card: slider images load with
+   `crossorigin="anonymous"` and are drawn to a canvas — without CORS on GET
+   the canvas taints and every share degrades to text-only.)
 2. Deploy. No new env vars.
 3. Verify on staging/prod from a real phone: shoot two checklist areas
    back-to-back and confirm both tiles show progress simultaneously, both
    photos land in the Space with Photo rows, and both render back; upload a
    customer problem-area photo and confirm AI tags arrive.
+   Then on a completed wash's status page: drag a before/after slider, watch
+   the wipe animation play once, and share a card — the composed image (not
+   just text) must reach the share sheet on iOS Safari and Android Chrome.
 4. Rollback = revert the deploy; the channel path remains in the codebase.
 
 ## Out of scope

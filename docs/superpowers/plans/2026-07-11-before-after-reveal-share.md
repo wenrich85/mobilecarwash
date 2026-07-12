@@ -509,7 +509,7 @@ server side of the share hook's events.
 
 **Interfaces:**
 - Consumes: `@pairs` (Task 2), `MobileCarWash.Marketing.Referrals.share_link_for/1` and `default_reward_dollars/0`, `MobileCarWashWeb.CoreComponents.modal/1` (`<.modal id=... show on_cancel={JS}>` with `:title`/`:footer` slots).
-- Produces (DOM contract for Task 5's hook): Share button `id="share-wash-card"`, `phx-hook="ShareWashCard"`, with dataset keys `beforeUrl`, `afterUrl`, `areaLabel`, `referralCode`, `rewardDollars`, `shareLink`, `shareText`. Server events the hook may push: `"share_degraded"` (no params) and `"share_fallback_done"` with `%{"mode" => "image" | "link"}`.
+- Produces (DOM contract for Task 5's hook): Share button `id="share-wash-card"`, `phx-hook="ShareWashCard"`, with dataset keys `beforeUrl`, `afterUrl`, `areaLabel`, `referralCode`, `rewardDollars`, `shareLink`, `shareText`. Server events the hook may push: `"share_degraded"` (no params) and `"share_fallback_done"` with `%{"mode" => "image" | "image_only" | "link"}`.
 
 - [ ] **Step 1: Write failing tests**
 

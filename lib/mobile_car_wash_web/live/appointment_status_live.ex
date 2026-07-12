@@ -339,7 +339,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             </div>
           </div>
         </div>
-
+        
     <!-- The reveal (completed wash) -->
         <div
           :if={@appointment.status == :completed and (@pairs != [] or @unpaired_photos != [])}
@@ -399,7 +399,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             </div>
           </div>
         </div>
-
+        
     <!-- Share CTA -->
         <div
           :if={@appointment.status == :completed and @pairs != [] and @share_link}
@@ -475,7 +475,7 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
             </button>
           </:footer>
         </.modal>
-
+        
     <!-- Customer Problem Photos -->
         <div :if={@problem_photos != []} class="mb-6">
           <h3 class="font-semibold mb-2">Your Problem Areas</h3>
