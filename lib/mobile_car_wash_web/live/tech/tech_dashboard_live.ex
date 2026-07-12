@@ -65,6 +65,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     map_pins = build_map_pins(todays, service_map, customer_map, address_map, vehicle_map)
     map_view = :today
     progress_map = build_progress_map(all_appts)
+    command_card = build_command_card(tech_record, todays, progress_map)
 
     # Load unassigned appointments in tech's zone
     zone_appointments = load_zone_appointments(tech_record, address_map, service_map)
@@ -91,6 +92,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         map_pins: map_pins,
         map_view: map_view,
         progress_map: progress_map,
+        command_card: command_card,
         zone_appointments: zone_appointments,
         requested_ids: MapSet.new(),
         requested_appts: [],
@@ -141,7 +143,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
   def handle_info({:technician_status, %{technician_id: id, status: status}}, socket) do
     case socket.assigns.tech_record do
       %{id: ^id} = tech ->
-        {:noreply, assign(socket, tech_record: %{tech | status: status})}
+        {:noreply,
+         socket
+         |> assign(tech_record: %{tech | status: status})
+         |> assign_command_card()}
 
       _ ->
         {:noreply, socket}
@@ -307,7 +312,10 @@ defmodule MobileCarWashWeb.TechDashboardLive do
              })
              |> Ash.update() do
           {:ok, updated} ->
-            {:noreply, assign(socket, tech_record: updated)}
+            {:noreply,
+             socket
+             |> assign(tech_record: updated)
+             |> assign_command_card()}
 
           {:error, _} ->
             {:noreply, put_flash(socket, :error, "Could not update status.")}
@@ -352,6 +360,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     tech = socket.assigns.tech_record
 
     rows = params["rows"] || []
+    rows = if is_map(rows), do: Map.values(rows), else: rows
 
     entries =
       rows
@@ -394,12 +403,22 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         {:noreply, assign(socket, supply_log_error: "Add at least one supply entry")}
 
       true ->
-        Enum.each(valid, &Inventory.log_usage/1)
+        case Enum.reduce_while(valid, :ok, fn entry, :ok ->
+               case Inventory.log_usage(entry) do
+                 {:ok, _usage} -> {:cont, :ok}
+                 {:error, reason} -> {:halt, {:error, reason}}
+               end
+             end) do
+          :ok ->
+            {:noreply,
+             socket
+             |> assign(logging_supplies_for: nil, supply_log_error: nil)
+             |> assign_command_card()
+             |> put_flash(:info, "#{length(valid)} supply usage(s) logged")}
 
-        {:noreply,
-         socket
-         |> assign(logging_supplies_for: nil, supply_log_error: nil)
-         |> put_flash(:info, "#{length(valid)} supply usage(s) logged")}
+          {:error, _reason} ->
+            {:noreply, assign(socket, supply_log_error: "Could not log supply usage")}
+        end
     end
   end
 
@@ -411,6 +430,15 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         <h1 class="text-2xl font-bold">My Schedule</h1>
         <p class="text-base-content/80">Welcome, {@tech_user.name}</p>
       </div>
+
+      <.workday_command_card
+        :if={@command_card}
+        command_card={@command_card}
+        service_map={@service_map}
+        customer_map={@customer_map}
+        address_map={@address_map}
+        vehicle_map={@vehicle_map}
+      />
       
     <!-- Duty-status control — top-of-page so it's always one tap away -->
       <div :if={@tech_record} class="card bg-base-100 shadow mb-6">
@@ -487,6 +515,32 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         <span>{@unassigned_count} unassigned appointment(s) — check with dispatch.</span>
       </div>
       
+    <!-- Today -->
+      <div class="mb-8">
+        <h2 class="text-lg font-bold mb-3">Today</h2>
+        <div :if={@todays_appointments == []} class="text-base-content/70 text-sm">
+          No appointments today
+        </div>
+        <div class="space-y-3">
+          <.appointment_row
+            :for={appt <- @todays_appointments}
+            appointment={appt}
+            service={Map.get(@service_map, appt.service_type_id)}
+            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
+            address={Map.get(@address_map, appt.address_id)}
+            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
+            progress={Map.get(@progress_map, appt.id, default_progress())}
+            row_state={
+              appointment_row_state(
+                appt,
+                @command_card,
+                Map.get(@progress_map, appt.id, default_progress())
+              )
+            }
+          />
+        </div>
+      </div>
+      
     <!-- Map -->
       <div class="mb-8">
         <div class="flex justify-between items-center mb-3">
@@ -532,34 +586,6 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         </div>
       </div>
       
-    <!-- Today -->
-      <div class="mb-8">
-        <h2 class="text-lg font-bold mb-3">Today</h2>
-        <div :if={@todays_appointments == []} class="text-base-content/70 text-sm">
-          No appointments today
-        </div>
-        <div class="space-y-3">
-          <.appointment_row
-            :for={appt <- @todays_appointments}
-            appointment={appt}
-            service={Map.get(@service_map, appt.service_type_id)}
-            customer_name={Map.get(@customer_map, appt.customer_id, "Customer")}
-            address={Map.get(@address_map, appt.address_id)}
-            vehicle={Map.get(@vehicle_map, appt.vehicle_id)}
-            progress={
-              Map.get(@progress_map, appt.id, %{
-                checklist_id: nil,
-                steps_done: 0,
-                steps_total: 0,
-                current_step: nil,
-                eta_minutes: nil,
-                checklist_status: nil
-              })
-            }
-          />
-        </div>
-      </div>
-      
     <!-- Tomorrow -->
       <div class="mb-8">
         <h2 class="text-lg font-bold mb-3">Tomorrow</h2>
@@ -584,6 +610,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                 checklist_status: nil
               })
             }
+            row_state={nil}
           />
         </div>
       </div>
@@ -609,6 +636,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
                 checklist_status: nil
               })
             }
+            row_state={nil}
           />
         </div>
       </div>
@@ -689,7 +717,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       </div>
       
     <!-- Earnings -->
-      <div :if={@tech_record} class="mb-8">
+      <div :if={@tech_record} id="tech-earnings" class="mb-8">
         <h2 class="text-lg font-bold mb-3">Earnings</h2>
         
     <!-- Period Tabs -->
@@ -884,7 +912,15 @@ defmodule MobileCarWashWeb.TechDashboardLive do
 
   defp appointment_row(assigns) do
     ~H"""
-    <div class="card bg-base-100 shadow-sm">
+    <div
+      class={[
+        "card bg-base-100 shadow-sm",
+        @row_state == :active && "border border-warning",
+        @row_state == :next && "border border-primary/30"
+      ]}
+      data-appointment-id={@appointment.id}
+      data-command-row-state={@row_state}
+    >
       <div class="card-body p-4">
         <div class="flex justify-between items-start">
           <div class="min-w-0">
@@ -903,9 +939,14 @@ defmodule MobileCarWashWeb.TechDashboardLive do
               <span>{@address.street}, {@address.city}, {@address.state} {@address.zip}</span>
             </a>
           </div>
-          <span class={["badge badge-sm", status_class(@appointment.status)]}>
-            {format_status(@appointment.status)}
-          </span>
+          <div class="flex items-center gap-2">
+            <span class={["badge badge-sm", status_class(@appointment.status)]}>
+              {format_status(@appointment.status)}
+            </span>
+            <span :if={row_state_label(@row_state)} class="badge badge-primary badge-sm">
+              {row_state_label(@row_state)}
+            </span>
+          </div>
         </div>
         
     <!-- Progress if checklist exists -->
@@ -960,6 +1001,75 @@ defmodule MobileCarWashWeb.TechDashboardLive do
         </div>
       </div>
     </div>
+    """
+  end
+
+  attr :command_card, :map, required: true
+  attr :service_map, :map, required: true
+  attr :customer_map, :map, required: true
+  attr :address_map, :map, required: true
+  attr :vehicle_map, :map, required: true
+
+  defp workday_command_card(assigns) do
+    ~H"""
+    <section id="tech-workday-command" class="card bg-base-100 shadow mb-6 border border-primary/20">
+      <div class="card-body p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <span class="badge badge-primary badge-sm">{@command_card.badge}</span>
+            <h2 class="mt-2 text-xl font-bold">{@command_card.title}</h2>
+            <p class="mt-1 text-sm text-base-content/70">{@command_card.body}</p>
+          </div>
+        </div>
+
+        <div :if={@command_card.appointment} class="mt-4 rounded-xl bg-base-200/60 p-3">
+          <% appt = @command_card.appointment %>
+          <p class="text-sm font-semibold">
+            {Map.get(@customer_map, appt.customer_id, "Customer")}
+          </p>
+          <p class="text-sm text-base-content/80">
+            {(Map.get(@service_map, appt.service_type_id) &&
+                Map.get(@service_map, appt.service_type_id).name) || "Service"} · {Calendar.strftime(
+              appt.scheduled_at,
+              "%b %d · %I:%M %p"
+            )}
+          </p>
+          <p :if={Map.get(@vehicle_map, appt.vehicle_id)} class="text-xs text-base-content/70">
+            {vehicle_label(Map.get(@vehicle_map, appt.vehicle_id))}
+          </p>
+          <p :if={Map.get(@address_map, appt.address_id)} class="text-xs text-base-content/70">
+            {Map.get(@address_map, appt.address_id).street}, {Map.get(@address_map, appt.address_id).city}
+          </p>
+        </div>
+
+        <div :if={@command_card.action} class="mt-4">
+          <button
+            :if={@command_card.action.type == :event}
+            id={@command_card.action.id}
+            class="btn btn-primary btn-block"
+            phx-click={@command_card.action.event}
+            phx-value-status={Map.get(@command_card.action, :value_status)}
+            phx-value-id={Map.get(@command_card.action, :value_id)}
+          >
+            {@command_card.action.label}
+          </button>
+
+          <.link
+            :if={@command_card.action.type == :link}
+            id={@command_card.action.id}
+            navigate={@command_card.action.to}
+            class="btn btn-primary btn-block"
+          >
+            {@command_card.action.label}
+          </.link>
+        </div>
+
+        <div :if={!@command_card.action} class="mt-4 flex gap-2">
+          <.link navigate={~p"/tech/profile"} class="btn btn-outline btn-sm">Profile</.link>
+          <a href="#tech-earnings" class="btn btn-ghost btn-sm">Earnings</a>
+        </div>
+      </div>
+    </section>
     """
   end
 
@@ -1139,6 +1249,7 @@ defmodule MobileCarWashWeb.TechDashboardLive do
     vehicle_map = load_vehicle_map(all_appts)
     map_pins = build_map_pins(todays, service_map, customer_map, address_map, vehicle_map)
     progress_map = build_progress_map(all_appts)
+    command_card = build_command_card(socket.assigns.tech_record, todays, progress_map)
 
     zone_appointments = load_zone_appointments(tech_record, address_map, service_map)
 
@@ -1152,13 +1263,205 @@ defmodule MobileCarWashWeb.TechDashboardLive do
       vehicle_map: vehicle_map,
       map_pins: map_pins,
       progress_map: progress_map,
+      command_card: command_card,
       zone_appointments: zone_appointments
+    )
+  end
+
+  defp assign_command_card(socket) do
+    assign(
+      socket,
+      command_card:
+        build_command_card(
+          socket.assigns.tech_record,
+          socket.assigns.todays_appointments,
+          socket.assigns.progress_map
+        )
     )
   end
 
   defp build_progress_map(appointments) do
     Map.new(appointments, fn appt -> {appt.id, Dispatch.checklist_progress(appt.id)} end)
   end
+
+  defp build_command_card(nil, _todays_appointments, _progress_map), do: nil
+
+  defp build_command_card(tech_record, todays_appointments, progress_map) do
+    actionable =
+      todays_appointments
+      |> Enum.reject(&(&1.status in [:cancelled, :pending]))
+      |> Enum.reject(&supply_usage_logged?/1)
+      |> Enum.sort_by(fn appointment ->
+        {command_priority(appointment), DateTime.to_unix(appointment.scheduled_at)}
+      end)
+
+    candidate = List.first(actionable)
+    kind = command_kind(tech_record, candidate)
+
+    %{
+      kind: kind,
+      appointment: candidate,
+      title: command_title(kind),
+      body: command_body(kind),
+      badge: command_badge(kind),
+      action: command_primary_action(kind, candidate, progress_map)
+    }
+  end
+
+  defp command_priority(%{status: :in_progress}), do: 0
+  defp command_priority(%{status: :on_site}), do: 1
+  defp command_priority(%{status: :en_route}), do: 2
+  defp command_priority(%{status: :confirmed}), do: 3
+  defp command_priority(%{status: :completed}), do: 8
+  defp command_priority(_appointment), do: 4
+
+  defp command_kind(%{status: :off_duty}, %{status: status})
+       when status in [:confirmed, :en_route, :on_site, :in_progress],
+       do: :start_shift
+
+  defp command_kind(_tech_record, nil), do: :no_work
+  defp command_kind(_tech_record, %{status: :confirmed}), do: :view_job
+  defp command_kind(_tech_record, %{status: :en_route}), do: :mark_arrived
+  defp command_kind(_tech_record, %{status: :on_site}), do: :start_wash
+  defp command_kind(_tech_record, %{status: :in_progress}), do: :continue_checklist
+  defp command_kind(_tech_record, %{status: :completed}), do: :log_supplies
+  defp command_kind(_tech_record, _appointment), do: :review_schedule
+
+  defp command_title(:start_shift), do: "Start your workday"
+  defp command_title(:view_job), do: "Next job"
+  defp command_title(:mark_arrived), do: "You are en route"
+  defp command_title(:start_wash), do: "You are on site"
+  defp command_title(:continue_checklist), do: "Wash in progress"
+  defp command_title(:log_supplies), do: "Wrap up completed job"
+  defp command_title(:no_work), do: "No jobs today"
+  defp command_title(:review_schedule), do: "Review schedule"
+
+  defp command_body(:start_shift), do: "Start your shift to begin today's work."
+  defp command_body(:view_job), do: "Review the job brief before heading out."
+  defp command_body(:mark_arrived), do: "Mark yourself on site when you arrive."
+  defp command_body(:start_wash), do: "Start the wash when you are ready."
+  defp command_body(:continue_checklist), do: "Continue the active wash checklist."
+  defp command_body(:log_supplies), do: "Log supplies for the completed stop."
+  defp command_body(:no_work), do: "You are clear for now."
+  defp command_body(:review_schedule), do: "Review the appointment details."
+
+  defp command_badge(:start_shift), do: "Shift"
+  defp command_badge(:view_job), do: "Next"
+  defp command_badge(:mark_arrived), do: "En route"
+  defp command_badge(:start_wash), do: "On site"
+  defp command_badge(:continue_checklist), do: "Active"
+  defp command_badge(:log_supplies), do: "Wrap-up"
+  defp command_badge(:no_work), do: "Clear"
+  defp command_badge(:review_schedule), do: "Schedule"
+
+  defp command_primary_action(:start_shift, _appointment, _progress_map),
+    do: %{
+      type: :event,
+      id: "command-start-shift",
+      event: "set_status",
+      value_status: "available",
+      label: "Start shift"
+    }
+
+  defp command_primary_action(:view_job, %{id: appointment_id}, _progress_map),
+    do: %{
+      type: :link,
+      id: "command-view-job",
+      to: ~p"/tech/appointments/#{appointment_id}",
+      label: "View job"
+    }
+
+  defp command_primary_action(:mark_arrived, %{id: appointment_id}, _progress_map),
+    do: %{
+      type: :event,
+      id: "command-mark-arrived",
+      event: "arrive",
+      value_id: appointment_id,
+      label: "Mark arrived"
+    }
+
+  defp command_primary_action(:start_wash, %{id: appointment_id}, _progress_map),
+    do: %{
+      type: :event,
+      id: "command-start-wash",
+      event: "start_wash",
+      value_id: appointment_id,
+      label: "Start wash"
+    }
+
+  defp command_primary_action(:continue_checklist, %{id: appointment_id}, progress_map) do
+    progress = Map.get(progress_map, appointment_id, default_progress())
+
+    if progress.checklist_id do
+      %{
+        type: :link,
+        id: "command-continue-checklist",
+        to: ~p"/tech/checklist/#{progress.checklist_id}",
+        label: "Continue checklist"
+      }
+    else
+      %{
+        type: :link,
+        id: "command-view-job",
+        to: ~p"/tech/appointments/#{appointment_id}",
+        label: "View job"
+      }
+    end
+  end
+
+  defp command_primary_action(:log_supplies, %{id: appointment_id}, _progress_map),
+    do: %{
+      type: :event,
+      id: "command-log-supplies",
+      event: "open_supply_log",
+      value_id: appointment_id,
+      label: "Log supplies"
+    }
+
+  defp command_primary_action(:review_schedule, %{id: appointment_id}, _progress_map),
+    do: %{
+      type: :link,
+      id: "command-review-schedule",
+      to: ~p"/tech/appointments/#{appointment_id}",
+      label: "Review schedule"
+    }
+
+  defp command_primary_action(_kind, _appointment, _progress_map), do: nil
+
+  defp supply_usage_logged?(%{status: :completed, id: appointment_id}) do
+    Inventory.usage_for_appointment(appointment_id) != []
+  end
+
+  defp supply_usage_logged?(_appointment), do: false
+
+  defp default_progress do
+    %{
+      checklist_id: nil,
+      steps_done: 0,
+      steps_total: 0,
+      current_step: nil,
+      eta_minutes: nil,
+      checklist_status: nil
+    }
+  end
+
+  defp command_card_appointment_id(%{appointment: %{id: id}}), do: id
+  defp command_card_appointment_id(_command_card), do: nil
+
+  defp appointment_row_state(appointment, command_card, progress) do
+    if appointment.id == command_card_appointment_id(command_card) do
+      cond do
+        appointment.status in [:in_progress, :on_site, :en_route] -> :active
+        progress.checklist_id -> :active
+        appointment.status == :confirmed -> :next
+        true -> :next
+      end
+    end
+  end
+
+  defp row_state_label(:active), do: "Active"
+  defp row_state_label(:next), do: "Next"
+  defp row_state_label(_), do: nil
 
   defp show_job_link?(appointment, progress) do
     appointment.status != :in_progress or is_nil(progress.checklist_id)
