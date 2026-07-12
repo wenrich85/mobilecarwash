@@ -47,8 +47,9 @@ Two display modes:
   are hidden for single-photo groups; counter "n of m".
 - **Slider mode** — opened by `[data-lightbox-slider]` expand buttons;
   fullscreen before/after scrub via `slider_core`; single item — no swipe
-  navigation, no chevrons (horizontal drag belongs to the scrub). Scrub starts
-  at rest (divider far right, matching the page slider post-wipe).
+  navigation, no chevrons, no counter, no caption line (horizontal drag
+  belongs to the scrub). Scrub starts at rest (divider far right, matching the
+  page slider post-wipe).
 
 Cleanup in `destroyed()`: remove the document listener, unlock scroll, drop
 state (covers LiveView navigation while open).
@@ -86,6 +87,9 @@ Plain photo (opt-in per `<img>`):
 ```
 
 - Group = the `data-lightbox` value; membership and order = DOM order.
+- Optional `data-lightbox-caption={photo.caption}`: shown in the overlay's
+  caption line; the line is hidden when the attribute is absent or empty. The
+  snapshot captures `{src, alt, caption}`.
 - Fullscreen reuses the same `src` (single stored size; local path or 4-hour
   presigned GET URL — already loaded on the page, so browser cache makes the
   open instant).
