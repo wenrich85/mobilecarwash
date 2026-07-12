@@ -6,7 +6,7 @@ defmodule MobileCarWashWeb.Tech.JobLive do
 
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.{Address, Vehicle}
-  alias MobileCarWash.Operations.Technician
+  alias MobileCarWash.Operations.{Photo, PhotoUpload, Technician}
 
   alias MobileCarWash.Scheduling.{
     Appointment,
@@ -217,6 +217,53 @@ defmodule MobileCarWashWeb.Tech.JobLive do
               </div>
             </section>
           </div>
+
+          <section
+            id="job-problem-photos"
+            class="border-t border-base-300 px-5 py-5 sm:px-6"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-base-content/50">
+                  Customer problem photos
+                </h2>
+                <p class="mt-1 text-sm text-base-content/70">
+                  Review these before starting the wash.
+                </p>
+              </div>
+              <span class="badge badge-ghost">{length(@problem_photos)}</span>
+            </div>
+
+            <div
+              :if={@problem_photos == []}
+              id="job-problem-photo-empty"
+              class="mt-4 rounded-xl border border-dashed border-base-300 bg-base-200/50 px-4 py-5 text-sm text-base-content/70"
+            >
+              No customer problem photos.
+            </div>
+
+            <div :if={@problem_photos != []} class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <figure
+                :for={photo <- @problem_photos}
+                id={"job-problem-photo-#{photo.id}"}
+                class="overflow-hidden rounded-xl border border-base-300 bg-base-100"
+              >
+                <img
+                  src={photo.file_path}
+                  alt={problem_photo_label(photo)}
+                  class="aspect-square w-full object-cover"
+                />
+                <figcaption class="space-y-1 px-3 py-2">
+                  <p class="text-xs font-semibold text-base-content">
+                    {photo_car_part_label(photo.car_part)}
+                  </p>
+                  <p class="line-clamp-2 text-xs text-base-content/70">
+                    {problem_photo_label(photo)}
+                  </p>
+                </figcaption>
+              </figure>
+            </div>
+          </section>
         </section>
       </main>
     </Layouts.app>
@@ -260,7 +307,8 @@ defmodule MobileCarWashWeb.Tech.JobLive do
          service: service,
          address: address,
          vehicle: vehicle,
-         progress: Dispatch.checklist_progress(appointment.id)
+         progress: Dispatch.checklist_progress(appointment.id),
+         problem_photos: load_problem_photos(appointment.id)
        }}
     else
       {:error, %Ash.Error.Invalid{errors: errors}} ->
@@ -276,6 +324,35 @@ defmodule MobileCarWashWeb.Tech.JobLive do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp load_problem_photos(appointment_id) do
+    Photo
+    |> Ash.Query.filter(
+      appointment_id == ^appointment_id and photo_type == :problem_area and is_nil(deleted_at)
+    )
+    |> Ash.Query.sort(inserted_at: :asc)
+    |> Ash.read!(authorize?: false)
+    |> Enum.map(&PhotoUpload.apply_url/1)
+  end
+
+  defp problem_photo_label(%{caption: caption}) when is_binary(caption) do
+    case String.trim(caption) do
+      "" -> "Customer problem photo"
+      value -> value
+    end
+  end
+
+  defp problem_photo_label(_photo), do: "Customer problem photo"
+
+  defp photo_car_part_label(nil), do: "Problem area"
+
+  defp photo_car_part_label(part) do
+    part
+    |> to_string()
+    |> String.replace("_", " ")
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   defp authorize_job_access(%{role: :admin}, _appointment), do: {:ok, nil}
@@ -302,7 +379,8 @@ defmodule MobileCarWashWeb.Tech.JobLive do
       service: job.service,
       address: job.address,
       vehicle: job.vehicle,
-      progress: job.progress
+      progress: job.progress,
+      problem_photos: job.problem_photos
     )
   end
 

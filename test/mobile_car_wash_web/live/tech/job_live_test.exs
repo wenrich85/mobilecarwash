@@ -4,7 +4,7 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
   import Phoenix.LiveViewTest
 
   alias MobileCarWash.Accounts.Customer
-  alias MobileCarWash.Operations.{Procedure, ProcedureStep, Technician}
+  alias MobileCarWash.Operations.{Photo, Procedure, ProcedureStep, Technician}
   alias MobileCarWash.Scheduling.{Appointment, ServiceType}
 
   defp create_tech_customer(name \\ "Job Tech") do
@@ -125,6 +125,23 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
     appointment
   end
 
+  defp create_problem_photo!(appointment, attrs \\ %{}) do
+    defaults = %{
+      file_path: "/photos/appointments/#{appointment.id}/problem_area_front.jpg",
+      original_filename: "problem_area_front.jpg",
+      content_type: "image/jpeg",
+      photo_type: :problem_area,
+      caption: "Bird droppings on the front bumper",
+      uploaded_by: :customer,
+      car_part: :front
+    }
+
+    Photo
+    |> Ash.Changeset.for_create(:upload, Map.merge(defaults, attrs))
+    |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+    |> Ash.create!(authorize?: false)
+  end
+
   defp reassign_appointment(appointment, technician_id) do
     {:ok, appointment} =
       appointment
@@ -182,6 +199,38 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert render(view) =~ customer.name
       assert render(view) =~ "Toyota"
       assert render(view) =~ "78259"
+    end
+
+    test "renders customer problem photos with caption and car part", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+      photo = create_problem_photo!(appointment)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-problem-photos")
+      assert has_element?(view, "#job-problem-photo-#{photo.id}")
+      assert html =~ ~s(src="#{photo.file_path}")
+      assert html =~ "Bird droppings on the front bumper"
+      assert html =~ "Front"
+      refute has_element?(view, "#job-problem-photo-empty")
+    end
+
+    test "renders an empty problem-photo state when the customer uploaded none", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+
+      {:ok, view, html} = live_job(conn, appointment.id)
+
+      assert has_element?(view, "#job-problem-photos")
+      assert has_element?(view, "#job-problem-photo-empty")
+      assert html =~ "No customer problem photos"
     end
 
     test "denies access to another technician's appointment", %{conn: conn, customer: customer} do
