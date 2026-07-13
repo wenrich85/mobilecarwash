@@ -440,6 +440,20 @@ defmodule MobileCarWashWeb.Tech.JobLiveTest do
       assert html =~ "No customer problem photos"
     end
 
+    test "problem photos are lightboxed and the overlay root renders", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :confirmed)
+      create_problem_photo!(appointment)
+
+      {:ok, _view, html} = live_job(conn, appointment.id)
+
+      assert html =~ ~s(id="lightbox-root")
+      assert html =~ ~s(data-lightbox="problem-photos")
+    end
+
     test "denies access to another technician's appointment", %{conn: conn, customer: customer} do
       other_user = create_tech_customer("Other Tech")
       other_tech = create_tech_record(other_user)

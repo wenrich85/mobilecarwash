@@ -4,6 +4,8 @@ defmodule MobileCarWashWeb.Tech.JobLive do
   """
   use MobileCarWashWeb, :live_view
 
+  import MobileCarWashWeb.Lightbox, only: [lightbox_root: 1]
+
   alias MobileCarWash.Accounts.Customer
   alias MobileCarWash.Fleet.{Address, Vehicle}
   alias MobileCarWash.Operations.{Photo, PhotoUpload, Technician}
@@ -270,7 +272,9 @@ defmodule MobileCarWashWeb.Tech.JobLive do
                 <img
                   src={photo.file_path}
                   alt={problem_photo_label(photo)}
-                  class="aspect-square w-full object-cover"
+                  data-lightbox="problem-photos"
+                  data-lightbox-caption={photo.caption}
+                  class="aspect-square w-full object-cover cursor-zoom-in"
                 />
                 <figcaption class="space-y-1 px-3 py-2">
                   <p class="text-xs font-semibold text-base-content">
@@ -285,6 +289,8 @@ defmodule MobileCarWashWeb.Tech.JobLive do
           </section>
         </section>
       </main>
+
+      <.lightbox_root />
     </Layouts.app>
     """
   end
