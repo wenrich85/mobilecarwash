@@ -505,6 +505,16 @@ Add these helpers near the timer/status helpers:
     }
   end
 
+  defp wash_command(%{checklist: %{status: :completed, final_notes: nil}}) do
+    %{
+      title: "Wrap up",
+      body: "The wash is complete. Add final notes and supplies used before leaving the job.",
+      badge: "Wrap-up",
+      badge_class: "badge-success",
+      action: %{type: :anchor, id: "wash-command-wrap-up", to: "#wrap-up-panel", label: "Wrap up"}
+    }
+  end
+
   defp wash_command(assigns) do
     cond do
       not before_photos_complete?(assigns.before_photos) ->
@@ -556,6 +566,8 @@ Add these helpers near the timer/status helpers:
 ```
 
 If the formatter wraps long map literals, keep the same keys and ids.
+
+This completed-without-final-notes clause must stay above the normal photo-gate `cond`. A completed checklist may have no before/after photos in legacy or test data, and `final_notes == nil` still means wrap-up is unsaved.
 
 - [ ] **Step 5: Run tests to verify GREEN**
 
@@ -1223,6 +1235,11 @@ Append these tests to the `"wrap-up final notes"` describe block or a new `"wrap
       {:ok, checklist} =
         checklist
         |> Ash.Changeset.for_update(:complete_checklist, %{})
+        |> Ash.update(authorize?: false)
+
+      {:ok, checklist} =
+        checklist
+        |> Ash.Changeset.for_update(:save_wrap_up, %{final_notes: "Wrap-up complete."})
         |> Ash.update(authorize?: false)
 
       {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
