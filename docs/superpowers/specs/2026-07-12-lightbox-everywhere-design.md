@@ -48,8 +48,8 @@ Two display modes:
 - **Slider mode** — opened by `[data-lightbox-slider]` expand buttons;
   fullscreen before/after scrub via `slider_core`; single item — no swipe
   navigation, no chevrons, no counter, no caption line (horizontal drag
-  belongs to the scrub). Scrub starts at rest (divider far right, matching the
-  page slider post-wipe).
+  belongs to the scrub). Scrub starts at P=50 (the page slider's post-wipe
+  rest position).
 
 Cleanup in `destroyed()`: remove the document listener, unlock scroll, drop
 state (covers LiveView navigation while open).
@@ -129,8 +129,8 @@ expand button, and the existing container-attribute tests are retargeted.
 `prefers-reduced-motion`); body scroll locked.
 
 **Close:** ✕ button, Escape, or backdrop tap. Tapping the photo itself does
-not close (accidental-hit protection mid-swipe). On close: scroll restored,
-**focus returns to the opening element**.
+not close (accidental-hit protection mid-swipe). Close is immediate (no fade
+out). On close: scroll restored, **focus returns to the opening element**.
 
 **Navigate (image mode):** horizontal swipe (pointer events, ~40 px
 threshold), on-screen chevrons, ←/→ keys.
