@@ -1577,6 +1577,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
     Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
   end
 
+  defp wrap_up_ready?(_items, _after_photos, %{status: :completed}), do: true
+
   defp wrap_up_ready?(items, after_photos, _checklist) do
     all_required_complete?(items) and after_photos_complete?(after_photos)
   end
@@ -1593,6 +1595,21 @@ defmodule MobileCarWashWeb.ChecklistLive do
         id: "wash-command-dashboard",
         to: ~p"/tech",
         label: "Back to dashboard"
+      }
+    }
+  end
+
+  defp wash_command(%{checklist: %{status: :completed, final_notes: nil}}) do
+    %{
+      title: "Wrap up",
+      body: "The wash is complete. Add final notes and supplies used before leaving the job.",
+      badge: "Wrap-up",
+      badge_class: "badge-success",
+      action: %{
+        type: :anchor,
+        id: "wash-command-wrap-up",
+        to: "#wrap-up-panel",
+        label: "Wrap up"
       }
     }
   end

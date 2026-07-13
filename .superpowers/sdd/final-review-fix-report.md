@@ -15,6 +15,7 @@ Implemented final-review blockers and verified the requested focused suites.
 - Calculated the earnings summary once during mount from the assigned technician and rendered the assign rather than querying from the timer-rendered template.
 - Resolved the assigned technician server-side for supply usage and recorded that technician's `van_id` when set. Browser-supplied technician/van ids are never consumed.
 - Replaced technician-facing raw `inspect(reason)` output with a stable retry message and structured server logging.
+- Restored the completed-without-final-notes command-card precedence for legacy completed checklists that may not have full photo records; those still route to wrap-up rather than back to before-photo capture.
 
 ## TDD Evidence
 
@@ -40,7 +41,7 @@ The generated migration repeated the already-committed `final_notes` DDL and als
 
 ```bash
 mix test test/mobile_car_wash/operations/appointment_checklist_wrap_up_test.exs test/mobile_car_wash_web/live/checklist_live_test.exs
-# 37 tests, 0 failures
+# 38 tests, 0 failures
 
 mix test test/mobile_car_wash_web/live/tech/tech_dashboard_live_test.exs test/mobile_car_wash_web/live/tech/job_live_test.exs
 # exit 0

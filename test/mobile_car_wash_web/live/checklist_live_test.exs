@@ -504,6 +504,23 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert primary_action_count(html) == 1
     end
 
+    test "completed checklist without final notes still points to wrap-up when photos are missing",
+         %{
+           conn: conn,
+           tech: tech,
+           customer: customer
+         } do
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :completed)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wash-command-wrap-up[href='#wrap-up-panel']")
+      assert has_element?(view, "#wrap-up-panel")
+      refute has_element?(view, "#wash-command-before-photos")
+      assert primary_action_count(html) == 1
+    end
+
     test "points to dashboard for a completed checklist with final notes", %{
       conn: conn,
       tech: tech,
