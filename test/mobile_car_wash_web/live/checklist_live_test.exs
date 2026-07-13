@@ -8,6 +8,7 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
   alias MobileCarWash.Operations.{
     AppointmentChecklist,
     ChecklistItem,
+    Photo,
     Procedure,
     ProcedureStep,
     Technician
@@ -183,6 +184,23 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
     end
 
     checklist
+  end
+
+  defp create_photo(appointment, photo_type, car_part, caption \\ nil) do
+    {:ok, photo} =
+      Photo
+      |> Ash.Changeset.for_create(:upload, %{
+        file_path: "appointments/#{appointment.id}/#{photo_type}_#{car_part}.jpg",
+        photo_type: photo_type,
+        car_part: car_part,
+        content_type: "image/jpeg",
+        original_filename: "#{photo_type}_#{car_part}.jpg",
+        caption: caption
+      })
+      |> Ash.Changeset.force_change_attribute(:appointment_id, appointment.id)
+      |> Ash.create()
+
+    photo
   end
 
   describe "active wash regions" do
@@ -403,6 +421,33 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
 
       # Tile is immediately retakeable (entry was consumed).
       assert has_element?(view, "#tile-before-rear label[for]")
+    end
+  end
+
+  describe "lightbox wiring" do
+    test "problem strip and captured tiles are lightboxed with alt; root renders once", %{
+      conn: conn
+    } do
+      user = create_tech_customer()
+      tech = create_tech_record(user)
+      customer = create_customer()
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+
+      create_photo(appointment, :problem_area, :front, "Scratch on hood")
+      create_photo(appointment, :before, :front)
+
+      conn = sign_in(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert html =~ ~s(id="lightbox-root")
+      assert html =~ ~s(data-lightbox="problem-photos")
+      assert html =~ ~s(data-lightbox-caption="Scratch on hood")
+      assert html =~ ~s(data-lightbox="checklist-photos")
+      # ghost overlay img must NOT be wired
+      refute html =~ ~r/opacity-20[^>]*data-lightbox/
+      refute html =~ ~r/<img(?![^>]*alt=)[^>]*data-lightbox/
     end
   end
 

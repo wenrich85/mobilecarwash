@@ -17,6 +17,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
   """
   use MobileCarWashWeb, :live_view
 
+  import MobileCarWashWeb.Lightbox, only: [lightbox_root: 1]
+
   alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Photo, PhotoUpload}
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, WashOrchestrator}
@@ -411,7 +413,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 <div :for={photo <- @problem_photos} class="flex-shrink-0">
                   <img
                     src={photo.file_path}
-                    class="h-20 w-20 rounded-lg border-2 border-warning object-cover"
+                    alt={photo.caption || "Customer problem photo"}
+                    data-lightbox="problem-photos"
+                    data-lightbox-caption={photo.caption}
+                    class="h-20 w-20 rounded-lg border-2 border-warning object-cover cursor-zoom-in"
                   />
                   <p :if={photo.caption} class="mt-1 text-center text-xs">{photo.caption}</p>
                 </div>
@@ -770,6 +775,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
       <div :if={!@checklist} class="text-center py-12">
         <p class="text-base-content/70">No active checklist</p>
       </div>
+
+      <.lightbox_root />
     </div>
     """
   end
@@ -827,12 +834,17 @@ defmodule MobileCarWashWeb.ChecklistLive do
       </div>
 
       <div :if={!@entry && @photo} class="relative h-40 overflow-hidden rounded-2xl shadow">
-        <img src={@photo.file_path} class="h-full w-full object-cover" />
+        <img
+          src={@photo.file_path}
+          alt={"#{if @type == :before, do: "Before", else: "After"} — #{@area.label}"}
+          data-lightbox="checklist-photos"
+          class="h-full w-full object-cover cursor-zoom-in"
+        />
         <div
           :if={@ghost}
           class="absolute bottom-2 left-2 h-12 w-12 overflow-hidden rounded-lg border-2 border-white shadow"
         >
-          <img src={@ghost.file_path} class="h-full w-full object-cover" />
+          <img src={@ghost.file_path} alt="" class="h-full w-full object-cover" />
         </div>
         <div class={[
           "absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-2",
@@ -864,6 +876,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
         <img
           :if={@ghost}
           src={@ghost.file_path}
+          alt=""
           class="absolute inset-0 h-full w-full object-cover opacity-20"
         />
         <span class="relative text-5xl font-thin opacity-70">+</span>
