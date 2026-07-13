@@ -16,6 +16,9 @@ Implemented final-review blockers and verified the requested focused suites.
 - Resolved the assigned technician server-side for supply usage and recorded that technician's `van_id` when set. Browser-supplied technician/van ids are never consumed.
 - Replaced technician-facing raw `inspect(reason)` output with a stable retry message and structured server logging.
 - Restored the completed-without-final-notes command-card precedence for legacy completed checklists that may not have full photo records; those still route to wrap-up rather than back to before-photo capture.
+- Reauthorized photo-upload presign, photo-upload completion, and appointment-update reload paths so stale assigned technicians cannot mutate photo evidence after reassignment.
+- Moved the wrap-up one-time claim inside the transaction with a row lock on `appointment_checklists`, preventing two sessions from both logging supplies before `final_notes` is set.
+- Changed supply usage stock decrement to a single SQL update so concurrent usage writes cannot overwrite each other's `quantity_on_hand` decrement.
 
 ## TDD Evidence
 

@@ -627,6 +627,27 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       refute has_element?(view, "#tile-before-front progress")
     end
 
+    test "denies a stale technician from completing a photo upload after reassignment", %{
+      conn: conn,
+      checklist: checklist,
+      appointment: appointment
+    } do
+      other_user = create_tech_customer("Photo Replacement Tech")
+      other_tech = create_tech_record(other_user)
+
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+      front = file_input(view, "#before-photo-form", :before_front, [jpeg_entry("front.jpg")])
+
+      reassign_appointment(appointment, other_tech.id)
+
+      assert {:error, {:redirect, %{to: "/tech"}}} = render_upload(front, "front.jpg")
+
+      assert [] =
+               MobileCarWash.Operations.Photo
+               |> Ash.Query.filter(appointment_id == ^appointment.id and photo_type == :before)
+               |> Ash.read!(authorize?: false)
+    end
+
     test "two tiles upload concurrently, each with its own progress", %{
       conn: conn,
       checklist: checklist,

@@ -22,6 +22,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
   alias MobileCarWash.Operations.Technician
   alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Photo, PhotoUpload}
+  alias MobileCarWash.Repo
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, WashOrchestrator}
 
   require Logger
@@ -209,14 +210,28 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   # Photo uploaded elsewhere — reload our photo assigns
   def handle_info({:appointment_update, %{event: :photo_uploaded}}, socket) do
-    {:noreply, reload_photos(socket)}
+    case load_authorized_checklist(socket.assigns.current_customer, socket.assigns.checklist.id) do
+      {:ok, access} ->
+        {:noreply,
+         socket
+         |> assign(checklist: access.checklist, appointment: access.appointment)
+         |> reload_photos()}
+
+      {:error, :not_found} ->
+        {:noreply, deny_access(socket, "Checklist not found.")}
+
+      {:error, _reason} ->
+        {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
+    end
   end
 
   # Other appointment updates — reload checklist/items
   @impl true
   def handle_info({:appointment_update, _data}, socket) do
-    case Ash.get(AppointmentChecklist, socket.assigns.checklist.id) do
-      {:ok, checklist} ->
+    case load_authorized_checklist(socket.assigns.current_customer, socket.assigns.checklist.id) do
+      {:ok, access} ->
+        checklist = access.checklist
+
         items =
           ChecklistItem
           |> Ash.Query.filter(checklist_id == ^checklist.id)
@@ -230,10 +245,20 @@ defmodule MobileCarWashWeb.ChecklistLive do
             do: Float.round(done / socket.assigns.total * 100, 0),
             else: 0
 
-        {:noreply, assign(socket, checklist: checklist, items: items, done: done, pct: pct)}
+        {:noreply,
+         assign(socket,
+           checklist: checklist,
+           appointment: access.appointment,
+           items: items,
+           done: done,
+           pct: pct
+         )}
 
-      {:error, _} ->
-        {:noreply, socket}
+      {:error, :not_found} ->
+        {:noreply, deny_access(socket, "Checklist not found.")}
+
+      {:error, _reason} ->
+        {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
     end
   end
 
@@ -1231,9 +1256,15 @@ defmodule MobileCarWashWeb.ChecklistLive do
   defp presign_photo(entry, socket) do
     {photo_type, _area} = parse_tile_name(entry.upload_config)
 
-    case PhotoUpload.external_entry_meta(entry, socket.assigns.appointment.id, photo_type) do
-      {:ok, meta} -> {:ok, meta, socket}
-      {:error, reason} -> {:error, %{reason: inspect(reason)}, socket}
+    case load_authorized_checklist(socket.assigns.current_customer, socket.assigns.checklist.id) do
+      {:ok, access} ->
+        case PhotoUpload.external_entry_meta(entry, access.appointment.id, photo_type) do
+          {:ok, meta} -> {:ok, meta, socket}
+          {:error, reason} -> {:error, %{reason: inspect(reason)}, socket}
+        end
+
+      {:error, _reason} ->
+        {:error, %{reason: "not authorized"}, socket}
     end
   end
 
@@ -1243,25 +1274,37 @@ defmodule MobileCarWashWeb.ChecklistLive do
   defp handle_tile_progress(name, entry, socket) do
     if entry.done? do
       {photo_type, area} = parse_tile_name(name)
-      appointment_id = socket.assigns.appointment.id
 
-      result =
-        consume_uploaded_entry(socket, entry, fn meta ->
-          {:ok, save_tile_file(meta, appointment_id, entry.client_name, photo_type, area)}
-        end)
+      case load_authorized_checklist(socket.assigns.current_customer, socket.assigns.checklist.id) do
+        {:ok, access} ->
+          socket = assign(socket, checklist: access.checklist, appointment: access.appointment)
+          appointment_id = access.appointment.id
 
-      case result do
-        {:ok, _photo} ->
-          AppointmentTracker.broadcast_photo(appointment_id, photo_type)
+          result =
+            consume_uploaded_entry(socket, entry, fn meta ->
+              {:ok, save_tile_file(meta, appointment_id, entry.client_name, photo_type, area)}
+            end)
 
-          {:noreply,
-           socket
-           |> update(:tile_errors, &Map.delete(&1, name))
-           |> reload_photos()
-           |> maybe_complete_wash()}
+          case result do
+            {:ok, _photo} ->
+              AppointmentTracker.broadcast_photo(appointment_id, photo_type)
 
-        {:error, reason} ->
-          {:noreply, update(socket, :tile_errors, &Map.put(&1, name, save_error_message(reason)))}
+              {:noreply,
+               socket
+               |> update(:tile_errors, &Map.delete(&1, name))
+               |> reload_photos()
+               |> maybe_complete_wash()}
+
+            {:error, reason} ->
+              {:noreply,
+               update(socket, :tile_errors, &Map.put(&1, name, save_error_message(reason)))}
+          end
+
+        {:error, :not_found} ->
+          {:noreply, deny_access(socket, "Checklist not found.")}
+
+        {:error, _reason} ->
+          {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
       end
     else
       {:noreply, update(socket, :tile_errors, &Map.delete(&1, name))}
@@ -1335,11 +1378,23 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   defp save_wrap_up(checklist, final_notes, usage_attrs) do
     Ash.transact([AppointmentChecklist, MobileCarWash.Inventory.SupplyUsage], fn ->
-      with {:ok, updated_checklist} <- save_wrap_up_notes(checklist, final_notes),
+      with :ok <- claim_wrap_up(checklist.id),
+           {:ok, updated_checklist} <- save_wrap_up_notes(checklist, final_notes),
            :ok <- log_supply_usage(usage_attrs) do
         updated_checklist
       end
     end)
+  end
+
+  defp claim_wrap_up(checklist_id) do
+    case Repo.query(
+           "SELECT id FROM appointment_checklists WHERE id = $1 AND final_notes IS NULL FOR UPDATE",
+           [Ecto.UUID.dump!(checklist_id)]
+         ) do
+      {:ok, %{num_rows: 1}} -> :ok
+      {:ok, _result} -> {:error, "Wrap-up has already been saved."}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp load_authorized_checklist(current_customer, checklist_id) do

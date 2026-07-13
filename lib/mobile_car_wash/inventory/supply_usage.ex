@@ -8,6 +8,8 @@ defmodule MobileCarWash.Inventory.SupplyUsage do
     domain: MobileCarWash.Inventory,
     data_layer: AshPostgres.DataLayer
 
+  alias MobileCarWash.Repo
+
   postgres do
     table("supply_usages")
     repo(MobileCarWash.Repo)
@@ -73,13 +75,18 @@ defmodule MobileCarWash.Inventory.SupplyUsage do
       # Decrement supply quantity after creating the usage record
       change(
         after_action(fn _changeset, record, _context ->
-          with {:ok, supply} <-
-                 Ash.get(MobileCarWash.Inventory.Supply, record.supply_id, authorize?: false),
-               {:ok, _supply} <-
-                 supply
-                 |> Ash.Changeset.for_update(:use_quantity, %{quantity: record.quantity_used})
-                 |> Ash.update(authorize?: false) do
-            {:ok, record}
+          case Repo.query(
+                 """
+                 UPDATE supplies
+                 SET quantity_on_hand = quantity_on_hand - $1,
+                     updated_at = (now() AT TIME ZONE 'utc')
+                 WHERE id = $2
+                 """,
+                 [record.quantity_used, Ecto.UUID.dump!(record.supply_id)]
+               ) do
+            {:ok, %{num_rows: 1}} -> {:ok, record}
+            {:ok, _result} -> {:error, "Supply not found."}
+            {:error, reason} -> {:error, reason}
           end
         end)
       )
