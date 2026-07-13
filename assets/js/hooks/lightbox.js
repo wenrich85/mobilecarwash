@@ -85,6 +85,7 @@ export const Lightbox = {
 
     // Horizontal swipe navigates (image mode only; slider mode owns drag).
     this.el.addEventListener("pointerdown", event => {
+      this.justSwiped = false
       if (this.mode === "image") this.swipeStart = event.clientX
     })
     this.el.addEventListener("pointerup", event => {

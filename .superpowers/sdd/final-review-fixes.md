@@ -50,3 +50,37 @@ One commit: "Fix lightbox swipe gestures per final review" covering all three
 fixes (`assets/js/hooks/lightbox.js`,
 `lib/mobile_car_wash_web/components/lightbox.ex`,
 `docs/superpowers/specs/2026-07-12-lightbox-everywhere-design.md`).
+
+---
+
+# Re-review follow-up: stale justSwiped flag
+
+The re-review found a residual defect in Fix 1: `justSwiped` was only reset
+inside the backdrop click handler, but touch swipes (and mouse swipes over
+the image) never synthesize a backdrop click — the flag stayed `true`, so the
+NEXT backdrop tap intended to close was silently swallowed (one dead tap,
+surviving even close/reopen).
+
+## Changes
+
+- `assets/js/hooks/lightbox.js`: reset the flag at the start of every
+  gesture — the existing `pointerdown` swipe handler now begins with
+  `this.justSwiped = false`. Ordering is safe: a swipe's synthesized backdrop
+  click fires right after its own `pointerup` with no intervening
+  `pointerdown`, so it is still consumed; any fresh tap starts with a
+  `pointerdown` that clears stale state.
+- `lib/mobile_car_wash_web/components/lightbox.ex`: added `touch-none` to
+  the backdrop div (`data-role="backdrop"`) so letterbox-area swipes aren't
+  hijacked by iOS scroll/gesture handling.
+
+## Verification
+
+1. `mix assets.build` — exit 0.
+2. `mix test test/mobile_car_wash_web/components/lightbox_test.exs` — 1 test,
+   0 failures.
+3. `mix format` — no-op; `git status` showed only the two intended files
+   modified.
+
+## Commit
+
+"Reset swipe flag on pointerdown and lock backdrop touch-action".

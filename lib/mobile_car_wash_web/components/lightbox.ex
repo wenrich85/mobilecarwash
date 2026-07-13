@@ -29,7 +29,7 @@ defmodule MobileCarWashWeb.Lightbox do
       aria-modal="true"
       aria-label="Photo viewer"
     >
-      <div data-role="backdrop" class="absolute inset-0"></div>
+      <div data-role="backdrop" class="absolute inset-0 touch-none"></div>
 
       <figure
         data-role="stage"
