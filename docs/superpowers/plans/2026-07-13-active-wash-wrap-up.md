@@ -20,6 +20,7 @@
 - Use `MobileCarWash.Inventory.log_usage/1` for supply logging.
 - Tie wrap-up supply usage to the appointment's `technician_id`; do not accept technician ids from the browser.
 - Show earnings using `MobileCarWash.Operations.TechEarnings.wash_earnings/2`.
+- Treat `checklist.final_notes == nil` as "wrap-up not saved" even if `checklist.status == :completed`.
 - Run `mix precommit` after implementation and fix any failures.
 
 ---
@@ -493,7 +494,8 @@ Add this function component near `photo_tile/1`:
 Add these helpers near the timer/status helpers:
 
 ```elixir
-  defp wash_command(%{checklist: %{status: :completed}}) do
+  defp wash_command(%{checklist: %{status: :completed, final_notes: final_notes}})
+       when not is_nil(final_notes) do
     %{
       title: "Wash complete",
       body: "Review wrap-up details, then return to your dashboard for the next assignment.",
@@ -710,9 +712,31 @@ In `ChecklistLive`, add this event handler near the note/skip handlers:
   end
 ```
 
-- [ ] **Step 5: Replace the completed panel with a form shell**
+- [ ] **Step 5: Replace the completed panel with a wrap-up-ready form shell**
 
-In `#wrap-up-panel`, keep the time analysis markup but add this form before the time analysis card:
+Change the `#wrap-up-panel` section condition from:
+
+```elixir
+            :if={@checklist.status == :completed}
+```
+
+to:
+
+```elixir
+            :if={wrap_up_ready?(@items, @after_photos, @checklist)}
+```
+
+Add this helper near the existing completion helpers:
+
+```elixir
+  defp wrap_up_ready?(_items, _after_photos, %{status: :completed}), do: true
+
+  defp wrap_up_ready?(items, after_photos, _checklist) do
+    all_required_complete?(items) and after_photos_complete?(after_photos)
+  end
+```
+
+Then keep the time analysis markup but add this form before the time analysis card:
 
 ```elixir
             <form
@@ -948,7 +972,7 @@ If the file has no alias for `MobileCarWash.Inventory`, use the full module name
 
 - [ ] **Step 5: Render one supply row, usage list, and earnings**
 
-Inside `#wrap-up-form`, replace the hidden `wrap_up[supplies]` input from Task 3 with:
+Inside `#wrap-up-form`, replace the hidden `wrap_up[supplies]` input from Task 3 with a fixed three-row supply logger. This avoids adding client-side dynamic form behavior while still allowing multiple supplies:
 
 ```elixir
               <div class="rounded-2xl border border-base-300 bg-base-100 p-3">
@@ -959,26 +983,31 @@ Inside `#wrap-up-form`, replace the hidden `wrap_up[supplies]` input from Task 3
                   </span>
                 </div>
 
-                <div :if={@supplies != []} id="wrap-up-supply-0" class="space-y-2">
-                  <select name="wrap_up[supplies][0][supply_id]" class="select select-bordered select-sm w-full">
+                <div
+                  :for={index <- 0..2}
+                  :if={@supplies != []}
+                  id={"wrap-up-supply-#{index}"}
+                  class="space-y-2 border-t border-base-200 pt-2 first:border-t-0 first:pt-0"
+                >
+                  <select name={"wrap_up[supplies][#{index}][supply_id]"} class="select select-bordered select-sm w-full">
                     <option value="">No supply</option>
                     <option :for={supply <- @supplies} value={supply.id}>
                       {supply.name} ({format_decimal(supply.quantity_on_hand)} {supply.unit})
                     </option>
                   </select>
                   <input
-                    id="wrap-up-supply-0-quantity"
+                    id={"wrap-up-supply-#{index}-quantity"}
                     type="number"
                     min="0"
                     step="0.01"
-                    name="wrap_up[supplies][0][quantity_used]"
+                    name={"wrap_up[supplies][#{index}][quantity_used]"}
                     class="input input-bordered input-sm w-full"
                     placeholder="Quantity used"
                   />
                   <input
-                    id="wrap-up-supply-0-note"
+                    id={"wrap-up-supply-#{index}-note"}
                     type="text"
-                    name="wrap_up[supplies][0][notes]"
+                    name={"wrap_up[supplies][#{index}][notes]"}
                     class="input input-bordered input-sm w-full"
                     placeholder="Supply note"
                   />

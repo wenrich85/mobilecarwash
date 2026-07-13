@@ -59,7 +59,9 @@ Priority order:
 4. A step is started and not completed: show `Complete step`.
 5. Required steps complete and after photos incomplete: prompt "Finish after photos" and link/scroll to `#after-photo-progress`.
 6. After photos complete and wrap-up is not saved: show `Wrap up`.
-7. Wrap-up saved or checklist completed: show `Back to dashboard`. Do not compute a dedicated next-job link in this slice; the dashboard remains the source of truth for the next job.
+7. Wrap-up saved: show `Back to dashboard`. Do not compute a dedicated next-job link in this slice; the dashboard remains the source of truth for the next job.
+
+When the existing automatic completion logic marks the checklist complete before wrap-up data is saved, the command card must still show `Wrap up`. Completed checklist status alone is not enough to skip wrap-up.
 
 Secondary actions may remain where they already live:
 
@@ -125,6 +127,7 @@ Wrap-up save behavior:
 - Use inline validation errors for missing supply, invalid quantity, or supply logging failure.
 - Do not silently mark wrap-up saved if supply logging fails.
 - Preserve current checklist/appointment completion rules; this slice should not loosen photo or step gates.
+- A checklist may already be `:completed` because the existing photo/step gates completed it; if `final_notes` is still `nil`, wrap-up remains unsaved and should still be shown.
 
 ## Data Model
 
