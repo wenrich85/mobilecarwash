@@ -687,4 +687,57 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert photo.file_path =~ ~r|^appointments/#{appointment.id}/before_[0-9a-f-]{36}\.jpg$|
     end
   end
+
+  describe "wrap-up final notes" do
+    setup %{conn: conn} do
+      user = create_tech_customer()
+      tech = create_tech_record(user)
+      customer = create_customer()
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+      create_all_photos!(appointment, :before)
+      checklist |> checklist_items() |> Enum.each(&complete_item!/1)
+      create_all_photos!(appointment, :after)
+
+      {:ok,
+       conn: sign_in(conn, user),
+       tech: tech,
+       customer: customer,
+       appointment: appointment,
+       checklist: checklist}
+    end
+
+    test "persists final notes from the wrap-up form", %{conn: conn, checklist: checklist} do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wrap-up-form")
+      assert has_element?(view, "#wrap-up-final-notes")
+
+      view
+      |> form("#wrap-up-form", %{
+        "wrap_up" => %{
+          "final_notes" => "Customer requested extra attention on wheels.",
+          "supplies" => %{}
+        }
+      })
+      |> render_submit()
+
+      reloaded = Ash.get!(AppointmentChecklist, checklist.id, authorize?: false)
+      assert reloaded.final_notes == "Customer requested extra attention on wheels."
+      assert has_element?(view, "#wrap-up-saved-final-notes")
+      assert render(view) =~ "Customer requested extra attention on wheels."
+    end
+
+    test "can save wrap-up with blank notes", %{conn: conn, checklist: checklist} do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      view
+      |> form("#wrap-up-form", %{"wrap_up" => %{"final_notes" => "", "supplies" => %{}}})
+      |> render_submit()
+
+      reloaded = Ash.get!(AppointmentChecklist, checklist.id, authorize?: false)
+      assert reloaded.final_notes == ""
+      assert render(view) =~ "Wrap-up saved"
+    end
+  end
 end

@@ -97,6 +97,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
             problem_photos: problem_photos,
             before_photos: before_photos,
             after_photos: after_photos,
+            supply_usages: MobileCarWash.Inventory.usage_for_appointment(appointment.id),
+            wrap_up_error: nil,
+            wrap_up_saved?: not is_nil(checklist.final_notes),
             key_areas: @key_areas,
             total: total,
             done: done,
@@ -127,6 +130,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
            problem_photos: [],
            before_photos: [],
            after_photos: [],
+           supply_usages: [],
+           wrap_up_error: nil,
+           wrap_up_saved?: false,
            key_areas: @key_areas,
            total: 0,
            done: 0,
@@ -151,6 +157,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
        problem_photos: [],
        before_photos: [],
        after_photos: [],
+       supply_usages: [],
+       wrap_up_error: nil,
+       wrap_up_saved?: false,
        key_areas: @key_areas,
        total: 0,
        done: 0,
@@ -297,6 +306,28 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   def handle_event("cancel_note", _params, socket) do
     {:noreply, assign(socket, editing_note_id: nil)}
+  end
+
+  def handle_event("save_wrap_up", %{"wrap_up" => params}, socket) do
+    final_notes = Map.get(params, "final_notes", "")
+
+    case save_wrap_up_notes(socket.assigns.checklist, final_notes) do
+      {:ok, checklist} ->
+        {:noreply,
+         socket
+         |> assign(checklist: checklist, wrap_up_error: nil, wrap_up_saved?: true)
+         |> assign(
+           supply_usages:
+             MobileCarWash.Inventory.usage_for_appointment(socket.assigns.appointment.id)
+         )}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           wrap_up_error: "Could not save wrap-up notes: #{inspect(reason)}",
+           wrap_up_saved?: false
+         )}
+    end
   end
 
   def handle_event("save_note", %{"id" => item_id, "notes" => notes}, socket) do
@@ -739,13 +770,52 @@ defmodule MobileCarWashWeb.ChecklistLive do
           </section>
 
           <section
-            :if={@checklist.status == :completed}
+            :if={wrap_up_ready?(@items, @after_photos, @checklist)}
             id="wrap-up-panel"
             class="rounded-[28px] border border-success/30 bg-success/10 px-4 py-5 text-center"
           >
             <div class="text-4xl text-success">✓</div>
             <h2 class="mt-2 text-xl font-bold text-success">Checklist Complete!</h2>
             <p class="mt-1 text-sm text-base-content/80">All steps verified</p>
+
+            <form
+              id="wrap-up-form"
+              phx-submit="save_wrap_up"
+              class="mx-auto mt-4 max-w-sm space-y-3 text-left"
+            >
+              <label class="form-control">
+                <span class="label-text font-semibold">Final notes</span>
+                <textarea
+                  id="wrap-up-final-notes"
+                  name="wrap_up[final_notes]"
+                  class="textarea textarea-bordered min-h-24"
+                  placeholder="Anything dispatch or admin should know?"
+                >{@checklist.final_notes}</textarea>
+              </label>
+
+              <input type="hidden" name="wrap_up[supplies]" value="" />
+
+              <p :if={@wrap_up_error} id="wrap-up-error" class="text-sm font-semibold text-error">
+                {@wrap_up_error}
+              </p>
+
+              <button id="wrap-up-save" type="submit" class="btn btn-success w-full">
+                Save wrap-up
+              </button>
+            </form>
+
+            <div
+              :if={@wrap_up_saved?}
+              id="wrap-up-saved-final-notes"
+              class="mx-auto mt-4 max-w-sm rounded-2xl bg-base-100 px-4 py-3 text-left text-sm shadow"
+            >
+              <p class="font-semibold text-success">Wrap-up saved</p>
+              <p class="mt-1 text-base-content/70">
+                {if @checklist.final_notes in [nil, ""],
+                  do: "No final notes entered.",
+                  else: @checklist.final_notes}
+              </p>
+            </div>
 
             <div class="mx-auto mt-4 max-w-sm rounded-[24px] bg-base-100 shadow">
               <div class="p-4">
@@ -1093,6 +1163,12 @@ defmodule MobileCarWashWeb.ChecklistLive do
     end
   end
 
+  defp save_wrap_up_notes(checklist, final_notes) do
+    checklist
+    |> Ash.Changeset.for_update(:save_wrap_up, %{final_notes: final_notes})
+    |> Ash.update(authorize?: false)
+  end
+
   defp before_photos_complete?(before_photos) do
     taken = MapSet.new(before_photos, & &1.car_part)
     Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
@@ -1101,6 +1177,12 @@ defmodule MobileCarWashWeb.ChecklistLive do
   defp after_photos_complete?(after_photos) do
     taken = MapSet.new(after_photos, & &1.car_part)
     Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
+  end
+
+  defp wrap_up_ready?(_items, _after_photos, %{status: :completed}), do: true
+
+  defp wrap_up_ready?(items, after_photos, _checklist) do
+    all_required_complete?(items) and after_photos_complete?(after_photos)
   end
 
   defp wash_command(%{checklist: %{status: :completed, final_notes: final_notes}})
