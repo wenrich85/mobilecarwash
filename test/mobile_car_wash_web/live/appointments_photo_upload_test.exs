@@ -128,6 +128,7 @@ defmodule MobileCarWashWeb.AppointmentsPhotoUploadTest do
       # claimed by LiveView's internal LiveFileUpload hook.
       assert has_element?(view, "[phx-hook='ImageDownscale'] input[type='file']")
       refute has_element?(view, "input[type='file'][phx-hook]")
+      assert html =~ ~s(id="lightbox-root")
     end
 
     test "a failed save reports in the modal instead of crashing", %{conn: conn} do

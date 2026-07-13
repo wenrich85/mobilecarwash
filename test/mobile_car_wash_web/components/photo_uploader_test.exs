@@ -84,6 +84,21 @@ defmodule MobileCarWashWeb.PhotoUploaderTest do
     end
   end
 
+  describe "preview_grid — lightbox wiring" do
+    test "preview_grid wires photos into the lightbox" do
+      photos = [
+        %{file_path: "/uploads/a.jpg", caption: "Bird droppings", ai_tags: nil},
+        %{file_path: "/uploads/b.jpg", caption: nil, ai_tags: nil}
+      ]
+
+      html = render_component(&PhotoUploader.preview_grid/1, %{photos: photos})
+
+      assert html =~ ~s(data-lightbox="uploaded-photos")
+      assert html =~ ~s(data-lightbox-caption="Bird droppings")
+      assert html =~ ~s(cursor-zoom-in)
+    end
+  end
+
   describe "render/1 with car-part chips" do
     test "renders the six common parts as chips + a More toggle" do
       html = render_component(&PhotoUploader.car_part_chips/1, %{selected: nil})

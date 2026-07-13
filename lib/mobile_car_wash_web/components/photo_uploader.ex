@@ -254,8 +254,10 @@ defmodule MobileCarWashWeb.PhotoUploader do
       <div :for={photo <- @photos} class="relative group">
         <img
           src={photo.file_path}
-          class="w-full aspect-square object-cover rounded-2xl shadow-sm"
+          class="w-full aspect-square object-cover rounded-2xl shadow-sm cursor-zoom-in"
           alt={photo.caption || "Problem area photo"}
+          data-lightbox="uploaded-photos"
+          data-lightbox-caption={photo.caption}
         />
         <button
           type="button"

@@ -7,6 +7,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType}
   alias MobileCarWash.Operations.{Photo, PhotoUpload}
 
+  import MobileCarWashWeb.Lightbox, only: [lightbox_root: 1]
+
   require Ash.Query
 
   @impl true
@@ -551,6 +553,8 @@ defmodule MobileCarWashWeb.AppointmentsLive do
           </div>
         </div>
       </div>
+
+      <.lightbox_root />
     </div>
     """
   end
