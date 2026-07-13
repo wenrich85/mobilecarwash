@@ -361,15 +361,13 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         >
           <h3 class="font-semibold mb-3">The reveal ✨</h3>
           <div class="space-y-4">
-            <div :for={pair <- @pairs}>
+            <div :for={pair <- @pairs} class="relative">
               <p class="text-xs text-base-content/70 mb-1">{pair.label}</p>
               <div
                 id={"reveal-#{pair.area}"}
                 phx-hook="BeforeAfterSlider"
                 phx-update="ignore"
                 class="relative aspect-[4/3] rounded-xl overflow-hidden bg-base-200 select-none touch-none cursor-ew-resize"
-                data-before-url={pair.before.file_path}
-                data-after-url={pair.after.file_path}
               >
                 <img
                   src={pair.after.file_path}
@@ -401,6 +399,16 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
                   </div>
                 </div>
               </div>
+              <button
+                type="button"
+                class="btn btn-circle btn-sm absolute bottom-2 right-2 z-10 border-0 bg-base-100/80"
+                aria-label={"View #{pair.label} comparison fullscreen"}
+                data-lightbox-slider
+                data-before-url={pair.before.file_path}
+                data-after-url={pair.after.file_path}
+              >
+                ⤢
+              </button>
             </div>
           </div>
 

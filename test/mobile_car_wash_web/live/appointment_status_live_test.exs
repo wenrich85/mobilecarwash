@@ -217,6 +217,9 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert html =~ ~s(phx-hook="BeforeAfterSlider")
       assert html =~ ~s(data-before-url="/uploads/front-b.jpg")
       assert html =~ ~s(data-after-url="/uploads/front-a.jpg")
+      assert html =~ ~s(data-lightbox-slider)
+      # the slider container itself must no longer carry the URLs
+      refute html =~ ~r/id="reveal-[^"]*"[^>]*data-before-url/
       # priority order: front slider appears before wheels slider
       {front_pos, _} = :binary.match(html, ~s(id="reveal-front"))
       {wheels_pos, _} = :binary.match(html, ~s(id="reveal-wheels"))
@@ -291,6 +294,9 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert html =~ ~s(phx-hook="ShareWashCard")
       assert html =~ ~s(data-before-url="/uploads/front-b.jpg")
       assert html =~ ~s(data-after-url="/uploads/front-a.jpg")
+      assert html =~ ~s(data-lightbox-slider)
+      # the slider container itself must no longer carry the URLs
+      refute html =~ ~r/id="reveal-[^"]*"[^>]*data-before-url/
       assert html =~ "utm_source=referral"
       # referral code present and embedded in the share link
       assert [_, code] = Regex.run(~r/data-referral-code="([^"]+)"/, html)
@@ -312,6 +318,9 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
 
       assert html =~ ~s(data-before-url="/uploads/wheels-b.jpg")
       assert html =~ ~s(data-after-url="/uploads/wheels-a.jpg")
+      assert html =~ ~s(data-lightbox-slider)
+      # the slider container itself must no longer carry the URLs
+      refute html =~ ~r/id="reveal-[^"]*"[^>]*data-before-url/
     end
 
     test "selecting another pair updates the share button dataset", %{conn: conn} do
@@ -326,6 +335,9 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
 
       assert html =~ ~s(data-before-url="/uploads/wheels-b.jpg")
       assert html =~ ~s(data-after-url="/uploads/wheels-a.jpg")
+      assert html =~ ~s(data-lightbox-slider)
+      # the slider container itself must no longer carry the URLs
+      refute html =~ ~r/id="reveal-[^"]*"[^>]*data-before-url/
     end
 
     test "open_share_modal is a no-op when no complete pair exists", %{conn: conn} do
@@ -418,6 +430,20 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert html =~ ~s(data-lightbox="wash-photos")
       assert html =~ ~s(alt="Before — Front")
       assert html =~ ~s(id="lightbox-root")
+    end
+
+    test "each pair gets a fullscreen expand button carrying the pair URLs", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+      create_photo(appt, :after, :front, "/uploads/front-a.jpg")
+
+      {:ok, _view, html} = conn |> sign_in(customer) |> live(~p"/appointments/#{appt.id}/status")
+
+      assert html =~ ~s(data-lightbox-slider)
+      assert html =~ ~s(data-before-url="/uploads/front-b.jpg")
+      assert html =~ ~s(data-after-url="/uploads/front-a.jpg")
+      assert html =~ ~s(aria-label="View Front comparison fullscreen")
     end
   end
 end
