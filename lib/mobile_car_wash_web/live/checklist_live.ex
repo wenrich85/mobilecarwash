@@ -21,7 +21,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Photo, PhotoUpload}
-  alias MobileCarWash.Repo
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, WashOrchestrator}
 
   require Ash.Query
@@ -1246,12 +1245,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
   end
 
   defp save_wrap_up(checklist, final_notes, usage_attrs) do
-    Repo.transaction(fn ->
+    Ash.transact([AppointmentChecklist, MobileCarWash.Inventory.SupplyUsage], fn ->
       with {:ok, updated_checklist} <- save_wrap_up_notes(checklist, final_notes),
            :ok <- log_supply_usage(usage_attrs) do
         updated_checklist
-      else
-        {:error, reason} -> Repo.rollback(reason)
       end
     end)
   end

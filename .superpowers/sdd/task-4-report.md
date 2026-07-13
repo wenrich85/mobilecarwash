@@ -46,4 +46,13 @@ mix test test/mobile_car_wash_web/live/checklist_live_test.exs
 # 24 tests, 0 failures
 ```
 
-Ash emits existing-framework warnings that notifications are not returned from writes inside the explicit outer transaction. The transactional writes and tests pass; the warnings do not affect rollback behavior.
+## Review Fix: Ash Transaction Notifications
+
+The wrap-up save path now uses `Ash.transact/3` instead of a raw `Repo.transaction/1`, preserving the same all-or-nothing rollback behavior while allowing Ash to collect and send notifications without missed-notification warnings. The supply fixture helper also restores the requested default `attrs \\ %{}` interface.
+
+### Notification Fix Tests
+
+```bash
+mix test test/mobile_car_wash_web/live/checklist_live_test.exs --only describe:"wrap-up final notes"
+# 6 tests, 0 failures, no Ash missed-notification warnings
+```

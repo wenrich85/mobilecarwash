@@ -231,7 +231,7 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
     |> Ash.update!(authorize?: false)
   end
 
-  defp create_supply!(attrs) do
+  defp create_supply!(attrs \\ %{}) do
     attrs = Map.new(attrs)
 
     Supply
@@ -816,7 +816,7 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       appointment: appointment,
       checklist: checklist
     } do
-      supply = create_supply!(name: "Interior Cleaner")
+      supply = create_supply!()
 
       {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
 
