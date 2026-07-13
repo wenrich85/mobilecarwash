@@ -31,6 +31,18 @@ defmodule MobileCarWash.Operations.AppointmentChecklistWrapUpTest do
     assert updated.final_notes == ""
   end
 
+  test "default update cannot write final notes" do
+    checklist = create_checklist!()
+
+    assert {:error, _error} =
+             checklist
+             |> Ash.Changeset.for_update(:update, %{final_notes: "Must use wrap-up."})
+             |> Ash.update(authorize?: false)
+
+    reloaded = Ash.get!(AppointmentChecklist, checklist.id, authorize?: false)
+    assert reloaded.final_notes == nil
+  end
+
   defp create_checklist! do
     {:ok, customer} =
       Customer

@@ -66,6 +66,19 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
     tech
   end
 
+  defp create_admin_user do
+    create_customer("Checklist Admin")
+    |> Ash.Changeset.for_update(:update, %{role: :admin})
+    |> Ash.update!(authorize?: false)
+  end
+
+  defp reassign_appointment(appointment, technician_id) do
+    appointment
+    |> Ash.Changeset.for_update(:update, %{})
+    |> Ash.Changeset.force_change_attribute(:technician_id, technician_id)
+    |> Ash.update!(authorize?: false)
+  end
+
   defp sign_in(conn, user) do
     conn
     |> Phoenix.ConnTest.init_test_session(%{})
@@ -299,6 +312,8 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
     } do
       appointment = create_appointment(customer.id, tech.id, :in_progress)
       checklist = create_checklist(appointment, :completed)
+      create_all_photos!(appointment, :before)
+      create_all_photos!(appointment, :after)
 
       {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
 
@@ -309,6 +324,68 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert has_element?(view, "#after-photo-progress")
       assert has_element?(view, "#wrap-up-panel")
       refute has_element?(view, "#before-photo-form input[type='file']")
+    end
+  end
+
+  describe "checklist ownership" do
+    test "allows the assigned technician and an admin to open a checklist", %{conn: conn} do
+      assigned_user = create_tech_customer("Assigned Tech")
+      assigned_tech = create_tech_record(assigned_user)
+      customer = create_customer()
+      appointment = create_appointment(customer.id, assigned_tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+      admin = create_admin_user()
+
+      assert {:ok, _view, _html} =
+               conn
+               |> sign_in(assigned_user)
+               |> live(~p"/tech/checklist/#{checklist.id}")
+
+      assert {:ok, _view, _html} =
+               conn
+               |> sign_in(admin)
+               |> live(~p"/tech/checklist/#{checklist.id}")
+    end
+
+    test "denies another technician before rendering the checklist", %{conn: conn} do
+      assigned_user = create_tech_customer("Assigned Tech")
+      assigned_tech = create_tech_record(assigned_user)
+      other_user = create_tech_customer("Other Tech")
+      _other_tech = create_tech_record(other_user)
+      customer = create_customer()
+      appointment = create_appointment(customer.id, assigned_tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+
+      assert {:error, {:redirect, %{to: "/tech"}}} =
+               conn
+               |> sign_in(other_user)
+               |> live(~p"/tech/checklist/#{checklist.id}")
+    end
+
+    test "denies a stale technician from starting a step after reassignment", %{conn: conn} do
+      assigned_user = create_tech_customer("Assigned Tech")
+      assigned_tech = create_tech_record(assigned_user)
+      other_user = create_tech_customer("Other Tech")
+      other_tech = create_tech_record(other_user)
+      customer = create_customer()
+      appointment = create_appointment(customer.id, assigned_tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+      create_all_photos!(appointment, :before)
+      [_first | _] = checklist_items(checklist)
+
+      {:ok, view, _html} =
+        conn
+        |> sign_in(assigned_user)
+        |> live(~p"/tech/checklist/#{checklist.id}")
+
+      reassign_appointment(appointment, other_tech.id)
+
+      assert {:error, {:redirect, %{to: "/tech"}}} =
+               view
+               |> element("#wash-command-start-step")
+               |> render_click()
+
+      refute checklist_items(checklist) |> hd() |> Map.fetch!(:started_at)
     end
   end
 
@@ -417,6 +494,8 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
     } do
       appointment = create_appointment(customer.id, tech.id, :in_progress)
       checklist = create_checklist(appointment, :completed)
+      create_all_photos!(appointment, :before)
+      create_all_photos!(appointment, :after)
 
       {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
 
@@ -749,6 +828,24 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert render(view) =~ "Customer requested extra attention on wheels."
     end
 
+    test "rejects a crafted wrap-up save before required work and photos are complete", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      render_submit(view, "save_wrap_up", %{
+        "wrap_up" => %{"final_notes" => "Premature", "supplies" => %{}}
+      })
+
+      assert has_element?(view, "#wrap-up-error", "Complete all required steps and after photos")
+      assert Ash.get!(AppointmentChecklist, checklist.id, authorize?: false).final_notes == nil
+    end
+
     test "can save wrap-up with blank notes", %{conn: conn, checklist: checklist} do
       {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
 
@@ -856,6 +953,44 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert render(view) =~ "Foam Soap"
     end
 
+    test "uses the assigned technician van for supply usage", %{
+      conn: conn,
+      tech: tech,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      van =
+        MobileCarWash.Operations.Van
+        |> Ash.Changeset.for_create(:create, %{name: "Wrap-up Van"})
+        |> Ash.create!(authorize?: false)
+
+      tech
+      |> Ash.Changeset.for_update(:update, %{})
+      |> Ash.Changeset.force_change_attribute(:van_id, van.id)
+      |> Ash.update!(authorize?: false)
+
+      supply = create_supply!()
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      view
+      |> form("#wrap-up-form", %{
+        "wrap_up" => %{
+          "final_notes" => "Van usage",
+          "supplies" => %{
+            "0" => %{"supply_id" => supply.id, "quantity_used" => "1", "notes" => ""}
+          }
+        }
+      })
+      |> render_submit()
+
+      assert [%{van_id: van_id}] =
+               SupplyUsage
+               |> Ash.Query.filter(appointment_id == ^appointment.id)
+               |> Ash.read!(authorize?: false)
+
+      assert van_id == van.id
+    end
+
     test "invalid supply quantity shows an inline error and creates no usage", %{
       conn: conn,
       appointment: appointment,
@@ -885,6 +1020,95 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
         |> Ash.read!(authorize?: false)
 
       assert usages == []
+    end
+
+    test "preserves entered wrap-up values after supply validation fails", %{
+      conn: conn,
+      checklist: checklist
+    } do
+      supply = create_supply!()
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      view
+      |> form("#wrap-up-form", %{
+        "wrap_up" => %{
+          "final_notes" => "Keep this note",
+          "supplies" => %{
+            "0" => %{
+              "supply_id" => supply.id,
+              "quantity_used" => "0",
+              "notes" => "Keep this supply note"
+            }
+          }
+        }
+      })
+      |> render_submit()
+
+      assert has_element?(view, "#wrap-up-final-notes", "Keep this note")
+
+      assert has_element?(view, "#wrap-up-supply-0 option[value='#{supply.id}'][selected]")
+      assert has_element?(view, "#wrap-up-supply-0-quantity[value='0']")
+      assert has_element?(view, "#wrap-up-supply-0-note[value='Keep this supply note']")
+    end
+
+    test "rejects repeat wrap-up submissions without duplicating supply usage", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      supply = create_supply!(quantity_on_hand: Decimal.new("16"))
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      params = %{
+        "wrap_up" => %{
+          "final_notes" => "Saved once",
+          "supplies" => %{
+            "0" => %{"supply_id" => supply.id, "quantity_used" => "2", "notes" => ""}
+          }
+        }
+      }
+
+      view |> form("#wrap-up-form", params) |> render_submit()
+      refute has_element?(view, "#wrap-up-form")
+
+      render_submit(view, "save_wrap_up", params)
+
+      assert has_element?(view, "#wrap-up-error", "Wrap-up has already been saved")
+
+      assert [usage] =
+               SupplyUsage
+               |> Ash.Query.filter(appointment_id == ^appointment.id)
+               |> Ash.read!(authorize?: false)
+
+      assert Decimal.equal?(usage.quantity_used, Decimal.new("2"))
+
+      assert Decimal.equal?(
+               Ash.get!(Supply, supply.id, authorize?: false).quantity_on_hand,
+               Decimal.new("14")
+             )
+    end
+
+    test "denies a stale technician wrap-up submission after reassignment", %{
+      conn: conn,
+      customer: customer,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      other_user = create_tech_customer("Replacement Tech")
+      other_tech = create_tech_record(other_user)
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      reassign_appointment(appointment, other_tech.id)
+
+      assert {:error, {:redirect, %{to: "/tech"}}} =
+               view
+               |> form("#wrap-up-form", %{
+                 "wrap_up" => %{"final_notes" => "Not allowed", "supplies" => %{}}
+               })
+               |> render_submit()
+
+      assert Ash.get!(AppointmentChecklist, checklist.id, authorize?: false).final_notes == nil
+      assert customer.id == appointment.customer_id
     end
 
     test "rolls back final notes and usage when supply logging fails", %{

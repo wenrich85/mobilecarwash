@@ -23,6 +23,14 @@ defmodule MobileCarWash.Inventory do
     |> Ash.read!()
   end
 
+  @doc "All active supplies, sorted by category then name, as a result tuple."
+  def list_supplies_result do
+    Supply
+    |> Ash.Query.filter(active == true)
+    |> Ash.Query.sort([:category, :name])
+    |> Ash.read(authorize?: false)
+  end
+
   @doc "All supplies including inactive."
   def list_all_supplies do
     Supply
@@ -75,6 +83,14 @@ defmodule MobileCarWash.Inventory do
     |> Ash.Query.for_read(:for_appointment, %{appointment_id: appointment_id})
     |> Ash.Query.sort(occurred_at: :desc)
     |> Ash.read!(authorize?: false)
+  end
+
+  @doc "Usage records for an appointment, newest first, as a result tuple."
+  def usage_for_appointment_result(appointment_id) do
+    SupplyUsage
+    |> Ash.Query.for_read(:for_appointment, %{appointment_id: appointment_id})
+    |> Ash.Query.sort(occurred_at: :desc)
+    |> Ash.read(authorize?: false)
   end
 
   @doc "All usage records for a given technician, newest first."

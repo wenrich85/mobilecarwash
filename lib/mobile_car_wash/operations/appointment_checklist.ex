@@ -56,7 +56,7 @@ defmodule MobileCarWash.Operations.AppointmentChecklist do
   end
 
   actions do
-    defaults([:read, create: :*, update: :*])
+    defaults([:read, create: :*, update: [:status, :started_at, :completed_at]])
 
     update :start_checklist do
       change(set_attribute(:status, :in_progress))

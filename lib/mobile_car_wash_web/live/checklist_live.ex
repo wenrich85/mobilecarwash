@@ -19,9 +19,12 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   import MobileCarWashWeb.Lightbox, only: [lightbox_root: 1]
 
+  alias MobileCarWash.Operations.Technician
   alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Photo, PhotoUpload}
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, WashOrchestrator}
+
+  require Logger
 
   require Ash.Query
 
@@ -50,15 +53,15 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   @impl true
   def mount(%{"id" => checklist_id}, _session, socket) do
-    case Ash.get(AppointmentChecklist, checklist_id) do
-      {:ok, checklist} ->
+    case load_authorized_checklist(socket.assigns.current_customer, checklist_id) do
+      {:ok, access} ->
+        %{checklist: checklist, appointment: appointment} = access
+
         items =
           ChecklistItem
           |> Ash.Query.filter(checklist_id == ^checklist.id)
           |> Ash.Query.sort(step_number: :asc)
           |> Ash.read!()
-
-        appointment = Ash.get!(Appointment, checklist.appointment_id)
 
         problem_photos =
           Photo
@@ -87,6 +90,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
           Process.send_after(self(), :tick, @timer_tick_ms)
         end
 
+        {supplies, supply_usages, supply_loading_error} = load_inventory(appointment.id)
+
         socket =
           socket
           |> assign(
@@ -97,8 +102,11 @@ defmodule MobileCarWashWeb.ChecklistLive do
             problem_photos: problem_photos,
             before_photos: before_photos,
             after_photos: after_photos,
-            supplies: MobileCarWash.Inventory.list_supplies(),
-            supply_usages: MobileCarWash.Inventory.usage_for_appointment(appointment.id),
+            supplies: supplies,
+            supply_usages: supply_usages,
+            supply_loading_error: supply_loading_error,
+            wrap_up_earnings: wrap_up_earnings(appointment, access.assigned_technician),
+            wrap_up_params: %{},
             wrap_up_error: nil,
             wrap_up_saved?: not is_nil(checklist.final_notes),
             key_areas: @key_areas,
@@ -120,7 +128,18 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
         {:ok, socket}
 
-      {:error, _} ->
+      {:error, :forbidden} ->
+        {:ok, deny_access(socket, "That checklist is not assigned to you.")}
+
+      {:error, :not_found} ->
+        {:ok, deny_access(socket, "Checklist not found.")}
+
+      {:error, reason} ->
+        Logger.warning("Could not load checklist",
+          checklist_id: checklist_id,
+          reason: inspect(reason)
+        )
+
         {:ok,
          socket
          |> assign(
@@ -133,6 +152,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
            after_photos: [],
            supplies: [],
            supply_usages: [],
+           supply_loading_error: nil,
+           wrap_up_earnings: nil,
+           wrap_up_params: %{},
            wrap_up_error: nil,
            wrap_up_saved?: false,
            key_areas: @key_areas,
@@ -145,7 +167,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
            skipping_item_id: nil,
            now: DateTime.utc_now()
          )
-         |> put_flash(:error, "Checklist not found")}
+         |> put_flash(:error, "Checklist is unavailable right now.")}
     end
   end
 
@@ -161,6 +183,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
        after_photos: [],
        supplies: [],
        supply_usages: [],
+       supply_loading_error: nil,
+       wrap_up_earnings: nil,
+       wrap_up_params: %{},
        wrap_up_error: nil,
        wrap_up_saved?: false,
        key_areas: @key_areas,
@@ -214,78 +239,11 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   @impl true
   def handle_event("start_step", %{"id" => item_id}, socket) do
-    unless before_photos_complete?(socket.assigns.before_photos) do
-      {:noreply, put_flash(socket, :error, "Upload all before photos first.")}
-    else
-      item = Enum.find(socket.assigns.items, &(&1.id == item_id))
-
-      if item && WashStateMachine.can_start_step?(item, socket.assigns.items) do
-        {:ok, updated} =
-          item
-          |> Ash.Changeset.for_update(:start_step, %{})
-          |> Ash.update()
-
-        items =
-          Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
-
-        AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
-          current_step: updated.title,
-          current_step_number: updated.step_number,
-          steps_done: Enum.count(items, & &1.completed),
-          steps_total: socket.assigns.total,
-          items: items
-        })
-
-        {:noreply, assign(socket, items: items, active_item_id: item_id)}
-      else
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "Cannot start this step yet — complete previous required steps first."
-         )}
-      end
-    end
+    with_authorized_checklist(socket, fn socket, _access -> start_step(socket, item_id) end)
   end
 
   def handle_event("complete_step", %{"id" => item_id}, socket) do
-    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
-
-    if item && WashStateMachine.can_complete_step?(item) do
-      {:ok, updated} =
-        item
-        |> Ash.Changeset.for_update(:check, %{})
-        |> Ash.update()
-
-      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
-      done = Enum.count(items, & &1.completed)
-
-      pct =
-        if socket.assigns.total > 0,
-          do: Float.round(done / socket.assigns.total * 100, 0),
-          else: 0
-
-      current = current_progress_item(items)
-      next = WashStateMachine.next_step(items)
-      current_name = if current, do: current.title, else: "Finishing up"
-
-      AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
-        current_step: current_name,
-        current_step_number: current && current.step_number,
-        steps_done: done,
-        steps_total: socket.assigns.total,
-        items: items
-      })
-
-      socket =
-        socket
-        |> assign(items: items, done: done, pct: pct, active_item_id: next && next.id)
-        |> maybe_complete_wash()
-
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
+    with_authorized_checklist(socket, fn socket, _access -> complete_step(socket, item_id) end)
   end
 
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
@@ -312,51 +270,70 @@ defmodule MobileCarWashWeb.ChecklistLive do
   end
 
   def handle_event("save_wrap_up", %{"wrap_up" => params}, socket) do
-    final_notes = Map.get(params, "final_notes", "")
-    supply_rows = params |> Map.get("supplies", %{}) |> normalize_supply_rows()
+    socket = assign(socket, wrap_up_params: params)
 
-    with {:ok, usage_attrs} <- build_usage_attrs(supply_rows, socket.assigns.appointment),
-         {:ok, checklist} <- save_wrap_up(socket.assigns.checklist, final_notes, usage_attrs) do
-      {:noreply,
-       socket
-       |> assign(checklist: checklist, wrap_up_error: nil, wrap_up_saved?: true)
-       |> assign(supplies: MobileCarWash.Inventory.list_supplies())
-       |> assign(
-         supply_usages:
-           MobileCarWash.Inventory.usage_for_appointment(socket.assigns.appointment.id)
-       )}
-    else
-      {:error, message} when is_binary(message) ->
-        {:noreply, assign(socket, wrap_up_error: message, wrap_up_saved?: false)}
+    with_authorized_checklist(socket, fn socket, access ->
+      final_notes = Map.get(params, "final_notes", "")
+      supply_rows = params |> Map.get("supplies", %{}) |> normalize_supply_rows()
+      items = checklist_items(access.checklist.id)
+      after_photos = load_photos(access.appointment.id, :after)
 
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> assign(
-           wrap_up_error: "Could not save wrap-up: #{inspect(reason)}",
-           wrap_up_saved?: false
-         )
-         |> assign(
-           supply_usages:
-             MobileCarWash.Inventory.usage_for_appointment(socket.assigns.appointment.id)
-         )}
-    end
+      cond do
+        not wrap_up_ready?(items, after_photos, access.checklist) ->
+          {:noreply,
+           assign(
+             socket,
+             wrap_up_error: "Complete all required steps and after photos before saving wrap-up.",
+             wrap_up_saved?: false
+           )}
+
+        not is_nil(access.checklist.final_notes) ->
+          {:noreply,
+           assign(socket,
+             checklist: access.checklist,
+             wrap_up_error: "Wrap-up has already been saved.",
+             wrap_up_saved?: true
+           )}
+
+        true ->
+          with {:ok, usage_attrs} <-
+                 build_usage_attrs(supply_rows, access.appointment, access.assigned_technician),
+               {:ok, checklist} <- save_wrap_up(access.checklist, final_notes, usage_attrs) do
+            {:noreply,
+             socket
+             |> assign(
+               checklist: checklist,
+               wrap_up_error: nil,
+               wrap_up_saved?: true,
+               wrap_up_params: %{}
+             )
+             |> refresh_inventory()}
+          else
+            {:error, message} when is_binary(message) ->
+              {:noreply, assign(socket, wrap_up_error: message, wrap_up_saved?: false)}
+
+            {:error, reason} ->
+              Logger.warning("Could not save checklist wrap-up",
+                checklist_id: access.checklist.id,
+                appointment_id: access.appointment.id,
+                reason: inspect(reason)
+              )
+
+              {:noreply,
+               socket
+               |> assign(
+                 wrap_up_error:
+                   "Could not save wrap-up. Please review the supply details and try again.",
+                 wrap_up_saved?: false
+               )
+               |> refresh_inventory()}
+          end
+      end
+    end)
   end
 
   def handle_event("save_note", %{"id" => item_id, "notes" => notes}, socket) do
-    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
-
-    if item do
-      {:ok, updated} =
-        item
-        |> Ash.Changeset.for_update(:add_note, %{notes: notes})
-        |> Ash.update()
-
-      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
-      {:noreply, assign(socket, items: items, editing_note_id: nil)}
-    else
-      {:noreply, socket}
-    end
+    with_authorized_checklist(socket, fn socket, _access -> save_note(socket, item_id, notes) end)
   end
 
   def handle_event("show_skip_reason", %{"id" => item_id}, socket) do
@@ -368,6 +345,12 @@ defmodule MobileCarWashWeb.ChecklistLive do
   end
 
   def handle_event("confirm_skip", %{"id" => item_id, "reason" => reason}, socket) do
+    with_authorized_checklist(socket, fn socket, _access ->
+      confirm_skip(socket, item_id, reason)
+    end)
+  end
+
+  defp confirm_skip(socket, item_id, reason) do
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
     if item && !item.required do
@@ -410,6 +393,97 @@ defmodule MobileCarWashWeb.ChecklistLive do
       {:noreply, socket}
     else
       {:noreply, put_flash(socket, :error, "Cannot skip required steps")}
+    end
+  end
+
+  defp start_step(socket, item_id) do
+    unless before_photos_complete?(socket.assigns.before_photos) do
+      {:noreply, put_flash(socket, :error, "Upload all before photos first.")}
+    else
+      item = Enum.find(socket.assigns.items, &(&1.id == item_id))
+
+      if item && WashStateMachine.can_start_step?(item, socket.assigns.items) do
+        {:ok, updated} =
+          item
+          |> Ash.Changeset.for_update(:start_step, %{})
+          |> Ash.update()
+
+        items =
+          Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
+
+        AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+          current_step: updated.title,
+          current_step_number: updated.step_number,
+          steps_done: Enum.count(items, & &1.completed),
+          steps_total: socket.assigns.total,
+          items: items
+        })
+
+        {:noreply, assign(socket, items: items, active_item_id: item_id)}
+      else
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Cannot start this step yet — complete previous required steps first."
+         )}
+      end
+    end
+  end
+
+  defp complete_step(socket, item_id) do
+    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
+
+    if item && WashStateMachine.can_complete_step?(item) do
+      {:ok, updated} =
+        item
+        |> Ash.Changeset.for_update(:check, %{})
+        |> Ash.update()
+
+      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
+      done = Enum.count(items, & &1.completed)
+
+      pct =
+        if socket.assigns.total > 0,
+          do: Float.round(done / socket.assigns.total * 100, 0),
+          else: 0
+
+      current = current_progress_item(items)
+      next = WashStateMachine.next_step(items)
+      current_name = if current, do: current.title, else: "Finishing up"
+
+      AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+        current_step: current_name,
+        current_step_number: current && current.step_number,
+        steps_done: done,
+        steps_total: socket.assigns.total,
+        items: items
+      })
+
+      socket =
+        socket
+        |> assign(items: items, done: done, pct: pct, active_item_id: next && next.id)
+        |> maybe_complete_wash()
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp save_note(socket, item_id, notes) do
+    item = Enum.find(socket.assigns.items, &(&1.id == item_id))
+
+    if item do
+      {:ok, updated} =
+        item
+        |> Ash.Changeset.for_update(:add_note, %{notes: notes})
+        |> Ash.update()
+
+      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
+      {:noreply, assign(socket, items: items, editing_note_id: nil)}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -791,7 +865,16 @@ defmodule MobileCarWashWeb.ChecklistLive do
             <h2 class="mt-2 text-xl font-bold text-success">Checklist Complete!</h2>
             <p class="mt-1 text-sm text-base-content/80">All steps verified</p>
 
+            <p
+              :if={@supply_loading_error}
+              id="wrap-up-supply-loading-error"
+              class="mt-4 text-sm font-semibold text-warning"
+            >
+              {@supply_loading_error}
+            </p>
+
             <form
+              :if={!@wrap_up_saved?}
               id="wrap-up-form"
               phx-submit="save_wrap_up"
               class="mx-auto mt-4 max-w-sm space-y-3 text-left"
@@ -803,7 +886,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                   name="wrap_up[final_notes]"
                   class="textarea textarea-bordered min-h-24"
                   placeholder="Anything dispatch or admin should know?"
-                >{@checklist.final_notes}</textarea>
+                >{wrap_up_value(@wrap_up_params, "final_notes", @checklist.final_notes)}</textarea>
               </label>
 
               <div class="rounded-2xl border border-base-300 bg-base-100 p-3">
@@ -824,8 +907,21 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     name={"wrap_up[supplies][#{index}][supply_id]"}
                     class="select select-bordered select-sm w-full"
                   >
-                    <option value="">No supply</option>
-                    <option :for={supply <- @supplies} value={supply.id}>
+                    <option
+                      selected={
+                        wrap_up_supply_value(@wrap_up_params, index, "supply_id") in [nil, ""]
+                      }
+                      value=""
+                    >
+                      No supply
+                    </option>
+                    <option
+                      :for={supply <- @supplies}
+                      selected={
+                        wrap_up_supply_value(@wrap_up_params, index, "supply_id") == supply.id
+                      }
+                      value={supply.id}
+                    >
                       {supply.name} ({format_decimal(supply.quantity_on_hand)} {supply.unit})
                     </option>
                   </select>
@@ -837,6 +933,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     name={"wrap_up[supplies][#{index}][quantity_used]"}
                     class="input input-bordered input-sm w-full"
                     placeholder="Quantity used"
+                    value={wrap_up_supply_value(@wrap_up_params, index, "quantity_used")}
                   />
                   <input
                     id={"wrap-up-supply-#{index}-note"}
@@ -844,13 +941,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
                     name={"wrap_up[supplies][#{index}][notes]"}
                     class="input input-bordered input-sm w-full"
                     placeholder="Supply note"
+                    value={wrap_up_supply_value(@wrap_up_params, index, "notes")}
                   />
                 </div>
               </div>
-
-              <p :if={@wrap_up_error} id="wrap-up-error" class="text-sm font-semibold text-error">
-                {@wrap_up_error}
-              </p>
 
               <button id="wrap-up-save" type="submit" class="btn btn-success w-full">
                 Save wrap-up
@@ -888,7 +982,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
             >
               <p class="text-sm font-semibold">Estimated job earnings</p>
               <p class="mt-1 text-2xl font-bold text-success">
-                {format_cents(wrap_up_earnings(@appointment))}
+                {format_cents(@wrap_up_earnings)}
               </p>
             </div>
 
@@ -916,6 +1010,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
               </div>
             </div>
           </section>
+
+          <p :if={@wrap_up_error} id="wrap-up-error" class="text-sm font-semibold text-error">
+            {@wrap_up_error}
+          </p>
         </div>
       </div>
 
@@ -1206,17 +1304,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
   defp reload_photos(socket) do
     appointment_id = socket.assigns.appointment.id
 
-    before_photos =
-      Photo
-      |> Ash.Query.filter(appointment_id == ^appointment_id and photo_type == :before)
-      |> Ash.read!()
-      |> Enum.map(&PhotoUpload.apply_url/1)
-
-    after_photos =
-      Photo
-      |> Ash.Query.filter(appointment_id == ^appointment_id and photo_type == :after)
-      |> Ash.read!()
-      |> Enum.map(&PhotoUpload.apply_url/1)
+    before_photos = load_photos(appointment_id, :before)
+    after_photos = load_photos(appointment_id, :after)
 
     assign(socket, before_photos: before_photos, after_photos: after_photos)
   end
@@ -1253,6 +1342,123 @@ defmodule MobileCarWashWeb.ChecklistLive do
     end)
   end
 
+  defp load_authorized_checklist(current_customer, checklist_id) do
+    with {:ok, checklist} <- Ash.get(AppointmentChecklist, checklist_id, authorize?: false),
+         {:ok, appointment} <- Ash.get(Appointment, checklist.appointment_id, authorize?: false),
+         {:ok, tech_record} <- authorize_checklist_access(current_customer, appointment),
+         {:ok, assigned_technician} <- assigned_technician_for(appointment) do
+      {:ok,
+       %{
+         checklist: checklist,
+         appointment: appointment,
+         tech_record: tech_record,
+         assigned_technician: assigned_technician
+       }}
+    else
+      {:error, %Ash.Error.Invalid{errors: errors}} ->
+        if Enum.any?(errors, &match?(%Ash.Error.Query.NotFound{}, &1)) do
+          {:error, :not_found}
+        else
+          {:error, :forbidden}
+        end
+
+      {:error, %Ash.Error.Query.NotFound{}} ->
+        {:error, :not_found}
+
+      {:error, :forbidden} ->
+        {:error, :forbidden}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp with_authorized_checklist(socket, callback) do
+    case load_authorized_checklist(socket.assigns.current_customer, socket.assigns.checklist.id) do
+      {:ok, access} ->
+        callback.(socket, access)
+
+      {:error, :not_found} ->
+        {:noreply, deny_access(socket, "Checklist not found.")}
+
+      {:error, _reason} ->
+        {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
+    end
+  end
+
+  defp authorize_checklist_access(%{role: :admin}, _appointment), do: {:ok, nil}
+
+  defp authorize_checklist_access(current_customer, appointment) do
+    case technician_record_for(current_customer) do
+      nil -> {:error, :forbidden}
+      %{id: technician_id} = tech when technician_id == appointment.technician_id -> {:ok, tech}
+      _other -> {:error, :forbidden}
+    end
+  end
+
+  defp technician_record_for(current_customer) do
+    Technician
+    |> Ash.Query.for_read(:for_user_account, %{user_account_id: current_customer.id})
+    |> Ash.read_one(authorize?: false)
+    |> case do
+      {:ok, technician} -> technician
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp assigned_technician_for(%{technician_id: nil}), do: {:ok, nil}
+
+  defp assigned_technician_for(%{technician_id: technician_id}) do
+    Ash.get(Technician, technician_id, authorize?: false)
+  end
+
+  defp checklist_items(checklist_id) do
+    ChecklistItem
+    |> Ash.Query.filter(checklist_id == ^checklist_id)
+    |> Ash.Query.sort(step_number: :asc)
+    |> Ash.read!()
+  end
+
+  defp load_photos(appointment_id, photo_type) do
+    Photo
+    |> Ash.Query.filter(appointment_id == ^appointment_id and photo_type == ^photo_type)
+    |> Ash.read!()
+    |> Enum.map(&PhotoUpload.apply_url/1)
+  end
+
+  defp load_inventory(appointment_id) do
+    with {:ok, supplies} <- MobileCarWash.Inventory.list_supplies_result(),
+         {:ok, supply_usages} <-
+           MobileCarWash.Inventory.usage_for_appointment_result(appointment_id) do
+      {supplies, supply_usages, nil}
+    else
+      {:error, reason} ->
+        Logger.warning("Could not load checklist inventory",
+          appointment_id: appointment_id,
+          reason: inspect(reason)
+        )
+
+        {[], [], "Supply details are temporarily unavailable. You can still save final notes."}
+    end
+  end
+
+  defp refresh_inventory(socket) do
+    {supplies, supply_usages, supply_loading_error} =
+      load_inventory(socket.assigns.appointment.id)
+
+    assign(socket,
+      supplies: supplies,
+      supply_usages: supply_usages,
+      supply_loading_error: supply_loading_error
+    )
+  end
+
+  defp deny_access(socket, message) do
+    socket
+    |> put_flash(:error, message)
+    |> redirect(to: ~p"/tech")
+  end
+
   defp normalize_supply_rows(rows) when is_map(rows) do
     rows
     |> Map.values()
@@ -1263,10 +1469,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   defp normalize_supply_rows(_), do: []
 
-  defp build_usage_attrs(rows, appointment) do
+  defp build_usage_attrs(rows, appointment, assigned_technician) do
     rows
     |> Enum.reduce_while({:ok, []}, fn row, {:ok, attrs} ->
-      case build_usage_attr(row, appointment) do
+      case build_usage_attr(row, appointment, assigned_technician) do
         {:ok, attr} -> {:cont, {:ok, [attr | attrs]}}
         {:error, message} -> {:halt, {:error, message}}
       end
@@ -1277,18 +1483,23 @@ defmodule MobileCarWashWeb.ChecklistLive do
     end
   end
 
-  defp build_usage_attr(%{"supply_id" => supply_id}, _appointment) when supply_id in [nil, ""] do
+  defp build_usage_attr(%{"supply_id" => supply_id}, _appointment, _assigned_technician)
+       when supply_id in [nil, ""] do
     {:error, "Choose a supply or leave the supply row blank."}
   end
 
-  defp build_usage_attr(row, appointment) do
+  defp build_usage_attr(_row, _appointment, nil) do
+    {:error, "This appointment needs an assigned technician before supplies can be logged."}
+  end
+
+  defp build_usage_attr(row, appointment, assigned_technician) do
     with {:ok, quantity} <- parse_positive_decimal(row["quantity_used"]) do
       {:ok,
        %{
          supply_id: row["supply_id"],
          appointment_id: appointment.id,
-         technician_id: appointment.technician_id,
-         van_id: nil,
+         technician_id: assigned_technician.id,
+         van_id: assigned_technician.van_id,
          quantity_used: quantity,
          notes: blank_to_nil(row["notes"])
        }}
@@ -1311,6 +1522,17 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   defp blank_to_nil(value) when value in [nil, ""], do: nil
   defp blank_to_nil(value), do: value
+
+  defp wrap_up_value(params, key, fallback) do
+    Map.get(params, key, fallback)
+  end
+
+  defp wrap_up_supply_value(params, index, key) do
+    params
+    |> Map.get("supplies", %{})
+    |> Map.get(to_string(index), %{})
+    |> Map.get(key)
+  end
 
   defp log_supply_usage(attrs) do
     Enum.reduce_while(attrs, :ok, fn attr, :ok ->
@@ -1339,19 +1561,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   defp format_cents(_), do: "Not available"
 
-  defp wrap_up_earnings(%{technician_id: nil}), do: nil
+  defp wrap_up_earnings(_appointment, nil), do: nil
 
-  defp wrap_up_earnings(%{technician_id: technician_id, price_cents: price_cents}) do
-    case Ash.get(MobileCarWash.Operations.Technician, technician_id, authorize?: false) do
-      {:ok, technician} ->
-        MobileCarWash.Operations.TechEarnings.wash_earnings(
-          %{price_cents: price_cents},
-          technician
-        )
-
-      _ ->
-        nil
-    end
+  defp wrap_up_earnings(%{price_cents: price_cents}, technician) do
+    MobileCarWash.Operations.TechEarnings.wash_earnings(%{price_cents: price_cents}, technician)
   end
 
   defp before_photos_complete?(before_photos) do
@@ -1363,8 +1576,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
     taken = MapSet.new(after_photos, & &1.car_part)
     Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
   end
-
-  defp wrap_up_ready?(_items, _after_photos, %{status: :completed}), do: true
 
   defp wrap_up_ready?(items, after_photos, _checklist) do
     all_required_complete?(items) and after_photos_complete?(after_photos)
@@ -1382,21 +1593,6 @@ defmodule MobileCarWashWeb.ChecklistLive do
         id: "wash-command-dashboard",
         to: ~p"/tech",
         label: "Back to dashboard"
-      }
-    }
-  end
-
-  defp wash_command(%{checklist: %{status: :completed, final_notes: nil}}) do
-    %{
-      title: "Wrap up",
-      body: "The wash is complete. Add final notes and supplies used before leaving the job.",
-      badge: "Wrap-up",
-      badge_class: "badge-success",
-      action: %{
-        type: :anchor,
-        id: "wash-command-wrap-up",
-        to: "#wrap-up-panel",
-        label: "Wrap up"
       }
     }
   end
