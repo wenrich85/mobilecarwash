@@ -4,6 +4,7 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
   import Phoenix.LiveViewTest
 
   alias MobileCarWash.Accounts.Customer
+  alias MobileCarWash.Inventory.{Supply, SupplyUsage}
 
   alias MobileCarWash.Operations.{
     AppointmentChecklist,
@@ -228,6 +229,26 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
     item
     |> Ash.Changeset.for_update(:check, %{})
     |> Ash.update!(authorize?: false)
+  end
+
+  defp create_supply!(attrs) do
+    attrs = Map.new(attrs)
+
+    Supply
+    |> Ash.Changeset.for_create(
+      :create,
+      Map.merge(
+        %{
+          name: "Soap #{System.unique_integer([:positive])}",
+          category: :chemicals,
+          unit: "oz",
+          quantity_on_hand: Decimal.new("32"),
+          active: true
+        },
+        attrs
+      )
+    )
+    |> Ash.create!(authorize?: false)
   end
 
   defp save_wrap_up!(checklist) do
@@ -738,6 +759,94 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       reloaded = Ash.get!(AppointmentChecklist, checklist.id, authorize?: false)
       assert reloaded.final_notes == ""
       assert render(view) =~ "Wrap-up saved"
+    end
+
+    test "logs supply usage and decrements inventory", %{
+      conn: conn,
+      tech: tech,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      supply = create_supply!(name: "Foam Soap", quantity_on_hand: Decimal.new("16"))
+
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      view
+      |> form("#wrap-up-form", %{
+        "wrap_up" => %{
+          "final_notes" => "Used normal soap amount.",
+          "supplies" => %{
+            "0" => %{
+              "supply_id" => supply.id,
+              "quantity_used" => "2.5",
+              "notes" => "Foam pass"
+            }
+          }
+        }
+      })
+      |> render_submit()
+
+      usages =
+        SupplyUsage
+        |> Ash.Query.filter(appointment_id == ^appointment.id)
+        |> Ash.read!(authorize?: false)
+
+      assert [
+               %{
+                 supply_id: supply_id,
+                 technician_id: technician_id,
+                 quantity_used: quantity_used,
+                 notes: "Foam pass"
+               }
+             ] = usages
+
+      assert supply_id == supply.id
+      assert technician_id == tech.id
+      assert Decimal.equal?(quantity_used, Decimal.new("2.5"))
+
+      reloaded_supply = Ash.get!(Supply, supply.id, authorize?: false)
+      assert Decimal.equal?(reloaded_supply.quantity_on_hand, Decimal.new("13.5"))
+
+      assert has_element?(view, "#wrap-up-usage-list")
+      assert render(view) =~ "Foam Soap"
+    end
+
+    test "invalid supply quantity shows an inline error and creates no usage", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      supply = create_supply!(name: "Interior Cleaner")
+
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      view
+      |> form("#wrap-up-form", %{
+        "wrap_up" => %{
+          "final_notes" => "",
+          "supplies" => %{
+            "0" => %{"supply_id" => supply.id, "quantity_used" => "0", "notes" => ""}
+          }
+        }
+      })
+      |> render_submit()
+
+      assert has_element?(view, "#wrap-up-error")
+      assert render(view) =~ "Enter a quantity greater than 0"
+
+      usages =
+        SupplyUsage
+        |> Ash.Query.filter(appointment_id == ^appointment.id)
+        |> Ash.read!(authorize?: false)
+
+      assert usages == []
+    end
+
+    test "renders flat-rate earnings summary", %{conn: conn, checklist: checklist} do
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wrap-up-earnings")
+      assert render(view) =~ "$25.00"
     end
   end
 end

@@ -97,6 +97,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
             problem_photos: problem_photos,
             before_photos: before_photos,
             after_photos: after_photos,
+            supplies: MobileCarWash.Inventory.list_supplies(),
             supply_usages: MobileCarWash.Inventory.usage_for_appointment(appointment.id),
             wrap_up_error: nil,
             wrap_up_saved?: not is_nil(checklist.final_notes),
@@ -130,6 +131,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
            problem_photos: [],
            before_photos: [],
            after_photos: [],
+           supplies: [],
            supply_usages: [],
            wrap_up_error: nil,
            wrap_up_saved?: false,
@@ -157,6 +159,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
        problem_photos: [],
        before_photos: [],
        after_photos: [],
+       supplies: [],
        supply_usages: [],
        wrap_up_error: nil,
        wrap_up_saved?: false,
@@ -310,22 +313,33 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   def handle_event("save_wrap_up", %{"wrap_up" => params}, socket) do
     final_notes = Map.get(params, "final_notes", "")
+    supply_rows = params |> Map.get("supplies", %{}) |> normalize_supply_rows()
 
-    case save_wrap_up_notes(socket.assigns.checklist, final_notes) do
-      {:ok, checklist} ->
-        {:noreply,
-         socket
-         |> assign(checklist: checklist, wrap_up_error: nil, wrap_up_saved?: true)
-         |> assign(
-           supply_usages:
-             MobileCarWash.Inventory.usage_for_appointment(socket.assigns.appointment.id)
-         )}
+    with {:ok, usage_attrs} <- build_usage_attrs(supply_rows, socket.assigns.appointment),
+         {:ok, checklist} <- save_wrap_up_notes(socket.assigns.checklist, final_notes),
+         :ok <- log_supply_usage(usage_attrs) do
+      {:noreply,
+       socket
+       |> assign(checklist: checklist, wrap_up_error: nil, wrap_up_saved?: true)
+       |> assign(supplies: MobileCarWash.Inventory.list_supplies())
+       |> assign(
+         supply_usages:
+           MobileCarWash.Inventory.usage_for_appointment(socket.assigns.appointment.id)
+       )}
+    else
+      {:error, message} when is_binary(message) ->
+        {:noreply, assign(socket, wrap_up_error: message, wrap_up_saved?: false)}
 
       {:error, reason} ->
         {:noreply,
-         assign(socket,
-           wrap_up_error: "Could not save wrap-up notes: #{inspect(reason)}",
+         socket
+         |> assign(
+           wrap_up_error: "Could not save wrap-up: #{inspect(reason)}",
            wrap_up_saved?: false
+         )
+         |> assign(
+           supply_usages:
+             MobileCarWash.Inventory.usage_for_appointment(socket.assigns.appointment.id)
          )}
     end
   end
@@ -793,7 +807,47 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 >{@checklist.final_notes}</textarea>
               </label>
 
-              <input type="hidden" name="wrap_up[supplies]" value="" />
+              <div class="rounded-2xl border border-base-300 bg-base-100 p-3">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <span class="text-sm font-semibold">Supplies used</span>
+                  <span :if={@supplies == []} class="text-xs text-base-content/60">
+                    No supplies to log
+                  </span>
+                </div>
+
+                <div
+                  :for={index <- 0..2}
+                  :if={@supplies != []}
+                  id={"wrap-up-supply-#{index}"}
+                  class="space-y-2 border-t border-base-200 pt-2 first:border-t-0 first:pt-0"
+                >
+                  <select
+                    name={"wrap_up[supplies][#{index}][supply_id]"}
+                    class="select select-bordered select-sm w-full"
+                  >
+                    <option value="">No supply</option>
+                    <option :for={supply <- @supplies} value={supply.id}>
+                      {supply.name} ({format_decimal(supply.quantity_on_hand)} {supply.unit})
+                    </option>
+                  </select>
+                  <input
+                    id={"wrap-up-supply-#{index}-quantity"}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    name={"wrap_up[supplies][#{index}][quantity_used]"}
+                    class="input input-bordered input-sm w-full"
+                    placeholder="Quantity used"
+                  />
+                  <input
+                    id={"wrap-up-supply-#{index}-note"}
+                    type="text"
+                    name={"wrap_up[supplies][#{index}][notes]"}
+                    class="input input-bordered input-sm w-full"
+                    placeholder="Supply note"
+                  />
+                </div>
+              </div>
 
               <p :if={@wrap_up_error} id="wrap-up-error" class="text-sm font-semibold text-error">
                 {@wrap_up_error}
@@ -814,6 +868,28 @@ defmodule MobileCarWashWeb.ChecklistLive do
                 {if @checklist.final_notes in [nil, ""],
                   do: "No final notes entered.",
                   else: @checklist.final_notes}
+              </p>
+            </div>
+
+            <div
+              :if={@supply_usages != []}
+              id="wrap-up-usage-list"
+              class="mx-auto mt-4 max-w-sm rounded-2xl bg-base-100 px-4 py-3 text-left text-sm shadow"
+            >
+              <p class="font-semibold">Logged supplies</p>
+              <div :for={usage <- @supply_usages} class="mt-2 flex justify-between gap-3 text-xs">
+                <span>{supply_name(@supplies, usage.supply_id)}</span>
+                <span>{format_decimal(usage.quantity_used)}</span>
+              </div>
+            </div>
+
+            <div
+              id="wrap-up-earnings"
+              class="mx-auto mt-4 max-w-sm rounded-2xl bg-base-100 px-4 py-3 text-left shadow"
+            >
+              <p class="text-sm font-semibold">Estimated job earnings</p>
+              <p class="mt-1 text-2xl font-bold text-success">
+                {format_cents(wrap_up_earnings(@appointment))}
               </p>
             </div>
 
@@ -1167,6 +1243,107 @@ defmodule MobileCarWashWeb.ChecklistLive do
     checklist
     |> Ash.Changeset.for_update(:save_wrap_up, %{final_notes: final_notes})
     |> Ash.update(authorize?: false)
+  end
+
+  defp normalize_supply_rows(rows) when is_map(rows) do
+    rows
+    |> Map.values()
+    |> Enum.filter(fn row ->
+      row["supply_id"] not in [nil, ""] or row["quantity_used"] not in [nil, ""]
+    end)
+  end
+
+  defp normalize_supply_rows(_), do: []
+
+  defp build_usage_attrs(rows, appointment) do
+    rows
+    |> Enum.reduce_while({:ok, []}, fn row, {:ok, attrs} ->
+      case build_usage_attr(row, appointment) do
+        {:ok, attr} -> {:cont, {:ok, [attr | attrs]}}
+        {:error, message} -> {:halt, {:error, message}}
+      end
+    end)
+    |> case do
+      {:ok, attrs} -> {:ok, Enum.reverse(attrs)}
+      error -> error
+    end
+  end
+
+  defp build_usage_attr(%{"supply_id" => supply_id}, _appointment) when supply_id in [nil, ""] do
+    {:error, "Choose a supply or leave the supply row blank."}
+  end
+
+  defp build_usage_attr(row, appointment) do
+    with {:ok, quantity} <- parse_positive_decimal(row["quantity_used"]) do
+      {:ok,
+       %{
+         supply_id: row["supply_id"],
+         appointment_id: appointment.id,
+         technician_id: appointment.technician_id,
+         van_id: nil,
+         quantity_used: quantity,
+         notes: blank_to_nil(row["notes"])
+       }}
+    end
+  end
+
+  defp parse_positive_decimal(value) do
+    case Decimal.parse(to_string(value || "")) do
+      {decimal, ""} ->
+        if Decimal.compare(decimal, Decimal.new("0")) == :gt do
+          {:ok, decimal}
+        else
+          {:error, "Enter a quantity greater than 0."}
+        end
+
+      _ ->
+        {:error, "Enter a quantity greater than 0."}
+    end
+  end
+
+  defp blank_to_nil(value) when value in [nil, ""], do: nil
+  defp blank_to_nil(value), do: value
+
+  defp log_supply_usage(attrs) do
+    Enum.reduce_while(attrs, :ok, fn attr, :ok ->
+      case MobileCarWash.Inventory.log_usage(attr) do
+        {:ok, _usage} -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp supply_name(supplies, supply_id) do
+    case Enum.find(supplies, &(&1.id == supply_id)) do
+      nil -> "Supply"
+      supply -> supply.name
+    end
+  end
+
+  defp format_decimal(%Decimal{} = decimal), do: Decimal.to_string(decimal, :normal)
+  defp format_decimal(value), do: to_string(value)
+
+  defp format_cents(cents) when is_integer(cents) do
+    dollars = div(cents, 100)
+    cents_part = cents |> rem(100) |> Integer.to_string() |> String.pad_leading(2, "0")
+    "$#{dollars}.#{cents_part}"
+  end
+
+  defp format_cents(_), do: "Not available"
+
+  defp wrap_up_earnings(%{technician_id: nil}), do: nil
+
+  defp wrap_up_earnings(%{technician_id: technician_id, price_cents: price_cents}) do
+    case Ash.get(MobileCarWash.Operations.Technician, technician_id, authorize?: false) do
+      {:ok, technician} ->
+        MobileCarWash.Operations.TechEarnings.wash_earnings(
+          %{price_cents: price_cents},
+          technician
+        )
+
+      _ ->
+        nil
+    end
   end
 
   defp before_photos_complete?(before_photos) do

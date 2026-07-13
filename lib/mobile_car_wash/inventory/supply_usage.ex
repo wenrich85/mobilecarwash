@@ -71,15 +71,17 @@ defmodule MobileCarWash.Inventory.SupplyUsage do
       ])
 
       # Decrement supply quantity after creating the usage record
-      after_action(fn changeset, record, _context ->
-        supply = Ash.get!(MobileCarWash.Inventory.Supply, record.supply_id, authorize?: false)
+      change(
+        after_action(fn _changeset, record, _context ->
+          supply = Ash.get!(MobileCarWash.Inventory.Supply, record.supply_id, authorize?: false)
 
-        supply
-        |> Ash.Changeset.for_update(:use_quantity, %{quantity: record.quantity_used})
-        |> Ash.update(authorize?: false)
+          supply
+          |> Ash.Changeset.for_update(:use_quantity, %{quantity: record.quantity_used})
+          |> Ash.update(authorize?: false)
 
-        {:ok, record}
-      end)
+          {:ok, record}
+        end)
+      )
     end
 
     read :for_appointment do
