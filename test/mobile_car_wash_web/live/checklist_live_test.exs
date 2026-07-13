@@ -842,6 +842,54 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert usages == []
     end
 
+    test "rolls back final notes and usage when supply logging fails", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      used_supply = create_supply!(name: "Available Soap")
+      stale_supply = create_supply!(name: "Stale Cleaner")
+
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      MobileCarWash.Repo.query!("DELETE FROM supplies WHERE id = $1", [
+        Ecto.UUID.dump!(stale_supply.id)
+      ])
+
+      view
+      |> form("#wrap-up-form", %{
+        "wrap_up" => %{
+          "final_notes" => "This must not be saved.",
+          "supplies" => %{
+            "0" => %{
+              "supply_id" => used_supply.id,
+              "quantity_used" => "2.5",
+              "notes" => "Valid first row"
+            },
+            "1" => %{
+              "supply_id" => stale_supply.id,
+              "quantity_used" => "2.5",
+              "notes" => "Missing supply"
+            }
+          }
+        }
+      })
+      |> render_submit()
+
+      reloaded = Ash.get!(AppointmentChecklist, checklist.id, authorize?: false)
+      assert reloaded.final_notes == nil
+
+      usages =
+        SupplyUsage
+        |> Ash.Query.filter(appointment_id == ^appointment.id)
+        |> Ash.read!(authorize?: false)
+
+      assert usages == []
+      reloaded_supply = Ash.get!(Supply, used_supply.id, authorize?: false)
+      assert Decimal.equal?(reloaded_supply.quantity_on_hand, Decimal.new("32"))
+      assert has_element?(view, "#wrap-up-error")
+    end
+
     test "renders flat-rate earnings summary", %{conn: conn, checklist: checklist} do
       {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
 

@@ -21,6 +21,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Photo, PhotoUpload}
+  alias MobileCarWash.Repo
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, WashOrchestrator}
 
   require Ash.Query
@@ -316,8 +317,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
     supply_rows = params |> Map.get("supplies", %{}) |> normalize_supply_rows()
 
     with {:ok, usage_attrs} <- build_usage_attrs(supply_rows, socket.assigns.appointment),
-         {:ok, checklist} <- save_wrap_up_notes(socket.assigns.checklist, final_notes),
-         :ok <- log_supply_usage(usage_attrs) do
+         {:ok, checklist} <- save_wrap_up(socket.assigns.checklist, final_notes, usage_attrs) do
       {:noreply,
        socket
        |> assign(checklist: checklist, wrap_up_error: nil, wrap_up_saved?: true)
@@ -1243,6 +1243,17 @@ defmodule MobileCarWashWeb.ChecklistLive do
     checklist
     |> Ash.Changeset.for_update(:save_wrap_up, %{final_notes: final_notes})
     |> Ash.update(authorize?: false)
+  end
+
+  defp save_wrap_up(checklist, final_notes, usage_attrs) do
+    Repo.transaction(fn ->
+      with {:ok, updated_checklist} <- save_wrap_up_notes(checklist, final_notes),
+           :ok <- log_supply_usage(usage_attrs) do
+        updated_checklist
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
   end
 
   defp normalize_supply_rows(rows) when is_map(rows) do
