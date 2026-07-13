@@ -68,6 +68,14 @@ export const Lightbox = {
       this.els.loadError.classList.remove("hidden")
     })
 
+    const sliderImgError = () => {
+      if (!this.isOpen() || this.mode !== "slider") return
+      this.els.sliderStage.classList.add("hidden")
+      this.els.loadError.classList.remove("hidden")
+    }
+    this.els.sliderBefore.addEventListener("error", sliderImgError)
+    this.els.sliderAfter.addEventListener("error", sliderImgError)
+
     // Horizontal swipe navigates (image mode only; slider mode owns drag).
     this.el.addEventListener("pointerdown", event => {
       if (this.mode === "image") this.swipeStart = event.clientX
@@ -92,6 +100,7 @@ export const Lightbox = {
   },
 
   openImage(thumb) {
+    if (this.scrub) { this.scrub.detach(); this.scrub = null }
     const group = thumb.getAttribute("data-lightbox")
     const members = [...document.querySelectorAll(`[data-lightbox="${CSS.escape(group)}"]`)]
     this.items = members.map(el => ({
