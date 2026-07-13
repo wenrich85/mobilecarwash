@@ -23,7 +23,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
   alias MobileCarWash.Booking.WashStateMachine
   alias MobileCarWash.Operations.{AppointmentChecklist, ChecklistItem, Photo, PhotoUpload}
   alias MobileCarWash.Repo
-  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, WashOrchestrator}
+  alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, Dispatch, WashOrchestrator}
 
   require Logger
 
@@ -264,11 +264,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
   @impl true
   def handle_event("start_step", %{"id" => item_id}, socket) do
-    with_authorized_checklist(socket, fn socket, _access -> start_step(socket, item_id) end)
+    with_authorized_checklist(socket, fn socket, access -> start_step(socket, item_id, access) end)
   end
 
   def handle_event("complete_step", %{"id" => item_id}, socket) do
-    with_authorized_checklist(socket, fn socket, _access -> complete_step(socket, item_id) end)
+    with_authorized_checklist(socket, fn socket, access ->
+      complete_step(socket, item_id, access)
+    end)
   end
 
   def handle_event("validate_upload", _params, socket), do: {:noreply, socket}
@@ -323,7 +325,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
         true ->
           with {:ok, usage_attrs} <-
                  build_usage_attrs(supply_rows, access.appointment, access.assigned_technician),
-               {:ok, checklist} <- save_wrap_up(access.checklist, final_notes, usage_attrs) do
+               {:ok, checklist} <-
+                 save_wrap_up(
+                   access.checklist,
+                   final_notes,
+                   usage_attrs,
+                   authorized_technician_id(access)
+                 ) do
             {:noreply,
              socket
              |> assign(
@@ -336,6 +344,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
           else
             {:error, message} when is_binary(message) ->
               {:noreply, assign(socket, wrap_up_error: message, wrap_up_saved?: false)}
+
+            {:error, :forbidden} ->
+              {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
 
             {:error, reason} ->
               Logger.warning("Could not save checklist wrap-up",
@@ -358,7 +369,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
   end
 
   def handle_event("save_note", %{"id" => item_id, "notes" => notes}, socket) do
-    with_authorized_checklist(socket, fn socket, _access -> save_note(socket, item_id, notes) end)
+    with_authorized_checklist(socket, fn socket, access ->
+      save_note(socket, item_id, notes, access)
+    end)
   end
 
   def handle_event("show_skip_reason", %{"id" => item_id}, socket) do
@@ -370,81 +383,107 @@ defmodule MobileCarWashWeb.ChecklistLive do
   end
 
   def handle_event("confirm_skip", %{"id" => item_id, "reason" => reason}, socket) do
-    with_authorized_checklist(socket, fn socket, _access ->
-      confirm_skip(socket, item_id, reason)
+    with_authorized_checklist(socket, fn socket, access ->
+      confirm_skip(socket, item_id, reason, access)
     end)
   end
 
-  defp confirm_skip(socket, item_id, reason) do
+  defp confirm_skip(socket, item_id, reason, access) do
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
     if item && !item.required do
-      {:ok, updated} =
-        item
-        |> Ash.Changeset.for_update(:add_note, %{notes: "Skipped: #{reason}"})
-        |> Ash.update()
+      case Dispatch.with_current_assignment(
+             socket.assigns.appointment.id,
+             authorized_technician_id(access),
+             fn ->
+               with {:ok, updated} <-
+                      item
+                      |> Ash.Changeset.for_update(:add_note, %{notes: "Skipped: #{reason}"})
+                      |> Ash.update(),
+                    {:ok, completed} <-
+                      updated
+                      |> Ash.Changeset.for_update(:check, %{})
+                      |> Ash.update() do
+                 completed
+               end
+             end
+           ) do
+        {:ok, completed} ->
+          items =
+            Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: completed, else: i end)
 
-      {:ok, completed} =
-        updated
-        |> Ash.Changeset.for_update(:check, %{})
-        |> Ash.update()
+          done = Enum.count(items, & &1.completed)
 
-      items =
-        Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: completed, else: i end)
+          pct =
+            if socket.assigns.total > 0,
+              do: Float.round(done / socket.assigns.total * 100, 0),
+              else: 0
 
-      done = Enum.count(items, & &1.completed)
+          current = current_progress_item(items)
+          current_name = if current, do: current.title, else: "Finishing up"
 
-      pct =
-        if socket.assigns.total > 0,
-          do: Float.round(done / socket.assigns.total * 100, 0),
-          else: 0
+          AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+            current_step: current_name,
+            current_step_number: current && current.step_number,
+            steps_done: done,
+            steps_total: socket.assigns.total,
+            items: items
+          })
 
-      current = current_progress_item(items)
-      current_name = if current, do: current.title, else: "Finishing up"
+          socket =
+            socket
+            |> assign(items: items, done: done, pct: pct, skipping_item_id: nil)
+            |> maybe_complete_wash(access)
 
-      AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
-        current_step: current_name,
-        current_step_number: current && current.step_number,
-        steps_done: done,
-        steps_total: socket.assigns.total,
-        items: items
-      })
+          {:noreply, socket}
 
-      socket =
-        socket
-        |> assign(items: items, done: done, pct: pct, skipping_item_id: nil)
-        |> maybe_complete_wash()
+        {:error, :forbidden} ->
+          {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
 
-      {:noreply, socket}
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Could not skip this step.")}
+      end
     else
       {:noreply, put_flash(socket, :error, "Cannot skip required steps")}
     end
   end
 
-  defp start_step(socket, item_id) do
+  defp start_step(socket, item_id, access) do
     unless before_photos_complete?(socket.assigns.before_photos) do
       {:noreply, put_flash(socket, :error, "Upload all before photos first.")}
     else
       item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
       if item && WashStateMachine.can_start_step?(item, socket.assigns.items) do
-        {:ok, updated} =
-          item
-          |> Ash.Changeset.for_update(:start_step, %{})
-          |> Ash.update()
+        case Dispatch.with_current_assignment(
+               socket.assigns.appointment.id,
+               authorized_technician_id(access),
+               fn ->
+                 item
+                 |> Ash.Changeset.for_update(:start_step, %{})
+                 |> Ash.update()
+               end
+             ) do
+          {:ok, updated} ->
+            items =
+              Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
 
-        items =
-          Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
+            AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+              current_step: updated.title,
+              current_step_number: updated.step_number,
+              steps_done: Enum.count(items, & &1.completed),
+              steps_total: socket.assigns.total,
+              items: items
+            })
 
-        AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
-          current_step: updated.title,
-          current_step_number: updated.step_number,
-          steps_done: Enum.count(items, & &1.completed),
-          steps_total: socket.assigns.total,
-          items: items
-        })
+            {:noreply, assign(socket, items: items, active_item_id: item_id)}
 
-        {:noreply, assign(socket, items: items, active_item_id: item_id)}
+          {:error, :forbidden} ->
+            {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Could not start this step.")}
+        end
       else
         {:noreply,
          put_flash(
@@ -456,57 +495,85 @@ defmodule MobileCarWashWeb.ChecklistLive do
     end
   end
 
-  defp complete_step(socket, item_id) do
+  defp complete_step(socket, item_id, access) do
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
     if item && WashStateMachine.can_complete_step?(item) do
-      {:ok, updated} =
-        item
-        |> Ash.Changeset.for_update(:check, %{})
-        |> Ash.update()
+      case Dispatch.with_current_assignment(
+             socket.assigns.appointment.id,
+             authorized_technician_id(access),
+             fn ->
+               item
+               |> Ash.Changeset.for_update(:check, %{})
+               |> Ash.update()
+             end
+           ) do
+        {:ok, updated} ->
+          items =
+            Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
 
-      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
-      done = Enum.count(items, & &1.completed)
+          done = Enum.count(items, & &1.completed)
 
-      pct =
-        if socket.assigns.total > 0,
-          do: Float.round(done / socket.assigns.total * 100, 0),
-          else: 0
+          pct =
+            if socket.assigns.total > 0,
+              do: Float.round(done / socket.assigns.total * 100, 0),
+              else: 0
 
-      current = current_progress_item(items)
-      next = WashStateMachine.next_step(items)
-      current_name = if current, do: current.title, else: "Finishing up"
+          current = current_progress_item(items)
+          next = WashStateMachine.next_step(items)
+          current_name = if current, do: current.title, else: "Finishing up"
 
-      AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
-        current_step: current_name,
-        current_step_number: current && current.step_number,
-        steps_done: done,
-        steps_total: socket.assigns.total,
-        items: items
-      })
+          AppointmentTracker.broadcast_step_progress(socket.assigns.appointment.id, %{
+            current_step: current_name,
+            current_step_number: current && current.step_number,
+            steps_done: done,
+            steps_total: socket.assigns.total,
+            items: items
+          })
 
-      socket =
-        socket
-        |> assign(items: items, done: done, pct: pct, active_item_id: next && next.id)
-        |> maybe_complete_wash()
+          socket =
+            socket
+            |> assign(items: items, done: done, pct: pct, active_item_id: next && next.id)
+            |> maybe_complete_wash(access)
 
-      {:noreply, socket}
+          {:noreply, socket}
+
+        {:error, :forbidden} ->
+          {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Could not complete this step.")}
+      end
     else
       {:noreply, socket}
     end
   end
 
-  defp save_note(socket, item_id, notes) do
+  defp save_note(socket, item_id, notes, access) do
     item = Enum.find(socket.assigns.items, &(&1.id == item_id))
 
     if item do
-      {:ok, updated} =
-        item
-        |> Ash.Changeset.for_update(:add_note, %{notes: notes})
-        |> Ash.update()
+      case Dispatch.with_current_assignment(
+             socket.assigns.appointment.id,
+             authorized_technician_id(access),
+             fn ->
+               item
+               |> Ash.Changeset.for_update(:add_note, %{notes: notes})
+               |> Ash.update()
+             end
+           ) do
+        {:ok, updated} ->
+          items =
+            Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
 
-      items = Enum.map(socket.assigns.items, fn i -> if i.id == item_id, do: updated, else: i end)
-      {:noreply, assign(socket, items: items, editing_note_id: nil)}
+          {:noreply, assign(socket, items: items, editing_note_id: nil)}
+
+        {:error, :forbidden} ->
+          {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Could not save this note.")}
+      end
     else
       {:noreply, socket}
     end
@@ -882,7 +949,7 @@ defmodule MobileCarWashWeb.ChecklistLive do
           </section>
 
           <section
-            :if={wrap_up_ready?(@items, @after_photos, @checklist)}
+            :if={wrap_up_panel_visible?(@items, @after_photos, @checklist)}
             id="wrap-up-panel"
             class="rounded-[28px] border border-success/30 bg-success/10 px-4 py-5 text-center"
           >
@@ -1282,7 +1349,15 @@ defmodule MobileCarWashWeb.ChecklistLive do
 
           result =
             consume_uploaded_entry(socket, entry, fn meta ->
-              {:ok, save_tile_file(meta, appointment_id, entry.client_name, photo_type, area)}
+              {:ok,
+               save_tile_file(
+                 meta,
+                 appointment_id,
+                 entry.client_name,
+                 photo_type,
+                 area,
+                 authorized_technician_id(access)
+               )}
             end)
 
           case result do
@@ -1293,7 +1368,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
                socket
                |> update(:tile_errors, &Map.delete(&1, name))
                |> reload_photos()
-               |> maybe_complete_wash()}
+               |> maybe_complete_wash(access)}
+
+            {:error, :forbidden} ->
+              {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
 
             {:error, reason} ->
               {:noreply,
@@ -1311,11 +1389,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
     end
   end
 
-  defp save_tile_file(%{key: key}, appointment_id, client_name, photo_type, area) do
-    case PhotoUpload.save_external_file(appointment_id, key, client_name, photo_type,
-           uploaded_by: :technician,
-           car_part: area
-         ) do
+  defp save_tile_file(%{key: key}, appointment_id, client_name, photo_type, area, technician_id) do
+    case Dispatch.with_current_assignment(appointment_id, technician_id, fn ->
+           PhotoUpload.save_external_file(appointment_id, key, client_name, photo_type,
+             uploaded_by: :technician,
+             car_part: area
+           )
+         end) do
       {:ok, _photo} = ok ->
         ok
 
@@ -1327,11 +1407,13 @@ defmodule MobileCarWashWeb.ChecklistLive do
     end
   end
 
-  defp save_tile_file(%{path: path}, appointment_id, client_name, photo_type, area) do
-    PhotoUpload.save_file(appointment_id, path, client_name, photo_type,
-      uploaded_by: :technician,
-      car_part: area
-    )
+  defp save_tile_file(%{path: path}, appointment_id, client_name, photo_type, area, technician_id) do
+    Dispatch.with_current_assignment(appointment_id, technician_id, fn ->
+      PhotoUpload.save_file(appointment_id, path, client_name, photo_type,
+        uploaded_by: :technician,
+        car_part: area
+      )
+    end)
   end
 
   defp save_error_message(reason) when is_binary(reason), do: "Could not save photo: #{reason}"
@@ -1353,18 +1435,32 @@ defmodule MobileCarWashWeb.ChecklistLive do
     assign(socket, before_photos: before_photos, after_photos: after_photos)
   end
 
-  defp maybe_complete_wash(socket) do
+  defp maybe_complete_wash(socket, access) do
     if WashStateMachine.all_required_complete?(socket.assigns.items) and
          after_photos_complete?(socket.assigns.after_photos) and
          socket.assigns.checklist.status != :completed do
-      {:ok, checklist} =
-        socket.assigns.checklist
-        |> Ash.Changeset.for_update(:complete_checklist, %{})
-        |> Ash.update()
+      case Dispatch.with_current_assignment(
+             socket.assigns.appointment.id,
+             authorized_technician_id(access),
+             fn ->
+               with {:ok, checklist} <-
+                      socket.assigns.checklist
+                      |> Ash.Changeset.for_update(:complete_checklist, %{})
+                      |> Ash.update() do
+                 WashOrchestrator.complete_wash(socket.assigns.appointment.id)
+                 checklist
+               end
+             end
+           ) do
+        {:ok, checklist} ->
+          assign(socket, checklist: checklist)
 
-      WashOrchestrator.complete_wash(socket.assigns.appointment.id)
+        {:error, :forbidden} ->
+          deny_access(socket, "That checklist is not assigned to you.")
 
-      assign(socket, checklist: checklist)
+        {:error, _reason} ->
+          put_flash(socket, :error, "Could not complete this wash.")
+      end
     else
       socket
     end
@@ -1376,13 +1472,15 @@ defmodule MobileCarWashWeb.ChecklistLive do
     |> Ash.update(authorize?: false)
   end
 
-  defp save_wrap_up(checklist, final_notes, usage_attrs) do
-    Ash.transact([AppointmentChecklist, MobileCarWash.Inventory.SupplyUsage], fn ->
-      with :ok <- claim_wrap_up(checklist.id),
-           {:ok, updated_checklist} <- save_wrap_up_notes(checklist, final_notes),
-           :ok <- log_supply_usage(usage_attrs) do
-        updated_checklist
-      end
+  defp save_wrap_up(checklist, final_notes, usage_attrs, technician_id) do
+    Dispatch.with_current_assignment(checklist.appointment_id, technician_id, fn ->
+      Ash.transact([AppointmentChecklist, MobileCarWash.Inventory.SupplyUsage], fn ->
+        with :ok <- claim_wrap_up(checklist.id),
+             {:ok, updated_checklist} <- save_wrap_up_notes(checklist, final_notes),
+             :ok <- log_supply_usage(usage_attrs) do
+          updated_checklist
+        end
+      end)
     end)
   end
 
@@ -1440,6 +1538,9 @@ defmodule MobileCarWashWeb.ChecklistLive do
         {:noreply, deny_access(socket, "That checklist is not assigned to you.")}
     end
   end
+
+  defp authorized_technician_id(%{tech_record: %{id: technician_id}}), do: technician_id
+  defp authorized_technician_id(_access), do: nil
 
   defp authorize_checklist_access(%{role: :admin}, _appointment), do: {:ok, nil}
 
@@ -1632,7 +1733,10 @@ defmodule MobileCarWashWeb.ChecklistLive do
     Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
   end
 
-  defp wrap_up_ready?(_items, _after_photos, %{status: :completed}), do: true
+  defp wrap_up_panel_visible?(_items, _after_photos, %{status: :completed}), do: true
+
+  defp wrap_up_panel_visible?(items, after_photos, checklist),
+    do: wrap_up_ready?(items, after_photos, checklist)
 
   defp wrap_up_ready?(items, after_photos, _checklist) do
     all_required_complete?(items) and after_photos_complete?(after_photos)

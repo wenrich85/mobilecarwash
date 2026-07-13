@@ -25,6 +25,46 @@ defmodule MobileCarWash.Scheduling.Dispatch do
     Ash.get(Appointment, appointment_id)
   end
 
+  @doc """
+  Runs a write only while the appointment is still assigned to the expected technician.
+
+  The appointment row is locked before the function runs, so concurrent dispatch
+  reassignment cannot slip between an authorization check and the protected write.
+  """
+  def with_current_assignment(_appointment_id, nil, fun) when is_function(fun, 0) do
+    normalize_guard_result({:ok, fun.()})
+  end
+
+  def with_current_assignment(appointment_id, technician_id, fun) when is_function(fun, 0) do
+    Repo.transaction(fn ->
+      with :ok <- lock_current_assignment(appointment_id, technician_id) do
+        fun.()
+      end
+    end)
+    |> normalize_guard_result()
+  end
+
+  defp lock_current_assignment(appointment_id, technician_id) do
+    case Repo.query(
+           """
+           SELECT id
+           FROM appointments
+           WHERE id = $1 AND technician_id = $2
+           FOR UPDATE
+           """,
+           [Ecto.UUID.dump!(appointment_id), Ecto.UUID.dump!(technician_id)]
+         ) do
+      {:ok, %{num_rows: 1}} -> :ok
+      {:ok, _result} -> {:error, :forbidden}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp normalize_guard_result({:ok, {:ok, value}}), do: {:ok, value}
+  defp normalize_guard_result({:ok, {:error, reason}}), do: {:error, reason}
+  defp normalize_guard_result({:ok, value}), do: {:ok, value}
+  defp normalize_guard_result({:error, reason}), do: {:error, reason}
+
   @doc "Unassign a technician from an appointment."
   def unassign_technician(appointment_id) do
     Repo.update_all(

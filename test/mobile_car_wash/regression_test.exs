@@ -238,6 +238,39 @@ defmodule MobileCarWash.RegressionTest do
       # Confirm appointment — this was crashing with binary UUID error
       {:ok, _confirmed} = assigned |> Ash.Changeset.for_update(:confirm, %{}) |> Ash.update()
     end
+
+    test "current-assignment guard refuses writes after reassignment" do
+      guest = create_guest()
+      service = create_service()
+      vehicle = create_vehicle(guest.id)
+      address = create_address(guest.id)
+      appt = book_appointment(guest, service, vehicle, address)
+
+      original_tech =
+        MobileCarWash.Operations.Technician
+        |> Ash.Changeset.for_create(:create, %{name: "Original Guard Tech"})
+        |> Ash.create!()
+
+      replacement_tech =
+        MobileCarWash.Operations.Technician
+        |> Ash.Changeset.for_create(:create, %{name: "Replacement Guard Tech"})
+        |> Ash.create!()
+
+      {:ok, assigned} =
+        MobileCarWash.Scheduling.Dispatch.assign_technician(appt.id, original_tech.id)
+
+      {:ok, reassigned} =
+        MobileCarWash.Scheduling.Dispatch.assign_technician(assigned.id, replacement_tech.id)
+
+      assert reassigned.technician_id == replacement_tech.id
+
+      assert {:error, :forbidden} =
+               MobileCarWash.Scheduling.Dispatch.with_current_assignment(
+                 reassigned.id,
+                 original_tech.id,
+                 fn -> :stale_write end
+               )
+    end
   end
 
   # === BUG 7: Wash orchestrator — full flow ===

@@ -884,6 +884,26 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert Ash.get!(AppointmentChecklist, checklist.id, authorize?: false).final_notes == nil
     end
 
+    test "rejects a completed checklist wrap-up when required evidence is missing", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :completed)
+
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wrap-up-panel")
+
+      render_submit(view, "save_wrap_up", %{
+        "wrap_up" => %{"final_notes" => "Completed status alone is not enough", "supplies" => %{}}
+      })
+
+      assert has_element?(view, "#wrap-up-error", "Complete all required steps and after photos")
+      assert Ash.get!(AppointmentChecklist, checklist.id, authorize?: false).final_notes == nil
+    end
+
     test "can save wrap-up with blank notes", %{conn: conn, checklist: checklist} do
       {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
 
