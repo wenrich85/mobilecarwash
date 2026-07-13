@@ -32,6 +32,11 @@ defmodule MobileCarWash.Operations.AppointmentChecklist do
       public?(true)
     end
 
+    attribute :final_notes, :string do
+      constraints(allow_empty?: true)
+      public?(true)
+    end
+
     create_timestamp(:inserted_at)
     update_timestamp(:updated_at)
   end
@@ -61,6 +66,10 @@ defmodule MobileCarWash.Operations.AppointmentChecklist do
     update :complete_checklist do
       change(set_attribute(:status, :completed))
       change(set_attribute(:completed_at, &DateTime.utc_now/0))
+    end
+
+    update :save_wrap_up do
+      accept([:final_notes])
     end
   end
 end
