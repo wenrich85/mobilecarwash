@@ -375,6 +375,8 @@ defmodule MobileCarWashWeb.ChecklistLive do
     <div class="mx-auto max-w-lg px-4 py-4">
       <div :if={@checklist}>
         <div id="active-wash" class="space-y-6">
+          <.wash_command_card command={wash_command(assigns)} />
+
           <section id="wash-progress-header" class="space-y-4">
             <div class="rounded-[28px] border border-base-300/70 bg-base-100 px-4 py-4 shadow-sm">
               <div class="flex items-start justify-between gap-3">
@@ -781,6 +783,64 @@ defmodule MobileCarWashWeb.ChecklistLive do
     """
   end
 
+  defp wash_command_card(assigns) do
+    ~H"""
+    <section
+      id="wash-command-card"
+      class="rounded-[28px] border border-primary/20 bg-base-100 px-4 py-4 shadow-sm"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">
+            Now
+          </p>
+          <h2 class="mt-1 text-xl font-bold">{@command.title}</h2>
+          <p class="mt-1 text-sm text-base-content/70">{@command.body}</p>
+        </div>
+        <span class={["badge", @command.badge_class]}>{@command.badge}</span>
+      </div>
+
+      <div class="mt-4">
+        <%= case @command.action do %>
+          <% %{type: :anchor, id: id, to: to, label: label} -> %>
+            <a
+              id={id}
+              href={to}
+              data-role="wash-primary-action"
+              class="btn btn-primary w-full"
+            >
+              {label}
+            </a>
+          <% %{type: :event, id: id, event: event, item_id: item_id, label: label} -> %>
+            <button
+              id={id}
+              type="button"
+              phx-click={event}
+              phx-value-id={item_id}
+              data-role="wash-primary-action"
+              class="btn btn-primary w-full"
+            >
+              {label}
+            </button>
+          <% %{type: :navigate, id: id, to: to, label: label} -> %>
+            <.link
+              id={id}
+              navigate={to}
+              data-role="wash-primary-action"
+              class="btn btn-primary w-full"
+            >
+              {label}
+            </.link>
+          <% nil -> %>
+            <p id="wash-command-no-action" class="text-sm text-base-content/60">
+              No action needed right now.
+            </p>
+        <% end %>
+      </div>
+    </section>
+    """
+  end
+
   # One grid tile. States, in precedence order: uploading (entry, no
   # errors) → upload failed (entry with errors) → saved (persisted photo)
   # → capture label (empty) → completed-and-missing placeholder.
@@ -1041,6 +1101,113 @@ defmodule MobileCarWashWeb.ChecklistLive do
   defp after_photos_complete?(after_photos) do
     taken = MapSet.new(after_photos, & &1.car_part)
     Enum.all?(@key_area_ids, &MapSet.member?(taken, &1))
+  end
+
+  defp wash_command(%{checklist: %{status: :completed, final_notes: final_notes}})
+       when not is_nil(final_notes) do
+    %{
+      title: "Wash complete",
+      body: "Review wrap-up details, then return to your dashboard for the next assignment.",
+      badge: "Done",
+      badge_class: "badge-success",
+      action: %{
+        type: :navigate,
+        id: "wash-command-dashboard",
+        to: ~p"/tech",
+        label: "Back to dashboard"
+      }
+    }
+  end
+
+  defp wash_command(%{checklist: %{status: :completed, final_notes: nil}}) do
+    %{
+      title: "Wrap up",
+      body: "The wash is complete. Add final notes and supplies used before leaving the job.",
+      badge: "Wrap-up",
+      badge_class: "badge-success",
+      action: %{
+        type: :anchor,
+        id: "wash-command-wrap-up",
+        to: "#wrap-up-panel",
+        label: "Wrap up"
+      }
+    }
+  end
+
+  defp wash_command(assigns) do
+    cond do
+      not before_photos_complete?(assigns.before_photos) ->
+        %{
+          title: "Finish before photos",
+          body: "Capture every required angle before starting checklist steps.",
+          badge: "Photos",
+          badge_class: "badge-warning",
+          action: %{
+            type: :anchor,
+            id: "wash-command-before-photos",
+            to: "#before-photo-progress",
+            label: "Finish before photos"
+          }
+        }
+
+      active = Enum.find(assigns.items, &(&1.started_at && !&1.completed)) ->
+        %{
+          title: "Complete #{active.title}",
+          body: "Timer is running. Finish this step when the work is done.",
+          badge: "Active",
+          badge_class: "badge-info",
+          action: %{
+            type: :event,
+            id: "wash-command-complete-step",
+            event: "complete_step",
+            item_id: active.id,
+            label: "Complete #{active.title}"
+          }
+        }
+
+      next = Enum.find(assigns.items, &(not &1.completed)) ->
+        %{
+          title: "Start #{next.title}",
+          body: "Before photos are complete. Start the next checklist step.",
+          badge: "Step",
+          badge_class: "badge-primary",
+          action: %{
+            type: :event,
+            id: "wash-command-start-step",
+            event: "start_step",
+            item_id: next.id,
+            label: "Start #{next.title}"
+          }
+        }
+
+      not after_photos_complete?(assigns.after_photos) ->
+        %{
+          title: "Finish after photos",
+          body: "All required steps are complete. Match the before photos before wrap-up.",
+          badge: "Photos",
+          badge_class: "badge-success",
+          action: %{
+            type: :anchor,
+            id: "wash-command-after-photos",
+            to: "#after-photo-progress",
+            label: "Finish after photos"
+          }
+        }
+
+      true ->
+        %{
+          title: "Wrap up",
+          body: "Photos and steps are complete. Add final notes and supplies used.",
+          badge: "Wrap-up",
+          badge_class: "badge-success",
+          action: %{
+            type: :anchor,
+            id: "wash-command-wrap-up",
+            to: "#wrap-up-panel",
+            label: "Wrap up"
+          }
+        }
+    end
   end
 
   defp area_photo(photos, area_id) do

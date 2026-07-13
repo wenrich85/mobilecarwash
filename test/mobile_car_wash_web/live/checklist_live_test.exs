@@ -16,6 +16,8 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
 
   alias MobileCarWash.Scheduling.{Appointment, ServiceType}
 
+  require Ash.Query
+
   defp jpeg_entry(name) do
     %{
       name: name,
@@ -203,6 +205,44 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
     photo
   end
 
+  defp create_all_photos!(appointment, photo_type) do
+    for area <- [:front, :rear, :driver_side, :passenger_side, :interior, :wheels] do
+      create_photo(appointment, photo_type, area)
+    end
+  end
+
+  defp checklist_items(checklist) do
+    ChecklistItem
+    |> Ash.Query.filter(checklist_id == ^checklist.id)
+    |> Ash.Query.sort(step_number: :asc)
+    |> Ash.read!(authorize?: false)
+  end
+
+  defp start_item!(item) do
+    item
+    |> Ash.Changeset.for_update(:start_step, %{})
+    |> Ash.update!(authorize?: false)
+  end
+
+  defp complete_item!(item) do
+    item
+    |> Ash.Changeset.for_update(:check, %{})
+    |> Ash.update!(authorize?: false)
+  end
+
+  defp save_wrap_up!(checklist) do
+    checklist
+    |> Ash.Changeset.for_update(:save_wrap_up, %{final_notes: "Everything looks good."})
+    |> Ash.update!(authorize?: false)
+  end
+
+  defp primary_action_count(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("[data-role='wash-primary-action']")
+    |> length()
+  end
+
   describe "active wash regions" do
     setup %{conn: conn} do
       user = create_tech_customer()
@@ -248,6 +288,136 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert has_element?(view, "#after-photo-progress")
       assert has_element?(view, "#wrap-up-panel")
       refute has_element?(view, "#before-photo-form input[type='file']")
+    end
+  end
+
+  describe "wash command card" do
+    setup %{conn: conn} do
+      user = create_tech_customer()
+      tech = create_tech_record(user)
+      customer = create_customer()
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :in_progress)
+
+      {:ok,
+       conn: sign_in(conn, user),
+       tech: tech,
+       customer: customer,
+       appointment: appointment,
+       checklist: checklist}
+    end
+
+    test "points to before photos when required before photos are missing", %{
+      conn: conn,
+      checklist: checklist
+    } do
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wash-command-card")
+      assert has_element?(view, "#wash-command-before-photos[href='#before-photo-progress']")
+      assert html =~ "Finish before photos"
+      assert primary_action_count(html) == 1
+    end
+
+    test "starts the next step after before photos are complete", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      create_all_photos!(appointment, :before)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+      [first | _] = checklist_items(checklist)
+
+      assert has_element?(
+               view,
+               "#wash-command-start-step[phx-click='start_step'][phx-value-id='#{first.id}']",
+               "Start Pre-rinse"
+             )
+
+      assert primary_action_count(html) == 1
+    end
+
+    test "completes the active step when a step is running", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      create_all_photos!(appointment, :before)
+      [first | _] = checklist_items(checklist)
+      start_item!(first)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(
+               view,
+               "#wash-command-complete-step[phx-click='complete_step'][phx-value-id='#{first.id}']",
+               "Complete Pre-rinse"
+             )
+
+      assert primary_action_count(html) == 1
+    end
+
+    test "points to after photos after required steps are complete", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      create_all_photos!(appointment, :before)
+      checklist |> checklist_items() |> Enum.each(&complete_item!/1)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wash-command-after-photos[href='#after-photo-progress']")
+      assert html =~ "Finish after photos"
+      assert primary_action_count(html) == 1
+    end
+
+    test "points to wrap-up after after photos complete", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      create_all_photos!(appointment, :before)
+      checklist |> checklist_items() |> Enum.each(&complete_item!/1)
+      create_all_photos!(appointment, :after)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wash-command-wrap-up[href='#wrap-up-panel']")
+      assert html =~ "Wrap up"
+      assert primary_action_count(html) == 1
+    end
+
+    test "points to wrap-up for a completed checklist without final notes", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :completed)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wash-command-wrap-up[href='#wrap-up-panel']")
+      refute has_element?(view, "#wash-command-dashboard")
+      assert primary_action_count(html) == 1
+    end
+
+    test "points to dashboard for a completed checklist with final notes", %{
+      conn: conn,
+      tech: tech,
+      customer: customer
+    } do
+      appointment = create_appointment(customer.id, tech.id, :in_progress)
+      checklist = create_checklist(appointment, :completed)
+      save_wrap_up!(checklist)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wash-command-dashboard[href='/tech']")
+      refute has_element?(view, "#wash-command-wrap-up")
+      assert primary_action_count(html) == 1
     end
   end
 
