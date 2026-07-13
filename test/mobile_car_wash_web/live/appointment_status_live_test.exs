@@ -385,4 +385,39 @@ defmodule MobileCarWashWeb.AppointmentStatusLiveTest do
       assert Process.alive?(view.pid)
     end
   end
+
+  describe "lightbox wiring" do
+    test "completed page renders lightbox root once and wires unpaired + problem photos", %{
+      conn: conn
+    } do
+      customer = register_customer()
+      appt = create_appointment(customer, :completed)
+      create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+      create_photo(appt, :after, :front, "/uploads/front-a.jpg")
+      create_photo(appt, :before, :interior, "/uploads/interior-b.jpg")
+      create_photo(appt, :problem_area, :bumper, "/uploads/problem.jpg")
+
+      {:ok, _view, html} = conn |> sign_in(customer) |> live(~p"/appointments/#{appt.id}/status")
+
+      assert html =~ ~s(id="lightbox-root")
+      assert html =~ ~s(phx-hook="Lightbox")
+      # unpaired interior before-photo goes to the More photos strip
+      assert html =~ ~s(data-lightbox="more-photos")
+      assert html =~ ~s(data-lightbox="problem-photos")
+      # every wired img has alt text
+      refute html =~ ~r/<img(?![^>]*alt=)[^>]*data-lightbox/
+    end
+
+    test "during-wash grid wires wash photos with alt", %{conn: conn} do
+      customer = register_customer()
+      appt = create_appointment(customer, :confirmed)
+      create_photo(appt, :before, :front, "/uploads/front-b.jpg")
+
+      {:ok, _view, html} = conn |> sign_in(customer) |> live(~p"/appointments/#{appt.id}/status")
+
+      assert html =~ ~s(data-lightbox="wash-photos")
+      assert html =~ ~s(alt="Before — Front")
+      assert html =~ ~s(id="lightbox-root")
+    end
+  end
 end

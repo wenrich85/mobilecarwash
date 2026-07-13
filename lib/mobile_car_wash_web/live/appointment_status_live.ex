@@ -6,6 +6,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
   """
   use MobileCarWashWeb, :live_view
 
+  import MobileCarWashWeb.Lightbox, only: [lightbox_root: 1]
+
   alias MobileCarWash.Scheduling.{Appointment, AppointmentTracker, ServiceType}
   alias MobileCarWash.Operations.{Photo, PhotoUpload}
   alias MobileCarWash.Fleet.Address
@@ -313,14 +315,26 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
                 <div class="grid grid-cols-2 gap-2">
                   <!-- Before cell -->
                   <div class="aspect-[4/3] rounded-xl overflow-hidden bg-base-200">
-                    <img :if={before_p} src={before_p.file_path} class="w-full h-full object-cover" />
+                    <img
+                      :if={before_p}
+                      src={before_p.file_path}
+                      alt={"Before — #{area.label}"}
+                      data-lightbox="wash-photos"
+                      class="w-full h-full object-cover cursor-zoom-in"
+                    />
                     <div :if={!before_p} class="w-full h-full flex items-center justify-center">
                       <span class="text-base-content/20 text-2xl">○</span>
                     </div>
                   </div>
                   <!-- After cell -->
                   <div class="aspect-[4/3] rounded-xl overflow-hidden bg-base-200">
-                    <img :if={after_p} src={after_p.file_path} class="w-full h-full object-cover" />
+                    <img
+                      :if={after_p}
+                      src={after_p.file_path}
+                      alt={"After — #{area.label}"}
+                      data-lightbox="wash-photos"
+                      class="w-full h-full object-cover cursor-zoom-in"
+                    />
                     <div
                       :if={!after_p && before_p}
                       class="w-full h-full flex items-center justify-center"
@@ -360,12 +374,14 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
                 <img
                   src={pair.after.file_path}
                   crossorigin="anonymous"
+                  alt={"After — #{pair.label}"}
                   class="absolute inset-0 w-full h-full object-cover pointer-events-none"
                 />
                 <img
                   src={pair.before.file_path}
                   crossorigin="anonymous"
                   data-role="before"
+                  alt={"Before — #{pair.label}"}
                   class="absolute inset-0 w-full h-full object-cover pointer-events-none"
                   style="clip-path: inset(0 0% 0 0)"
                 />
@@ -394,7 +410,10 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
               <img
                 :for={photo <- @unpaired_photos}
                 src={photo.file_path}
-                class="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                alt={photo.caption || "Wash photo"}
+                data-lightbox="more-photos"
+                data-lightbox-caption={photo.caption}
+                class="w-24 h-24 object-cover rounded-lg flex-shrink-0 cursor-zoom-in"
               />
             </div>
           </div>
@@ -481,7 +500,13 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
           <h3 class="font-semibold mb-2">Your Problem Areas</h3>
           <div class="flex gap-2 overflow-x-auto">
             <div :for={photo <- @problem_photos} class="flex-shrink-0">
-              <img src={photo.file_path} class="w-24 h-24 object-cover rounded-lg" />
+              <img
+                src={photo.file_path}
+                alt={photo.caption || "Problem area photo"}
+                data-lightbox="problem-photos"
+                data-lightbox-caption={photo.caption}
+                class="w-24 h-24 object-cover rounded-lg cursor-zoom-in"
+              />
               <p :if={photo.caption} class="text-xs text-center mt-1">{photo.caption}</p>
             </div>
           </div>
@@ -520,6 +545,8 @@ defmodule MobileCarWashWeb.AppointmentStatusLive do
         <p class="text-base-content/70">Appointment not found</p>
         <.link navigate={~p"/"} class="btn btn-primary mt-4">Back to Home</.link>
       </div>
+
+      <.lightbox_root />
     </div>
     """
   end
