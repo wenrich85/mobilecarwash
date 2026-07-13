@@ -35,7 +35,10 @@ defmodule MobileCarWashWeb.Lightbox do
         data-role="stage"
         class="pointer-events-none absolute inset-0 flex items-center justify-center p-4"
       >
-        <img data-role="image" class="pointer-events-auto max-h-full max-w-full object-contain" />
+        <img
+          data-role="image"
+          class="pointer-events-auto max-h-full max-w-full touch-none object-contain"
+        />
         <div
           data-role="slider-stage"
           class="pointer-events-auto relative hidden aspect-[4/3] w-full max-w-2xl cursor-ew-resize select-none touch-none overflow-hidden rounded-xl"

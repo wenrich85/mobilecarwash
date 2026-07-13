@@ -62,7 +62,7 @@ lightbox's slider mode. `BeforeAfterSlider` keeps its DOM contract, wipe
 animation, IntersectionObserver, and `prefers-reduced-motion` behavior
 unchanged — extraction must be behavior-preserving.
 
-### 3. `<.lightbox_root />` — `MobileCarWashWeb.Components.Lightbox`
+### 3. `<.lightbox_root />` — `MobileCarWashWeb.Lightbox`
 
 A function component rendering the overlay skeleton statically in HEEx, hidden
 until opened, with `id="lightbox-root"`, `phx-hook="Lightbox"`, and

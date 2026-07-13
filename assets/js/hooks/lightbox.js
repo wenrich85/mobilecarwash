@@ -38,6 +38,7 @@ export const Lightbox = {
     this.opener = null
     this.scrub = null
     this.swipeStart = null
+    this.justSwiped = false
 
     // One delegated listener opens everything.
     this.onDocClick = event => {
@@ -58,7 +59,13 @@ export const Lightbox = {
     document.addEventListener("keydown", this.onKeydown)
 
     this.els.close.addEventListener("click", () => this.close())
-    this.els.backdrop.addEventListener("click", () => this.close())
+    this.els.backdrop.addEventListener("click", () => {
+      if (this.justSwiped) {
+        this.justSwiped = false
+        return
+      }
+      this.close()
+    })
     this.els.prev.addEventListener("click", () => this.step(-1))
     this.els.next.addEventListener("click", () => this.step(1))
 
@@ -84,8 +91,12 @@ export const Lightbox = {
       if (this.swipeStart === null || this.mode !== "image") return
       const dx = event.clientX - this.swipeStart
       this.swipeStart = null
-      if (Math.abs(dx) >= SWIPE_PX) this.step(dx < 0 ? 1 : -1)
+      if (Math.abs(dx) >= SWIPE_PX) {
+        this.justSwiped = true
+        this.step(dx < 0 ? 1 : -1)
+      }
     })
+    this.el.addEventListener("pointercancel", () => (this.swipeStart = null))
   },
 
   destroyed() {
