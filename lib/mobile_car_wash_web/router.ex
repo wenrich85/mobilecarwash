@@ -37,6 +37,17 @@ defmodule MobileCarWashWeb.Router do
     plug MobileCarWashWeb.Plugs.CaptureAttribution
   end
 
+  # Direct-to-Spaces uploads (S3PUT) XHR presigned PUTs straight from the
+  # browser to the bucket endpoint; connect-src must allow that host or the
+  # browser blocks every upload before it is sent. Read at request time —
+  # the endpoint comes from runtime.exs (AWS_S3_ENDPOINT), not compile-time.
+  defp s3_connect_src do
+    case Application.get_env(:ex_aws, :s3) do
+      %{host: host} when is_binary(host) -> "https://#{host}"
+      _ -> ""
+    end
+  end
+
   # Nonce + 'strict-dynamic' replaces host allowlists in script-src so
   # scripts loaded by trusted (nonce-tagged) code inherit trust — fixes
   # Lighthouse's "Weak CSP" host-allowlist bypass warning while still
@@ -51,7 +62,7 @@ defmodule MobileCarWashWeb.Router do
         "style-src 'self' 'unsafe-inline' https://unpkg.com",
         "img-src 'self' data: https: http://*.tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://tiles.stadiamaps.com",
         "font-src 'self'",
-        "connect-src 'self' wss: #{@ws_connect} https://www.google-analytics.com https://analytics.google.com",
+        "connect-src 'self' wss: #{@ws_connect} #{s3_connect_src()} https://www.google-analytics.com https://analytics.google.com",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'",
