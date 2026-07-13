@@ -761,6 +761,51 @@ defmodule MobileCarWashWeb.ChecklistLiveTest do
       assert render(view) =~ "Wrap-up saved"
     end
 
+    test "completed checklist command returns to dashboard", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      create_all_photos!(appointment, :before)
+      create_all_photos!(appointment, :after)
+
+      {:ok, checklist} =
+        checklist
+        |> Ash.Changeset.for_update(:complete_checklist, %{})
+        |> Ash.update(authorize?: false)
+
+      {:ok, checklist} =
+        checklist
+        |> Ash.Changeset.for_update(:save_wrap_up, %{final_notes: "Wrap-up complete."})
+        |> Ash.update(authorize?: false)
+
+      {:ok, view, html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      assert has_element?(view, "#wash-command-dashboard[href='/tech']", "Back to dashboard")
+      assert primary_action_count(html) == 1
+      refute has_element?(view, "#before-photo-form input[type='file']")
+      refute has_element?(view, "#after-photo-form input[type='file']")
+    end
+
+    test "saving wrap-up does not remove lightbox wiring or time analysis", %{
+      conn: conn,
+      appointment: appointment,
+      checklist: checklist
+    } do
+      create_photo(appointment, :problem_area, :front, "Bug marks")
+
+      {:ok, view, _html} = live(conn, ~p"/tech/checklist/#{checklist.id}")
+
+      view
+      |> form("#wrap-up-form", %{"wrap_up" => %{"final_notes" => "Done", "supplies" => %{}}})
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ ~s(data-lightbox="problem-photos")
+      assert has_element?(view, "#wrap-up-panel")
+      assert html =~ "Time Analysis"
+    end
+
     test "logs supply usage and decrements inventory", %{
       conn: conn,
       tech: tech,
