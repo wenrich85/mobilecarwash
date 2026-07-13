@@ -24,7 +24,7 @@ Implemented final-review blockers and verified the requested focused suites.
 
 - Initial regression run: `mix test test/mobile_car_wash/operations/appointment_checklist_wrap_up_test.exs test/mobile_car_wash_web/live/checklist_live_test.exs` failed as expected for broad default updates, unrestricted access, premature/repeat wrap-up, missing van attribution, and lost form values.
 - Added a stale-assignment step-mutation regression and confirmed it failed before the shared mutation authorization guard was added.
-- Final focused run: `37 tests, 0 failures`.
+- Latest focused run: `39 tests, 0 failures`.
 
 ## Ash Snapshot Workflow
 
@@ -44,7 +44,7 @@ The generated migration repeated the already-committed `final_notes` DDL and als
 
 ```bash
 mix test test/mobile_car_wash/operations/appointment_checklist_wrap_up_test.exs test/mobile_car_wash_web/live/checklist_live_test.exs
-# 38 tests, 0 failures
+# 39 tests, 0 failures
 
 mix test test/mobile_car_wash_web/live/tech/tech_dashboard_live_test.exs test/mobile_car_wash_web/live/tech/job_live_test.exs
 # exit 0
